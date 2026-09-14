@@ -523,9 +523,14 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
       interleaved: false
     )!
 
-    engine.attach(player)
-    engine.connect(player, to: engine.mainMixerNode, format: voiceFormat)
-    engine.connect(engine.mainMixerNode, to: engine.outputNode, format: voiceFormat)
+    // Conectar también puede ser rechazado —un formato que el mezclador no
+    // acepta— y eso sale como excepción, igual que el `play()`. Ver
+    // [sinReventar].
+    try sinReventar("conectar el grafo") {
+      self.engine.attach(self.player)
+      self.engine.connect(self.player, to: self.engine.mainMixerNode, format: voiceFormat)
+      self.engine.connect(self.engine.mainMixerNode, to: self.engine.outputNode, format: voiceFormat)
+    }
 
     speakerFormat = voiceFormat
     playbackConverter = AVAudioConverter(from: replyFormat, to: voiceFormat)
@@ -605,8 +610,17 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
           + "\(Int(alInstalar.sampleRate)) Hz \(alInstalar.channelCount) ch"
       )
     }
-    engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak self] buffer, _ in
-      self?.deliver(buffer)
+    // El guardia de arriba compara el formato, y aun así esto es lo que mató la
+    // app el 7 de septiembre: entre comprobar e instalar cabe un cambio de
+    // aparato. La barrera cubre ese hueco. Ver [sinReventar].
+    try sinReventar("instalar el tap del micrófono") {
+      self.engine.inputNode.installTap(
+        onBus: 0,
+        bufferSize: 1024,
+        format: inputFormat
+      ) { [weak self] buffer, _ in
+        self?.deliver(buffer)
+      }
     }
 
     NotificationCenter.default.addObserver(
@@ -664,6 +678,7 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
   private func arrancarYSonar() throws {
     engine.prepare()
     try engine.start()
+    // El guardia barato primero: si el motor ya no está, ni se intenta.
     guard engine.isRunning else {
       throw NSError(
         domain: "NexusAudioEngine",
@@ -675,7 +690,40 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
         ]
       )
     }
-    player.play()
+    // 🔴 **Y la barrera, porque el guardia no bastó.** Con `isRunning`
+    // comprobado, la 1.12.3 volvió a abortar en este mismo `play()` el 14 de
+    // septiembre: la precondición que fallaba era otra —AVFAudio comprueba
+    // varias, y `IsPlayerOutputConnected()` es una de ellas— y adivinar la
+    // siguiente sería el mismo error por tercera vez. Ver [sinReventar].
+    try sinReventar("reproducir") { self.player.play() }
+  }
+
+  /// Corre algo de AVFAudio y **convierte su excepción en un error**.
+  ///
+  /// Lo de dentro va en Objective-C porque es lo único que puede atrapar una
+  /// `NSException` —ver `NexusSinReventar`—, y lo que se gana no es solo no
+  /// morir: es **el motivo**. «required condition is false: …» es el dato que
+  /// faltaba en los tres informes de fallo, y aquí queda en el registro y viaja
+  /// al `FlutterError` de quien lo pidió.
+  private func sinReventar(
+    _ que: String,
+    _ bloque: () -> Void
+  ) throws {
+    do {
+      // El `BOOL` + `NSError **` de Objective-C llega a Swift como algo que
+      // lanza: se aprovecha tal cual.
+      try NexusSinReventar.correr(bloque)
+    } catch {
+      let motivo = error.localizedDescription
+      Self.log.error(
+        "AVFAudio rechazó \(que, privacy: .public): \(motivo, privacy: .public)"
+      )
+      throw NSError(
+        domain: "NexusAudioEngine",
+        code: -2,
+        userInfo: [NSLocalizedDescriptionKey: "no se pudo \(que) · \(motivo)"]
+      )
+    }
   }
 
   /// El grafo mínimo para decir una frase: reproductor, mezclador y salida.
@@ -706,9 +754,14 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
       interleaved: false
     )!
 
-    engine.attach(player)
-    engine.connect(player, to: engine.mainMixerNode, format: voiceFormat)
-    engine.connect(engine.mainMixerNode, to: engine.outputNode, format: voiceFormat)
+    // Conectar también puede ser rechazado —un formato que el mezclador no
+    // acepta— y eso sale como excepción, igual que el `play()`. Ver
+    // [sinReventar].
+    try sinReventar("conectar el grafo") {
+      self.engine.attach(self.player)
+      self.engine.connect(self.player, to: self.engine.mainMixerNode, format: voiceFormat)
+      self.engine.connect(self.engine.mainMixerNode, to: self.engine.outputNode, format: voiceFormat)
+    }
     speakerFormat = voiceFormat
     playbackConverter = AVAudioConverter(from: replyFormat, to: voiceFormat)
 
@@ -1152,7 +1205,12 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
     // devuelve un error, **levanta una excepción de Objective-C** y termina el
     // proceso. Aquí llega audio mientras el aparato puede estar cambiando, que
     // es justo el momento en que el motor se para solo.
-    if !player.isPlaying, engine.isRunning { player.play() }
+    if !player.isPlaying, engine.isRunning {
+      // Aquí no hay a quién devolverle el error —esto corre por cada bloque de
+      // audio que llega—, así que se anota y se sigue: la frase se pierde, la
+      // app no.
+      try? sinReventar("reproducir lo que llega") { self.player.play() }
+    }
   }
 
   /// Cuánto audio queda por sonar, en milisegundos.
@@ -1183,7 +1241,9 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
     playedAnything = false
     pendingLock.unlock()
     // Ver [arrancarYSonar]: con el motor parado esto aborta la app.
-    if engine.isRunning { player.play() }
+    if engine.isRunning {
+      try? sinReventar("reanudar tras vaciar la cola") { self.player.play() }
+    }
   }
 }
 

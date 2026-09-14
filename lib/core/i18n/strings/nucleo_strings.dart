@@ -55,6 +55,9 @@ mixin NucleoStrings {
   /// a hacer nada. Dice **qué escribir**, que es lo único que hace falta.
   /// El turno se cortó sin decir que había terminado: la respuesta que quedó
   /// en pantalla está **incompleta**.
+  /// Se cortó sin haber hecho nada, así que se manda otra vez solo. Una vez.
+  String get seRelanza;
+
   String get elTurnoSeCorto;
 
   String get elMarcoApagado;
@@ -280,6 +283,9 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String get permisoCanceladoMotivo =>
       'El encargo se detuvo antes de que nadie contestara.';
+  @override
+  String get seRelanza =>
+      'El turno se cortó antes de hacer nada. Lo vuelvo a mandar.';
   @override
   String get elTurnoSeCorto =>
       'La respuesta se cortó: el turno terminó sin avisar, así que lo que quedó '
@@ -673,6 +679,9 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String get permisoCanceladoMotivo =>
       'The errand stopped before anyone answered.';
+  @override
+  String get seRelanza =>
+      'The turn was cut off before doing anything. Sending it again.';
   @override
   String get elTurnoSeCorto =>
       'The answer was cut off: the turn ended without saying so, so what is '

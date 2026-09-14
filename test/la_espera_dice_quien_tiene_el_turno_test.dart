@@ -75,6 +75,12 @@ class _Claude implements AskClaude {
     if (encolarElProximo) {
       encolarElProximo = false;
       yield const ClaudeQueued();
+      // 🔴 **Y se queda abierto, que es lo que hace un encargo esperando.**
+      // Antes esto hacía `return`, o sea cerraba el flujo: en la realidad un
+      // turno en cola no ha terminado, y desde que Nexus distingue «se cortó
+      // sin decirlo» de «terminó», cerrarlo aquí era pedirle que lo tratara
+      // como un corte —y con razón—. El doble decía otra cosa que la cosa.
+      await Completer<void>().future;
       return;
     }
 

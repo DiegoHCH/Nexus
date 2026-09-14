@@ -10,6 +10,7 @@ import 'package:nexus/features/assistant/domain/usecases/ask_claude.dart';
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
 import 'package:nexus/features/assistant/presentation/providers/claude_bridge_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
+import 'package:nexus/features/assistant/presentation/state/chat_message.dart';
 import 'package:nexus/features/history/data/datasources/local_conversation_store.dart';
 import 'package:nexus/features/history/domain/entities/conversation_record.dart';
 import 'package:nexus/features/history/domain/entities/conversation_summary.dart';
@@ -38,6 +39,15 @@ const _carpeta = '/Users/alguien/General';
 /// Un Claude que se va a mitad de la frase: manda dos trozos y **cierra el
 /// generador** sin `ClaudeTurnCompleted` y sin error. Es lo que se vio.
 class _ClaudeQueSeVa implements AskClaude {
+  _ClaudeQueSeVa({this.pasos = 0, this.cortesSeguidos = 99});
+
+  /// Cuántos pasos da antes de irse. Con uno o más, el turno **hizo algo** y
+  /// relanzarlo sería pedirle que lo repita.
+  final int pasos;
+
+  /// Cuántas veces seguidas se corta. Lo que venga después llega entero.
+  final int cortesSeguidos;
+
   final pedidos = <String>[];
 
   @override
@@ -49,8 +59,19 @@ class _ClaudeQueSeVa implements AskClaude {
   }) async* {
     pedidos.add(instruction);
     yield const ClaudeSessionStarted(sessionId: 's1', model: 'm');
+    for (var i = 0; i < pasos; i++) {
+      yield ClaudeToolUsed(
+        id: 'paso-$i',
+        description: 'Corriendo algo',
+        writes: true,
+      );
+    }
     yield const ClaudeTextDelta('Gate en curso: barrels limpio, ');
     yield const ClaudeTextDelta('sigue con mockito-freeze y en ');
+    if (pedidos.length > cortesSeguidos) {
+      yield const ClaudeTurnCompleted(result: 'esta vez sí');
+      return;
+    }
     // Y aquí se acaba, sin decir nada más.
   }
 
@@ -105,8 +126,8 @@ void main() {
 
   late _ClaudeQueSeVa claude;
 
-  ProviderContainer contenedor() {
-    claude = _ClaudeQueSeVa();
+  ProviderContainer contenedor({int pasos = 0, int cortesSeguidos = 99}) {
+    claude = _ClaudeQueSeVa(pasos: pasos, cortesSeguidos: cortesSeguidos);
     final c = ProviderContainer(
       overrides: [
         conversationFolderProvider(_id).overrideWithValue(_carpeta),
@@ -144,6 +165,67 @@ void main() {
     expect(estado.messages.last.text, contains('mockito-freeze'));
   });
 
+  group('relanzarlo solo', () {
+    // 🔴 Pedido al ver el fallo: «¿hay alguna forma de que si falla lo relance
+    // él solo?». Sí, con dos límites — y este es el primero: solo cuando el
+    // turno **no llegó a hacer nada**, porque entonces lo que se pierde son
+    // palabras y no trabajo.
+    test('un corte que no hizo nada se manda otra vez, solo', () async {
+      final c = contenedor(cortesSeguidos: 1);
+
+      await c
+          .read(assistantControllerProvider(_id).notifier)
+          .submit('haz algo');
+      await vueltas();
+
+      expect(claude.pedidos, ['haz algo', 'haz algo']);
+      final estado = c.read(assistantControllerProvider(_id));
+      expect(
+        estado.messages.where((m) => m.author == ChatAuthor.user),
+        hasLength(1),
+        reason: 'reintentar es reintentar **eso**, no escribirlo otra vez',
+      );
+      expect(estado.errorMessage, isNull, reason: 'el segundo llegó entero');
+    });
+
+    // El segundo límite: **una sola vez**. Si lo que tumba el proceso sigue
+    // ahí, reintentar en bucle convierte un fallo en una factura.
+    test('y si se vuelve a cortar, se para y lo dice', () async {
+      final c = contenedor();
+
+      await c
+          .read(assistantControllerProvider(_id).notifier)
+          .submit('haz algo');
+      await vueltas();
+
+      expect(claude.pedidos, hasLength(2), reason: 'uno automático y basta');
+      final estado = c.read(assistantControllerProvider(_id));
+      expect(estado.errorMessage, c.read(stringsProvider).elTurnoSeCorto);
+      expect(
+        estado.messages.any((m) => m.fallo),
+        isTrue,
+        reason: 'con su botón, para relanzarlo sin volver a escribirlo',
+      );
+    });
+
+    // 🔴 **Con trabajo hecho no se relanza.** Un `Bash` corrido o un archivo
+    // escrito ya pasaron: mandarlo otra vez es pedirle que lo repita, y eso lo
+    // decide una persona.
+    test('pero si ya había dado pasos, no se toca: queda el botón', () async {
+      final c = contenedor(pasos: 1, cortesSeguidos: 1);
+
+      await c
+          .read(assistantControllerProvider(_id).notifier)
+          .submit('haz algo');
+      await vueltas();
+
+      expect(claude.pedidos, ['haz algo']);
+      final estado = c.read(assistantControllerProvider(_id));
+      expect(estado.errorMessage, c.read(stringsProvider).elTurnoSeCorto);
+      expect(estado.messages.any((m) => m.fallo), isTrue);
+    });
+  });
+
   // 🔴 La mitad que no se ve, y la que dejaba la conversación muda: sin soltar
   // el encargo, lo siguiente que escribas se encola **detrás de un turno que ya
   // no está corriendo** y no sale nunca.
@@ -157,6 +239,9 @@ void main() {
         .submit('y ahora esto');
     await vueltas();
 
-    expect(claude.pedidos, ['haz algo', 'y ahora esto']);
+    // El primero sale dos veces porque el corte lo relanza una vez —ver el
+    // grupo de arriba—; lo que se comprueba aquí es que **lo siguiente sale**,
+    // que es lo que no pasaba: se quedaba encolado detrás de un turno muerto.
+    expect(claude.pedidos, ['haz algo', 'haz algo', 'y ahora esto']);
   });
 }

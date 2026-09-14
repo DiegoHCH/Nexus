@@ -928,7 +928,13 @@ class AssistantController extends Notifier<AssistantHudState> {
     unawaited(_loQueDejo.tomaLaMarca(_workingDirectory));
 
     final ask = ref.read(askClaudeProvider(conversationId));
-    _subscription =
+    // 🔴 **La suscripción se nombra para poder reconocerla.** El `onDone` de un
+    // turno puede llegar cuando ya hay **otro** en vuelo —`_onFailed` suelta la
+    // cola y el siguiente arranca antes de que el generador anterior acabe de
+    // cerrarse— y sin saber cuál es la suya, este cierre daba por cortado el
+    // turno del otro y lo relanzaba. Lo dijeron tres pruebas de la cola.
+    late final StreamSubscription<ClaudeEvent> laMia;
+    laMia =
         ask(
           paraClaude,
           allowWrites: allowWrites,
@@ -960,8 +966,9 @@ class AssistantController extends Notifier<AssistantHudState> {
           // **»— y, peor, el encargo nunca se daba por cerrado: la suscripción
           // se quedaba puesta y lo siguiente que escribieras se encolaba detrás
           // de un turno que ya no existía.
-          onDone: _elTurnoSeCorto,
+          onDone: () => _elTurnoSeCorto(laMia),
         );
+    _subscription = laMia;
   }
 
   /// El generador se cerró sin que nadie dijera que el turno terminó.
@@ -972,21 +979,64 @@ class AssistantController extends Notifier<AssistantHudState> {
   /// paso. La causa de que el proceso se fuera puede ser de fuera —lo veremos
   /// cuando vuelva a pasar, porque ahora deja dicho—; lo que no puede pasar es
   /// **presentar media frase como una respuesta entera**.
-  void _elTurnoSeCorto() {
-    // Terminó bien: `_onTurnCompleted` ya lo cerró y esto es solo el cierre del
-    // generador.
-    if (_subscription == null) return;
+  void _elTurnoSeCorto(StreamSubscription<ClaudeEvent> laMia) {
+    // Terminó bien —`_onTurnCompleted` ya lo cerró— o el que está en vuelo ya
+    // es otro: en los dos casos esto es el cierre de un generador que ya no
+    // manda nada.
+    if (!identical(_subscription, laMia)) return;
     _sealLast();
     _marcaElFallo();
+    // Se suelta el encargo **antes** de cualquier otra cosa: sin esto, lo
+    // siguiente que escribas —o el relanzamiento de aquí abajo— se encola
+    // detrás de un turno que ya no está corriendo.
+    _elEncargoTermino();
+
+    // 🔴 **Se relanza solo, y solo cuando relanzar no puede repetir trabajo.**
+    // Pedido al ver el fallo: «¿hay alguna forma de que si falla lo relance él
+    // solo?». Las dos condiciones son lo que lo hace seguro y no un bucle:
+    //
+    // - **el turno no llegó a hacer nada**: sin un solo paso, lo que se pierde
+    //   son palabras, no trabajo. Con pasos dados —un `Bash` corrido, un
+    //   archivo escrito— volver a mandarlo es pedirle que lo repita, y eso lo
+    //   decide una persona con el botón de reintentar, no la app;
+    // - **una sola vez por encargo**: si lo que tumba el proceso sigue ahí, el
+    //   segundo corte se dice y se para. Reintentar en bucle es la forma de
+    //   convertir un fallo en una factura.
+    if (_sePuedeRelanzar) {
+      _yaSeRelanzo = true;
+      final donde = state.messages.lastIndexWhere(
+        (mensaje) => mensaje.author == ChatAuthor.user,
+      );
+      if (donde != -1) {
+        final loPedido = state.messages[donde];
+        _say(ChatAuthor.nexus, ref.read(stringsProvider).seRelanza);
+        _sealLast();
+        unawaited(reintentar(loPedido));
+        return;
+      }
+    }
+
     state = state.copyWith(
       orbState: NexusOrbState.sleep,
       isStreaming: false,
       errorMessage: ref.read(stringsProvider).elTurnoSeCorto,
     );
-    // Y se suelta el encargo: sin esto, lo siguiente que escribas se encola
-    // detrás de un turno que ya no está corriendo.
-    _elEncargoTermino();
   }
+
+  /// Si el corte se puede relanzar sin repetir trabajo ya hecho.
+  ///
+  /// La actividad es de **este** turno —se vacía al empezar el siguiente—, así
+  /// que vacía quiere decir que no se llegó a tocar nada. La espera de turno no
+  /// cuenta como trabajo: es justo lo contrario, es no haber empezado.
+  bool get _sePuedeRelanzar =>
+      !_yaSeRelanzo &&
+      state.activity.every(
+        (paso) => paso.id == idDeLaEspera || paso.id == _compactItemId,
+      );
+
+  /// Ya se relanzó una vez este encargo. Se limpia al terminar un turno bien y
+  /// al mandar algo nuevo: es por encargo, no por conversación.
+  var _yaSeRelanzo = false;
 
   /// El paso que se enseña mientras se dibuja. Uno solo: no hay herramientas
   /// que listar, hay una espera — pero una espera de veinte segundos sin nada
@@ -1307,6 +1357,9 @@ class AssistantController extends Notifier<AssistantHudState> {
   }
 
   void _onTurnCompleted(ClaudeTurnCompleted event) {
+    // El turno llegó entero: el relanzamiento vuelve a estar disponible para el
+    // siguiente, que es otro encargo.
+    _yaSeRelanzo = false;
     _aplicar(event);
     // Con el medidor ya actualizado: es de aquí de donde sale el número que le
     // faltaba al aviso de la compresión anterior.

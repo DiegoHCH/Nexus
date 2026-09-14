@@ -293,7 +293,13 @@ class ClaudeCliDataSource {
         // Se cierra **después** de emitir la línea, no antes: el `result` es lo
         // último que hay que entregar, y el bucle de aquí arriba termina solo
         // en cuanto el proceso suelte su stdout.
-        if (decoded['type'] == 'result') vivo.elTurnoAcabo();
+        if (decoded['type'] == 'result') {
+          vivo.elTurnoAcabo();
+        } else {
+          // Todo lo que llegue después del resultado vuelve a contar la gracia:
+          // mientras hable, puede pedir un permiso más.
+          vivo.todaviaHabla();
+        }
       }
 
       await stderrDone;
@@ -475,9 +481,36 @@ class ElProcesoDelTurno {
   /// `--input-format stream-json` se queda leyendo el stdin que le dejamos
   /// abierto para los permisos — un proceso dormido por encargo, que es la fuga
   /// que se midió en 49 procesos y 3,92 GB en un día.
+  ///
+  /// 🔴 **Pero no en el mismo instante, y esto se reportó con la pantalla
+  /// delante:** «Tool permission request failed: AbortError: Stream closed»,
+  /// lanzando un `flow review`. El `result` **no** es lo último que pasa: los
+  /// hooks de cierre y los subagentes del marco siguen pidiendo herramientas
+  /// después, y esas peticiones se encontraban el canal cerrado. Cerrarlo de
+  /// golpe convertía la salida limpia en un permiso abortado.
+  ///
+  /// Así que se cuenta una gracia, y **cualquier cosa que siga diciendo la
+  /// reinicia** —ver [todaviaHabla]—: un proceso que todavía habla no ha
+  /// terminado de necesitar su entrada. La fuga sigue cubierta: lo que se
+  /// alarga son segundos, no la vida de la app.
   void elTurnoAcabo() {
     final proceso = _proceso;
     if (proceso == null || !_preguntando) return;
+    _cierre?.cancel();
+    _cierre = Timer(gracia, () => _cerrarLaEntrada(proceso));
+  }
+
+  /// Siguió llegando algo por su salida después del resultado.
+  ///
+  /// Solo cuenta con el cierre pendiente: antes del `result` no hay nada que
+  /// retrasar, y después de cerrar ya no hay vuelta atrás.
+  void todaviaHabla() {
+    if (_cierre == null) return;
+    elTurnoAcabo();
+  }
+
+  void _cerrarLaEntrada(Process proceso) {
+    _cierre = null;
     unawaited(proceso.stdin.close().catchError((_) {}));
     _remate ??= Timer(plazo, () {
       debugPrint('claude · no salió al cerrarle el stdin: se remata');
@@ -485,6 +518,16 @@ class ElProcesoDelTurno {
       proceso.kill(ProcessSignal.sigkill);
     });
   }
+
+  /// Cuánto se espera desde el resultado —o desde lo último que dijo— antes de
+  /// cerrarle la entrada.
+  ///
+  /// Tres segundos: los permisos que llegan tarde son de los hooks de cierre,
+  /// que corren pegados al final del turno. Y cada línea que llegue vuelve a
+  /// contarlos, así que un cierre con trabajo detrás no se queda corto.
+  static const gracia = Duration(seconds: 3);
+
+  Timer? _cierre;
 
   /// Alguien canceló —Detener, o cerrar la conversación—: aquí no hay salida
   /// limpia que esperar, porque lo que se pidió fue que parase ya.
@@ -494,6 +537,8 @@ class ElProcesoDelTurno {
   /// no quedó ni un huérfano.
   Future<void> soltar() async {
     final proceso = _proceso;
+    _cierre?.cancel();
+    _cierre = null;
     olvida();
     if (proceso == null) return;
     _rematado = true;
@@ -505,6 +550,10 @@ class ElProcesoDelTurno {
   void olvida() {
     _remate?.cancel();
     _remate = null;
+    // Y la gracia: si el proceso ya salió, cerrarle la entrada dentro de tres
+    // segundos sería tocar algo que ya no está.
+    _cierre?.cancel();
+    _cierre = null;
     _proceso = null;
   }
 }

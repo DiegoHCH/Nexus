@@ -92,6 +92,7 @@ void main() {
     String laLista() => ElComandoDeLaCasa.laLista(
       textos.ayudaTitulo,
       (comando) => switch (comando) {
+        ElComandoDeLaCasa.aparte => textos.ayudaAparte,
         ElComandoDeLaCasa.imagen => textos.ayudaImagen,
         ElComandoDeLaCasa.edita => textos.ayudaEdita,
         ElComandoDeLaCasa.git => textos.ayudaGit,

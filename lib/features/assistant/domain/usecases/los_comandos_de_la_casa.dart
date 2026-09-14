@@ -48,6 +48,14 @@ enum ElComandoDeLaCasa {
   /// Seguir con la última imagen.
   edita(['/edita', '/editar'], conTexto: true),
 
+  /// Un trabajo largo que corre **aparte del turno**, con Nexus de padre.
+  ///
+  /// 🔴 Nace de un fallo con la pantalla delante: un `make check` lanzado en
+  /// segundo plano dentro de un encargo murió con `SIGTERM` a mitad, porque lo
+  /// que se lanza ahí es hijo del proceso del turno y el turno se acaba. Ver
+  /// [ElTrabajoAparte]: aquí el padre es la app, así que sobrevive.
+  aparte(['/aparte', '/gate'], conTexto: true),
+
   /// Correr git aquí mismo. El único con `!`, y también ajeno: lo reconoce
   /// [ElComandoDirecto].
   git(['!git'], conTexto: true);
@@ -88,6 +96,7 @@ enum ElComandoDeLaCasa {
   /// Los que la ayuda enseña, en el orden en que se enseñan: primero los que se
   /// usan a diario.
   static const enLaAyuda = [
+    aparte,
     imagen,
     edita,
     git,

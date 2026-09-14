@@ -754,15 +754,15 @@ class AssistantController extends Notifier<AssistantHudState> {
       // que no cambia se lee como que el comando no hizo nada — y lo escrito
       // sigue estando, que es lo que hay que aclarar.
       case AOlvidar():
-        _say(ChatAuthor.user, loQueSeVe ?? trimmed);
-        _sealLast();
+        // 🔴 **`/clear` limpia la pantalla, no contesta un turno.** Contestaba
+        // «Hecho: Claude empieza de cero…» y dejaba toda la conversación
+        // escrita debajo, que es lo contrario de lo que se pide: en el CLI
+        // `/clear` **borra lo de arriba**, y aquí se leía como que no había
+        // hecho nada. Reportado así: «debería borrar todos los mensajes
+        // anteriores sin responder ese mensaje».
         await forgetConversation();
         if (!_vive) return;
-        _decir(
-          ref
-              .read(stringsProvider)
-              .seOlvidoLaSesion(_folder?.split('/').last ?? ''),
-        );
+        _empezarDeCero();
         return;
 
       case AEditarLaImagen(:final cambio):
@@ -1641,6 +1641,44 @@ class AssistantController extends Notifier<AssistantHudState> {
   /// con el identificador del registro y no con el de la conversación: al
   /// retomar una del historial, la conversación adopta el suyo.
   bool isShowing(String recordId) => _recordId == recordId;
+
+  /// Deja la pantalla como recién abierta, sin tocar lo ya guardado.
+  ///
+  /// 🔴 **Y lo segundo es la mitad que no se ve.** Lo de arriba ya está escrito
+  /// en el historial bajo [_recordId]; si se vaciara la pantalla y se siguiera
+  /// archivando con ese mismo identificador, **el turno siguiente reescribiría
+  /// ese archivo con solo lo nuevo** y la conversación de antes desaparecería
+  /// del historial. Borrar de la vista no puede borrar del disco, así que a
+  /// partir de aquí se escribe en un registro nuevo — igual que [resume] adopta
+  /// el suyo, pero al revés.
+  void _empezarDeCero() {
+    _recordId =
+        '${DateTime.now().microsecondsSinceEpoch}-${conversationId.hashCode}';
+    _startedAt = DateTime.now();
+    unawaited(
+      ref
+          .read(conversationsProvider.notifier)
+          .apuntarRegistro(conversationId, _recordId),
+    );
+    // La marca del parte y lo que dejó el encargo anterior también se van: son
+    // de la conversación que se acaba de dejar atrás.
+    _elParteEnCurso = false;
+    _laUltimaImagen = null;
+    _respondiendoA = null;
+    _permitidas.clear();
+    state = state.copyWith(
+      messages: const [],
+      activity: const [],
+      history: const [],
+      changes: null,
+      errorMessage: null,
+      isStreaming: false,
+      orbState: NexusOrbState.sleep,
+      // Lo que se dice queda en la línea de estado, que se lee y se va: un
+      // mensaje en el chat sería justo lo que se pidió quitar.
+      subtitle: ref.read(stringsProvider).conversationForgotten,
+    );
+  }
 
   /// Vuelve a abrir una conversación guardada: se pinta entera y lo que sigas
   /// diciendo se añade a ella.

@@ -201,8 +201,19 @@ void main() {
     );
   });
 
-  test('«/clear» olvida la sesión de esta carpeta y lo dice', () async {
+  // 🔴 **Esta prueba decía lo contrario, y la cambió un reporte.** Guardaba que
+  // `/clear` dejara un mensaje explicando que lo escrito seguía ahí —«una
+  // pantalla que no cambia se lee como que el comando no hizo nada»—, y el uso
+  // dijo que era al revés: «debería borrar todos los mensajes anteriores sin
+  // responder ese mensaje». En el CLI `/clear` borra lo de arriba, y dejar la
+  // conversación entera debajo de un «hecho» se lee como que no hizo nada.
+  test('«/clear» olvida la sesión y deja la pantalla vacía', () async {
     final c = contenedor();
+
+    // Algo dicho antes, para que haya qué borrar.
+    await c.read(assistantControllerProvider(_id).notifier).submit('hola');
+    await vueltas();
+    expect(mensajesDe(c), isNotEmpty);
 
     await c.read(assistantControllerProvider(_id).notifier).submit('/clear');
     await vueltas();
@@ -210,10 +221,18 @@ void main() {
     expect(memoria.olvidadas, [
       _carpeta,
     ], reason: 'el olvido es de la carpeta, que es donde vive la sesión');
-    // Una pantalla que no cambia se lee como que el comando no hizo nada — y
-    // hay que aclarar que lo escrito sigue estando.
-    expect(mensajesDe(c).last.text, contains('General'));
-    expect(claude.pedidos, isEmpty);
+    expect(
+      mensajesDe(c),
+      isEmpty,
+      reason: 'ni lo anterior ni un turno contestando al propio comando',
+    );
+    // Lo que se dice va en la línea de estado, que se lee y se va.
+    expect(
+      c.read(assistantControllerProvider(_id)).subtitle,
+      isNotEmpty,
+      reason: 'sin decir nada, borrar la pantalla parece un cuelgue',
+    );
+    expect(claude.pedidos, hasLength(1), reason: 'solo el «hola» de antes');
   });
 
   // 🔴 **Pedido con la referencia delante:** «quisiera escribir el `/mcp` y que

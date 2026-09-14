@@ -32,6 +32,7 @@ class ChatPanel extends StatefulWidget {
     super.key,
     required this.messages,
     this.onRetry,
+    this.onPasarElTrabajo,
     this.onPermiso,
     this.onCorrer,
     this.etiquetaDelAgente,
@@ -48,6 +49,11 @@ class ChatPanel extends StatefulWidget {
   /// este panel no sabe de qué conversación es —recibe los mensajes ya
   /// resueltos— y hacer que lo supiera solo por esto lo ataría a una.
   final void Function(ChatMessage mensaje)? onRetry;
+
+  /// Pasarle al marco de trabajo la salida de un trabajo largo. Ver
+  /// [ElTrabajoQueSalio]: es el mismo círculo que cierra «pasarle el error a
+  /// Claude», con la salida del gate en vez del error de la app.
+  final void Function(ElTrabajoQueSalio trabajo)? onPasarElTrabajo;
 
   /// Contestar a una petición de permiso. Entra por parámetro por lo mismo que
   /// [onRetry]: el panel no sabe de qué conversación es, y los completers que
@@ -162,6 +168,7 @@ class _ChatPanelState extends State<ChatPanel> {
           message: widget.messages[index],
           etiqueta: widget.etiquetaDelAgente,
           onRetry: widget.onRetry,
+          onPasarElTrabajo: widget.onPasarElTrabajo,
           onPermiso: widget.onPermiso,
           onCorrer: widget.onCorrer,
         ),
@@ -186,6 +193,7 @@ class _Turn extends StatelessWidget {
     required this.message,
     this.etiqueta,
     this.onRetry,
+    this.onPasarElTrabajo,
     this.onPermiso,
     this.onCorrer,
   });
@@ -204,6 +212,9 @@ class _Turn extends StatelessWidget {
 
   final ChatMessage message;
   final void Function(ChatMessage mensaje)? onRetry;
+
+  /// Pasarle al marco la salida de un trabajo largo. Ver [ElTrabajoQueSalio].
+  final void Function(ElTrabajoQueSalio trabajo)? onPasarElTrabajo;
 
   @override
   Widget build(BuildContext context) {
@@ -242,6 +253,16 @@ class _Turn extends StatelessWidget {
               if (message.fallo && onRetry != null) ...[
                 const Spacer(),
                 _Reintentar(onTap: () => onRetry!(message)),
+              ],
+              // 🔴 **Lo único que se hace con la salida de un gate.** Está en
+              // pantalla y lo siguiente que hace cualquiera es copiarla al
+              // marco: ahí se pierde justo lo que importa, medido dos días
+              // seguidos con un comando retranscrito a medias. El mismo círculo
+              // que ya cerró «pasarle el error a Claude».
+              if (message.trabajo case final trabajo?
+                  when onPasarElTrabajo != null) ...[
+                const Spacer(),
+                _PasarloAlMarco(onTap: () => onPasarElTrabajo!(trabajo)),
               ],
             ],
           ),
@@ -496,6 +517,50 @@ class _BotonDePermiso extends StatelessWidget {
 /// Pequeño y en rojo: no es una acción del día a día, es la salida de algo que
 /// se rompió. Y en la fila del autor y no bajo el texto, que es donde van las
 /// cosas que **dejó** un turno — este no dejó nada, ése es el problema.
+/// Pasarle al marco de trabajo lo que dijo un trabajo largo.
+///
+/// En acento y no en rojo: reintentar es lo que se hace cuando algo falló;
+/// esto se ofrece igual cuando el gate salió verde, porque el marco quiere la
+/// evidencia en los dos casos.
+class _PasarloAlMarco extends StatelessWidget {
+  const _PasarloAlMarco({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final texto = context.strings.elTrabajoPasarAlMarco;
+
+    return Semantics(
+      button: true,
+      label: texto,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(NexusRadius.sm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.forward_to_inbox_outlined,
+                size: 12,
+                color: colors.accent,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                texto,
+                style: NexusTypography.label.copyWith(color: colors.accent),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Reintentar extends StatelessWidget {
   const _Reintentar({required this.onTap});
 

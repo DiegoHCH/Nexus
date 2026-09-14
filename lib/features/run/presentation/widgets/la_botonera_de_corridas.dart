@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
+import 'package:nexus/features/assistant/presentation/providers/los_trabajos_providers.dart';
 import 'package:nexus/features/run/domain/entities/corrida.dart';
 import 'package:nexus/features/run/domain/usecases/el_freno_de_la_app.dart';
 import 'package:nexus/features/run/presentation/providers/corridas_providers.dart';
@@ -114,12 +115,23 @@ class _LaBotoneraDeCorridasState extends ConsumerState<LaBotoneraDeCorridas> {
   @override
   Widget build(BuildContext context) {
     final corridas = ref.watch(corridasProvider).values.toList();
+    // 🔴 **Y los trabajos largos, que también corren con vida propia.**
+    // Reportado al usarlo: «¿cómo sé que está corriendo si no hay nada en la
+    // vista que lo diga?». Un `/gate` puede tardar minutos y hasta ahora lo
+    // único que lo decía era el mensaje de cuando arrancó, que se va hacia
+    // arriba en cuanto sigues hablando. Aquí es donde ya vive lo que corre
+    // aunque nadie lo mire.
+    final trabajos = ref
+        .watch(losTrabajosProvider)
+        .entries
+        .where((t) => t.value.corriendo)
+        .toList();
     // 🔴 **Vacía es un `Positioned`, no un `SizedBox`.** Este widget cuelga
     // directamente del `Stack` del HUD, y ahí un hijo **sin posicionar** lo
     // estira el `fit` del Stack hasta ocupar la pantalla entera: sin nada
     // corriendo, la botonera invisible se comía las pulsaciones del orbe. Lo
     // pescó la prueba del orbe sin conversaciones, que dejó de crear ninguna.
-    if (corridas.isEmpty) {
+    if (corridas.isEmpty && trabajos.isEmpty) {
       return const Positioned(width: 0, height: 0, child: SizedBox.shrink());
     }
 
@@ -162,6 +174,11 @@ class _LaBotoneraDeCorridasState extends ConsumerState<LaBotoneraDeCorridas> {
     Offset donde,
   ) {
     final corridas = ref.watch(corridasProvider).values.toList();
+    final trabajos = ref
+        .watch(losTrabajosProvider)
+        .entries
+        .where((t) => t.value.corriendo)
+        .toList();
 
     return Material(
       key: LaBotoneraDeCorridas.laLlave,
@@ -190,6 +207,8 @@ class _LaBotoneraDeCorridasState extends ConsumerState<LaBotoneraDeCorridas> {
               onSoltar: () => _suelta(caja, donde),
             ),
             for (final corrida in corridas) _Corrida(corrida: corrida),
+            for (final trabajo in trabajos)
+              _UnTrabajo(conversacion: trabajo.key, trabajo: trabajo.value),
           ],
         ),
       ),
@@ -531,6 +550,78 @@ class _ElAviso extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Un trabajo largo corriendo, con lo último que dijo y cómo pararlo.
+///
+/// 🔴 **Enseña la última línea y no una barra.** Un gate no tiene porcentaje —
+/// no sabe cuánto le queda— pero sí dice por dónde va: «✅ barrels», «analyze».
+/// Eso es lo que contesta la pregunta de quien mira, que no es «cuánto falta»
+/// sino «sigue vivo». Ver [ElTrabajoAparte].
+class _UnTrabajo extends ConsumerWidget {
+  const _UnTrabajo({required this.conversacion, required this.trabajo});
+
+  final String conversacion;
+  final UnTrabajo trabajo;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final strings = context.strings;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        NexusSpacing.s3,
+        NexusSpacing.s2,
+        NexusSpacing.s2,
+        NexusSpacing.s2,
+      ),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: colors.rule)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 7,
+            height: 7,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: colors.accent,
+            ),
+          ),
+          const SizedBox(width: NexusSpacing.s3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  trabajo.comando,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: NexusTypography.data.copyWith(color: colors.ink),
+                ),
+                Text(
+                  trabajo.lineas.isEmpty
+                      ? strings.elTrabajoArrancando
+                      : trabajo.lineas.last,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: NexusTypography.mono.copyWith(color: colors.accent),
+                ),
+              ],
+            ),
+          ),
+          BotonMini(
+            icono: Icons.stop_rounded,
+            titulo: strings.elTrabajoParar,
+            color: colors.err,
+            onPulsar: () =>
+                ref.read(losTrabajosProvider.notifier).parar(conversacion),
+          ),
+        ],
       ),
     );
   }

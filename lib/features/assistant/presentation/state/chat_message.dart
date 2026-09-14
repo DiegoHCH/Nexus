@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart';
 import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
+import 'package:nexus/features/assistant/domain/entities/el_trabajo_que_salio.dart';
 import 'package:nexus/features/workspace/data/datasources/git_data_source.dart';
 
 // 🔴 `DecisionDePermiso` **es de dominio y vivía aquí**, en presentation. Eso
@@ -9,6 +10,9 @@ import 'package:nexus/features/workspace/data/datasources/git_data_source.dart';
 // reexporta para no tocar los veinte sitios que la importan desde aquí.
 export 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart'
     show DecisionDePermiso, DecisionDePermisoJson;
+// Lo mismo: quien pinta un mensaje necesita nombrarlo, y no tiene por qué saber
+// de qué carpeta del dominio salió.
+export 'package:nexus/features/assistant/domain/entities/el_trabajo_que_salio.dart';
 
 /// Quién habla en una línea de la conversación.
 enum ChatAuthor { user, nexus }
@@ -34,6 +38,7 @@ class ChatMessage {
     this.fallo = false,
     this.permiso,
     this.decision,
+    this.trabajo,
   });
 
   final ChatAuthor author;
@@ -74,6 +79,15 @@ class ChatMessage {
   /// Solo lo lleva el tuyo. Un fallo no produce respuesta que marcar, y lo que
   /// se reintenta es la petición.
   final bool fallo;
+
+  /// El trabajo largo que produjo este mensaje, cuando lo produjo uno.
+  ///
+  /// Sirve para ofrecer lo único que se hace con la salida de un gate: pasarla
+  /// al marco de trabajo sin copiarla a mano. **No se guarda con la
+  /// conversación**, como la petición de permiso y por un motivo parecido: el
+  /// texto ya está en el mensaje, y duplicar doscientas líneas en el registro
+  /// para poder pintar un botón es pagar el archivo entero por el botón.
+  final ElTrabajoQueSalio? trabajo;
 
   /// Lo que Claude pide permiso para hacer en este punto de la conversación.
   ///
@@ -150,6 +164,7 @@ class ChatMessage {
     respondeA: respondeA,
     permiso: permiso,
     decision: decision ?? this.decision,
+    trabajo: trabajo,
   );
 
   /// Un mensaje que solo trae adjuntos **no está vacío**: soltar un archivo y

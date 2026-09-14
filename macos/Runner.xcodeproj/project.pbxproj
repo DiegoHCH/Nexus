@@ -29,6 +29,7 @@
 		33CC10F62044A3C60003C045 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 33CC10F42044A3C60003C045 /* MainMenu.xib */; };
 		33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC11122044BFA00003C045 /* MainFlutterWindow.swift */; };
 		NX0000000000000000000001 /* NexusAudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = NX0000000000000000000002 /* NexusAudioEngine.swift */; };
+		NX0000000000000000000091 /* NexusSinReventar.m in Sources */ = {isa = PBXBuildFile; fileRef = NX0000000000000000000092 /* NexusSinReventar.m */; };
 		NX0000000000000000000003 /* NexusFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = NX0000000000000000000004 /* NexusFiles.swift */; };
 		NX0000000000000000000007 /* NexusThumbnails.swift in Sources */ = {isa = PBXBuildFile; fileRef = NX0000000000000000000008 /* NexusThumbnails.swift */; };
 		NX0000000000000000000009 /* NexusArtifacts.swift in Sources */ = {isa = PBXBuildFile; fileRef = NX0000000000000000000010 /* NexusArtifacts.swift */; };
@@ -85,6 +86,9 @@
 		33CC10F72044A3C60003C045 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = Runner/Info.plist; sourceTree = "<group>"; };
 		33CC11122044BFA00003C045 /* MainFlutterWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainFlutterWindow.swift; sourceTree = "<group>"; };
 		NX0000000000000000000002 /* NexusAudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusAudioEngine.swift; sourceTree = "<group>"; };
+		NX0000000000000000000092 /* NexusSinReventar.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NexusSinReventar.m; sourceTree = "<group>"; };
+		NX0000000000000000000093 /* NexusSinReventar.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NexusSinReventar.h; sourceTree = "<group>"; };
+		NX0000000000000000000094 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		NX0000000000000000000004 /* NexusFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusFiles.swift; sourceTree = "<group>"; };
 		NX0000000000000000000008 /* NexusThumbnails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusThumbnails.swift; sourceTree = "<group>"; };
 		NX0000000000000000000010 /* NexusArtifacts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusArtifacts.swift; sourceTree = "<group>"; };
@@ -196,6 +200,9 @@
 				33CC10F02044A3C60003C045 /* AppDelegate.swift */,
 				33CC11122044BFA00003C045 /* MainFlutterWindow.swift */,
 				NX0000000000000000000002 /* NexusAudioEngine.swift */,
+				NX0000000000000000000093 /* NexusSinReventar.h */,
+				NX0000000000000000000092 /* NexusSinReventar.m */,
+				NX0000000000000000000094 /* Runner-Bridging-Header.h */,
 				NX0000000000000000000004 /* NexusFiles.swift */,
 				NX0000000000000000000008 /* NexusThumbnails.swift */,
 				NX0000000000000000000010 /* NexusArtifacts.swift */,
@@ -482,6 +489,7 @@
 			files = (
 				33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */,
 				NX0000000000000000000001 /* NexusAudioEngine.swift in Sources */,
+				NX0000000000000000000091 /* NexusSinReventar.m in Sources */,
 				NX0000000000000000000003 /* NexusFiles.swift in Sources */,
 				NX0000000000000000000007 /* NexusThumbnails.swift in Sources */,
 				NX0000000000000000000009 /* NexusArtifacts.swift in Sources */,
@@ -632,6 +640,7 @@
 					"@executable_path/../Frameworks",
 				);
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Profile;
@@ -765,6 +774,7 @@
 				);
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
@@ -794,6 +804,7 @@
 					"@executable_path/../Frameworks",
 				);
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;

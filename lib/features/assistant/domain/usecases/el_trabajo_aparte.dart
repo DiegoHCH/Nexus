@@ -56,6 +56,13 @@ abstract final class ElTrabajoAparte {
     return null;
   }
 
+  /// Cómo se le entrega una salida al marco de trabajo.
+  ///
+  /// `+direct` es su forma de decir «esta es la evidencia, no la corras otra
+  /// vez»: el gate ya se corrió aquí, y repetirlo sería pagar dos veces lo
+  /// mismo para contestar la misma pregunta.
+  static const comoSeLePasaAlMarco = 'flow check +direct';
+
   /// El binario de una línea de comando, que es lo que se compara con la lista.
   ///
   /// La primera palabra y nada más: `make generate && make check` se autoriza

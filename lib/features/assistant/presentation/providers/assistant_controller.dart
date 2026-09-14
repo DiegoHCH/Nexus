@@ -628,19 +628,59 @@ class AssistantController extends Notifier<AssistantHudState> {
       if (antes?[conversationId]?.corriendo != true) return;
       final strings = ref.read(stringsProvider);
       final codigo = trabajo.codigo ?? 0;
+      final salida = trabajo.lineas.join('\n');
       _sealLast();
       _say(
         ChatAuthor.nexus,
         strings.elTrabajoTermino(
           trabajo.comando,
           ElTrabajoAparte.elVeredicto(codigo),
-          trabajo.lineas.join('\n'),
+          salida,
+        ),
+      );
+      // Y el trabajo se cuelga del mensaje: es lo que permite ofrecer el único
+      // botón que tiene sentido aquí —pasárselo al marco— sin copiar nada.
+      _colgarElTrabajo(
+        ElTrabajoQueSalio(
+          comando: trabajo.comando,
+          salida: salida,
+          codigo: codigo,
         ),
       );
       _sealLast();
       ref.read(losTrabajosProvider.notifier).recoger(conversationId);
     });
   }
+
+  /// Cuelga el trabajo del último mensaje de Nexus, que es el que lo cuenta.
+  void _colgarElTrabajo(ElTrabajoQueSalio trabajo) {
+    final mensajes = [...state.messages];
+    final donde = mensajes.lastIndexWhere((m) => m.author == ChatAuthor.nexus);
+    if (donde == -1) return;
+    mensajes[donde] = ChatMessage(
+      author: mensajes[donde].author,
+      text: mensajes[donde].text,
+      streaming: mensajes[donde].streaming,
+      trabajo: trabajo,
+    );
+    state = state.copyWith(messages: mensajes);
+  }
+
+  /// Le pasa al marco de trabajo la salida de un trabajo, tal cual.
+  ///
+  /// 🔴 **El mismo círculo que ya se cerró con los errores de la app**: la
+  /// salida está en pantalla, lo siguiente que hace cualquiera es copiarla al
+  /// `flow check`, y ahí se pierde lo que importa — medido dos días seguidos
+  /// con un comando retranscrito a medias.
+  ///
+  /// Va **literal y detrás** por lo mismo que el bloque del error: resumirlo
+  /// tira el veredicto, y ponerlo delante entierra la instrucción. Y va como un
+  /// encargo normal porque lo es: el marco lee lo que se escribe en el chat, y
+  /// esto lo escribe quien pulsa el botón.
+  Future<void> pasarElTrabajoAlMarco(ElTrabajoQueSalio trabajo) => submit(
+    '${ElTrabajoAparte.comoSeLePasaAlMarco} ${trabajo.salida}',
+    loQueSeVe: ref.read(stringsProvider).elTrabajoSePasa(trabajo.comando),
+  );
 
   /// Lo que la persona eligió en el turno de la pregunta.
   void responderPermiso(String id, DecisionDePermiso decision) {

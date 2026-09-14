@@ -55,6 +55,16 @@ mixin NucleoStrings {
   /// a hacer nada. Dice **qué escribir**, que es lo único que hace falta.
   /// El turno se cortó sin decir que había terminado: la respuesta que quedó
   /// en pantalla está **incompleta**.
+  /// Lo que se dice al arrancar un trabajo largo, al no poder, y al acabar.
+  ///
+  /// El veredicto y la salida van **en el mismo mensaje**: lo que se mira
+  /// cuando un gate termina es si pasó y, si no, las últimas líneas.
+  String elTrabajoArranca(String comando);
+  String elTrabajoNoArranco(String comando);
+  String elTrabajoTermino(String comando, String veredicto, String salida);
+  String elTrabajoNoAutorizado(String binario);
+  String get elTrabajoSinComando;
+
   String get elTurnoSeCorto;
 
   String get elMarcoApagado;
@@ -119,6 +129,7 @@ mixin NucleoStrings {
   /// uno: una lista a mano se queda vieja el día que alguien añada un atajo, y
   /// una ayuda desfasada manda a escribir cosas que no funcionan.
   String get ayudaTitulo;
+  String get ayudaAparte;
   String get ayudaImagen;
   String get ayudaEdita;
   String get ayudaGit;
@@ -281,6 +292,26 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get permisoCanceladoMotivo =>
       'El encargo se detuvo antes de que nadie contestara.';
   @override
+  String elTrabajoArranca(String comando) =>
+      'Corriendo `$comando` aparte. Sigue aquí cuando quieras: esto no se muere '
+      'al terminar el turno, y te lo cuento en cuanto acabe.';
+  @override
+  String elTrabajoNoArranco(String comando) =>
+      'No pude lanzar `$comando`: o ya hay uno corriendo en esta conversación, '
+      'o ese binario no está donde se busca.';
+  @override
+  String elTrabajoTermino(String comando, String veredicto, String salida) =>
+      '`$comando` $veredicto.\n\n```\n$salida\n```';
+  @override
+  String elTrabajoNoAutorizado(String binario) =>
+      '`$binario` no está en los comandos permitidos de esta carpeta, así que '
+      'no lo corro. Se añade en Ajustes, en la carpeta: la lista es tuya y se '
+      've.';
+  @override
+  String get elTrabajoSinComando =>
+      'Dime qué corro: `/gate make check`. Después, `/gate` a secas repite el '
+      'último de esta conversación.';
+  @override
   String get elTurnoSeCorto =>
       'La respuesta se cortó: el turno terminó sin avisar, así que lo que quedó '
       'escrito está incompleto. Vuelve a pedirlo.';
@@ -401,6 +432,10 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get ayudaImagen => 'dibuja lo que le digas y lo guarda en documentos';
   @override
   String get ayudaEdita => 'sigue con la última imagen de esta conversación';
+  @override
+  String get ayudaAparte =>
+      'corre algo largo aparte del turno —el gate, una suite— y te cuenta cómo '
+      'acabó. No se muere al terminar la respuesta.';
   @override
   String get ayudaGit => 'corre git aquí mismo y enseña su salida, literal';
   @override
@@ -674,6 +709,26 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get permisoCanceladoMotivo =>
       'The errand stopped before anyone answered.';
   @override
+  String elTrabajoArranca(String comando) =>
+      'Running `$comando` on the side. Carry on here: this does not die when '
+      'the turn ends, and I will tell you as soon as it finishes.';
+  @override
+  String elTrabajoNoArranco(String comando) =>
+      'I could not launch `$comando`: either one is already running in this '
+      'conversation, or that binary is not where it is looked for.';
+  @override
+  String elTrabajoTermino(String comando, String veredicto, String salida) =>
+      '`$comando` $veredicto.\n\n```\n$salida\n```';
+  @override
+  String elTrabajoNoAutorizado(String binario) =>
+      '`$binario` is not in this folder\'s allowed commands, so I am not '
+      'running it. You add it in Settings, on the folder: the list is yours '
+      'and it is visible.';
+  @override
+  String get elTrabajoSinComando =>
+      'Tell me what to run: `/gate make check`. After that, `/gate` on its own '
+      'repeats the last one in this conversation.';
+  @override
   String get elTurnoSeCorto =>
       'The answer was cut off: the turn ended without saying so, so what is '
       'written is incomplete. Ask for it again.';
@@ -793,6 +848,10 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get ayudaImagen => 'draws what you describe and saves it to documents';
   @override
   String get ayudaEdita => 'keeps going from this conversation\'s last image';
+  @override
+  String get ayudaAparte =>
+      'runs something long outside the turn —the gate, a suite— and tells you '
+      'how it went. It does not die when the answer ends.';
   @override
   String get ayudaGit => 'runs git right here and shows its output, literally';
   @override

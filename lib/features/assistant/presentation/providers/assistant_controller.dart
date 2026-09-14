@@ -22,6 +22,8 @@ import 'package:nexus/features/assistant/domain/usecases/la_compresion_de_la_con
 import 'package:nexus/features/assistant/domain/usecases/la_puerta_de_la_voz.dart';
 import 'package:nexus/features/assistant/domain/usecases/las_preguntas_en_pie.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_marco_apagado.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_trabajo_aparte.dart';
+import 'package:nexus/features/assistant/presentation/providers/los_trabajos_providers.dart';
 import 'package:nexus/features/assistant/domain/usecases/lo_que_queda_permitido.dart';
 import 'package:nexus/features/workspace/domain/usecases/el_permiso_que_vale.dart';
 import 'package:nexus/features/assistant/domain/usecases/lo_que_se_contesta_al_permiso.dart';
@@ -117,6 +119,7 @@ class AssistantController extends Notifier<AssistantHudState> {
 
     unawaited(_loadMemory());
     unawaited(_recuperarLoDicho());
+    _cuandoAcabeElTrabajo();
 
     // Perder el foco cierra el micrófono: solo la conversación en foco puede
     // hablar, y dejarlo abierto en una que ya no miras sería exactamente el
@@ -555,6 +558,90 @@ class AssistantController extends Notifier<AssistantHudState> {
     );
   }
 
+  /// Arranca un trabajo largo y deja dicho qué está corriendo.
+  ///
+  /// **El permiso es el de la carpeta y no uno nuevo.** `ElComandoDirecto` dejó
+  /// escrito por qué el `!` solo corre `git`: «con cualquier binario del PATH
+  /// esa pregunta pasa a ser una frontera de seguridad de verdad, y esa se
+  /// diseña antes de abrirla». Aquí no se abre ninguna: corre lo que **tú** ya
+  /// autorizaste para esta carpeta, y si no está, se dice dónde autorizarlo.
+  Future<void> _correrloAparte(String comando) async {
+    final strings = ref.read(stringsProvider);
+    final folder = _folder;
+    final donde = _workingDirectory;
+    if (folder == null || donde == null) {
+      _say(ChatAuthor.nexus, strings.sinCarpetaDondeCorrer);
+      _sealLast();
+      return;
+    }
+
+    // Sin comando detrás: el último que corrió aquí, que es lo que quiere quien
+    // escribe `/gate` a secas.
+    final linea = comando.isNotEmpty
+        ? comando
+        : ref.read(losTrabajosProvider)[conversationId]?.comando ?? '';
+    if (linea.isEmpty) {
+      _say(ChatAuthor.nexus, strings.elTrabajoSinComando);
+      _sealLast();
+      return;
+    }
+
+    final permitidos =
+        ref
+            .read(workspaceControllerProvider)
+            .folders
+            .where((item) => item.path == folder)
+            .firstOrNull
+            ?.allowedCommands ??
+        const <String>[];
+    if (!ElTrabajoAparte.loAutorizaLaCarpeta(linea, permitidos)) {
+      _say(
+        ChatAuthor.nexus,
+        strings.elTrabajoNoAutorizado(ElTrabajoAparte.elBinarioDe(linea) ?? ''),
+      );
+      _sealLast();
+      return;
+    }
+
+    final arrancado = await ref
+        .read(losTrabajosProvider.notifier)
+        .arrancar(conversacion: conversationId, comando: linea, carpeta: donde);
+    if (!_vive) return;
+    _say(
+      ChatAuthor.nexus,
+      arrancado
+          ? strings.elTrabajoArranca(linea)
+          : strings.elTrabajoNoArranco(linea),
+    );
+    _sealLast();
+  }
+
+  /// Cuenta el trabajo que acaba de terminar, en la conversación que lo lanzó.
+  ///
+  /// Se escucha en vez de devolverse por el camino de ida porque **el trabajo
+  /// dura más que el turno**: cuando termina, el encargo que lo pidió hace rato
+  /// que se cerró. Es justo lo que se quería — que no muera con él.
+  void _cuandoAcabeElTrabajo() {
+    ref.listen(losTrabajosProvider, (antes, ahora) {
+      final trabajo = ahora[conversationId];
+      if (trabajo == null || trabajo.corriendo) return;
+      if (antes?[conversationId]?.corriendo != true) return;
+      final strings = ref.read(stringsProvider);
+      final codigo = trabajo.codigo ?? 0;
+      _sealLast();
+      _say(
+        ChatAuthor.nexus,
+        strings.elTrabajoTermino(
+          trabajo.comando,
+          ElTrabajoAparte.elVeredicto(codigo),
+          trabajo.lineas.join('\n'),
+        ),
+      );
+      _sealLast();
+      ref.read(losTrabajosProvider.notifier).recoger(conversationId);
+    });
+  }
+
   /// Lo que la persona eligió en el turno de la pregunta.
   void responderPermiso(String id, DecisionDePermiso decision) {
     final mensajes = [...state.messages];
@@ -748,6 +835,7 @@ class AssistantController extends Notifier<AssistantHudState> {
           ElComandoDeLaCasa.laLista(
             s.ayudaTitulo,
             (comando) => switch (comando) {
+              ElComandoDeLaCasa.aparte => s.ayudaAparte,
               ElComandoDeLaCasa.imagen => s.ayudaImagen,
               ElComandoDeLaCasa.edita => s.ayudaEdita,
               ElComandoDeLaCasa.git => s.ayudaGit,
@@ -844,6 +932,17 @@ class AssistantController extends Notifier<AssistantHudState> {
         _sealLast();
         _say(ChatAuthor.nexus, ref.read(stringsProvider).parteSinDia);
         _sealLast();
+        return;
+
+      // 🔴 **Un trabajo largo, con Nexus de padre.** Lo que se lanza en segundo
+      // plano dentro de un encargo se muere con el turno —`SIGTERM` a mitad del
+      // gate, reportado— porque es hijo del `claude -p` que Nexus cierra al
+      // terminar. Esto lo lanza la app, así que sobrevive al turno, a cerrar la
+      // conversación y a que Claude se vaya. Ver [ElTrabajoAparte].
+      case AUnTrabajoAparte(:final comando):
+        _say(ChatAuthor.user, loQueSeVe ?? trimmed);
+        _sealLast();
+        await _correrloAparte(comando);
         return;
 
       case AClaude():

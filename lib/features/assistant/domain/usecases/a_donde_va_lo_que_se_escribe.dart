@@ -1,5 +1,6 @@
 import 'package:nexus/features/agenda/domain/usecases/lo_que_se_pregunta_de_la_agenda.dart';
 import 'package:nexus/features/artifacts/domain/usecases/lo_que_se_pide_dibujar.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_trabajo_aparte.dart';
 import 'package:nexus/features/assistant/domain/usecases/los_comandos_de_la_casa.dart';
 import 'package:nexus/features/history/domain/usecases/el_parte_de_ayer.dart';
 import 'package:nexus/features/workspace/domain/usecases/el_comando_directo.dart';
@@ -56,6 +57,14 @@ final class ALosMcp extends ADondeVa {
 }
 
 /// A empezar de cero en esta carpeta: el `/clear` de la terminal.
+/// A correrlo aparte del turno, con Nexus de padre. Ver [ElTrabajoAparte].
+final class AUnTrabajoAparte extends ADondeVa {
+  const AUnTrabajoAparte(this.comando);
+
+  /// La línea tal cual se escribió, sin el `/aparte` delante.
+  final String comando;
+}
+
 final class AOlvidar extends ADondeVa {
   const AOlvidar();
 }
@@ -113,10 +122,17 @@ abstract final class ADondeVaLoQueSeEscribe {
         return const ALaAgenda();
       case ElComandoDeLaCasa.mcp:
         return const ALosMcp();
+
       // Los que llevan texto los reconoce su dueño, unas líneas más abajo: aquí
       // no se repite esa decisión.
       case _:
         break;
+    }
+
+    // Lo que corre aparte del turno, reconocido por su dueño como los demás
+    // que llevan texto. Ver [ElTrabajoAparte].
+    if (ElTrabajoAparte.deLaFrase(limpia) case final comando?) {
+      return AUnTrabajoAparte(comando);
     }
 
     if (LoQueSePideDibujar.deLaFrase(limpia) case final descripcion?) {

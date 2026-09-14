@@ -67,6 +67,12 @@ class _Claude implements AskClaude {
 /// `noSuchMethod`: el controlador la lee al construirse, y un doble a medias
 /// falla por una puerta que no tiene nada que ver con lo que se prueba.
 class _Memoria implements ConversationMemory {
+  _Memoria({this.sesion});
+
+  /// La sesión que Nexus tiene apuntada para la carpeta. Es la mitad del aviso
+  /// del marco: la otra son las marcas del plugin en el disco.
+  final String? sesion;
+
   final olvidadas = <String>[];
 
   @override
@@ -74,7 +80,7 @@ class _Memoria implements ConversationMemory {
 
   @override
   Future<FolderMemory> read(String folderPath, {String? claudeProfile}) async =>
-      const FolderMemory();
+      FolderMemory(sessionId: sesion);
   @override
   Future<void> rememberSession(
     String folderPath,
@@ -116,9 +122,20 @@ class _SinAlmacen implements LocalConversationStore {
 }
 
 class _Espacio extends WorkspaceController {
+  _Espacio([this.perfil]);
+
+  /// La cuenta de la carpeta: es donde el marco de trabajo guarda sus marcas.
+  final String? perfil;
+
   @override
   Workspace build() => Workspace(
-    folders: [PairedFolder(path: _carpeta, modality: FolderModality.voice)],
+    folders: [
+      PairedFolder(
+        path: _carpeta,
+        modality: FolderModality.voice,
+        claudeProfile: perfil,
+      ),
+    ],
     activePath: _carpeta,
   );
 }
@@ -140,14 +157,18 @@ void main() {
     }
   }
 
-  ProviderContainer contenedor({List<String> mcpCaidos = const []}) {
+  ProviderContainer contenedor({
+    List<String> mcpCaidos = const [],
+    String? perfil,
+    String? sesion,
+  }) {
     claude = _Claude(mcpCaidos: mcpCaidos);
-    memoria = _Memoria();
+    memoria = _Memoria(sesion: sesion);
     final c = ProviderContainer(
       overrides: [
         conversationFolderProvider(_id).overrideWithValue(_carpeta),
         conversationMemoryProvider.overrideWithValue(memoria),
-        workspaceControllerProvider.overrideWith(_Espacio.new),
+        workspaceControllerProvider.overrideWith(() => _Espacio(perfil)),
         localConversationStoreProvider.overrideWithValue(const _SinAlmacen()),
         askClaudeProvider(_id).overrideWithValue(claude),
         mcpDataSourceProvider.overrideWithValue(
@@ -201,8 +222,19 @@ void main() {
     );
   });
 
-  test('«/clear» olvida la sesión de esta carpeta y lo dice', () async {
+  // 🔴 **Esta prueba decía lo contrario, y la cambió un reporte.** Guardaba que
+  // `/clear` dejara un mensaje explicando que lo escrito seguía ahí —«una
+  // pantalla que no cambia se lee como que el comando no hizo nada»—, y el uso
+  // dijo que era al revés: «debería borrar todos los mensajes anteriores sin
+  // responder ese mensaje». En el CLI `/clear` borra lo de arriba, y dejar la
+  // conversación entera debajo de un «hecho» se lee como que no hizo nada.
+  test('«/clear» olvida la sesión y deja la pantalla vacía', () async {
     final c = contenedor();
+
+    // Algo dicho antes, para que haya qué borrar.
+    await c.read(assistantControllerProvider(_id).notifier).submit('hola');
+    await vueltas();
+    expect(mensajesDe(c), isNotEmpty);
 
     await c.read(assistantControllerProvider(_id).notifier).submit('/clear');
     await vueltas();
@@ -210,10 +242,83 @@ void main() {
     expect(memoria.olvidadas, [
       _carpeta,
     ], reason: 'el olvido es de la carpeta, que es donde vive la sesión');
-    // Una pantalla que no cambia se lee como que el comando no hizo nada — y
-    // hay que aclarar que lo escrito sigue estando.
-    expect(mensajesDe(c).last.text, contains('General'));
-    expect(claude.pedidos, isEmpty);
+    expect(
+      mensajesDe(c),
+      isEmpty,
+      reason: 'ni lo anterior ni un turno contestando al propio comando',
+    );
+    // Lo que se dice va en la línea de estado, que se lee y se va.
+    expect(
+      c.read(assistantControllerProvider(_id)).subtitle,
+      isNotEmpty,
+      reason: 'sin decir nada, borrar la pantalla parece un cuelgue',
+    );
+    expect(claude.pedidos, hasLength(1), reason: 'solo el «hola» de antes');
+  });
+
+  group('el marco de trabajo apagado', () {
+    late Directory cuenta;
+
+    setUp(() => cuenta = Directory.systemTemp.createTempSync('cuenta-marco'));
+    tearDown(() => cuenta.deleteSync(recursive: true));
+
+    void marcaLaSesion(String sesion) =>
+        File('${cuenta.path}/plugins/data/flash/Workspace/.activas/$sesion')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('1');
+
+    // 🔴 Costó una tarde: el plugin **se calla** si la sesión no está marcada,
+    // así que `flow plan ok …` no contestaba, no fallaba y no dejaba rastro — y
+    // la conclusión a la que se llegó fue que hacía falta una terminal.
+    test('un «flow …» que no haría nada se dice, y no gasta encargo', () async {
+      marcaLaSesion('la-de-otra-ventana');
+      final c = contenedor(perfil: cuenta.path, sesion: 'la-de-esta-carpeta');
+
+      await c
+          .read(assistantControllerProvider(_id).notifier)
+          .submit('flow plan ok lo acordado');
+      await vueltas();
+
+      expect(claude.pedidos, isEmpty, reason: 'mandarlo sería tirar un turno');
+      expect(mensajesDe(c).last.text, contains('flow init'));
+    });
+
+    test('y con la sesión encendida, va a Claude como siempre', () async {
+      marcaLaSesion('la-de-esta-carpeta');
+      final c = contenedor(perfil: cuenta.path, sesion: 'la-de-esta-carpeta');
+
+      await c
+          .read(assistantControllerProvider(_id).notifier)
+          .submit('flow plan ok lo acordado');
+      await vueltas();
+
+      expect(claude.pedidos, ['flow plan ok lo acordado']);
+    });
+
+    // El interruptor nunca se frena: es el único que funciona apagado.
+    test('«flow init» pasa aunque esté apagado', () async {
+      marcaLaSesion('la-de-otra-ventana');
+      final c = contenedor(perfil: cuenta.path, sesion: 'la-de-esta-carpeta');
+
+      await c
+          .read(assistantControllerProvider(_id).notifier)
+          .submit('flow init');
+      await vueltas();
+
+      expect(claude.pedidos, ['flow init']);
+    });
+
+    // Y a quien no usa el marco no se le dice nada: sin marcas no hay marco.
+    test('sin marco instalado, ni se mira', () async {
+      final c = contenedor(perfil: cuenta.path, sesion: 'la-de-esta-carpeta');
+
+      await c
+          .read(assistantControllerProvider(_id).notifier)
+          .submit('flow plan ok lo acordado');
+      await vueltas();
+
+      expect(claude.pedidos, ['flow plan ok lo acordado']);
+    });
   });
 
   // 🔴 **Pedido con la referencia delante:** «quisiera escribir el `/mcp` y que

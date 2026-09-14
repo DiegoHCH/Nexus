@@ -50,6 +50,15 @@ mixin NucleoStrings {
   String get permisoDenegar;
   String get permisoDenegadoMotivo;
   String get permisoCanceladoMotivo;
+
+  /// El marco de trabajo está apagado en esta sesión, así que su comando no va
+  /// a hacer nada. Dice **qué escribir**, que es lo único que hace falta.
+  /// El turno se cortó sin decir que había terminado: la respuesta que quedó
+  /// en pantalla está **incompleta**.
+  String get elTurnoSeCorto;
+
+  String get elMarcoApagado;
+
   String get permisoEnEspera;
   String get permisoDichoConcedido;
   String permisoDichoConcedidoTodo(String herramienta);
@@ -271,6 +280,16 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String get permisoCanceladoMotivo =>
       'El encargo se detuvo antes de que nadie contestara.';
+  @override
+  String get elTurnoSeCorto =>
+      'La respuesta se cortó: el turno terminó sin avisar, así que lo que quedó '
+      'escrito está incompleto. Vuelve a pedirlo.';
+  @override
+  String get elMarcoApagado =>
+      'El marco de trabajo está apagado en esta sesión, así que ese comando no '
+      'haría nada: escribe **`flow init`** y vuelve a mandarlo. Pasa cuando la '
+      'sesión cambia — una conversación nueva, un `/clear`, o una que no se '
+      'pudo retomar.';
   @override
   String get permisoEnEspera => 'Esperando tu permiso';
   @override
@@ -654,6 +673,16 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String get permisoCanceladoMotivo =>
       'The errand stopped before anyone answered.';
+  @override
+  String get elTurnoSeCorto =>
+      'The answer was cut off: the turn ended without saying so, so what is '
+      'written is incomplete. Ask for it again.';
+  @override
+  String get elMarcoApagado =>
+      'The work framework is off in this session, so that command would do '
+      'nothing: type **`flow init`** and send it again. It happens when the '
+      'session changes — a new conversation, a /clear, or one that could not '
+      'be resumed.';
   @override
   String get permisoEnEspera => 'Waiting for your answer';
   @override

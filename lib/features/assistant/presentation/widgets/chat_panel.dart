@@ -70,15 +70,60 @@ class ChatPanel extends StatefulWidget {
 class _ChatPanelState extends State<ChatPanel> {
   final _controller = ScrollController();
 
+  /// Cuánto margen cuenta como «venía mirando el final».
+  ///
+  /// No es cero a propósito: mientras llega una respuesta el final se mueve
+  /// solo, y pedir el píxel exacto haría que cualquier rebote dejara de
+  /// seguirla.
+  static const _margenDePegado = 80.0;
+
+  bool get _pegadoAlFinal {
+    if (!_controller.hasClients) return true;
+    final donde = _controller.position;
+    return donde.maxScrollExtent - donde.pixels <= _margenDePegado;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // 🔴 **Al abrir, el final.** Una conversación retomada del historial
+    // empezaba **arriba del todo**: reportado así —«cuando cierro y abro una
+    // conversación me deja al comienzo, si tiene muchos mensajes me toca hacer
+    // mucho scroll»—. Lo último dicho es lo que se estaba mirando.
+    _alFinal();
+  }
+
   @override
   void didUpdateWidget(covariant ChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.messages == oldWidget.messages) return;
-    // Seguir el final mientras se escribe: si no, la respuesta crece por
-    // debajo del borde y hay que perseguirla a mano.
+    // 🔴 **Y solo se sigue el final si ya se estaba mirando.** Esto saltaba al
+    // final en **cada** trozo de la respuesta, así que subir a releer algo
+    // mientras Claude escribía era imposible: te devolvía abajo diez veces por
+    // segundo. Reportado igual: «cuando está respondiendo no puedo hacer scroll
+    // para ver los mensajes anteriores».
+    //
+    // Se mira **antes** de pintar lo nuevo: después, el final ya se movió y
+    // todo el mundo parecería despegado.
+    if (!_pegadoAlFinal) return;
+    _alFinal();
+  }
+
+  /// Baja del todo cuando el marco ya está medido.
+  ///
+  /// [intentos] existe porque una lista perezosa **no sabe cuánto mide**: con
+  /// cien mensajes, `maxScrollExtent` es una estimación que crece según se van
+  /// midiendo los de abajo, así que un solo salto se queda a medio camino. Se
+  /// vuelve a intentar mientras siga creciendo, y se para solo.
+  void _alFinal({int intentos = 6}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_controller.hasClients) return;
-      _controller.jumpTo(_controller.position.maxScrollExtent);
+      if (!mounted || !_controller.hasClients) return;
+      final hasta = _controller.position.maxScrollExtent;
+      if (_controller.position.pixels < hasta) _controller.jumpTo(hasta);
+      // ¿Creció al medir lo que faltaba? Entonces todavía no era el final.
+      if (intentos > 1 && _controller.position.maxScrollExtent > hasta) {
+        _alFinal(intentos: intentos - 1);
+      }
     });
   }
 

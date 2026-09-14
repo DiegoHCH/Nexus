@@ -21,6 +21,7 @@ import 'package:nexus/features/superpowers/domain/entities/mcp_server.dart';
 import 'package:nexus/features/assistant/domain/usecases/la_compresion_de_la_conversacion.dart';
 import 'package:nexus/features/assistant/domain/usecases/la_puerta_de_la_voz.dart';
 import 'package:nexus/features/assistant/domain/usecases/las_preguntas_en_pie.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_marco_apagado.dart';
 import 'package:nexus/features/assistant/domain/usecases/lo_que_queda_permitido.dart';
 import 'package:nexus/features/workspace/domain/usecases/el_permiso_que_vale.dart';
 import 'package:nexus/features/assistant/domain/usecases/lo_que_se_contesta_al_permiso.dart';
@@ -527,6 +528,33 @@ class AssistantController extends Notifier<AssistantHudState> {
     return espera;
   }
 
+  /// Si esto es un comando del marco de trabajo y su sesión no lo tiene
+  /// encendido.
+  ///
+  /// El orden de las comprobaciones es el que evita trabajo: primero el texto
+  /// —una expresión regular—, y solo si parece un comando se va al disco. Por
+  /// aquí pasa **cada** mensaje que se escribe.
+  Future<bool> _elMarcoEstaApagado(String texto) async {
+    if (ElMarcoApagado.elComandoDe(texto) == null) return false;
+    final folder = _folder;
+    if (folder == null) return false;
+
+    final perfil = _perfilDeLaCarpeta() ?? ClaudeProfile.elDeSiempre();
+    final encendidas = ref.read(lasSesionesDelMarcoProvider).de(perfil);
+    if (encendidas.isEmpty) return false;
+
+    final memoria = await ref
+        .read(conversationMemoryProvider)
+        .read(folder, claudeProfile: _perfilDeLaCarpeta());
+    if (!_vive) return false;
+
+    return ElMarcoApagado.hayQueAvisar(
+      texto: texto,
+      sesionesEncendidas: encendidas,
+      sesion: memoria.sessionId,
+    );
+  }
+
   /// Lo que la persona eligió en el turno de la pregunta.
   void responderPermiso(String id, DecisionDePermiso decision) {
     final mensajes = [...state.messages];
@@ -754,15 +782,15 @@ class AssistantController extends Notifier<AssistantHudState> {
       // que no cambia se lee como que el comando no hizo nada — y lo escrito
       // sigue estando, que es lo que hay que aclarar.
       case AOlvidar():
-        _say(ChatAuthor.user, loQueSeVe ?? trimmed);
-        _sealLast();
+        // 🔴 **`/clear` limpia la pantalla, no contesta un turno.** Contestaba
+        // «Hecho: Claude empieza de cero…» y dejaba toda la conversación
+        // escrita debajo, que es lo contrario de lo que se pide: en el CLI
+        // `/clear` **borra lo de arriba**, y aquí se leía como que no había
+        // hecho nada. Reportado así: «debería borrar todos los mensajes
+        // anteriores sin responder ese mensaje».
         await forgetConversation();
         if (!_vive) return;
-        _decir(
-          ref
-              .read(stringsProvider)
-              .seOlvidoLaSesion(_folder?.split('/').last ?? ''),
-        );
+        _empezarDeCero();
         return;
 
       case AEditarLaImagen(:final cambio):
@@ -820,6 +848,21 @@ class AssistantController extends Notifier<AssistantHudState> {
 
       case AClaude():
         break;
+    }
+
+    // 🔴 **Un `flow …` con el marco apagado no hace nada, y eso no se ve.** El
+    // plugin se calla —su puerta deja pasar solo `flow init` cuando la sesión no
+    // está marcada— así que el comando no contesta, no falla y no deja rastro:
+    // costó una tarde y una vuelta a la terminal que no hacía falta. Se dice
+    // aquí y **no se gasta el encargo**: con el marco apagado, mandarlo es tirar
+    // un turno y además invitar a Claude a improvisar con un comando que no era
+    // para él. Ver [ElMarcoApagado].
+    if (await _elMarcoEstaApagado(trimmed)) {
+      _say(ChatAuthor.user, loQueSeVe ?? trimmed);
+      _sealLast();
+      _say(ChatAuthor.nexus, ref.read(stringsProvider).elMarcoApagado);
+      _sealLast();
+      return;
     }
 
     // Lo que se le manda a Claude lleva las rutas detrás —las necesita para
@@ -910,7 +953,39 @@ class AssistantController extends Notifier<AssistantHudState> {
             ClaudeFailed() => _onFailed(event.message),
           },
           onError: (Object error) => _onFailed(error.toString()),
+          // 🔴 **Un turno puede acabarse sin decir que acabó, y eso se tragaba
+          // entero.** Sin esto, un flujo que se cierra sin `ClaudeTurnCompleted` y
+          // sin error dejaba la respuesta **cortada a media palabra** con cara
+          // de terminada —se archivó así: 300 caracteres que acaban en «y en
+          // **»— y, peor, el encargo nunca se daba por cerrado: la suscripción
+          // se quedaba puesta y lo siguiente que escribieras se encolaba detrás
+          // de un turno que ya no existía.
+          onDone: _elTurnoSeCorto,
         );
+  }
+
+  /// El generador se cerró sin que nadie dijera que el turno terminó.
+  ///
+  /// Reportado como «se están quedando cortados los mensajes pero sigue
+  /// hablando en el estado», y comprobado en el registro guardado: dos
+  /// respuestas archivadas a media palabra, sin bandera de fallo y sin un solo
+  /// paso. La causa de que el proceso se fuera puede ser de fuera —lo veremos
+  /// cuando vuelva a pasar, porque ahora deja dicho—; lo que no puede pasar es
+  /// **presentar media frase como una respuesta entera**.
+  void _elTurnoSeCorto() {
+    // Terminó bien: `_onTurnCompleted` ya lo cerró y esto es solo el cierre del
+    // generador.
+    if (_subscription == null) return;
+    _sealLast();
+    _marcaElFallo();
+    state = state.copyWith(
+      orbState: NexusOrbState.sleep,
+      isStreaming: false,
+      errorMessage: ref.read(stringsProvider).elTurnoSeCorto,
+    );
+    // Y se suelta el encargo: sin esto, lo siguiente que escribas se encola
+    // detrás de un turno que ya no está corriendo.
+    _elEncargoTermino();
   }
 
   /// El paso que se enseña mientras se dibuja. Uno solo: no hay herramientas
@@ -1641,6 +1716,44 @@ class AssistantController extends Notifier<AssistantHudState> {
   /// con el identificador del registro y no con el de la conversación: al
   /// retomar una del historial, la conversación adopta el suyo.
   bool isShowing(String recordId) => _recordId == recordId;
+
+  /// Deja la pantalla como recién abierta, sin tocar lo ya guardado.
+  ///
+  /// 🔴 **Y lo segundo es la mitad que no se ve.** Lo de arriba ya está escrito
+  /// en el historial bajo [_recordId]; si se vaciara la pantalla y se siguiera
+  /// archivando con ese mismo identificador, **el turno siguiente reescribiría
+  /// ese archivo con solo lo nuevo** y la conversación de antes desaparecería
+  /// del historial. Borrar de la vista no puede borrar del disco, así que a
+  /// partir de aquí se escribe en un registro nuevo — igual que [resume] adopta
+  /// el suyo, pero al revés.
+  void _empezarDeCero() {
+    _recordId =
+        '${DateTime.now().microsecondsSinceEpoch}-${conversationId.hashCode}';
+    _startedAt = DateTime.now();
+    unawaited(
+      ref
+          .read(conversationsProvider.notifier)
+          .apuntarRegistro(conversationId, _recordId),
+    );
+    // La marca del parte y lo que dejó el encargo anterior también se van: son
+    // de la conversación que se acaba de dejar atrás.
+    _elParteEnCurso = false;
+    _laUltimaImagen = null;
+    _respondiendoA = null;
+    _permitidas.clear();
+    state = state.copyWith(
+      messages: const [],
+      activity: const [],
+      history: const [],
+      changes: null,
+      errorMessage: null,
+      isStreaming: false,
+      orbState: NexusOrbState.sleep,
+      // Lo que se dice queda en la línea de estado, que se lee y se va: un
+      // mensaje en el chat sería justo lo que se pidió quitar.
+      subtitle: ref.read(stringsProvider).conversationForgotten,
+    );
+  }
 
   /// Vuelve a abrir una conversación guardada: se pinta entera y lo que sigas
   /// diciendo se añade a ella.

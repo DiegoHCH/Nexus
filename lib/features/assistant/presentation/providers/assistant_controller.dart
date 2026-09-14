@@ -21,6 +21,7 @@ import 'package:nexus/features/superpowers/domain/entities/mcp_server.dart';
 import 'package:nexus/features/assistant/domain/usecases/la_compresion_de_la_conversacion.dart';
 import 'package:nexus/features/assistant/domain/usecases/la_puerta_de_la_voz.dart';
 import 'package:nexus/features/assistant/domain/usecases/las_preguntas_en_pie.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_marco_apagado.dart';
 import 'package:nexus/features/assistant/domain/usecases/lo_que_queda_permitido.dart';
 import 'package:nexus/features/workspace/domain/usecases/el_permiso_que_vale.dart';
 import 'package:nexus/features/assistant/domain/usecases/lo_que_se_contesta_al_permiso.dart';
@@ -527,6 +528,33 @@ class AssistantController extends Notifier<AssistantHudState> {
     return espera;
   }
 
+  /// Si esto es un comando del marco de trabajo y su sesión no lo tiene
+  /// encendido.
+  ///
+  /// El orden de las comprobaciones es el que evita trabajo: primero el texto
+  /// —una expresión regular—, y solo si parece un comando se va al disco. Por
+  /// aquí pasa **cada** mensaje que se escribe.
+  Future<bool> _elMarcoEstaApagado(String texto) async {
+    if (ElMarcoApagado.elComandoDe(texto) == null) return false;
+    final folder = _folder;
+    if (folder == null) return false;
+
+    final perfil = _perfilDeLaCarpeta() ?? ClaudeProfile.elDeSiempre();
+    final encendidas = ref.read(lasSesionesDelMarcoProvider).de(perfil);
+    if (encendidas.isEmpty) return false;
+
+    final memoria = await ref
+        .read(conversationMemoryProvider)
+        .read(folder, claudeProfile: _perfilDeLaCarpeta());
+    if (!_vive) return false;
+
+    return ElMarcoApagado.hayQueAvisar(
+      texto: texto,
+      sesionesEncendidas: encendidas,
+      sesion: memoria.sessionId,
+    );
+  }
+
   /// Lo que la persona eligió en el turno de la pregunta.
   void responderPermiso(String id, DecisionDePermiso decision) {
     final mensajes = [...state.messages];
@@ -820,6 +848,21 @@ class AssistantController extends Notifier<AssistantHudState> {
 
       case AClaude():
         break;
+    }
+
+    // 🔴 **Un `flow …` con el marco apagado no hace nada, y eso no se ve.** El
+    // plugin se calla —su puerta deja pasar solo `flow init` cuando la sesión no
+    // está marcada— así que el comando no contesta, no falla y no deja rastro:
+    // costó una tarde y una vuelta a la terminal que no hacía falta. Se dice
+    // aquí y **no se gasta el encargo**: con el marco apagado, mandarlo es tirar
+    // un turno y además invitar a Claude a improvisar con un comando que no era
+    // para él. Ver [ElMarcoApagado].
+    if (await _elMarcoEstaApagado(trimmed)) {
+      _say(ChatAuthor.user, loQueSeVe ?? trimmed);
+      _sealLast();
+      _say(ChatAuthor.nexus, ref.read(stringsProvider).elMarcoApagado);
+      _sealLast();
+      return;
     }
 
     // Lo que se le manda a Claude lleva las rutas detrás —las necesita para

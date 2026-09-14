@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/features/assistant/data/datasources/las_sesiones_del_marco.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
 import 'package:nexus/features/assistant/data/datasources/claude_cli_data_source.dart';
@@ -165,4 +166,10 @@ final staysAwakeProvider = Provider<StaysAwake>((ref) => StaysAwakeImpl());
 /// justamente coordinar entre conversaciones distintas.
 final folderErrandQueueProvider = Provider<FolderErrandQueue>(
   (ref) => FolderErrandQueue(),
+);
+
+/// Qué sesiones tienen encendido el marco de trabajo. Ver [LasSesionesDelMarco]
+/// y [ElMarcoApagado]: solo se lee, nunca se enciende desde aquí.
+final lasSesionesDelMarcoProvider = Provider<LasSesionesDelMarco>(
+  (ref) => const LasSesionesDelMarco(),
 );

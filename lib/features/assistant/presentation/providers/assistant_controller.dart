@@ -953,7 +953,39 @@ class AssistantController extends Notifier<AssistantHudState> {
             ClaudeFailed() => _onFailed(event.message),
           },
           onError: (Object error) => _onFailed(error.toString()),
+          // 🔴 **Un turno puede acabarse sin decir que acabó, y eso se tragaba
+          // entero.** Sin esto, un flujo que se cierra sin `ClaudeTurnCompleted` y
+          // sin error dejaba la respuesta **cortada a media palabra** con cara
+          // de terminada —se archivó así: 300 caracteres que acaban en «y en
+          // **»— y, peor, el encargo nunca se daba por cerrado: la suscripción
+          // se quedaba puesta y lo siguiente que escribieras se encolaba detrás
+          // de un turno que ya no existía.
+          onDone: _elTurnoSeCorto,
         );
+  }
+
+  /// El generador se cerró sin que nadie dijera que el turno terminó.
+  ///
+  /// Reportado como «se están quedando cortados los mensajes pero sigue
+  /// hablando en el estado», y comprobado en el registro guardado: dos
+  /// respuestas archivadas a media palabra, sin bandera de fallo y sin un solo
+  /// paso. La causa de que el proceso se fuera puede ser de fuera —lo veremos
+  /// cuando vuelva a pasar, porque ahora deja dicho—; lo que no puede pasar es
+  /// **presentar media frase como una respuesta entera**.
+  void _elTurnoSeCorto() {
+    // Terminó bien: `_onTurnCompleted` ya lo cerró y esto es solo el cierre del
+    // generador.
+    if (_subscription == null) return;
+    _sealLast();
+    _marcaElFallo();
+    state = state.copyWith(
+      orbState: NexusOrbState.sleep,
+      isStreaming: false,
+      errorMessage: ref.read(stringsProvider).elTurnoSeCorto,
+    );
+    // Y se suelta el encargo: sin esto, lo siguiente que escribas se encola
+    // detrás de un turno que ya no está corriendo.
+    _elEncargoTermino();
   }
 
   /// El paso que se enseña mientras se dibuja. Uno solo: no hay herramientas

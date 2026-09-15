@@ -26,6 +26,11 @@ void main() {
     'streaming':
         'es de mientras se escribe: un mensaje guardado nunca está a medias, '
         'y `_sealLast` lo cierra antes de archivar',
+    'trabajo':
+        'su salida **ya está en el texto del mensaje**, y guardarla aparte '
+        'sería escribir doscientas líneas dos veces en el registro para poder '
+        'pintar un botón. Lo que se pierde al releer del disco es el botón, no '
+        'el dato: la salida sigue ahí, y copiarla es lo que se hacía antes',
   };
 
   test('todo campo de ChatMessage se guarda, o está declarado como que no', () {

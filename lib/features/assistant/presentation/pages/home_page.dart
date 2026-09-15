@@ -274,6 +274,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                         .watch(losNombresProvider)
                                         .etiqueta(context.strings.nexus),
                                     onRetry: controller.reintentar,
+                                    onPasarElTrabajo:
+                                        controller.pasarElTrabajoAlMarco,
                                     onPermiso: controller.responderPermiso,
                                     // El comando se manda **tal cual se ve**:
                                     // es lo que evita el error que dio origen a

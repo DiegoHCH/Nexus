@@ -65,6 +65,15 @@ mixin NucleoStrings {
   String elTrabajoNoAutorizado(String binario);
   String get elTrabajoSinComando;
 
+  /// El botón que pasa la salida al marco, y lo que se ve al pulsarlo.
+  String get elTrabajoPasarAlMarco;
+
+  /// Mientras corre: lo que se enseña antes de la primera línea, y el botón de
+  /// pararlo.
+  String get elTrabajoArrancando;
+  String get elTrabajoParar;
+  String elTrabajoSePasa(String comando);
+
   String get elTurnoSeCorto;
 
   String get elMarcoApagado;
@@ -307,6 +316,15 @@ mixin NucleoStringsEs implements NucleoStrings {
       '`$binario` no está en los comandos permitidos de esta carpeta, así que '
       'no lo corro. Se añade en Ajustes, en la carpeta: la lista es tuya y se '
       've.';
+  @override
+  String get elTrabajoPasarAlMarco => 'Pasárselo a flow check';
+  @override
+  String get elTrabajoArrancando => 'arrancando…';
+  @override
+  String get elTrabajoParar => 'Parar el trabajo';
+  @override
+  String elTrabajoSePasa(String comando) =>
+      'flow check +direct — con la salida de `$comando`';
   @override
   String get elTrabajoSinComando =>
       'Dime qué corro: `/gate make check`. Después, `/gate` a secas repite el '
@@ -724,6 +742,15 @@ mixin NucleoStringsEn implements NucleoStrings {
       '`$binario` is not in this folder\'s allowed commands, so I am not '
       'running it. You add it in Settings, on the folder: the list is yours '
       'and it is visible.';
+  @override
+  String get elTrabajoPasarAlMarco => 'Send it to flow check';
+  @override
+  String get elTrabajoArrancando => 'starting…';
+  @override
+  String get elTrabajoParar => 'Stop the job';
+  @override
+  String elTrabajoSePasa(String comando) =>
+      'flow check +direct — with the output of `$comando`';
   @override
   String get elTrabajoSinComando =>
       'Tell me what to run: `/gate make check`. After that, `/gate` on its own '

@@ -635,7 +635,10 @@ class AssistantController extends Notifier<AssistantHudState> {
         strings.elTrabajoTermino(
           trabajo.comando,
           ElTrabajoAparte.elVeredicto(codigo),
-          salida,
+          // Lo que se lee, que no es todo lo que dijo: ver
+          // [ElTrabajoAparte.loQueSeEnsena]. Lo entero sigue viajando en
+          // `ElTrabajoQueSalio`, que es lo que se le pasa al marco.
+          ElTrabajoAparte.loQueSeEnsena(salida),
         ),
       );
       // Y el trabajo se cuelga del mensaje: es lo que permite ofrecer el único

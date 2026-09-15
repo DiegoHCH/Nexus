@@ -8,6 +8,7 @@ import 'package:nexus/features/superpowers/domain/usecases/mcp_command.dart';
 import 'package:nexus/features/superpowers/domain/entities/mcp_server.dart';
 import 'package:nexus/features/superpowers/presentation/providers/superpowers_providers.dart';
 import 'package:nexus/features/superpowers/domain/usecases/fallos_por_cuenta.dart';
+import 'package:nexus/features/superpowers/domain/entities/el_uso_de_figma.dart';
 
 /// Los servidores MCP de una cuenta: los que hay, los que se pueden poner de un
 /// clic, y uno a mano.
@@ -50,6 +51,13 @@ class _McpPanelState extends ConsumerState<McpPanel> {
   /// comprobar» dentro de las seis horas no haría nada visible — se invalidaría
   /// un proveedor que nadie está mirando.
   var _preguntando = false;
+
+  /// Si alguien pidió contar lo gastado de Figma.
+  ///
+  /// Igual que la comprobación de arriba y por el mismo motivo: contar recorre
+  /// los registros de las sesiones —cientos de megas— y abrir una pestaña no
+  /// puede costar eso.
+  var _contando = false;
   String? _error;
 
   @override
@@ -258,6 +266,41 @@ class _McpPanelState extends ConsumerState<McpPanel> {
               style: NexusTypography.mono.copyWith(color: colors.warn),
             ),
             _ => const SizedBox.shrink(),
+          },
+        ],
+
+        const SizedBox(height: NexusSpacing.s6),
+        _Heading(strings.figmaUso),
+        Row(
+          children: [
+            OutlinedButton(
+              onPressed: () {
+                ref.invalidate(elUsoDeFigmaProvider(widget.configDir));
+                setState(() => _contando = true);
+              },
+              child: Text(strings.figmaUso),
+            ),
+            const SizedBox(width: NexusSpacing.s3),
+            Expanded(
+              child: Text(
+                strings.figmaUsoDeDonde,
+                style: NexusTypography.label.copyWith(color: colors.faint),
+              ),
+            ),
+          ],
+        ),
+        if (_contando) ...[
+          const SizedBox(height: NexusSpacing.s3),
+          switch (ref.watch(elUsoDeFigmaProvider(widget.configDir))) {
+            AsyncLoading() => Text(
+              strings.figmaUsoContando,
+              style: NexusTypography.mono.copyWith(color: colors.faint),
+            ),
+            AsyncError() => Text(
+              strings.figmaUsoNoSePudo,
+              style: NexusTypography.mono.copyWith(color: colors.warn),
+            ),
+            AsyncData(:final value) => _ElUso(uso: value),
           },
         ],
 
@@ -482,6 +525,55 @@ class _Field extends StatelessWidget {
           borderRadius: BorderRadius.circular(NexusRadius.sm),
         ),
       ),
+    );
+  }
+}
+
+/// Lo gastado de Figma este mes, en la cuenta que se está mirando.
+///
+/// El desglose por herramienta va sin traducir: son los nombres con los que
+/// Figma las llama en su documentación —`get_design_context`, `get_screenshot`—
+/// y traducirlos rompería el puente entre lo que se ve aquí y lo que se lee
+/// allí.
+class _ElUso extends StatelessWidget {
+  const _ElUso({required this.uso});
+
+  final ElUsoDeFigma uso;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final strings = context.strings;
+    if (!uso.hayAlgo) {
+      return Text(
+        strings.figmaUsoNinguna,
+        style: NexusTypography.mono.copyWith(color: colors.faint),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          strings.figmaUsoGastadas(uso.gastadas),
+          style: NexusTypography.mono.copyWith(color: colors.ink),
+        ),
+        for (final entrada in uso.porHerramienta.entries)
+          Padding(
+            padding: const EdgeInsets.only(top: NexusSpacing.s1),
+            child: Text(
+              '${entrada.value}  ${entrada.key}',
+              style: NexusTypography.mono.copyWith(color: colors.faint),
+            ),
+          ),
+        if (uso.exentas > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: NexusSpacing.s2),
+            child: Text(
+              strings.figmaUsoExentas(uso.exentas),
+              style: NexusTypography.label.copyWith(color: colors.faint),
+            ),
+          ),
+      ],
     );
   }
 }

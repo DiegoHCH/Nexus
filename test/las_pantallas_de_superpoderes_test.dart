@@ -6,7 +6,9 @@ import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/features/superpowers/data/datasources/el_recuerdo_de_los_mcp.dart';
 import 'package:nexus/features/superpowers/data/datasources/mcp_data_source.dart';
 import 'package:nexus/features/superpowers/data/datasources/plugins_data_source.dart';
+import 'package:nexus/features/superpowers/data/datasources/las_llamadas_guardadas.dart';
 import 'package:nexus/features/superpowers/data/datasources/skills_data_source.dart';
+import 'package:nexus/features/superpowers/domain/entities/el_uso_de_figma.dart';
 import 'package:nexus/features/superpowers/domain/entities/claude_plugin.dart';
 import 'package:nexus/features/superpowers/domain/entities/mcp_server.dart';
 import 'package:nexus/features/superpowers/domain/entities/skill.dart';
@@ -29,6 +31,17 @@ import 'support/screen_harness.dart';
 /// 896 skills y marketplaces con 287 plugins— y que un fallo de la cuenta se
 /// enseña en vez de quedarse en un panel en blanco.
 const _cuenta = '/Users/alguien/.claude';
+
+/// Lo que dirían los registros de esa cuenta, sin registros de por medio.
+class _Uso extends LasLlamadasGuardadas {
+  const _Uso(this.uso);
+
+  final ElUsoDeFigma uso;
+
+  @override
+  Future<ElUsoDeFigma> deFigmaEn(String configDir, {DateTime? ahora}) async =>
+      uso;
+}
 
 class _Skills extends SkillsDataSource {
   const _Skills({this.puestas = const [], this.delRepo, this.error});
@@ -300,6 +313,73 @@ void main() {
         ),
       );
 
+      sinDesbordar(tester);
+    });
+
+    // 🔴 **Pedido después de descubrir que Figma no publica el contador:**
+    // «sería interesante un botón para poder ver cuántos llamados a figma he
+    // usado, en mi caso por cuenta». Y por cuenta importa: cada una tiene su
+    // sesión de Figma y su cupo —aquí un Starter de 20 al mes y un asiento Dev
+    // de la organización con 200 al día—.
+    testWidgets('el botón dice cuántas llamadas a Figma lleva la cuenta', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        const Scaffold(body: McpPanel(configDir: _cuenta)),
+        overrides: [
+          mcpDataSourceProvider.overrideWithValue(const _Mcp()),
+          elRecuerdoDeLosMcpProvider.overrideWithValue(
+            ElRecuerdoDeLosMcp(carpeta: recuerdos),
+          ),
+          lasLlamadasGuardadasProvider.overrideWithValue(
+            const _Uso(
+              ElUsoDeFigma(
+                gastadas: 17,
+                exentas: 2,
+                porHerramienta: {'get_design_context': 12, 'get_screenshot': 5},
+              ),
+            ),
+          ),
+        ],
+      );
+
+      // Antes de pulsarlo no se cuenta nada: recorrer los registros son
+      // cientos de megas, y abrir la pestaña no puede costar eso.
+      expect(find.textContaining('17'), findsNothing);
+
+      await tester.tap(
+        find.widgetWithText(OutlinedButton, 'Llamadas a Figma este mes'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('17'), findsOneWidget);
+      expect(find.textContaining('12  get_design_context'), findsOneWidget);
+      expect(find.textContaining('2'), findsWidgets, reason: 'las exentas');
+      sinDesbordar(tester);
+    });
+
+    testWidgets('una cuenta que no ha llamado a Figma lo dice', (tester) async {
+      await pumpScreen(
+        tester,
+        const Scaffold(body: McpPanel(configDir: _cuenta)),
+        overrides: [
+          mcpDataSourceProvider.overrideWithValue(const _Mcp()),
+          elRecuerdoDeLosMcpProvider.overrideWithValue(
+            ElRecuerdoDeLosMcp(carpeta: recuerdos),
+          ),
+          lasLlamadasGuardadasProvider.overrideWithValue(
+            const _Uso(ElUsoDeFigma()),
+          ),
+        ],
+      );
+
+      await tester.tap(
+        find.widgetWithText(OutlinedButton, 'Llamadas a Figma este mes'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ninguna llamada a Figma este mes.'), findsOneWidget);
       sinDesbordar(tester);
     });
   });

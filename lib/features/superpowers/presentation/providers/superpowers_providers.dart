@@ -6,6 +6,8 @@ import 'package:nexus/features/superpowers/data/datasources/skills_data_source.d
 import 'package:nexus/features/superpowers/domain/entities/claude_plugin.dart';
 import 'package:nexus/features/superpowers/domain/entities/skill.dart';
 import 'package:nexus/features/superpowers/data/datasources/el_recuerdo_de_los_mcp.dart';
+import 'package:nexus/features/superpowers/data/datasources/las_llamadas_guardadas.dart';
+import 'package:nexus/features/superpowers/domain/entities/el_uso_de_figma.dart';
 import 'package:nexus/features/superpowers/domain/entities/mcp_server.dart';
 
 final mcpDataSourceProvider = Provider<McpDataSource>(
@@ -51,6 +53,21 @@ final mcpRecordadosProvider =
       String
     >(
       (ref, configDir) => ref.watch(elRecuerdoDeLosMcpProvider).leer(configDir),
+    );
+
+final lasLlamadasGuardadasProvider = Provider<LasLlamadasGuardadas>(
+  (ref) => const LasLlamadasGuardadas(),
+);
+
+/// Lo que esa cuenta lleva gastado de Figma este mes.
+///
+/// **Solo cuando alguien lo pide**: recorre los registros de las sesiones, que
+/// son cientos de megas, y eso no puede pasar por abrir una pestaña. De ahí que
+/// lo dispare un botón y no el `build` del panel.
+final elUsoDeFigmaProvider = FutureProvider.autoDispose
+    .family<ElUsoDeFigma, String>(
+      (ref, configDir) =>
+          ref.watch(lasLlamadasGuardadasProvider).deFigmaEn(configDir),
     );
 
 final skillsDataSourceProvider = Provider<SkillsDataSource>(

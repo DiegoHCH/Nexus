@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:nexus/features/assistant/domain/entities/claude_event.dart';
 import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart';
 import 'package:nexus/features/assistant/domain/repositories/claude_bridge.dart';
@@ -38,15 +39,37 @@ typedef ClaudeWorkContext = ({
 /// como stream — forzarlo al contrato existente escondería justamente lo
 /// que la interfaz necesita escuchar en vivo.
 class AskClaude {
-  const AskClaude(
+  AskClaude(
     this._bridge,
     this._readContext,
     this._memory,
     this._queue,
-    this._awake,
-  );
+    this._awake, {
+    this.conversacion,
+  });
+
+  /// Cuál de las conversaciones es esta.
+  ///
+  /// Es lo que separa «la carpeta la tiene otra» —y entonces se trabaja en
+  /// paralelo— de «te estás comprimiendo tú», que solo se puede esperar porque
+  /// es el mismo hilo. `null` cuando quien lanza no es una conversación: la
+  /// agenda, el canal del móvil.
+  final String? conversacion;
 
   final ClaudeBridge _bridge;
+
+  /// El hilo propio de **esta** conversación, si en algún momento arrancó en
+  /// paralelo con otra sobre la misma carpeta.
+  ///
+  /// Vive aquí y no en la memoria de la carpeta porque es justo lo contrario de
+  /// lo que esa memoria guarda: la carpeta tiene un hilo, y este es el que se
+  /// separó de él. Y por conversación, que es como se construye este caso de
+  /// uso.
+  ///
+  /// En memoria y no en disco, de momento: al reabrir la app una conversación
+  /// bifurcada vuelve al hilo de la carpeta, que es lo que hacía antes de que
+  /// esto existiera.
+  String? _miSesion;
 
   /// Lo que Claude recuerda de esta carpeta. Se consulta al empezar cada
   /// encargo y se actualiza al arrancar la sesión, de modo que el siguiente
@@ -114,11 +137,59 @@ class AskClaude {
       // Turno para esta carpeta. Si la otra conversación sigue trabajando sobre
       // ella, se avisa antes de esperar: quedarse callado mientras llega el turno
       // se ve exactamente igual que estar colgado.
-      if (_queue.isBusy(folder)) {
-        yield const ClaudeQueued();
-      }
-      final release = await _queue.acquire(folder);
+      //
+      // 🔴 **El turno se pide antes de esperarlo, y por eso el `try` empieza
+      // aquí arriba.** Ver [FolderErrandQueue]: esperando el turno es donde se
+      // cancela un encargo —se cierra la conversación, se detiene, se empieza
+      // de cero— y si la forma de soltarlo llegara al final de la espera, esa
+      // cancelación dejaría la carpeta tomada para siempre, para todas las
+      // conversaciones.
+      final turno = _queue.pedirTurno(folder, de: conversacion);
+      // 🔴 **Con la carpeta ocupada no se espera: se trabaja en paralelo, con
+      // hilo propio.** Pedido así: «quiero que se pueda trabajar en simultáneo
+      // en la misma carpeta, solo mostrarle una alerta al usuario de que se le
+      // pueden chocar o generar conflictos los dos trabajos».
+      //
+      // Lo del hilo propio no es un adorno: dos `--resume` a la vez sobre la
+      // misma sesión contestan bien los dos y después **solo consta uno** en el
+      // historial —medido con el binario: de dos palabras que se le pidió
+      // recordar, la del segundo desaparecía—. Así que el segundo se bifurca,
+      // se lleva el contexto de la carpeta hasta este momento y a partir de
+      // aquí escribe en su propia sesión. Nadie pierde un turno.
+      //
+      // Lo que sí hay que decir —que los dos van a tocar los mismos archivos y
+      // que desde aquí dejan de compartir contexto— lo dice
+      // [ClaudeEnParalelo]. Una vez bifurcada, esta conversación ya no
+      // necesita el turno de la carpeta: su hilo es suyo y no se lo pisa nadie.
+      final bifurcando = _miSesion == null && turno.laTieneOtra;
+      final enParalelo = bifurcando || _miSesion != null;
       try {
+        if (enParalelo) {
+          // El turno se suelta ya: quedárselo bloquearía a los demás por un
+          // encargo que no va a escribir en la sesión de la carpeta.
+          turno.soltar();
+          yield const ClaudeEnParalelo();
+        } else if (turno.hayQueEsperar) {
+          // Esperando a lo tuyo —tu propia compresión—, que es lo único que
+          // queda por esperar.
+          yield const ClaudeQueued();
+        }
+        // 🔴 **La espera va dentro de un `yield*` y no de un `await`.**
+        //
+        // Cancelar una suscripción solo se entrega donde el generador puede
+        // parar —un `yield`—, y esperar turno puede ser minutos. Con un `await`
+        // el encargo cancelado mientras esperaba no se enteraba: seguía en la
+        // cola, y al llegarle el turno **arrancaba su `claude -p`** para
+        // tirarlo tres segundos después. Medido con el escenario reportado
+        // —dos conversaciones sobre la misma carpeta y «empezar de cero»—: tras
+        // cancelar el segundo, al puente le llegaba igual «lo de B».
+        //
+        // Y de paso arregla el otro lado de lo mismo: con el `await`, cancelar
+        // se quedaba pendiente hasta que la otra conversación terminara, que es
+        // por lo que `stopWork` tuvo que dejar de esperar a su propia
+        // cancelación. Ahora corre el `finally` de aquí abajo en el momento, y
+        // el turno se suelta ya.
+        if (!enParalelo) yield* _mientras(turno.cuandoToque);
         // La memoria va **por carpeta**, no por conversación: es la regla del
         // producto. Dos chats sobre el mismo repo comparten contexto —reanudan
         // la misma sesión de Claude— y dos sobre repos distintos no se enteran el
@@ -143,7 +214,10 @@ class AskClaude {
           // carpeta y lo que el origen del encargo permite. Gana el más estricto.
           canEdit: context.canEdit && allowWrites,
           extraDirectories: context.extraDirectories,
-          resumeSessionId: memory.sessionId,
+          // El hilo propio si esta conversación ya se bifurcó; si no, el de la
+          // carpeta, que es la regla de siempre.
+          resumeSessionId: _miSesion ?? memory.sessionId,
+          forkSession: bifurcando,
           claudeProfile: context.claudeProfile,
           model: context.model,
           effort: context.effort,
@@ -182,11 +256,18 @@ class AskClaude {
           if (event case ClaudeSessionStarted(
             :final sessionId,
           ) when sessionId.isNotEmpty) {
-            await _memory.rememberSession(
-              folder,
-              sessionId,
-              claudeProfile: context.claudeProfile,
-            );
+            // **Lo bifurcado no se escribe en la memoria de la carpeta**: ese
+            // hilo es de esta conversación, y guardarlo ahí le cambiaría la
+            // sesión a la otra a mitad de su trabajo.
+            if (enParalelo) {
+              _miSesion = sessionId;
+            } else {
+              await _memory.rememberSession(
+                folder,
+                sessionId,
+                claudeProfile: context.claudeProfile,
+              );
+            }
           }
           yield event;
 
@@ -208,17 +289,19 @@ class AskClaude {
           // `--resume` simultáneos no se pierdan un turno de la sesión, y con
           // el `result` ya emitido este proceso no va a escribir más en ella.
           // Lo que queda por hacer es apagar hijos, que no toca la sesión.
-          if (event is ClaudeTurnCompleted || event is ClaudeFailed) release();
+          if (event is ClaudeTurnCompleted || event is ClaudeFailed) {
+            turno.soltar();
+          }
         }
       } finally {
         // Y aquí también, que es el otro final: un encargo cancelado —cerrar la
         // conversación a media ejecución— no llega a emitir final ninguno, y no
         // soltar el turno dejaría la carpeta bloqueada para siempre.
         //
-        // Llamarlo dos veces es gratis y está previsto: `release` se guarda con
-        // su propio `released` justo para poder ponerlo en los dos sitios sin
+        // Llamarlo dos veces es gratis y está previsto: `soltar` se guarda con
+        // su propio `soltado` justo para poder ponerlo en los dos sitios sin
         // pensar en cuál llegó primero.
-        release();
+        turno.soltar();
       }
     } finally {
       // Lo mismo pero peor si se olvida: una petición al sistema que no se
@@ -226,6 +309,17 @@ class AskClaude {
       // desde fuera eso no se parece a un fallo de esta app.
       awake();
     }
+  }
+
+  /// Un flujo que no dice nada y se cierra cuando pasa [esto].
+  ///
+  /// Es la forma de esperar **dentro** de un generador sin perder la
+  /// cancelación: un `await` no es un punto donde se pueda parar, y un `yield*`
+  /// sí.
+  static Stream<ClaudeEvent> _mientras(Future<void> esto) {
+    final control = StreamController<ClaudeEvent>();
+    unawaited(esto.whenComplete(control.close));
+    return control.stream;
   }
 
   /// El mismo diálogo, con una nota al margen: si lo que se concedió cambia el

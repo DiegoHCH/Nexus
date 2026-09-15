@@ -29,6 +29,24 @@ final class ClaudeQueued extends ClaudeEvent {
 /// contestaron.
 ///
 /// No detiene nada: el encargo sigue, con una herramienta menos.
+/// Este encargo corre **a la vez** que el de otra conversación sobre la misma
+/// carpeta, con un hilo propio.
+///
+/// 🔴 **Pedido así:** «quiero que se pueda trabajar en simultáneo en la misma
+/// carpeta, solo mostrarle una alerta al usuario de que se le pueden chocar o
+/// generar conflictos los dos trabajos».
+///
+/// Se avisa porque hay dos cosas que el usuario no puede adivinar y le van a
+/// pasar: los dos encargos tocan los mismos archivos, y desde aquí **este chat
+/// lleva su propio hilo** — lo que le cuentes a uno no lo sabe el otro. Lo
+/// segundo no es una decisión de diseño gratuita: dos `--resume` a la vez sobre
+/// la misma sesión responden bien los dos y después **solo consta uno** en el
+/// historial. Medido con el binario: de dos palabras a recordar, la del segundo
+/// desaparecía.
+final class ClaudeEnParalelo extends ClaudeEvent {
+  const ClaudeEnParalelo();
+}
+
 final class ClaudeMcpCaido extends ClaudeEvent {
   const ClaudeMcpCaido(this.servidores);
 

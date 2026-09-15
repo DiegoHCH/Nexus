@@ -69,6 +69,24 @@ mixin SuperpoderesStrings {
   String get mcpCheckNote;
   String get mcpChecking;
   String get mcpCheckFailed;
+
+  /// El botón que cuenta lo gastado de Figma en esta cuenta, y lo que contesta.
+  ///
+  /// Con cuenta de por medio a propósito: cada cuenta de Claude tiene su sesión
+  /// de Figma y por tanto su cupo —aquí, un Starter personal de 20 al mes y un
+  /// asiento Dev de la organización con 200 al día—, así que un número sin
+  /// decir de quién es no le sirve a ninguno de los dos.
+  String get figmaUso;
+  String get figmaUsoContando;
+  String figmaUsoGastadas(int cuantas);
+  String figmaUsoExentas(int cuantas);
+  String get figmaUsoNinguna;
+
+  /// De dónde sale el número, que es la mitad de la respuesta: Figma no publica
+  /// ningún contador, así que esto se cuenta de los registros de las sesiones de
+  /// esta máquina.
+  String get figmaUsoDeDonde;
+  String get figmaUsoNoSePudo;
   // Superpoderes: skills instaladas en la cuenta.
   String get superpowersMcp;
 
@@ -252,6 +270,28 @@ mixin SuperpoderesStringsEs implements SuperpoderesStrings {
   String get mcpChecking => 'Preguntando a cada uno…';
   @override
   String get mcpCheckFailed => 'El CLI no pudo dar la lista.';
+  @override
+  String get figmaUso => 'Llamadas a Figma este mes';
+  @override
+  String get figmaUsoContando => 'Contando en los registros…';
+  @override
+  String figmaUsoGastadas(int cuantas) => cuantas == 1
+      ? 'Una llamada de las que gastan cupo, en esta cuenta.'
+      : '$cuantas llamadas de las que gastan cupo, en esta cuenta.';
+  @override
+  String figmaUsoExentas(int cuantas) => cuantas == 1
+      ? 'Otra más que no gasta: whoami, crear archivo y Code Connect están '
+            'exentas.'
+      : 'Otras $cuantas que no gastan: whoami, crear archivo y Code Connect '
+            'están exentas.';
+  @override
+  String get figmaUsoNinguna => 'Ninguna llamada a Figma este mes.';
+  @override
+  String get figmaUsoDeDonde =>
+      'Sale de los registros de las sesiones de esta máquina, no de Figma: no '
+      'publica el contador. Lo que hicieras desde otro editor no está aquí.';
+  @override
+  String get figmaUsoNoSePudo => 'No se pudieron leer los registros.';
   @override
   String get superpowersMcp => 'Servidores MCP';
   @override
@@ -472,6 +512,28 @@ mixin SuperpoderesStringsEn implements SuperpoderesStrings {
   String get mcpChecking => 'Asking each one…';
   @override
   String get mcpCheckFailed => 'The CLI could not produce the list.';
+  @override
+  String get figmaUso => 'Figma calls this month';
+  @override
+  String get figmaUsoContando => 'Counting in the logs…';
+  @override
+  String figmaUsoGastadas(int cuantas) => cuantas == 1
+      ? 'One call that counts against the quota, on this account.'
+      : '$cuantas calls that count against the quota, on this account.';
+  @override
+  String figmaUsoExentas(int cuantas) => cuantas == 1
+      ? 'One more that does not count: whoami, create file and Code Connect '
+            'are exempt.'
+      : '$cuantas more that do not count: whoami, create file and Code Connect '
+            'are exempt.';
+  @override
+  String get figmaUsoNinguna => 'No Figma calls this month.';
+  @override
+  String get figmaUsoDeDonde =>
+      'It comes from this machine\'s session logs, not from Figma: there is no '
+      'published counter. Whatever you did from another editor is not here.';
+  @override
+  String get figmaUsoNoSePudo => 'The logs could not be read.';
   @override
   String get superpowersMcp => 'MCP servers';
   @override

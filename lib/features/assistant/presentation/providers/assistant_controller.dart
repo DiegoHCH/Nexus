@@ -635,7 +635,10 @@ class AssistantController extends Notifier<AssistantHudState> {
         strings.elTrabajoTermino(
           trabajo.comando,
           ElTrabajoAparte.elVeredicto(codigo),
-          salida,
+          // Lo que se lee, que no es todo lo que dijo: ver
+          // [ElTrabajoAparte.loQueSeEnsena]. Lo entero sigue viajando en
+          // `ElTrabajoQueSalio`, que es lo que se le pasa al marco.
+          ElTrabajoAparte.loQueSeEnsena(salida),
         ),
       );
       // Y el trabajo se cuelga del mensaje: es lo que permite ofrecer el único
@@ -1079,6 +1082,7 @@ class AssistantController extends Notifier<AssistantHudState> {
         ).listen(
           (event) => switch (event) {
             ClaudeQueued() => _aplicar(event),
+            ClaudeEnParalelo() => _onEnParalelo(),
             ClaudeRulesChanged() => _onRulesChanged(event.paths),
             ClaudeMcpCaido() => _onMcpCaido(event.servidores),
             ClaudeSessionStarted() => _alArrancarLaSesion(event),
@@ -1540,7 +1544,15 @@ class AssistantController extends Notifier<AssistantHudState> {
   /// ofrece el último: son las notas de la misma tarea y el botón lleva a la
   /// carpeta igual, con el resto al lado.
   Future<void> _mirarSiHayDocumento() async {
-    final documento = await _loQueDejo.elDocumentoNuevo();
+    // 🔴 **Con lo que hizo este turno delante.** Ver [LoQueDejoElEncargo]: el
+    // cajón de documentos es uno solo para todas las conversaciones, así que
+    // restar fotos dice que apareció algo pero no de quién es — y lo que otra
+    // conversación escribiera mientras esta terminaba se colgaba aquí.
+    final documento = await _loQueDejo.elDocumentoNuevo(
+      loQueHizoElTurno: [
+        for (final paso in state.activity) ...[?paso.detail, ?paso.output],
+      ],
+    );
     if (documento == null || !_vive) return;
     _sellarEnElMensaje(documento: documento);
   }
@@ -2418,6 +2430,23 @@ class AssistantController extends Notifier<AssistantHudState> {
   }
 
   var _yaLoDijo = false;
+
+  /// Este encargo va a la vez que el de otra conversación sobre la misma
+  /// carpeta.
+  ///
+  /// 🔴 **Se avisa porque hay dos cosas que no se pueden adivinar.** Pedido
+  /// así: «que se pueda trabajar en simultáneo en la misma carpeta, solo
+  /// mostrarle una alerta al usuario de que se le pueden chocar o generar
+  /// conflictos los dos trabajos». Y además de los archivos está lo otro: desde
+  /// aquí este chat lleva su propio hilo, porque dos encargos escribiendo en la
+  /// misma sesión de Claude pierden uno de los dos turnos del historial —medido
+  /// con el binario—.
+  ///
+  /// Como aviso y no como error: no ha fallado nada, y va donde van los avisos
+  /// que se pueden cerrar con un clic.
+  void _onEnParalelo() {
+    state = state.copyWith(notice: ref.read(stringsProvider).enParalelo);
+  }
 
   void _onRulesChanged(List<String> paths) {
     state = state.copyWith(

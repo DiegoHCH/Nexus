@@ -29,10 +29,10 @@ typedef LosTextosDeLaEspera = TextosDeLaEspera Function();
 /// medidor cuenta los tokens del turno anterior. Nada de eso lanza una
 /// excepción, y por eso hace falta poder mirarlo.
 ///
-/// **Los tres eventos que no están, no están a propósito**: `ClaudeFailed`,
-/// `ClaudeMcpCaido` y `ClaudeRulesChanged` no son mapeo — el fallo hay que
-/// traducirlo y clasificarlo, y los dos avisos se dicen **una vez** y para eso
-/// hay que recordar qué se dijo antes. Eso es coreografía y se queda en el
+/// **Los cuatro eventos que no están, no están a propósito**: `ClaudeFailed`,
+/// `ClaudeMcpCaido`, `ClaudeRulesChanged` y `ClaudeEnParalelo` no son mapeo —
+/// el fallo hay que traducirlo y clasificarlo, y los tres avisos se dicen **una
+/// vez** y para eso hay que recordar qué se dijo antes. Eso es coreografía y se queda en el
 /// controlador; aquí devuelven el estado tal cual, igual que hace
 /// `aplicaEvento` con `daemon.connected`.
 AssistantHudState conElEvento(
@@ -128,8 +128,11 @@ AssistantHudState conElEvento(
         ),
       );
 
-    case ClaudeFailed() || ClaudeMcpCaido() || ClaudeRulesChanged():
-      // Ver la cabecera: estos tres no son mapeo. Se nombran uno a uno y no con
+    case ClaudeFailed() ||
+        ClaudeMcpCaido() ||
+        ClaudeRulesChanged() ||
+        ClaudeEnParalelo():
+      // Ver la cabecera: estos cuatro no son mapeo. Se nombran uno a uno y no con
       // un `default` para que **añadir un evento nuevo no compile** hasta que
       // alguien decida de qué lado cae.
       return actual;

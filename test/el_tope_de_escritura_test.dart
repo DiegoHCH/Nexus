@@ -26,6 +26,7 @@ class _Bridge implements ClaudeBridge {
     required bool canEdit,
     List<String> extraDirectories = const [],
     String? resumeSessionId,
+    bool forkSession = false,
     String? claudeProfile,
     String? model,
     String? effort,

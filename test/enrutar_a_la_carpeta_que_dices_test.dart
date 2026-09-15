@@ -35,6 +35,8 @@ class _Claude implements AskClaude {
   _Claude(this.dondeCayo, this.conversacion, this.conPermiso);
 
   final Map<String, List<String>> dondeCayo;
+
+  @override
   final String conversacion;
 
   /// Con qué tope llegó cada encargo. Es lo que dice si el enrutado lo respetó.

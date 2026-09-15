@@ -96,15 +96,41 @@ class LoQueDejoElEncargo {
   ///
   /// Se devuelve **el último** de los nuevos: si un encargo dejó tres, el que se
   /// enseña es el que acabó de escribir.
-  Future<String?> elDocumentoNuevo() async {
+  ///
+  /// 🔴 **Y tiene que haberlo escrito este turno.** Reportado con la pantalla
+  /// delante: «el documento me salió en la conversación donde no lo pedí» — un
+  /// HTML de tareas de Jira colgado de una respuesta sobre widgets. Y es que
+  /// restar fotos del cajón solo dice **que apareció algo**, no de quién es: el
+  /// cajón es uno para todas las conversaciones, así que lo que escriba otra
+  /// mientras esta termina su turno cae dentro de la resta.
+  ///
+  /// [loQueHizoElTurno] es el rastro de las herramientas de este encargo —la
+  /// ruta de un `Write`, la línea de un `Bash`, lo que contestaron—, y un
+  /// documento solo se cuelga si su ruta aparece ahí. Vale igual para el
+  /// documento escrito a mano con `cat > algo.html`, porque la ruta está en el
+  /// comando.
+  ///
+  /// Vacío significa «este turno no dejó rastro de herramientas» —hablando, por
+  /// ejemplo— y entonces se cuelga lo de siempre: sin rastro no hay a quién
+  /// atribuirlo, y quedarse sin enseñar el documento sería perder el enlace.
+  Future<String?> elDocumentoNuevo({
+    Iterable<String> loQueHizoElTurno = const [],
+  }) async {
     final antes = _documentosAntes;
     _documentosAntes = null;
     if (antes == null) return null;
 
     final nuevos = (await _documentosAhora()).difference(antes);
     if (nuevos.isEmpty || !_vive) return null;
+    // El cajón se refresca igual: apareció un documento, sea de quien sea.
     _ref.invalidate(artifactsProvider);
-    return nuevos.last;
+    if (loQueHizoElTurno.isEmpty) return nuevos.last;
+
+    final mios = [
+      for (final ruta in nuevos)
+        if (loQueHizoElTurno.any((rastro) => rastro.contains(ruta))) ruta,
+    ];
+    return mios.isEmpty ? null : mios.last;
   }
 
   /// Las rutas de los documentos que hay ahora mismo en el cajón.

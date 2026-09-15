@@ -91,6 +91,14 @@ mixin ArranqueStrings {
   /// rutas porque cuál cambió es el dato: uno del proyecto y uno de tres
   /// carpetas más arriba no se leen igual.
   String rulesChanged(List<String> paths);
+
+  /// Dos conversaciones trabajando **a la vez** sobre la misma carpeta.
+  ///
+  /// Dice las dos cosas que no se pueden adivinar: que van a tocar los mismos
+  /// archivos, y que desde aquí este chat lleva su propio hilo — que no es un
+  /// capricho, es que dos encargos escribiendo en la misma sesión de Claude
+  /// pierden uno de los dos turnos del historial.
+  String get enParalelo;
   String mcpCaido(List<String> servidores);
 
   /// El interruptor del visor de documentos. Un documento nace sin poder
@@ -394,6 +402,12 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   String rulesChanged(List<String> paths) =>
       'Han cambiado las reglas que Claude lee antes de cada encargo: '
       '${paths.join(', ')}. El encargo sigue.';
+  @override
+  String get enParalelo =>
+      'Otra conversación está trabajando en esta carpeta y voy en paralelo, '
+      'sin esperarla: ojo, que los dos podemos tocar los mismos archivos. '
+      'Además, desde aquí este chat lleva su propio hilo — lo que le cuentes '
+      'al otro ya no lo sé.';
   @override
   String mcpCaido(List<String> servidores) =>
       '${servidores.length == 1 ? 'El servidor' : 'Los servidores'} '
@@ -756,6 +770,12 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   String rulesChanged(List<String> paths) =>
       'The rules Claude reads before every errand have changed: '
       '${paths.join(', ')}. The errand carries on.';
+  @override
+  String get enParalelo =>
+      'Another conversation is working on this folder and I am going in '
+      'parallel, without waiting for it: careful, we can both touch the same '
+      'files. And from here this chat carries its own thread — whatever you '
+      'tell the other one, I no longer know.';
   @override
   String mcpCaido(List<String> servidores) =>
       '${servidores.length == 1 ? 'Server' : 'Servers'} '

@@ -386,4 +386,90 @@ void main() {
 
     expect(claude.pedidos, ['ordena la casa']);
   });
+
+  // 🔴 **Y si lo que escribiste va justo de lo que está haciendo, no hay por
+  // qué esperar.** Reportado así: «si envío un mensaje mientras está haciendo
+  // algo, y eso tiene que ver con lo que está haciendo, no lo toma hasta que no
+  // termina lo anterior».
+  //
+  // Por abajo no se arregla: el CLI **no mete un mensaje en la respuesta que
+  // está escribiendo** —medido contra el binario, se le mandó «para, di solo
+  // ZANAHORIA» a mitad de un cuento y contestó el cuento entero, `turns=1`—.
+  // Lo único que cambia lo que está haciendo es cortarlo.
+  group('decírselo ya', () {
+    test(
+      'lo que espera turno se cuenta, que es lo que permite ofrecerlo',
+      () async {
+        final c = contenedor();
+        final controlador = c.read(assistantControllerProvider(_id).notifier);
+
+        await controlador.submit('ordena la casa');
+        await vueltas();
+        expect(c.read(assistantControllerProvider(_id)).enCola, 0);
+
+        await controlador.submit('mejor empieza por la cocina');
+        await vueltas();
+        expect(c.read(assistantControllerProvider(_id)).enCola, 1);
+      },
+    );
+
+    test('corta lo de ahora y lanza lo tuyo, sin esperar', () async {
+      final c = contenedor();
+      final controlador = c.read(assistantControllerProvider(_id).notifier);
+
+      await controlador.submit('ordena la casa');
+      await vueltas();
+      await controlador.submit('mejor empieza por la cocina');
+      await vueltas();
+
+      await controlador.decirseloAhora();
+      await vueltas();
+
+      expect(claude.pedidos, [
+        'ordena la casa',
+        'mejor empieza por la cocina',
+      ], reason: 'el segundo arranca sin que el primero haya terminado');
+      expect(c.read(assistantControllerProvider(_id)).enCola, 0);
+    });
+
+    // La diferencia con Detener, que es la que importa: aquél tira la cola
+    // porque detener es «para»; este la respeta, porque adelantarla es lo que
+    // se está pidiendo.
+    test('lo dicho a medias se queda, no se tira', () async {
+      final c = contenedor();
+      final controlador = c.read(assistantControllerProvider(_id).notifier);
+
+      await controlador.submit('ordena la casa');
+      await vueltas();
+      await controlador.submit('mejor empieza por la cocina');
+      await vueltas();
+      await controlador.decirseloAhora();
+      await vueltas();
+
+      final escritos = c
+          .read(assistantControllerProvider(_id))
+          .messages
+          .where((m) => m.author == ChatAuthor.user)
+          .map((m) => m.text);
+      expect(escritos, ['ordena la casa', 'mejor empieza por la cocina']);
+    });
+
+    test('sin nada esperando no corta nada', () async {
+      final c = contenedor();
+      final controlador = c.read(assistantControllerProvider(_id).notifier);
+
+      await controlador.submit('ordena la casa');
+      await vueltas();
+
+      await controlador.decirseloAhora();
+      await vueltas();
+
+      expect(
+        c.read(assistantControllerProvider(_id)).isStreaming,
+        isTrue,
+        reason: 'cortar por cortar ya es el botón de detener',
+      );
+      expect(claude.pedidos, ['ordena la casa']);
+    });
+  });
 }

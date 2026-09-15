@@ -1122,6 +1122,16 @@ class AssistantController extends Notifier<AssistantHudState> {
       isStreaming: false,
       errorMessage: ref.read(stringsProvider).elTurnoSeCorto,
     );
+    // 🔴 **Y se escribe, que es lo que faltaba.** El registro se guarda al
+    // terminar un turno, así que un turno que no termina bien se llevaba por
+    // delante todo lo que se había dicho en él: la pregunta y lo que Claude
+    // alcanzó a contestar desaparecían al cerrar la app. Se buscó uno de estos
+    // en el historial para averiguar qué había pasado y no había **ni rastro**
+    // — ni el mensaje que se envió.
+    //
+    // Solo el historial local: es barato e idempotente, y el destino de fuera
+    // cuesta red. Lo que se salvó aquí viaja allí con el turno siguiente.
+    unawaited(_enFila(() => _archive(soloLocal: true)));
     // Y se suelta el encargo: sin esto, lo siguiente que escribas se encola
     // detrás de un turno que ya no está corriendo.
     _elEncargoTermino();
@@ -2091,9 +2101,20 @@ class AssistantController extends Notifier<AssistantHudState> {
     // encolado sin nadie que lo sacara. Y lo que ya estuviera esperando turno
     // sale ahora: lo que quisiste después de lo que falló sigue valiendo.
     //
-    // No pasa por `_afterErrand` a propósito: eso archiva, comprime y avisa de
-    // que ya está, y aquí no ha terminado nada bien.
+    // No pasa por `_afterErrand` a propósito: eso comprime y avisa de que ya
+    // está, y aquí no ha terminado nada bien. Lo hablado sí se guarda, por lo
+    // que dice `_elTurnoSeCorto`: perderlo es lo único que no se arregla luego.
     _elEncargoTermino();
+    // 🔴 **Y se escribe, que es lo que faltaba.** El registro se guarda al
+    // terminar un turno, así que un turno que no termina bien se llevaba por
+    // delante todo lo que se había dicho en él: la pregunta y lo que Claude
+    // alcanzó a contestar desaparecían al cerrar la app. Se buscó uno de estos
+    // en el historial para averiguar qué había pasado y no había **ni rastro**
+    // — ni el mensaje que se envió.
+    //
+    // Solo el historial local: es barato e idempotente, y el destino de fuera
+    // cuesta red. Lo que se salvó aquí viaja allí con el turno siguiente.
+    unawaited(_enFila(() => _archive(soloLocal: true)));
   }
 
   /// Entra en la cuenta de esta carpeta, abriendo el navegador.

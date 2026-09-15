@@ -1082,6 +1082,7 @@ class AssistantController extends Notifier<AssistantHudState> {
         ).listen(
           (event) => switch (event) {
             ClaudeQueued() => _aplicar(event),
+            ClaudeEnParalelo() => _onEnParalelo(),
             ClaudeRulesChanged() => _onRulesChanged(event.paths),
             ClaudeMcpCaido() => _onMcpCaido(event.servidores),
             ClaudeSessionStarted() => _alArrancarLaSesion(event),
@@ -2429,6 +2430,23 @@ class AssistantController extends Notifier<AssistantHudState> {
   }
 
   var _yaLoDijo = false;
+
+  /// Este encargo va a la vez que el de otra conversación sobre la misma
+  /// carpeta.
+  ///
+  /// 🔴 **Se avisa porque hay dos cosas que no se pueden adivinar.** Pedido
+  /// así: «que se pueda trabajar en simultáneo en la misma carpeta, solo
+  /// mostrarle una alerta al usuario de que se le pueden chocar o generar
+  /// conflictos los dos trabajos». Y además de los archivos está lo otro: desde
+  /// aquí este chat lleva su propio hilo, porque dos encargos escribiendo en la
+  /// misma sesión de Claude pierden uno de los dos turnos del historial —medido
+  /// con el binario—.
+  ///
+  /// Como aviso y no como error: no ha fallado nada, y va donde van los avisos
+  /// que se pueden cerrar con un clic.
+  void _onEnParalelo() {
+    state = state.copyWith(notice: ref.read(stringsProvider).enParalelo);
+  }
 
   void _onRulesChanged(List<String> paths) {
     state = state.copyWith(

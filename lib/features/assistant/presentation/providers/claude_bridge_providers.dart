@@ -142,6 +142,10 @@ final askClaudeProvider = Provider.family<AskClaude, String>((
     ref.watch(conversationMemoryProvider),
     ref.watch(folderErrandQueueProvider),
     ref.watch(staysAwakeProvider),
+    // Cuál es esta, que es lo que permite distinguir «la carpeta la tiene
+    // otra conversación» —y entonces se trabaja en paralelo— de «te estás
+    // comprimiendo tú», que solo se puede esperar.
+    conversacion: conversationId,
   );
 });
 

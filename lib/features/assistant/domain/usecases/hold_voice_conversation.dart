@@ -506,6 +506,16 @@ class HoldVoiceConversation {
                   'carpeta.',
                 ),
               );
+            // Y esto sí que hay que decirlo en voz alta: van a tocar los
+            // mismos archivos, y quien habla no está mirando la pantalla donde
+            // sale el aviso.
+            case ClaudeEnParalelo():
+              controller.add(
+                const VoiceToolProgress(
+                  'Aviso: otra conversación está trabajando en esta carpeta. '
+                  'Voy en paralelo, así que podemos pisarnos los archivos.',
+                ),
+              );
             // Hablando, la pantalla puede estar detrás: el mismo motivo por el
             // que la cola se dice en voz alta. Que las reglas del repositorio
             // hayan cambiado desde la última vez es justo lo que no puede

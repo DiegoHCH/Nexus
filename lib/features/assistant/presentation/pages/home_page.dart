@@ -321,6 +321,31 @@ class _HomePageState extends ConsumerState<HomePage> {
                                           ),
                                         ),
                                       ),
+                                      // 🔴 **Adelantar lo que escribiste mientras
+                                      // contestaba.** Solo cuando hay algo
+                                      // esperando: un botón que casi nunca
+                                      // sirve es peor que uno que aparece
+                                      // cuando hace falta — el mismo criterio
+                                      // del «empezar de cero» del aviso.
+                                      if (hud.enCola > 0)
+                                        Tooltip(
+                                          message: context.strings
+                                              .decirseloAhoraTooltip(
+                                                hud.enCola,
+                                              ),
+                                          child: TextButton(
+                                            onPressed:
+                                                controller.decirseloAhora,
+                                            child: Text(
+                                              context.strings.decirseloAhora,
+                                              style: NexusTypography.label
+                                                  .copyWith(
+                                                    color:
+                                                        context.colors.accent,
+                                                  ),
+                                            ),
+                                          ),
+                                        ),
                                       // Detener, al lado y no dentro de la ventana.
                                       //
                                       // Vivía al pie de la lista de pasos, y esa

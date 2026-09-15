@@ -41,64 +41,70 @@ import 'dart:async';
 /// Ahora el turno se pide y se entrega **en el mismo instante** la forma de
 /// soltarlo. Quien lo pide puede ponerla en un `finally` antes de esperar nada,
 /// que es lo único que sobrevive a una cancelación.
+///
+/// ## Y quién lo tiene, no solo si está ocupado
+///
+/// Porque no es lo mismo esperar a **otra** conversación que a la tuya: la
+/// compresión de un chat corre por aquí igual que un encargo, así que «la
+/// carpeta está ocupada» puede significar «te estás comprimiendo tú». Lo
+/// primero se resuelve trabajando en paralelo con un hilo propio; lo segundo
+/// solo se puede esperar, porque es el mismo hilo.
 class FolderErrandQueue {
   FolderErrandQueue();
 
-  /// El último de la fila de cada carpeta: quien llegue detrás espera a esto.
-  final _fila = <String, Future<void>>{};
+  /// Quién está en la fila de cada carpeta, en orden de llegada.
+  final _fila = <String, List<_Puesto>>{};
 
-  /// Cuántos hay dentro o esperando, por carpeta. Es lo que dice si la carpeta
-  /// está ocupada —el último de la fila no sirve para eso: puede ser alguien
-  /// que se fue sin llegar a entrar—.
-  final _cuantos = <String, int>{};
-
-  /// Pide el turno para [folder].
+  /// Pide el turno para [folder]. [de] es la conversación que lo pide.
   ///
   /// - `hayQueEsperar` dice si alguien está delante, para poder contarlo: una
   ///   espera sin explicación se ve igual que un cuelgue.
+  /// - `laTieneOtra` dice si quien está delante es **otra** conversación. Es lo
+  ///   que separa «trabajad en paralelo» de «espera a que acabes tú».
   /// - `cuandoToque` completa cuando le toca.
   /// - `soltar` lo suelta, y hay que llamarlo **siempre**: al terminar, al
   ///   fallar, y también si te vas antes de que te toque. Llamarlo dos veces no
   ///   hace nada.
-  ({bool hayQueEsperar, Future<void> cuandoToque, void Function() soltar})
-  pedirTurno(String folder) {
-    final anterior = _fila[folder];
-    final mio = Completer<void>();
-    _cuantos[folder] = (_cuantos[folder] ?? 0) + 1;
+  ({
+    bool hayQueEsperar,
+    bool laTieneOtra,
+    Future<void> cuandoToque,
+    void Function() soltar,
+  })
+  pedirTurno(String folder, {String? de}) {
+    final puestos = _fila.putIfAbsent(folder, () => []);
+    final delante = [
+      for (final puesto in puestos)
+        if (!puesto.soltado) puesto,
+    ];
+    final mio = _Puesto(de);
+    puestos.add(mio);
 
-    // 🔴 **Lo que hereda el siguiente es «cuando acabe el de delante y después
-    // yo», no «cuando yo acabe».** Con lo segundo, uno que se va mientras
-    // espera adelantaría a los de detrás: soltaría su sitio con el primero
-    // todavía dentro, y el tercero entraría a trabajar sobre la misma carpeta
-    // al mismo tiempo — que es justo lo que esta cola existe para impedir.
-    _fila[folder] = anterior == null
-        ? mio.future
-        : anterior.then((_) => mio.future);
-
-    var soltado = false;
     void soltar() {
-      if (soltado) return;
-      soltado = true;
+      if (mio.soltado) return;
+      mio.soltado = true;
       // Completar es lo que deja pasar al siguiente, y por eso vale igual
       // soltando a mitad de la espera: el de detrás no tiene por qué esperar a
       // un turno que su dueño ya abandonó.
-      if (!mio.isCompleted) mio.complete();
-      final quedan = (_cuantos[folder] ?? 1) - 1;
-      if (quedan > 0) {
-        _cuantos[folder] = quedan;
-        return;
-      }
-      // El último apaga la luz: si no, estos mapas acumulan una entrada por
-      // cada carpeta que se haya usado en la vida de la app.
-      _cuantos.remove(folder);
-      _fila.remove(folder);
+      if (!mio.suTurno.isCompleted) mio.suTurno.complete();
+      // El último apaga la luz: si no, este mapa acumula una entrada por cada
+      // carpeta que se haya usado en la vida de la app.
+      if (puestos.every((puesto) => puesto.soltado)) _fila.remove(folder);
     }
 
     return (
-      hayQueEsperar: anterior != null,
-      // Esperar al anterior, pase lo que pase con él: si el encargo de la otra
+      hayQueEsperar: delante.isNotEmpty,
+      laTieneOtra: delante.any((puesto) => puesto.de != de),
+      // A **todos** los que están delante, no solo al último: uno que se va a
+      // mitad de la espera no puede adelantar a los de detrás, o entrarían con
+      // el primero todavía dentro — dos encargos a la vez sobre la misma
+      // sesión, que es justo lo que esta cola existe para impedir.
+      //
+      // Y se espera pase lo que pase con ellos: si el encargo de la otra
       // conversación revienta, el siguiente tiene que entrar igual.
-      cuandoToque: anterior ?? Future<void>.value(),
+      cuandoToque: Future.wait([
+        for (final puesto in delante) puesto.suTurno.future,
+      ]),
       soltar: soltar,
     );
   }
@@ -107,5 +113,17 @@ class FolderErrandQueue {
   /// Sirve para poder decirlo en pantalla y para las pruebas: dentro de un
   /// encargo, lo que dice si había cola es `hayQueEsperar`, que se contesta sin
   /// carreras.
-  bool isBusy(String folder) => _cuantos.containsKey(folder);
+  bool isBusy(String folder) => _fila.containsKey(folder);
+}
+
+/// Un sitio en la fila de una carpeta: de quién es y si ya lo soltó.
+class _Puesto {
+  _Puesto(this.de);
+
+  /// La conversación que lo pidió. `null` cuando quien lo pide no dice cuál es
+  /// —la agenda, una prueba—, y entonces cuenta como una más.
+  final String? de;
+
+  final suTurno = Completer<void>();
+  var soltado = false;
 }

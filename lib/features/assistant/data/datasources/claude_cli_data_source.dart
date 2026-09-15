@@ -48,6 +48,7 @@ class ClaudeCliDataSource {
     required String permissionMode,
     List<String> extraDirectories = const [],
     String? resumeSessionId,
+    bool forkSession = false,
     String? appendSystemPrompt,
     String? configDir,
     String? model,
@@ -81,6 +82,7 @@ class ClaudeCliDataSource {
         permissionMode: permissionMode,
         extraDirectories: extraDirectories,
         resumeSessionId: resumeSessionId,
+        forkSession: forkSession,
         appendSystemPrompt: appendSystemPrompt,
         configDir: configDir,
         model: model,
@@ -102,6 +104,7 @@ class ClaudeCliDataSource {
     required String permissionMode,
     List<String> extraDirectories = const [],
     String? resumeSessionId,
+    bool forkSession = false,
     String? appendSystemPrompt,
     String? configDir,
     String? model,
@@ -151,7 +154,17 @@ class ClaudeCliDataSource {
         permissionMode,
         // Con esto Claude recuerda lo de antes; sin esto, cada encargo empieza
         // de cero y no sabe ni lo que hizo hace un minuto.
-        if (resumeSessionId != null) ...['--resume', resumeSessionId],
+        if (resumeSessionId != null) ...[
+          '--resume',
+          resumeSessionId,
+          // 🔴 **Bifurcar en vez de escribir en el mismo hilo.** Es lo que
+          // permite que dos conversaciones trabajen a la vez sobre la misma
+          // carpeta: se lleva el contexto hasta aquí y a partir de ahora
+          // escribe en una sesión propia. Sin esto, dos `--resume` a la vez
+          // sobre la misma sesión contestan bien los dos y después **solo
+          // consta uno** — medido con el binario.
+          if (forkSession) '--fork-session',
+        ],
         // Las reglas del árbol y el contexto del repo, repetidos aquí a
         // propósito. Claude ya carga los CLAUDE.md por su cuenta, pero los
         // aplica todos al mismo nivel: sin esto, el protocolo de la carpeta de

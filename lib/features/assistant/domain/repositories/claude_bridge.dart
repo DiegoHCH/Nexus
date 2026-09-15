@@ -16,6 +16,11 @@ abstract class ClaudeBridge {
     List<String> extraDirectories,
     String? resumeSessionId,
 
+    /// Reanudar [resumeSessionId] **en un hilo nuevo** en vez de escribir en
+    /// él. Es lo que permite que dos conversaciones trabajen a la vez sobre la
+    /// misma carpeta sin que una borre el turno de la otra del historial.
+    bool forkSession,
+
     /// El `CLAUDE_CONFIG_DIR` con el que trabajar: es lo que decide **con qué
     /// cuenta** corre el encargo.
     String? claudeProfile,

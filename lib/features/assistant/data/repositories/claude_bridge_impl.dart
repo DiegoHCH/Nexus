@@ -69,6 +69,7 @@ class ClaudeBridgeImpl implements ClaudeBridge {
     required bool canEdit,
     List<String> extraDirectories = const [],
     String? resumeSessionId,
+    bool forkSession = false,
     String? claudeProfile,
     String? model,
     String? effort,
@@ -196,6 +197,10 @@ class ClaudeBridgeImpl implements ClaudeBridge {
             artifactsFolder,
         ],
         resumeSessionId: resumeSessionId,
+        // Solo tiene sentido reanudando: el CLI lo dice —«only works with
+        // --resume or --continue»— y sin sesión que bifurcar no hay hilo nuevo
+        // que crear, ya es uno.
+        forkSession: forkSession && resumeSessionId != null,
         configDir: claudeProfile,
         model: model,
         effort: effort,

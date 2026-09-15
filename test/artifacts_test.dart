@@ -234,6 +234,7 @@ class _SpyCli implements ClaudeCliDataSource {
     required String permissionMode,
     List<String> extraDirectories = const [],
     String? resumeSessionId,
+    bool forkSession = false,
     String? appendSystemPrompt,
     String? configDir,
     String? model,

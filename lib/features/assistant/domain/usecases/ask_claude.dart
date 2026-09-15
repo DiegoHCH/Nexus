@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:nexus/features/assistant/domain/entities/claude_event.dart';
 import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart';
 import 'package:nexus/features/assistant/domain/repositories/claude_bridge.dart';
@@ -114,11 +115,34 @@ class AskClaude {
       // Turno para esta carpeta. Si la otra conversación sigue trabajando sobre
       // ella, se avisa antes de esperar: quedarse callado mientras llega el turno
       // se ve exactamente igual que estar colgado.
-      if (_queue.isBusy(folder)) {
-        yield const ClaudeQueued();
-      }
-      final release = await _queue.acquire(folder);
+      //
+      // 🔴 **El turno se pide antes de esperarlo, y por eso el `try` empieza
+      // aquí arriba.** Ver [FolderErrandQueue]: esperando el turno es donde se
+      // cancela un encargo —se cierra la conversación, se detiene, se empieza
+      // de cero— y si la forma de soltarlo llegara al final de la espera, esa
+      // cancelación dejaría la carpeta tomada para siempre, para todas las
+      // conversaciones.
+      final turno = _queue.pedirTurno(folder);
       try {
+        if (turno.hayQueEsperar) {
+          yield const ClaudeQueued();
+        }
+        // 🔴 **La espera va dentro de un `yield*` y no de un `await`.**
+        //
+        // Cancelar una suscripción solo se entrega donde el generador puede
+        // parar —un `yield`—, y esperar turno puede ser minutos. Con un `await`
+        // el encargo cancelado mientras esperaba no se enteraba: seguía en la
+        // cola, y al llegarle el turno **arrancaba su `claude -p`** para
+        // tirarlo tres segundos después. Medido con el escenario reportado
+        // —dos conversaciones sobre la misma carpeta y «empezar de cero»—: tras
+        // cancelar el segundo, al puente le llegaba igual «lo de B».
+        //
+        // Y de paso arregla el otro lado de lo mismo: con el `await`, cancelar
+        // se quedaba pendiente hasta que la otra conversación terminara, que es
+        // por lo que `stopWork` tuvo que dejar de esperar a su propia
+        // cancelación. Ahora corre el `finally` de aquí abajo en el momento, y
+        // el turno se suelta ya.
+        yield* _mientras(turno.cuandoToque);
         // La memoria va **por carpeta**, no por conversación: es la regla del
         // producto. Dos chats sobre el mismo repo comparten contexto —reanudan
         // la misma sesión de Claude— y dos sobre repos distintos no se enteran el
@@ -208,17 +232,19 @@ class AskClaude {
           // `--resume` simultáneos no se pierdan un turno de la sesión, y con
           // el `result` ya emitido este proceso no va a escribir más en ella.
           // Lo que queda por hacer es apagar hijos, que no toca la sesión.
-          if (event is ClaudeTurnCompleted || event is ClaudeFailed) release();
+          if (event is ClaudeTurnCompleted || event is ClaudeFailed) {
+            turno.soltar();
+          }
         }
       } finally {
         // Y aquí también, que es el otro final: un encargo cancelado —cerrar la
         // conversación a media ejecución— no llega a emitir final ninguno, y no
         // soltar el turno dejaría la carpeta bloqueada para siempre.
         //
-        // Llamarlo dos veces es gratis y está previsto: `release` se guarda con
-        // su propio `released` justo para poder ponerlo en los dos sitios sin
+        // Llamarlo dos veces es gratis y está previsto: `soltar` se guarda con
+        // su propio `soltado` justo para poder ponerlo en los dos sitios sin
         // pensar en cuál llegó primero.
-        release();
+        turno.soltar();
       }
     } finally {
       // Lo mismo pero peor si se olvida: una petición al sistema que no se
@@ -226,6 +252,17 @@ class AskClaude {
       // desde fuera eso no se parece a un fallo de esta app.
       awake();
     }
+  }
+
+  /// Un flujo que no dice nada y se cierra cuando pasa [esto].
+  ///
+  /// Es la forma de esperar **dentro** de un generador sin perder la
+  /// cancelación: un `await` no es un punto donde se pueda parar, y un `yield*`
+  /// sí.
+  static Stream<ClaudeEvent> _mientras(Future<void> esto) {
+    final control = StreamController<ClaudeEvent>();
+    unawaited(esto.whenComplete(control.close));
+    return control.stream;
   }
 
   /// El mismo diálogo, con una nota al margen: si lo que se concedió cambia el

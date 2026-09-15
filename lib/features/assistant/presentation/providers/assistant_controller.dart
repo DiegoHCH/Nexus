@@ -1544,7 +1544,15 @@ class AssistantController extends Notifier<AssistantHudState> {
   /// ofrece el último: son las notas de la misma tarea y el botón lleva a la
   /// carpeta igual, con el resto al lado.
   Future<void> _mirarSiHayDocumento() async {
-    final documento = await _loQueDejo.elDocumentoNuevo();
+    // 🔴 **Con lo que hizo este turno delante.** Ver [LoQueDejoElEncargo]: el
+    // cajón de documentos es uno solo para todas las conversaciones, así que
+    // restar fotos dice que apareció algo pero no de quién es — y lo que otra
+    // conversación escribiera mientras esta terminaba se colgaba aquí.
+    final documento = await _loQueDejo.elDocumentoNuevo(
+      loQueHizoElTurno: [
+        for (final paso in state.activity) ...[?paso.detail, ?paso.output],
+      ],
+    );
     if (documento == null || !_vive) return;
     _sellarEnElMensaje(documento: documento);
   }

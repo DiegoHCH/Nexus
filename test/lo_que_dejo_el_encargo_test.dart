@@ -120,6 +120,81 @@ void main() {
     expect(await deLaConversacion(c).elDocumentoNuevo(), isNull);
   });
 
+  // 🔴 **El documento es de quien lo escribió.** Reportado con la pantalla
+  // delante: «el documento me salió en la conversación donde no lo pedí» — un
+  // HTML de tareas de Jira colgado de una respuesta sobre widgets. El cajón es
+  // uno para todas las conversaciones: lo que escriba otra mientras esta
+  // termina su turno cae dentro de la resta.
+  test(
+    'un documento que escribió otra conversación no se cuelga aquí',
+    () async {
+      final c = contenedor([
+        ['/cajon/viejo.html'],
+        ['/cajon/viejo.html', '/cajon/tareas-jira.html'],
+      ]);
+      final dejo = deLaConversacion(c);
+      await dejo.tomaLaMarca(null);
+
+      expect(
+        await dejo.elDocumentoNuevo(
+          loQueHizoElTurno: const [
+            '/Users/alguien/repo/lib/credit_term_selector_widget.dart',
+            'Applied 2 edits to credit_term_selector_widget.dart',
+          ],
+        ),
+        isNull,
+        reason: 'este turno tocó widgets, no escribió ningún documento',
+      );
+    },
+  );
+
+  test('el que sí escribió este turno se cuelga igual', () async {
+    final c = contenedor([
+      ['/cajon/viejo.html'],
+      ['/cajon/viejo.html', '/cajon/informe.html'],
+    ]);
+    final dejo = deLaConversacion(c);
+    await dejo.tomaLaMarca(null);
+
+    expect(
+      await dejo.elDocumentoNuevo(
+        loQueHizoElTurno: const ['/cajon/informe.html'],
+      ),
+      '/cajon/informe.html',
+    );
+  });
+
+  // Escrito a mano desde la terminal de Claude: la ruta está en el comando, que
+  // es rastro suficiente.
+  test('vale también el escrito con un comando', () async {
+    final c = contenedor([
+      [],
+      ['/cajon/a-mano.html'],
+    ]);
+    final dejo = deLaConversacion(c);
+    await dejo.tomaLaMarca(null);
+
+    expect(
+      await dejo.elDocumentoNuevo(
+        loQueHizoElTurno: const ['cat > /cajon/a-mano.html <<EOF'],
+      ),
+      '/cajon/a-mano.html',
+    );
+  });
+
+  // Hablando no hay pasos de herramientas que mirar, y quedarse sin enseñar el
+  // documento sería perder el enlace.
+  test('sin rastro de herramientas se cuelga lo de siempre', () async {
+    final c = contenedor([
+      ['/cajon/viejo.html'],
+      ['/cajon/viejo.html', '/cajon/nuevo.html'],
+    ]);
+    final dejo = deLaConversacion(c);
+    await dejo.tomaLaMarca(null);
+
+    expect(await dejo.elDocumentoNuevo(), '/cajon/nuevo.html');
+  });
+
   test('si no hay nada nuevo, no hay documento', () async {
     final c = contenedor([
       ['/cajon/viejo.html'],

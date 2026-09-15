@@ -81,10 +81,11 @@ class _SinMemoria implements ConversationMemory {
   }) async {}
 }
 
-class _SinAlmacen implements LocalConversationStore {
-  const _SinAlmacen();
+/// El historial de la app, apuntando lo que le mandan guardar.
+class _ElAlmacen implements LocalConversationStore {
+  final guardados = <ConversationRecord>[];
   @override
-  Future<void> save(ConversationRecord record) async {}
+  Future<void> save(ConversationRecord record) async => guardados.add(record);
   @override
   Future<List<ConversationSummary>> list(String folderPath) async => const [];
   @override
@@ -104,15 +105,17 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   late _ClaudeQueSeVa claude;
+  late _ElAlmacen almacen;
 
   ProviderContainer contenedor() {
     claude = _ClaudeQueSeVa();
+    almacen = _ElAlmacen();
     final c = ProviderContainer(
       overrides: [
         conversationFolderProvider(_id).overrideWithValue(_carpeta),
         conversationMemoryProvider.overrideWithValue(const _SinMemoria()),
         workspaceControllerProvider.overrideWith(_Espacio.new),
-        localConversationStoreProvider.overrideWithValue(const _SinAlmacen()),
+        localConversationStoreProvider.overrideWithValue(almacen),
         conversationArchiveProvider.overrideWith((ref) async => null),
         askClaudeProvider(_id).overrideWithValue(claude),
       ],
@@ -158,5 +161,26 @@ void main() {
     await vueltas();
 
     expect(claude.pedidos, ['haz algo', 'y ahora esto']);
+  });
+
+  // 🔴 La tercera mitad, y la que dejó un fallo sin pruebas: el registro se
+  // escribe **al terminar un turno**, así que el turno que no terminaba bien se
+  // llevaba consigo todo lo hablado en él. Se fue a buscar uno de estos al
+  // historial para averiguar qué había pasado y no había ni el mensaje que se
+  // envió.
+  test('lo que se dijo en el turno cortado queda guardado', () async {
+    final c = contenedor();
+
+    await c.read(assistantControllerProvider(_id).notifier).submit('haz algo');
+    await vueltas();
+
+    expect(almacen.guardados, isNotEmpty, reason: 'sin esto no queda rastro');
+    final textos = almacen.guardados.last.messages.map((m) => m.text).toList();
+    expect(textos, contains('haz algo'));
+    expect(
+      textos.any((t) => t.contains('mockito-freeze')),
+      isTrue,
+      reason: 'lo que alcanzó a decir también es lo hablado',
+    );
   });
 }

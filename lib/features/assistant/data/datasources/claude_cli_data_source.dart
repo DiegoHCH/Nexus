@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:nexus/core/platform/herramienta_externa.dart';
 import 'package:nexus/core/platform/claude_environment.dart';
+import 'package:nexus/features/assistant/data/datasources/el_final_de_la_salida.dart';
 import 'package:nexus/features/assistant/data/datasources/la_salida_que_se_cancela.dart';
 import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart';
 
@@ -252,9 +253,15 @@ class ClaudeCliDataSource {
         .asFuture<void>();
 
     try {
-      final lines = process.stdout
-          .transform(utf8.decoder)
-          .transform(const LineSplitter());
+      // 🔴 **El final lo marca el proceso, no la pipa.** Ver
+      // [ElFinalDeLaSalida]: los servidores MCP heredan esta salida y le
+      // sobreviven, así que esperar a que se cierre sola es esperar a un
+      // huérfano. Sin esto, un CLI que se muere antes del `result` dejaba el
+      // turno girando para siempre y sin un proceso vivo al que culpar.
+      final lines = ElFinalDeLaSalida.cuandoMuera(
+        process.stdout.transform(utf8.decoder).transform(const LineSplitter()),
+        process.exitCode,
+      );
       await for (final line in lines) {
         if (line.trim().isEmpty) continue;
         final decoded = ClaudeCliDataSource.comoJson(line);
@@ -302,8 +309,15 @@ class ClaudeCliDataSource {
         }
       }
 
-      await stderrDone;
+      // Primero el proceso y después su stderr, y no al revés: `exitCode`
+      // llega siempre —lo resuelve el sistema al morir el hijo, no la pipa—,
+      // mientras que el stderr lo puede estar sujetando un nieto. Esperarlo
+      // sin tope era el mismo cuelgue por la otra salida.
       final exitCode = await process.exitCode;
+      await Future.any([
+        stderrDone,
+        Future<void>.delayed(ElFinalDeLaSalida.gracia),
+      ]);
       // 🔴 **Lo que matamos nosotros no es un fallo del encargo.** El `result`
       // ya salió por arriba —es lo último que hay que entregar— y solo después
       // se le cierra el stdin y, si no sale en diez segundos, se le remata con

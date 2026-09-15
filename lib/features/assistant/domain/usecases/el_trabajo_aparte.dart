@@ -102,6 +102,66 @@ abstract final class ElTrabajoAparte {
   /// conversación.
   static const tope = 200;
 
+  /// Los caracteres con los que se dibuja una cenefa.
+  ///
+  /// De caja y el `=` de toda la vida. El guion corriente **no** está: una
+  /// línea de guiones es cualquier cosa —una tabla, un separador, un diff— y
+  /// confundirla con un marco escondería la salida de verdad.
+  static const _deCenefa = {'═', '━', '─', '╌', '='};
+
+  /// Si esta línea es una cenefa: solo de esas, y lo bastante larga como para
+  /// que sea un marco y no un empate de dos signos.
+  static bool esCenefa(String linea) {
+    final limpia = linea.trim();
+    if (limpia.length < 8) return false;
+    return limpia.split('').every(_deCenefa.contains);
+  }
+
+  /// Cuántas líneas caben entre dos cenefas del mismo marco.
+  ///
+  /// Un resumen cabe en una pantalla. Si entre dos cenefas hay más que esto,
+  /// la de arriba es de otra cosa —el banner de un paso anterior— y el marco
+  /// empieza más abajo.
+  static const dentroDelMarco = 40;
+
+  /// Lo que se enseña en el chat de todo lo que dijo.
+  ///
+  /// 🔴 **El resumen enmarcado y nada más, cuando lo hay.** Pedido así: «quiero
+  /// que la respuesta del /gate make check solo imprima esto en el chat … el
+  /// resto no». Y tiene razón: un `make check` escupe miles de líneas de las
+  /// que ya se leyó la última —el veredicto— y pegar doscientas en la
+  /// conversación entierra lo que se preguntó.
+  ///
+  /// Lo que no cambia es **lo que se guarda**: al marco de trabajo le sigue
+  /// yendo la salida entera, que es la evidencia. Aquí se decide qué se lee,
+  /// no qué se conserva.
+  ///
+  /// Sin marco se enseña lo de siempre —las últimas líneas—, porque entonces
+  /// no hay nada mejor que enseñar.
+  static String loQueSeEnsena(String salida) {
+    final lineas = salida.split('\n');
+    final cenefas = [
+      for (var i = 0; i < lineas.length; i++)
+        if (esCenefa(lineas[i])) i,
+    ];
+    if (cenefas.length < 2) return salida;
+
+    // Del final hacia atrás: el resumen es lo último que se dijo.
+    final fin = cenefas.last;
+    var inicio = fin;
+    for (final cenefa in cenefas.reversed.skip(1)) {
+      if (inicio - cenefa > dentroDelMarco + 1) break;
+      inicio = cenefa;
+    }
+    if (inicio == fin) return salida;
+
+    // Un marco vacío no es un resumen: son dos rayas seguidas.
+    final dentro = lineas.sublist(inicio + 1, fin);
+    if (dentro.every((l) => l.trim().isEmpty)) return salida;
+
+    return lineas.sublist(inicio, fin + 1).join('\n');
+  }
+
   /// Cómo acabó, en una línea para el chat.
   static String elVeredicto(int codigo) =>
       codigo == 0 ? 'terminó bien' : 'terminó con código $codigo';

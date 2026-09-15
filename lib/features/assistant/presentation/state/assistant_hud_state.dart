@@ -113,6 +113,7 @@ class AssistantHudState {
     this.notice,
     this.puedeEmpezarDeCero = false,
     this.changes,
+    this.enCola = 0,
   });
 
   final NexusOrbState orbState;
@@ -176,6 +177,18 @@ class AssistantHudState {
   /// «qué acaba de hacer» sería buscar una aguja en lo que ya diste por bueno.
   final GitChanges? changes;
 
+  /// Cuántos mensajes escribiste mientras contestaba y están esperando turno.
+  ///
+  /// 🔴 **Está en el estado para poder ofrecer adelantarlos.** Reportado así:
+  /// «si envío un mensaje mientras está haciendo algo, y eso tiene que ver con
+  /// lo que está haciendo, no lo toma hasta que no termina lo anterior». Y es
+  /// cierto y no se puede arreglar por abajo: el CLI **no mete un mensaje en la
+  /// respuesta que está escribiendo** —medido: se lo guarda para el turno
+  /// siguiente y contesta a lo primero como si nada—. Lo que sí se puede es
+  /// cortar lo que está haciendo y pasar a lo tuyo, y para ofrecerlo hay que
+  /// saber que hay algo esperando.
+  final int enCola;
+
   AssistantHudState copyWith({
     NexusOrbState? orbState,
     String? subtitle,
@@ -190,6 +203,7 @@ class AssistantHudState {
     Object? notice = _unset,
     bool? puedeEmpezarDeCero,
     Object? changes = _unset,
+    int? enCola,
   }) {
     return AssistantHudState(
       orbState: orbState ?? this.orbState,
@@ -207,6 +221,7 @@ class AssistantHudState {
       notice: notice == _unset ? this.notice : notice as String?,
       puedeEmpezarDeCero: puedeEmpezarDeCero ?? this.puedeEmpezarDeCero,
       changes: changes == _unset ? this.changes : changes as GitChanges?,
+      enCola: enCola ?? this.enCola,
     );
   }
 }

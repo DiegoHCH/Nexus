@@ -1031,6 +1031,9 @@ class AssistantController extends Notifier<AssistantHudState> {
           loQueSeVe: loQueSeVe,
         ),
       );
+      // Y se cuenta, que es lo que permite ofrecer adelantarlo. Ver
+      // [AssistantHudState.enCola] y [decirseloAhora].
+      state = state.copyWith(enCola: _enCola.length);
       return;
     }
 
@@ -1721,6 +1724,7 @@ class AssistantController extends Notifier<AssistantHudState> {
     _subscription = null;
     if (_enCola.isEmpty) return;
     final siguiente = _enCola.removeAt(0);
+    state = state.copyWith(enCola: _enCola.length);
     unawaited(
       submit(
         siguiente.instruction,
@@ -2333,6 +2337,49 @@ class AssistantController extends Notifier<AssistantHudState> {
   }
 
   /// Detiene lo que esté en curso, venga de la voz o del teclado. Es el
+  /// Corta lo que está haciendo y pasa ya a lo que escribiste mientras tanto.
+  ///
+  /// 🔴 **Reportado así:** «si envío un mensaje mientras está haciendo algo, y
+  /// eso tiene que ver con lo que está haciendo, no lo toma hasta que no
+  /// termina lo anterior».
+  ///
+  /// Y por abajo no se puede arreglar: **el CLI no mete un mensaje en la
+  /// respuesta que está escribiendo**. Medido contra el binario — se le mandó
+  /// «para, di solo ZANAHORIA» a mitad de un cuento y contestó el cuento
+  /// entero, `turns=1`, sin rastro de lo nuevo; lo guarda para el turno
+  /// siguiente. Así que lo único que cambia lo que está haciendo es cortarlo.
+  ///
+  /// Lo que se pierde es **el mensaje a medio escribir y nada más**: lo que ya
+  /// hizo con herramientas sigue en la sesión, y el encargo nuevo la reanuda.
+  /// Medido las dos formas —matando el proceso y con el `interrupt` del
+  /// protocolo— y las dos dejan la sesión igual de reanudable, así que se hace
+  /// con lo que ya había.
+  ///
+  /// **Se distingue de [stopWork] en una cosa y es la que importa**: aquél tira
+  /// la cola porque detener es «para»; este la respeta, porque adelantarla es
+  /// justo lo que se está pidiendo.
+  Future<void> decirseloAhora() async {
+    // Sin nada esperando no hay nada que adelantar, y cortar por cortar es lo
+    // que ya hace el botón de detener.
+    if (_enCola.isEmpty) return;
+    final enVuelo = _subscription;
+    if (enVuelo == null) return;
+
+    // Lo dicho hasta aquí se queda como está: es media respuesta, pero es la
+    // que hay, y tirarla sería esconder lo que sí se hizo.
+    _sealLast();
+    _subscription = null;
+    // Por lo mismo que en `stopWork`: lo que puede tener parado al generador es
+    // un permiso sin contestar, y negarlo es lo que suelta ese `await`.
+    _cancelarPermisos();
+    state = state.copyWith(orbState: NexusOrbState.sleep, isStreaming: false);
+    // Sin esperarla, igual que allí: cancelar espera al generador y el botón
+    // tiene que responder ya. Su `finally` mata el proceso por detrás.
+    unawaited(enVuelo.cancel());
+    // Y sale el siguiente de la cola, que es el mensaje por el que se pulsó.
+    _elEncargoTermino();
+  }
+
   /// «Detener ⌘.» del diseño: un encargo puede durar minutos y quedarse sin
   /// salida visible sería lo peor que puede pasarte.
   Future<void> stopWork() async {
@@ -2347,6 +2394,7 @@ class AssistantController extends Notifier<AssistantHudState> {
     // cola viva haría que al soltar el botón arrancara solo lo siguiente, que
     // es lo contrario de lo que se acaba de pedir.
     _enCola.clear();
+    state = state.copyWith(enCola: 0);
 
     // 🔴 **El estado primero, y la cancelación sin esperarla.**
     //

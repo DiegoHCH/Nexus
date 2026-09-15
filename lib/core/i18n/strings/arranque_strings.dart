@@ -99,6 +99,11 @@ mixin ArranqueStrings {
   /// capricho, es que dos encargos escribiendo en la misma sesión de Claude
   /// pierden uno de los dos turnos del historial.
   String get enParalelo;
+
+  /// El botón que corta lo que está haciendo para pasar ya a lo que escribiste
+  /// mientras tanto, y lo que explica por qué existe.
+  String get decirseloAhora;
+  String decirseloAhoraTooltip(int cuantos);
   String mcpCaido(List<String> servidores);
 
   /// El interruptor del visor de documentos. Un documento nace sin poder
@@ -408,6 +413,14 @@ mixin ArranqueStringsEs implements ArranqueStrings {
       'sin esperarla: ojo, que los dos podemos tocar los mismos archivos. '
       'Además, desde aquí este chat lleva su propio hilo — lo que le cuentes '
       'al otro ya no lo sé.';
+  @override
+  String get decirseloAhora => 'Decírselo ya';
+  @override
+  String decirseloAhoraTooltip(int cuantos) => cuantos == 1
+      ? 'Corta lo que está haciendo y pasa ya a tu mensaje. Se pierde la '
+            'respuesta a medias; lo que ya hizo, no.'
+      : 'Corta lo que está haciendo y pasa ya a tus $cuantos mensajes. Se '
+            'pierde la respuesta a medias; lo que ya hizo, no.';
   @override
   String mcpCaido(List<String> servidores) =>
       '${servidores.length == 1 ? 'El servidor' : 'Los servidores'} '
@@ -776,6 +789,14 @@ mixin ArranqueStringsEn implements ArranqueStrings {
       'parallel, without waiting for it: careful, we can both touch the same '
       'files. And from here this chat carries its own thread — whatever you '
       'tell the other one, I no longer know.';
+  @override
+  String get decirseloAhora => 'Tell it now';
+  @override
+  String decirseloAhoraTooltip(int cuantos) => cuantos == 1
+      ? 'Cuts what it is doing and moves on to your message. The half-written '
+            'answer is lost; what it already did is not.'
+      : 'Cuts what it is doing and moves on to your $cuantos messages. The '
+            'half-written answer is lost; what it already did is not.';
   @override
   String mcpCaido(List<String> servidores) =>
       '${servidores.length == 1 ? 'Server' : 'Servers'} '

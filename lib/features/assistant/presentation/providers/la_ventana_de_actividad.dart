@@ -13,6 +13,21 @@ import 'package:path_provider/path_provider.dart';
 
 final laVentanaDeActividadProvider = Provider(LaVentanaDeActividad.new);
 
+/// Cómo se pinta y se abre una ventana del visor, como un dato.
+///
+/// La misma costura que los lanzadores de procesos del punto 3 del repaso: sin
+/// ella, comprobar **cuándo se pide abrir** pediría un canal nativo y una
+/// ventana de verdad — y lo que se rompe aquí es justo eso, cuándo se pide.
+typedef PintarLaVentana =
+    Future<bool> Function({
+      required String raiz,
+      required String nombre,
+      required String html,
+      required bool primeraVez,
+      double ancho,
+      double alto,
+    });
+
 /// Abre lo que está haciendo el encargo **en una ventana aparte**.
 ///
 /// Esto empezó siendo un diálogo dentro de la app, y estaba mal: un diálogo se
@@ -26,9 +41,12 @@ final laVentanaDeActividadProvider = Provider(LaVentanaDeActividad.new);
 /// archivo y se recarga solo, la de un encargo en curso **avanza sola** sin que
 /// haya que sincronizar nada.
 class LaVentanaDeActividad {
-  LaVentanaDeActividad(this._ref);
+  LaVentanaDeActividad(this._ref, {this.pinta = VentanaDelVisor.pinta});
 
   final Ref _ref;
+
+  /// Con qué se escribe y se abre. Ver [PintarLaVentana].
+  final PintarLaVentana pinta;
 
   /// A qué conversaciones se les está repintando la ventana. Una por
   /// conversación: la ruta es estable, así que reescribirla actualiza la que ya
@@ -59,9 +77,19 @@ class LaVentanaDeActividad {
   /// El encargo en curso, avanzando en su ventana.
   Future<void> seguir(String conversationId) async {
     _atiendeElParar();
-    final primeraVez = !_siguiendo.containsKey(conversationId);
-    await _pinta(conversationId, primeraVez: primeraVez);
-    if (!primeraVez) return;
+    final yaSeSeguia = _siguiendo.containsKey(conversationId);
+    // 🔴 **Pulsar el botón abre, siempre.** Antes `primeraVez` quería decir «la
+    // primera vez de esta conversación», así que en cuanto **cerrabas** la
+    // ventana el botón se quedaba muerto: nadie se entera de que la cerraste
+    // —es una ventana del sistema, no nuestra— y a partir de ahí el botón solo
+    // reescribía el archivo. Reportado tal cual: «abrí el paso a paso, lo cerré,
+    // y ahora le doy y no puedo abrirlo».
+    //
+    // Abrir la que ya está abierta no molesta: el visor la trae al frente, que
+    // es lo que quiere quien la busca debajo de otras ventanas. Lo que sigue
+    // distinguiéndose es el **repintado automático**, que no abre nada.
+    await _pinta(conversationId, primeraVez: true);
+    if (yaSeSeguia) return;
 
     // 🔴 **Se escucha por el contenedor, no con `watch`.** Esto no es un widget:
     // nadie lo reconstruye, así que la suscripción se abre a mano y se guarda —
@@ -126,7 +154,7 @@ class LaVentanaDeActividad {
     final soporte = await getApplicationSupportDirectory();
     final s = _ref.read(stringsProvider);
 
-    await VentanaDelVisor.pinta(
+    await pinta(
       raiz: soporte.path,
       nombre: nombre,
       primeraVez: primeraVez,

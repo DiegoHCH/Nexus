@@ -109,12 +109,27 @@ abstract final class ElTrabajoAparte {
   /// confundirla con un marco escondería la salida de verdad.
   static const _deCenefa = {'═', '━', '─', '╌', '='};
 
-  /// Si esta línea es una cenefa: solo de esas, y lo bastante larga como para
-  /// que sea un marco y no un empate de dos signos.
-  static bool esCenefa(String linea) {
+  /// Si esta línea es una cenefa: solo de esas, lo bastante larga como para que
+  /// sea un marco y no un empate de dos signos, y **de un solo carácter**.
+  ///
+  /// 🔴 **Lo de un solo carácter es un arreglo, no una elegancia.** Un marco se
+  /// dibuja con una tecla repetida; mezclando caracteres lo que hay es otra
+  /// cosa. Y hace falta para lo de abajo: ver [elCaracterDe].
+  static bool esCenefa(String linea) => elCaracterDe(linea) != null;
+
+  /// Con qué carácter está dibujada esta cenefa, o `null` si no lo es.
+  ///
+  /// 🔴 **Porque dos rayas distintas no son el mismo marco.** Reportado con la
+  /// salida delante: encima del resumen del `check` venía la línea de cobertura
+  /// del gate, enmarcada con `─`, y como estaba a tres líneas del `═` del
+  /// resumen entraba dentro — «está saliendo esto y solo te pedí lo de la parte
+  /// inferior».
+  static String? elCaracterDe(String linea) {
     final limpia = linea.trim();
-    if (limpia.length < 8) return false;
-    return limpia.split('').every(_deCenefa.contains);
+    if (limpia.length < 8) return null;
+    final primero = limpia[0];
+    if (!_deCenefa.contains(primero)) return null;
+    return limpia.split('').every((c) => c == primero) ? primero : null;
   }
 
   /// Cuántas líneas caben entre dos cenefas del mismo marco.
@@ -148,8 +163,12 @@ abstract final class ElTrabajoAparte {
 
     // Del final hacia atrás: el resumen es lo último que se dijo.
     final fin = cenefas.last;
+    // Y con **su** carácter: una raya de otra clase es otro marco, aunque esté
+    // pegada. Es lo que dejaba entrar la línea de cobertura del gate.
+    final caracter = elCaracterDe(lineas[fin]);
     var inicio = fin;
     for (final cenefa in cenefas.reversed.skip(1)) {
+      if (elCaracterDe(lineas[cenefa]) != caracter) break;
       if (inicio - cenefa > dentroDelMarco + 1) break;
       inicio = cenefa;
     }

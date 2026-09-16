@@ -41,6 +41,30 @@ void main() {
     expect(ElTrabajoAparte.loQueSeEnsena(salida), conFallo);
   });
 
+  // 🔴 **Lo que salió en pantalla después de la primera versión:** encima del
+  // resumen viene la cobertura del gate, enmarcada con `─`, y como estaba a
+  // tres líneas del `═` entraba dentro. «Está saliendo esto y solo te pedí lo
+  // de la parte inferior».
+  test('una cenefa de otra raya no es el mismo marco', () {
+    final salida = [
+      '  test/lo_que_sea_test.dart                            100.0%',
+      '─────────────────────────────────────────────────────────────',
+      '    31.8%  GLOBAL                                         67683/212928',
+      '',
+      '',
+      _resumen,
+      '',
+    ].join('\n');
+
+    expect(ElTrabajoAparte.loQueSeEnsena(salida), _resumen);
+  });
+
+  test('una cenefa mezclando caracteres no dibuja marco', () {
+    expect(ElTrabajoAparte.esCenefa('═══─══─══'), isFalse);
+    expect(ElTrabajoAparte.elCaracterDe('─────────'), '─');
+    expect(ElTrabajoAparte.elCaracterDe('═════════'), '═');
+  });
+
   test('sin marco se enseña todo, que es lo que había', () {
     const salida = 'una cosa\notra cosa\ny ya';
     expect(ElTrabajoAparte.loQueSeEnsena(salida), salida);

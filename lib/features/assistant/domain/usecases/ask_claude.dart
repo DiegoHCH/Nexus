@@ -170,8 +170,16 @@ class AskClaude {
           turno.soltar();
           yield const ClaudeEnParalelo();
         } else if (turno.hayQueEsperar) {
-          // Esperando a lo tuyo —tu propia compresión—, que es lo único que
-          // queda por esperar.
+          // Esperando a lo tuyo, que es lo único que queda por esperar: aquí
+          // solo se llega con `laTieneOtra == false`.
+          //
+          // 🔴 **Y no siempre es la compresión.** Esto decía «tu propia
+          // compresión» y quien lo pintaba se lo creyó: el aviso elegía entre
+          // «comprimiendo» y «la otra conversación» según un `_compacting` del
+          // controlador, así que un reintento o un encargo por voz de esta
+          // misma conversación —que también toman el turno y no tocan esa
+          // bandera— acababan culpando a una conversación que no existía. Ver
+          // [ClaudeQueued].
           yield const ClaudeQueued();
         }
         // 🔴 **La espera va dentro de un `yield*` y no de un `await`.**

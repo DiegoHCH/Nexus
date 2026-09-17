@@ -96,6 +96,7 @@ class ElDespachoDeCarpetaImpl implements ElDespachoDeCarpeta {
     required String tarea,
     required String loQueSeVe,
     bool allowWrites = true,
+    bool elFocoSigue = true,
   }) async {
     final abiertas = _ref.read(conversationsProvider);
     // La que ya esté abierta en esa carpeta, si hay una: abrir otra dejaría dos
@@ -120,7 +121,7 @@ class ElDespachoDeCarpetaImpl implements ElDespachoDeCarpeta {
       loQueSeVe: loQueSeVe,
       allowWrites: allowWrites,
       attachments: const [],
-      elFocoSigue: true,
+      elFocoSigue: elFocoSigue,
     );
   }
 

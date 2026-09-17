@@ -41,6 +41,9 @@ const _carpeta = '/Users/alguien/General';
 /// 180k de una ventana de 200k son el 90 %, y el umbral de compresión es 85.
 const _contextoLleno = 180000;
 
+/// Con ventana de 200k, `_contextoLleno` es el 90 % y dispara la compresión.
+const _modeloDe200k = 'claude-haiku-4-5';
+
 /// Un Claude de guion con la compresión **retenida**, que es lo que hace falta:
 /// mientras `/compact` no termine, la conversación sigue teniendo el turno.
 class _Claude implements AskClaude {
@@ -78,6 +81,10 @@ class _Claude implements AskClaude {
       return;
     }
 
+    // **El modelo va delante, como lo manda el CLI.** Sin él el medidor no
+    // tiene ventana, y sin ventana no hay porcentaje ni compresión que esperar
+    // — que es justo lo que esta prueba mide.
+    yield const ClaudeSessionStarted(sessionId: 's1', model: _modeloDe200k);
     yield const ClaudeTextDelta('ya está');
     yield const ClaudeTurnCompleted(
       result: 'ya está',
@@ -213,37 +220,63 @@ void main() {
       );
       expect(
         avisos,
-        isNot(contains(strings.waitingForOtherConversation)),
-        reason: 'no hay otra conversación a la que culpar',
+        isNot(contains(strings.waitingForOwnErrand)),
+        reason: 'comprimiendo se dice aparte: tarda un minuto largo',
       );
     },
   );
 
-  test('con otra conversación de por medio, el mensaje de siempre', () async {
-    final container = montar();
-    final controlador = container.read(
-      assistantControllerProvider(_id).notifier,
-    );
+  // 🔴 **Esperando algo tuyo que no es la compresión: tampoco se culpa a
+  // nadie.** Esta prueba decía «con otra conversación de por medio, el mensaje
+  // de siempre» y afirmaba «esperando a la otra conversación sobre esta
+  // carpeta». Esa mitad estaba mal de raíz, y por eso el fallo sobrevivió al
+  // arreglo anterior: la prueba defendía el texto que mentía.
+  //
+  // No puede haber otra conversación de por medio. Cuando la carpeta la tiene
+  // otra, no se espera: se bifurca y se trabaja a la vez —está medido en
+  // `dos_a_la_vez_en_la_misma_carpeta_test.dart`, «esperar es siempre
+  // esperarse a uno mismo»—. Así que quien tiene el turno siempre es de aquí,
+  // y lo único que queda por decidir es **cuál de las cosas de aquí**.
+  //
+  // Reportado, con una sola conversación abierta sobre la carpeta: «me sale a
+  // cada rato el mensaje de otra conversación está trabajando en esta
+  // carpeta».
+  test(
+    'esperando lo anterior de aquí, no se inventa otra conversación',
+    () async {
+      final container = montar();
+      final controlador = container.read(
+        assistantControllerProvider(_id).notifier,
+      );
 
-    // Sin compresión de esta conversación: quien tiene el turno es de fuera, y
-    // ahí el mensaje original es la verdad. Esta es la mitad que evita
-    // "arreglarlo" cambiando el texto para todos los casos.
-    claude.encolarElProximo = true;
-    await controlador.submit('lo primero');
-    await asentar();
+      // Sin compresión en marcha: lo que tiene el turno es un encargo previo de
+      // esta misma conversación —un reintento, uno por voz, uno ya encolado—.
+      claude.encolarElProximo = true;
+      await controlador.submit('lo primero');
+      await asentar();
 
-    final strings = container.read(stringsProvider);
-    final avisos = container
-        .read(assistantControllerProvider(_id))
-        .activity
-        .map((paso) => paso.description);
+      final strings = container.read(stringsProvider);
+      final avisos = container
+          .read(assistantControllerProvider(_id))
+          .activity
+          .map((paso) => paso.description);
 
-    expect(avisos, contains(strings.waitingForOtherConversation));
-    expect(avisos, isNot(contains(strings.waitingForOwnCompaction)));
-    expect(
-      claude.pedidos,
-      isNot(contains('/compact')),
-      reason: 'sin turno no hay turno completado, así que no hay compresión',
-    );
-  });
+      expect(avisos, contains(strings.waitingForOwnErrand));
+      expect(
+        avisos,
+        isNot(contains(strings.waitingForOwnCompaction)),
+        reason: 'no se estaba comprimiendo: decirlo sería la mentira contraria',
+      );
+      expect(
+        avisos.join(' · '),
+        isNot(contains('otra conversación')),
+        reason: 'no hay ninguna a la que culpar, y el texto no puede sugerirla',
+      );
+      expect(
+        claude.pedidos,
+        isNot(contains('/compact')),
+        reason: 'sin turno no hay turno completado, así que no hay compresión',
+      );
+    },
+  );
 }

@@ -33,6 +33,9 @@ import 'package:nexus/features/assistant/domain/usecases/la_sesion_que_se_compar
 import 'package:nexus/features/assistant/presentation/providers/claude_bridge_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/el_despacho_de_carpeta_impl.dart';
+import 'package:nexus/features/programadas/domain/entities/encargo_programado.dart';
+import 'package:nexus/features/programadas/domain/usecases/lo_que_toca_lanzar.dart';
+import 'package:nexus/features/programadas/presentation/providers/el_vigilante_de_las_programadas.dart';
 import 'package:nexus/features/assistant/presentation/providers/lo_que_dejo_el_encargo.dart';
 import 'package:nexus/features/assistant/presentation/providers/model_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/voice_session_providers.dart';
@@ -317,6 +320,8 @@ class AssistantController extends Notifier<AssistantHudState> {
     bool spoken = false,
     List<String> attachments = const [],
     String? respondeA,
+    PropuestaDeProgramar? propuesta,
+    bool esLaListaDeProgramadas = false,
   }) {
     state = state.copyWith(
       messages: LosMensajes.diciendo(
@@ -327,6 +332,8 @@ class AssistantController extends Notifier<AssistantHudState> {
         attachments: attachments,
         respondeA: respondeA,
         esElParte: _elParteEnCurso,
+        propuesta: propuesta,
+        esLaListaDeProgramadas: esLaListaDeProgramadas,
       ),
     );
   }
@@ -885,6 +892,7 @@ class AssistantController extends Notifier<AssistantHudState> {
               ElComandoDeLaCasa.parte => s.ayudaParte,
               ElComandoDeLaCasa.agenda => s.ayudaAgenda,
               ElComandoDeLaCasa.mcp => s.ayudaMcp,
+              ElComandoDeLaCasa.programadas => s.ayudaProgramadas,
               ElComandoDeLaCasa.olvida => s.ayudaOlvida,
               ElComandoDeLaCasa.ayuda => s.ayudaAyuda,
             },
@@ -906,6 +914,60 @@ class AssistantController extends Notifier<AssistantHudState> {
         _say(ChatAuthor.user, loQueSeVe ?? trimmed);
         _sealLast();
         await _contarLosMcp();
+        return;
+
+      // La lista de lo que se repite, con sus salidas. Pedido con nombre y
+      // apellido: «cuando ya no necesite esa tarea, poder borrarla o
+      // cancelarla… o desactivarla».
+      case ALasProgramadas():
+        _say(ChatAuthor.user, loQueSeVe ?? trimmed);
+        _sealLast();
+        _say(
+          ChatAuthor.nexus,
+          ref.read(stringsProvider).laListaDeProgramadas,
+          esLaListaDeProgramadas: true,
+        );
+        _sealLast();
+        return;
+
+      // 🔴 **Se propone, no se programa.** Lo que llega aquí es lo que Nexus
+      // creyó entender de una frase normal, y crear una tarea que se repite a
+      // partir de una corazonada es la clase de error que se paga cada día a
+      // la misma hora. La propuesta cuelga del mensaje —como el permiso, y por
+      // lo mismo: no es una modal— con la carpeta y la primera cita a la vista,
+      // que es lo que deja comprobar de un vistazo que se entendió.
+      case AProgramar(:final loQueSeEntendio):
+        final carpeta = _folder;
+        if (carpeta == null) {
+          _say(ChatAuthor.user, loQueSeVe ?? trimmed);
+          _sealLast();
+          _decir(ref.read(stringsProvider).sinCarpetaParaProgramar);
+          return;
+        }
+        _say(ChatAuthor.user, loQueSeVe ?? trimmed);
+        _sealLast();
+
+        final encargo = EncargoProgramado(
+          id: '${DateTime.now().microsecondsSinceEpoch}',
+          carpeta: carpeta,
+          tarea: loQueSeEntendio.tarea,
+          dias: loQueSeEntendio.dias,
+          hora: loQueSeEntendio.hora,
+          minuto: loQueSeEntendio.minuto,
+          creado: ref.read(relojProvider)(),
+        );
+        _say(
+          ChatAuthor.nexus,
+          ref.read(stringsProvider).propuestaDeProgramar,
+          propuesta: PropuestaDeProgramar(
+            encargo: encargo,
+            proxima: LoQueTocaLanzar.proxima(
+              encargo,
+              desde: ref.read(relojProvider)(),
+            ),
+          ),
+        );
+        _sealLast();
         return;
 
       // El `/clear` de la terminal, que aquí ya existía como botón: lo mismo
@@ -1345,7 +1407,7 @@ class AssistantController extends Notifier<AssistantHudState> {
         final strings = ref.read(stringsProvider);
         return (
           laPropia: strings.waitingForOwnCompaction,
-          deOtra: strings.waitingForOtherConversation,
+          loAnterior: strings.waitingForOwnErrand,
         );
       },
       // `_compacting` es la condición exacta: es de **esta** conversación. Si el
@@ -1355,6 +1417,49 @@ class AssistantController extends Notifier<AssistantHudState> {
       respondeA: _respondiendoA,
       esElParte: _elParteEnCurso,
     );
+  }
+
+  /// Contestar a una propuesta de repetir algo.
+  ///
+  /// 🔴 **Las dos salidas hacen algo, y ninguna es «cancelar».** Quien escribió
+  /// la frase quería que se hiciera; lo único que estaba en duda era si además
+  /// se repite. Así que «solo ahora» no tira el encargo: lo manda a Claude como
+  /// cualquier otro. Un botón que descarta el trabajo obligaría a reescribir la
+  /// frase entera por haber contestado que no a una pregunta que no se hizo.
+  Future<void> responderPropuesta(
+    String id,
+    DecisionDeProgramar decision,
+  ) async {
+    final mensajes = [...state.messages];
+    final donde = mensajes.lastIndexWhere(
+      (mensaje) => mensaje.propuesta?.encargo.id == id,
+    );
+    if (donde == -1) return;
+    final propuesta = mensajes[donde].propuesta!;
+
+    // Se marca antes de hacer nada: contestar tiene que quitar los botones en
+    // el acto, o se pulsa dos veces mientras arranca el encargo.
+    mensajes[donde] = mensajes[donde].copyWith(decidido: decision);
+    state = state.copyWith(messages: mensajes);
+
+    switch (decision) {
+      case DecisionDeProgramar.programada:
+        // 🔴 **Nace ahora, aunque la propuesta sea de ayer.** Una propuesta
+        // sobrevive al cierre de la app —se guarda con la conversación— y
+        // guardarla con su `creado` original haría que naciera anunciando que
+        // se perdió la cita de esta mañana, cuando todavía no existía. Ver
+        // `LoQueTocaLanzar`.
+        await ref
+            .read(lasCitasProvider.notifier)
+            .guardar(
+              propuesta.encargo.copyWith(creado: ref.read(relojProvider)()),
+            );
+      case DecisionDeProgramar.soloAhora:
+        // La tarea sola no vuelve a parecer una programación —`LoQueSePideProgramar`
+        // exige el ritmo **y** la hora, y aquí ya no queda ninguno de los dos—,
+        // así que esto no se puede morder la cola.
+        await submit(propuesta.encargo.tarea, yaEstaDicho: true);
+    }
   }
 
   /// Le llegó el turno: se cierra la espera y se apunta con qué modelo corrió.
@@ -1956,6 +2061,15 @@ class AssistantController extends Notifier<AssistantHudState> {
   /// Antes del tope a propósito: al llenarse, Claude resume solo y **se pierde
   bool _compacting = false;
 
+  /// Dónde dejó el contexto la última compresión de esta conversación.
+  ///
+  /// 🔴 **Es lo que impide reintentarla cada turno.** Una compresión que no baja
+  /// nada deja la condición de disparo intacta, y al final del turno siguiente
+  /// vuelve a cumplirse — reportado como «a cada rato me sale el mensaje de
+  /// comprimiendo y nunca se comprime», y medido en la sesión: siete seguidas
+  /// sin una sola bajada. Ver `LaCompresionDeLaConversacion.toca`.
+  int? _dondeLoDejoLaUltimaCompresion;
+
   /// Comprime la conversación con `/compact`, el mismo comando de la terminal.
   ///
   /// Medido contra el binario antes de cablearlo, porque no era obvio que
@@ -1977,6 +2091,7 @@ class AssistantController extends Notifier<AssistantHudState> {
     if (!LaCompresionDeLaConversacion.toca(
       contexto: medida,
       yaComprimiendo: _compacting,
+      dondeLoDejoLaUltima: _dondeLoDejoLaUltimaCompresion,
     )) {
       return;
     }
@@ -2056,6 +2171,14 @@ class AssistantController extends Notifier<AssistantHudState> {
       // `true` bloquearía la compresión de la siguiente conversación que use
       // este mismo notifier.
       _compacting = false;
+      // Dónde quedó, haya bajado o no. **También cuando falló**: un `/compact`
+      // que revienta tampoco baja el contexto, así que reintentarlo al turno
+      // siguiente es el mismo bucle por otro camino.
+      //
+      // Con el guardia de siempre: por aquí se pasa después de un turno largo,
+      // y `state` sobre un proveedor muerto revienta. Muerta la conversación, el
+      // campo ya no lo lee nadie.
+      if (_vive) _dondeLoDejoLaUltimaCompresion = state.meter.contextPercent;
     }
   }
 

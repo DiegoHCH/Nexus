@@ -20,7 +20,10 @@ import 'package:nexus/features/assistant/presentation/state/session_meter.dart';
 /// pensando cuando ya contestó, la espera no se cierra al llegar el turno, el
 /// medidor cuenta los tokens del turno anterior. Nada de eso lanza.
 void main() {
-  const espera = (laPropia: 'Comprimiendo esta', deOtra: 'Trabajando en otra');
+  const espera = (
+    laPropia: 'Comprimiendo esta',
+    loAnterior: 'Lo anterior de aquí',
+  );
   TextosDeLaEspera losTextos() => espera;
 
   AssistantHudState conElEventoDe(
@@ -45,20 +48,23 @@ void main() {
   }) => ChatMessage(author: autor, text: texto, streaming: streaming);
 
   group('esperar turno', () {
-    test('se dice de quién es la espera', () {
+    // 🔴 **Las dos esperas son de aquí, y por defecto es la de lo anterior.**
+    // Antes este caso decía «trabajando en otra», y no hay otra: con la carpeta
+    // tomada por otra conversación se bifurca y no se espera. Ver
+    // [ClaudeQueued] y `dos_a_la_vez_en_la_misma_carpeta_test.dart`.
+    test('se dice cuál de las cosas de aquí tiene el turno', () {
       final esperando = conElEventoDe(
         const AssistantHudState(),
         const ClaudeQueued(),
       );
 
       expect(esperando.orbState, NexusOrbState.think);
-      expect(esperando.activity.single.description, 'Trabajando en otra');
+      expect(esperando.activity.single.description, 'Lo anterior de aquí');
       expect(esperando.activity.single.writes, isFalse);
     });
 
-    // 🔴 **Decirlo mal es decirle a alguien que espera por su propio trabajo
-    // cuando espera por el de otro** — o al revés, que es peor: parece que la
-    // app se colgó por su cuenta.
+    // Comprimir se dice aparte porque tarda un minuto largo, y saberlo cambia
+    // si esperas delante de la pantalla o te vas.
     test('y si es la propia compresión, se dice eso', () {
       final esperando = conElEventoDe(
         const AssistantHudState(),

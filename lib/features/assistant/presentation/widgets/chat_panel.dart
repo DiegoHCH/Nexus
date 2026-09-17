@@ -17,6 +17,10 @@ import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/assistant/domain/usecases/los_enlaces_del_texto.dart';
 import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart';
 import 'package:nexus/features/assistant/presentation/state/chat_message.dart';
+import 'package:nexus/features/programadas/domain/usecases/como_se_lee_la_cita.dart';
+import 'package:nexus/features/programadas/domain/entities/encargo_programado.dart';
+import 'package:nexus/features/programadas/domain/usecases/lo_que_toca_lanzar.dart';
+import 'package:nexus/features/programadas/presentation/providers/el_vigilante_de_las_programadas.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// La conversación entera a la derecha: lo que pediste y lo que respondió.
@@ -34,6 +38,7 @@ class ChatPanel extends StatefulWidget {
     this.onRetry,
     this.onPasarElTrabajo,
     this.onPermiso,
+    this.onPropuesta,
     this.onCorrer,
     this.etiquetaDelAgente,
   });
@@ -59,6 +64,12 @@ class ChatPanel extends StatefulWidget {
   /// [onRetry]: el panel no sabe de qué conversación es, y los completers que
   /// hay al otro lado sí son de una.
   final void Function(String id, DecisionDePermiso decision)? onPermiso;
+
+  /// Qué se contesta a una propuesta de repetir algo.
+  ///
+  /// Ver [ChatMessage.propuesta]: la pregunta vive en el mensaje, como el
+  /// permiso, y por el mismo motivo — no es una modal.
+  final void Function(String id, DecisionDeProgramar decision)? onPropuesta;
 
   /// Correr el comando de un bloque de código, tal cual está escrito.
   ///
@@ -170,6 +181,7 @@ class _ChatPanelState extends State<ChatPanel> {
           onRetry: widget.onRetry,
           onPasarElTrabajo: widget.onPasarElTrabajo,
           onPermiso: widget.onPermiso,
+          onPropuesta: widget.onPropuesta,
           onCorrer: widget.onCorrer,
         ),
       ),
@@ -195,10 +207,12 @@ class _Turn extends StatelessWidget {
     this.onRetry,
     this.onPasarElTrabajo,
     this.onPermiso,
+    this.onPropuesta,
     this.onCorrer,
   });
 
   final void Function(String id, DecisionDePermiso decision)? onPermiso;
+  final void Function(String id, DecisionDeProgramar decision)? onPropuesta;
 
   /// Correr el comando de un bloque de código, tal cual está escrito.
   ///
@@ -324,6 +338,17 @@ class _Turn extends StatelessWidget {
               peticion: peticion,
               decision: message.decision,
               onPermiso: onPermiso,
+            ),
+          // La propuesta de repetirlo, con la misma forma y por el mismo
+          // motivo: el texto es la pregunta y los botones son su respuesta.
+          // La lista de lo que se repite. Lee del estado vivo, no del
+          // mensaje: ver [ChatMessage.esLaListaDeProgramadas].
+          if (message.esLaListaDeProgramadas) const _LasProgramadas(),
+          if (message.propuesta case final propuesta?)
+            _LaPropuesta(
+              propuesta: propuesta,
+              decidido: message.decidido,
+              onResponder: onPropuesta,
             ),
           if (message.cambios != null ||
               message.documento != null ||
@@ -1179,6 +1204,317 @@ class _CorrerEsto extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Una tarea que se repetiría, con lo que hace falta para decir que sí.
+///
+/// 🔴 **Lo que se enseña aquí es lo que evita programar a ciegas.** No basta con
+/// «¿lo programo?»: hay que ver **dónde** —de la carpeta cuelgan la cuenta y los
+/// permisos, y no es lo mismo en el repo del trabajo que en el personal— y
+/// **cuándo sería la primera vez**, que es lo único que distingue «de lunes a
+/// viernes a las 5» de «el viernes a las 5», dos frases que se leen casi igual.
+///
+/// Y las dos salidas hacen algo: «solo ahora» no tira el encargo, lo manda a
+/// Claude. Ver `AssistantController.responderPropuesta`.
+class _LaPropuesta extends StatelessWidget {
+  const _LaPropuesta({
+    required this.propuesta,
+    required this.decidido,
+    required this.onResponder,
+  });
+
+  final PropuestaDeProgramar propuesta;
+  final DecisionDeProgramar? decidido;
+  final void Function(String id, DecisionDeProgramar decision)? onResponder;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final strings = context.strings;
+    final encargo = propuesta.encargo;
+
+    final ritmo = ComoSeLeeLaCita.elRitmo(
+      encargo.dias,
+      hora: encargo.hora,
+      minuto: encargo.minuto,
+      nombres: strings.diasCortos,
+      todosLosDias: strings.todosLosDiasDicho,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(NexusSpacing.s3),
+            decoration: BoxDecoration(
+              color: colors.deep,
+              borderRadius: BorderRadius.circular(NexusRadius.sm),
+              border: Border.all(color: colors.rule),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Qué se repetiría, con sus palabras y no con un resumen.
+                Text(
+                  encargo.tarea,
+                  style: NexusTypography.mono.copyWith(color: colors.ink),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(Icons.schedule, size: 12, color: colors.accent),
+                    const SizedBox(width: 4),
+                    Text(
+                      ritmo,
+                      style: NexusTypography.label.copyWith(
+                        color: colors.accent,
+                      ),
+                    ),
+                    const SizedBox(width: NexusSpacing.s3),
+                    Icon(Icons.folder_outlined, size: 12, color: colors.faint),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        encargo.carpeta.split('/').last,
+                        overflow: TextOverflow.ellipsis,
+                        style: NexusTypography.label.copyWith(
+                          color: colors.faint,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (propuesta.proxima case final proxima?)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      strings.laProximaCita(
+                        ComoSeLeeLaCita.laProxima(
+                          proxima,
+                          nombres: strings.diasCortos,
+                        ),
+                      ),
+                      style: NexusTypography.label.copyWith(color: colors.mute),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: switch (decidido) {
+              // Contestada: queda lo que se decidió, sin botones. Subir por la
+              // conversación tiene que contar qué se programó y qué no.
+              final DecisionDeProgramar ya => Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    ya == DecisionDeProgramar.programada
+                        ? Icons.check
+                        : Icons.bolt,
+                    size: 12,
+                    color: ya == DecisionDeProgramar.programada
+                        ? colors.ok
+                        : colors.faint,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    ya == DecisionDeProgramar.programada
+                        ? strings.yaProgramada
+                        : strings.seHizoSoloEstaVez,
+                    style: NexusTypography.label.copyWith(color: colors.mute),
+                  ),
+                ],
+              ),
+              null => Wrap(
+                spacing: NexusSpacing.s2,
+                runSpacing: NexusSpacing.s2,
+                children: [
+                  _BotonDePermiso(
+                    texto: strings.soloEstaVez,
+                    color: colors.ink,
+                    onTap: () => onResponder?.call(
+                      propuesta.encargo.id,
+                      DecisionDeProgramar.soloAhora,
+                    ),
+                  ),
+                  _BotonDePermiso(
+                    texto: strings.programarlo,
+                    color: colors.accent,
+                    onTap: () => onResponder?.call(
+                      propuesta.encargo.id,
+                      DecisionDeProgramar.programada,
+                    ),
+                  ),
+                ],
+              ),
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Lo que se repite, con sus salidas.
+///
+/// 🔴 **Lee del estado vivo y no del mensaje**, y por eso es un `Consumer`: la
+/// lista que se pintó hace diez minutos no puede seguir enseñando una tarea que
+/// acabas de borrar, ni ofrecer «apagar» sobre una que ya está apagada. Ver
+/// [ChatMessage.esLaListaDeProgramadas].
+///
+/// Las dos salidas son distintas a propósito: apagar deja la tarea escrita para
+/// volver a encenderla, borrar la quita. Pedido así: «cuando ya no necesite esa
+/// tarea, poder borrarla o cancelarla… o desactivarla».
+class _LasProgramadas extends ConsumerWidget {
+  const _LasProgramadas();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final strings = context.strings;
+    final citas = ref.watch(lasCitasProvider);
+
+    if (citas.todas.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Text(
+          strings.ningunaProgramada,
+          style: NexusTypography.mono.copyWith(color: colors.mute),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final encargo in citas.todas)
+            Padding(
+              padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
+              child: _UnaProgramada(encargo: encargo),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UnaProgramada extends ConsumerWidget {
+  const _UnaProgramada({required this.encargo});
+
+  final EncargoProgramado encargo;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final strings = context.strings;
+    final vigilante = ref.read(lasCitasProvider.notifier);
+
+    final ritmo = ComoSeLeeLaCita.elRitmo(
+      encargo.dias,
+      hora: encargo.hora,
+      minuto: encargo.minuto,
+      nombres: strings.diasCortos,
+      todosLosDias: strings.todosLosDiasDicho,
+    );
+    final proxima = LoQueTocaLanzar.proxima(encargo, desde: DateTime.now());
+
+    return Container(
+      padding: const EdgeInsets.all(NexusSpacing.s3),
+      decoration: BoxDecoration(
+        color: colors.deep,
+        borderRadius: BorderRadius.circular(NexusRadius.sm),
+        border: Border.all(color: colors.rule),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Encendida o apagada, de un vistazo y antes que nada: es lo que
+              // decide si lo de al lado va a pasar o no.
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: encargo.activo ? colors.ok : colors.faint,
+                ),
+              ),
+              const SizedBox(width: NexusSpacing.s2),
+              Expanded(
+                child: Text(
+                  encargo.tarea,
+                  overflow: TextOverflow.ellipsis,
+                  style: NexusTypography.mono.copyWith(
+                    color: encargo.activo ? colors.ink : colors.mute,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: NexusSpacing.s3,
+            children: [
+              Text(
+                ritmo,
+                style: NexusTypography.label.copyWith(
+                  color: encargo.activo ? colors.accent : colors.faint,
+                ),
+              ),
+              Text(
+                encargo.carpeta.split('/').last,
+                style: NexusTypography.label.copyWith(color: colors.faint),
+              ),
+              if (!encargo.activo)
+                Text(
+                  strings.estaApagada,
+                  style: NexusTypography.label.copyWith(color: colors.faint),
+                )
+              else if (proxima != null)
+                Text(
+                  strings.laProximaCita(
+                    ComoSeLeeLaCita.laProxima(
+                      proxima,
+                      nombres: strings.diasCortos,
+                    ),
+                  ),
+                  style: NexusTypography.label.copyWith(color: colors.mute),
+                ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(
+              spacing: NexusSpacing.s2,
+              runSpacing: NexusSpacing.s2,
+              children: [
+                _BotonDePermiso(
+                  texto: encargo.activo ? strings.apagarla : strings.encenderla,
+                  color: colors.ink,
+                  onTap: () => unawaited(
+                    vigilante.apagar(encargo.id, apagada: encargo.activo),
+                  ),
+                ),
+                _BotonDePermiso(
+                  texto: strings.borrarla,
+                  color: colors.err,
+                  onTap: () => unawaited(vigilante.borrar(encargo.id)),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

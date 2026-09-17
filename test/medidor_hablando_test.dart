@@ -23,8 +23,8 @@ void main() {
       expect(m.contextPercent, 18, reason: 'el caso real que lo destapó');
     });
 
-    test('y sin ella, doscientos mil', () {
-      const m = SessionMeter(model: 'claude-opus-5', contextTokens: 175922);
+    test('y con una de doscientos mil, el 88 % que se veía', () {
+      const m = SessionMeter(model: 'claude-haiku-4-5', contextTokens: 175922);
       expect(m.contextWindow, 200000);
       expect(
         m.contextPercent,
@@ -33,13 +33,19 @@ void main() {
       );
     });
 
-    test('sin modelo se asume la pequeña, y eso es lo que engañaba', () {
-      // Se documenta el comportamiento tal cual: sin modelo no hay forma de saber
-      // la ventana, y 200k es el supuesto. Lo que no puede pasar es **llegar aquí
-      // sin modelo cuando el CLI sí lo dijo**, que es lo que arregla este cambio.
+    // 🔴 **Antes aquí se asumían 200k, y esa suposición volvió a morder.** La
+    // regla «si no lo sé, 200k» daba un 88 % falso sin modelo y un 100 % falso
+    // con `claude-sonnet-5`, que también es de un millón — y ese 100 % pedía
+    // comprimir al final de cada turno, para siempre.
+    //
+    // Ahora lo que no se sabe se dice: sin ventana no hay porcentaje, y sin
+    // porcentaje no se comprime. Sigue sin poder pasar **llegar aquí sin modelo
+    // cuando el CLI sí lo dijo**, que es lo que mide el grupo de abajo.
+    test('sin modelo no se asume ninguna, y no hay porcentaje', () {
       const m = SessionMeter(contextTokens: 175922);
-      expect(m.contextWindow, 200000);
-      expect(m.contextPercent, 88);
+      expect(m.contextWindow, isNull);
+      expect(m.contextPercent, isNull);
+      expect(m.contextLabel, '175,9k', reason: 'los tokens sí, el % no');
     });
   });
 
@@ -66,14 +72,16 @@ void main() {
       expect(medidor.contextLabel, '175,9k / 1,0M (18 %)');
     });
 
-    test('y sin él, el medidor volvería a mentir', () {
-      // La prueba que impide que alguien lo quite «porque no se usa».
+    test('y sin él, el medidor se calla en vez de mentir', () {
+      // La prueba que impide que alguien lo quite «porque no se usa». Lo que
+      // cambió es el castigo: antes inventaba un 88 %, ahora no dice nada. Un
+      // hueco en el HUD se ve; un porcentaje inventado, no.
       const evento = VoiceToolFinished(ok: true, contextTokens: 175922);
       final medidor = const SessionMeter().copyWith(
         model: evento.model,
         contextTokens: evento.contextTokens,
       );
-      expect(medidor.contextPercent, 88);
+      expect(medidor.contextPercent, isNull);
     });
   });
 
@@ -81,7 +89,7 @@ void main() {
     // Un contexto mayor que la ventana asumida se recorta a 100 %, y eso ocultó
     // este defecto: 796k sobre 200k son 398 %, que se enseñaban como 100 %. La
     // etiqueta completa es lo único que lo delataba.
-    const m = SessionMeter(model: 'claude-opus-5', contextTokens: 796410);
+    const m = SessionMeter(model: 'claude-haiku-4-5', contextTokens: 796410);
     expect(m.contextPercent, 100);
     expect(
       m.contextLabel,

@@ -23,6 +23,9 @@ import 'package:nexus/features/assistant/presentation/providers/voice_session_pr
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/assistant/presentation/widgets/activity_button.dart';
 import 'package:nexus/features/assistant/presentation/widgets/chat_panel.dart';
+import 'package:nexus/features/assistant/presentation/widgets/la_franja_de_avisos.dart';
+import 'package:nexus/features/programadas/domain/usecases/como_se_lee_la_cita.dart';
+import 'package:nexus/features/programadas/presentation/providers/el_vigilante_de_las_programadas.dart';
 import 'package:nexus/features/onboarding/presentation/state/tour_state.dart';
 import 'package:nexus/features/onboarding/presentation/widgets/tour_anchor.dart';
 import 'package:nexus/features/assistant/presentation/widgets/status_presence.dart';
@@ -137,6 +140,65 @@ class _HomePageState extends ConsumerState<HomePage> {
     final anchoDelOrbe = hasChat
         ? MediaQuery.sizeOf(context).width * 0.42
         : MediaQuery.sizeOf(context).width;
+
+    // Los avisos de esta conversación, montados una vez y puestos en el sitio
+    // que toque: dentro de la columna cuando hay algo que leer, flotando
+    // cuando la pantalla todavía es solo el orbe.
+    //
+    // 🔴 **Se arma aquí y no en los dos sitios** porque antes era así y por eso
+    // se separaron: el aviso flotante aprendió a apartarse de la conversación y
+    // estos no, que estaban en otra rama del mismo `Stack`. Un solo objeto no
+    // puede desincronizarse consigo mismo.
+    // Lo que se pasó mientras Nexus estaba cerrado. Se lee del vigilante y no
+    // del estado de esta conversación porque **no es de esta conversación**:
+    // una tarea de `General` que no corrió hay que decirla estés donde estés.
+    final citas = ref.watch(lasCitasProvider);
+    final vigilante = ref.read(lasCitasProvider.notifier);
+
+    final laFranja = LaFranjaDeAvisos(
+      enColumna: hasChat,
+      perdidas: [
+        for (final perdida in citas.perdidas)
+          (
+            texto: context.strings.sePasoLaCita(
+              perdida.encargo.tarea,
+              ComoSeLeeLaCita.laProxima(
+                perdida.cuandoTocaba,
+                nombres: context.strings.diasCortos,
+              ),
+            ),
+            hacerlaAhora: () => unawaited(vigilante.lanzarYa(perdida.encargo)),
+            saltarla: () => unawaited(vigilante.saltar(perdida.encargo)),
+          ),
+      ],
+      error: hud.errorMessage == null
+          ? null
+          : (
+              texto: hud.errorMessage!,
+              alCerrar: controller.dismissError,
+              accion: hud.laSesionCaduco
+                  ? (
+                      texto: context.strings.entrarConLaCuenta,
+                      alPulsar: () => unawaited(controller.entrarConLaCuenta()),
+                    )
+                  : null,
+            ),
+      aviso: hud.notice == null
+          ? null
+          : (
+              texto: hud.notice!,
+              alCerrar: controller.dismissNotice,
+              // Con la salida a mano cuando la hay: el aviso de que se continúa
+              // un hilo que no se ve solo sirve si se puede cortar aquí mismo.
+              accion: hud.puedeEmpezarDeCero
+                  ? (
+                      texto: context.strings.empezarDeCeroAqui,
+                      alPulsar: () =>
+                          unawaited(controller.forgetConversation()),
+                    )
+                  : null,
+            ),
+    );
 
     return CallbackShortcuts(
       bindings: {
@@ -265,6 +327,16 @@ class _HomePageState extends ConsumerState<HomePage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
+                                // 🔴 **Los avisos van aquí dentro, no flotando
+                                // encima.** Estaban en una capa superior con
+                                // `top` fijo y se pintaban sobre el primer
+                                // mensaje: reportado como «queda texto sobre
+                                // texto». En la columna empujan la
+                                // conversación en vez de taparla, que es lo
+                                // que ya se hacía para el chip de voz — y lo
+                                // que faltaba para estos, que son los de cada
+                                // día. Ver [LaFranjaDeAvisos].
+                                laFranja,
                                 Expanded(
                                   child: ChatPanel(
                                     messages: hud.messages,
@@ -277,6 +349,12 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     onPasarElTrabajo:
                                         controller.pasarElTrabajoAlMarco,
                                     onPermiso: controller.responderPermiso,
+                                    onPropuesta: (id, decision) => unawaited(
+                                      controller.responderPropuesta(
+                                        id,
+                                        decision,
+                                      ),
+                                    ),
                                     // El comando se manda **tal cual se ve**:
                                     // es lo que evita el error que dio origen a
                                     // esto, que fue teclearlo de memoria.
@@ -392,61 +470,23 @@ class _HomePageState extends ConsumerState<HomePage> {
                         // posiciona sola —y se guarda dónde la dejaste—, así
                         // que aquí no lleva sitio.
                         const LaBotoneraDeCorridas(),
-                        // El fallo y el aviso son dos cosas distintas y pueden
-                        // coincidir, así que se apilan en vez de competir por el
-                        // mismo hueco. El fallo va arriba: es el que urge.
-                        if (hud.errorMessage != null || hud.notice != null)
+                        // **Solo cuando no hay conversación donde ponerlos.**
+                        // Con conversación van dentro de la columna, arriba del
+                        // panel: ver [LaFranjaDeAvisos] y el `laFranja` de ahí
+                        // arriba. Aquí flotan porque no hay nada debajo que
+                        // puedan tapar — la pantalla es el orbe y poco más.
+                        if (!hasChat && laFranja.hayAlgo)
                           Positioned(
-                            top: NexusSpacing.s5,
+                            // Debajo del chip de voz cuando lo hay, que se
+                            // ancla a esta misma coordenada. Compartirla es
+                            // exactamente lo que dibujaba un texto sobre otro,
+                            // y aquí no hay columna que aparte a nadie.
+                            top: hud.voiceActive
+                                ? NexusSpacing.s5 + _altoDelAviso
+                                : NexusSpacing.s5,
                             left: NexusSpacing.s6,
                             right: NexusSpacing.s6,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (hud.errorMessage != null)
-                                  _AvisoChip(
-                                    message: hud.errorMessage!,
-                                    color: context.colors.err,
-                                    onDismiss: controller.dismissError,
-                                    accion: hud.laSesionCaduco
-                                        ? (
-                                            texto: context
-                                                .strings
-                                                .entrarConLaCuenta,
-                                            alPulsar: () => unawaited(
-                                              controller.entrarConLaCuenta(),
-                                            ),
-                                          )
-                                        : null,
-                                  ),
-                                if (hud.errorMessage != null &&
-                                    hud.notice != null)
-                                  const SizedBox(height: NexusSpacing.s2),
-                                if (hud.notice != null)
-                                  _AvisoChip(
-                                    message: hud.notice!,
-                                    // Ámbar y no rojo: algo cambió, no algo se
-                                    // rompió. En rojo se lee como un fallo del
-                                    // encargo, que es justo lo que no es.
-                                    color: context.colors.warn,
-                                    onDismiss: controller.dismissNotice,
-                                    // Con la salida a mano cuando la hay: el
-                                    // aviso de que se continúa un hilo que no
-                                    // se ve solo sirve si se puede cortar aquí
-                                    // mismo.
-                                    accion: hud.puedeEmpezarDeCero
-                                        ? (
-                                            texto: context
-                                                .strings
-                                                .empezarDeCeroAqui,
-                                            alPulsar: () => unawaited(
-                                              controller.forgetConversation(),
-                                            ),
-                                          )
-                                        : null,
-                                  ),
-                              ],
-                            ),
+                            child: laFranja,
                           ),
                       ],
                     );
@@ -996,109 +1036,6 @@ class _LiveBadge extends StatelessWidget {
                 ? context.strings.workingCancelHint
                 : context.strings.micOpenHint,
             style: NexusTypography.label.copyWith(color: color),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// El aviso, con la forma que el diseño ya tiene para esto: un chip, no una
-/// banda roja de lado a lado.
-///
-/// Va acotado y con punto delante —el mismo recurso del interruptor de
-/// permisos— y se puede descartar: un error que no se va obliga a convivir con
-/// él aunque ya lo hayas leído.
-/// Una línea que se puede cerrar, del color de lo que cuenta.
-///
-/// El color entra por parámetro y no por el tipo del mensaje: son el mismo
-/// objeto en pantalla y solo cambia lo que significan, así que duplicar el
-/// widget para pintarlo en ámbar habría dejado dos sitios que arreglar.
-class _AvisoChip extends StatelessWidget {
-  const _AvisoChip({
-    required this.message,
-    required this.color,
-    required this.onDismiss,
-    this.accion,
-  });
-
-  final String message;
-  final Color color;
-  final VoidCallback onDismiss;
-
-  /// Lo que se puede hacer con este aviso, cuando se puede hacer algo.
-  ///
-  /// La mayoría de los fallos solo se leen. Este hueco existe para el que **sí
-  /// tiene arreglo desde aquí**: la sesión caducada, que se resuelve abriendo
-  /// el navegador. Un botón que a veces está y a veces no es más honesto que
-  /// uno permanente que casi nunca sirve.
-  final ({String texto, VoidCallback alPulsar})? accion;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 620),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            border: Border.all(color: color.withValues(alpha: 0.35)),
-            borderRadius: BorderRadius.circular(NexusRadius.sm),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              NexusSpacing.s3,
-              NexusSpacing.s2,
-              NexusSpacing.s2,
-              NexusSpacing.s2,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: color,
-                  ),
-                ),
-                const SizedBox(width: NexusSpacing.s3),
-                Flexible(
-                  child: Text(
-                    message,
-                    style: NexusTypography.mono.copyWith(
-                      color: color,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-                if (accion case final accion?) ...[
-                  const SizedBox(width: NexusSpacing.s3),
-                  InkWell(
-                    onTap: accion.alPulsar,
-                    child: Text(
-                      accion.texto,
-                      style: NexusTypography.mono.copyWith(
-                        color: color,
-                        fontWeight: FontWeight.w600,
-                        decoration: TextDecoration.underline,
-                        decorationColor: color.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(width: NexusSpacing.s2),
-                InkWell(
-                  onTap: onDismiss,
-                  child: Icon(
-                    Icons.close,
-                    size: 13,
-                    color: color.withValues(alpha: 0.7),
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ),

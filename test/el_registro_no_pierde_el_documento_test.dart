@@ -45,8 +45,14 @@ import 'support/hasta_que.dart';
 const _id = 'c1';
 const _carpeta = '/Users/alguien/General';
 
-/// La ventana por defecto son 200k, así que 180k es el 90 % y dispara la
+/// Este modelo tiene ventana de 200k, así que 180k es el 90 % y dispara la
 /// compresión —el umbral está en 85—, y 60k es el 30 % de después.
+///
+/// 🔴 **La ventana se nombra y no se da por hecha.** Antes esto decía «la
+/// ventana por defecto son 200k»: ese defecto era una suposición, y suponer de
+/// menos pedía comprimir al final de cada turno en cualquier modelo de un
+/// millón. Ver [SessionMeter.contextWindow].
+const _modeloDe200k = 'claude-haiku-4-5';
 const _contextoLleno = 180000;
 const _contextoComprimido = 60000;
 
@@ -112,6 +118,10 @@ class _Claude implements AskClaude {
   }) async* {
     final vuelta = pedidos.length;
     pedidos.add(instruction);
+
+    // **El modelo va delante, como lo manda el CLI.** Sin él el medidor no
+    // tiene ventana, y sin ventana no hay porcentaje que cruce el umbral.
+    yield const ClaudeSessionStarted(sessionId: 's1', model: _modeloDe200k);
 
     if (vuelta == 0 && documento != null) {
       // **Se espera a que la foto se haya tomado, no a que pase un rato.** La

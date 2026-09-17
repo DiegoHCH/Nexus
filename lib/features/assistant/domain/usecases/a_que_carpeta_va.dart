@@ -62,7 +62,7 @@ abstract final class ACarpetaVaLoQueDices {
 
   static AQueCarpetaVa de(String frase, List<PairedFolder> carpetas) {
     final plano = _aplanar(frase);
-    final hallazgos = <({PairedFolder carpeta, int desde, int hasta})>[];
+    final hallazgos = <({PairedFolder carpeta, RegExpMatch? donde})>[];
 
     for (final carpeta in carpetas) {
       final nombre = carpeta.path.split('/').last;
@@ -70,18 +70,35 @@ abstract final class ACarpetaVaLoQueDices {
           minimoDelNombre) {
         continue;
       }
-      final donde = _patronDe(nombre)?.firstMatch(plano);
-      if (donde == null) continue;
-      hallazgos.add((carpeta: carpeta, desde: donde.start, hasta: donde.end));
+      final apariciones = _patronDe(nombre)?.allMatches(plano) ?? const [];
+      if (apariciones.isEmpty) continue;
+      // La que **apunta**, si alguna lo hace: puede no ser la primera —«el
+      // resumen general guárdalo en General» nombra la carpeta al final—.
+      hallazgos.add((
+        carpeta: carpeta,
+        donde: apariciones
+            .where((m) => _apuntaAUnaCarpeta(plano.substring(0, m.start)))
+            .firstOrNull,
+      ));
     }
 
     if (hallazgos.isEmpty) return const NoSeNombroCarpeta();
+
+    // 🔴 **Contar es liberal y elegir no**, y esa asimetría es deliberada. Que
+    // salgan dos nombres es motivo de preguntar aunque ninguno venga apuntado
+    // —«nexus y front-mobile-b2c», que es como se contesta en la puerta— y
+    // preguntar nunca hace trabajo en la carpeta que no era. Elegir sí lo hace,
+    // así que para eso hace falta el puntero. Ver [_apuntaAUnaCarpeta].
     if (hallazgos.length > 1) {
       return SeNombraronVarias([for (final h in hallazgos) h.carpeta]);
     }
 
     final hallazgo = hallazgos.single;
-    final resto = _sinLaMencion(frase, hallazgo.desde, hallazgo.hasta);
+    final donde = hallazgo.donde;
+    // Nombrada de pasada, dentro de una frase que hablaba de otra cosa.
+    if (donde == null) return const NoSeNombroCarpeta();
+
+    final resto = _sinLaMencion(frase, donde.start, donde.end);
     return AEstaCarpeta(hallazgo.carpeta, _esSoloIrAlli(resto) ? '' : resto);
   }
 
@@ -146,16 +163,63 @@ abstract final class ACarpetaVaLoQueDices {
     return limpio.isEmpty || _irAlli.contains(limpio);
   }
 
+  /// Las dos piezas que pueden ir delante de una mención, y nada más.
+  static const _laPreposicion =
+      r'\b(?:dentro de|en|del|de|para|sobre|hacia|al|a|in|on|at|to)\b\s+';
+  static const _elArticulo = r'(?:\b(?:el|la|los|las|the)\b\s+)?';
+
   /// Las palabras que solo estaban ahí para introducir la carpeta.
   ///
   /// Se quitan **solo si van pegadas a la mención**: «en el front mobile,
   /// arregla el login» pierde el «en el», pero «mira en el archivo de
   /// configuración» no pierde nada, porque ahí ese «en» no introducía ninguna
   /// carpeta.
-  static final _introducen = RegExp(
-    r'(?:\b(?:dentro de|en|del|de|para|sobre|hacia|al|a|in|on|at|to)\b\s+)?'
-    r'(?:\b(?:el|la|los|las|the)\b\s+)?$',
-  );
+  static final _introducen = RegExp('(?:$_laPreposicion)?$_elArticulo\$');
+
+  /// Si lo que va **delante** convierte esto en un puntero a una carpeta.
+  ///
+  /// 🔴 **La palabra sola no basta, y este es el fallo que lo trajo.** Con una
+  /// carpeta llamada `General`, el mensaje «el Gerente puede ver el resumen
+  /// general, pero solo de su carpa» se iba entero a `General` desde la
+  /// conversación de la feria — y de camino perdía la palabra, porque el
+  /// recorte la tomaba por la mención. Llegaba «puede ver el resumen, pero solo
+  /// de su carpa», que dice otra cosa.
+  ///
+  /// No es un caso raro: los nombres de carpeta corrientes —`general`,
+  /// `personal`, `documentos`— son palabras que aparecen dentro de encargos de
+  /// verdad. Y el módulo ya tiene su regla —«nunca se trabaja en la carpeta que
+  /// no era»—, que con dos nombradas prefiere preguntar; con una sola y en
+  /// mitad de una frase se la llevaba en silencio, que es peor.
+  ///
+  /// Así que cuenta lo que **apunta**, que son tres cosas y ninguna más: la
+  /// mención abre la frase, la introduce una preposición, o la trae uno de los
+  /// verbos de ir. El tercero no sobra: «abre el front mobile b2c» no lleva
+  /// preposición ninguna y es un cambio de carpeta de libro.
+  ///
+  /// Lo que se acepta aquí es lo mismo que [_sinLaMencion] recorta y lo mismo
+  /// que [_esSoloIrAlli] perdona —si no hay puntero que quitar, es que no había
+  /// mención—, y por eso los tres leen las mismas piezas.
+  static bool _apuntaAUnaCarpeta(String antes) {
+    // «en el nexus», el puntero de manual.
+    if (_apunta.hasMatch(antes)) return true;
+
+    final limpio = antes
+        .replaceFirst(RegExp('$_elArticulo\$'), '')
+        .replaceAll(RegExp(r'[^a-z0-9 ]'), ' ')
+        .trim();
+    // No queda nada delante: la mención abría la frase.
+    if (limpio.isEmpty) return true;
+
+    // Un verbo de ir o de trabajar, que puede venir de hasta tres palabras
+    // —«vamos a trabajar»—, así que se miran los tres finales.
+    final piezas = limpio.split(RegExp(r'\s+'));
+    return [
+      for (var i = 1; i <= 3 && i <= piezas.length; i++)
+        piezas.sublist(piezas.length - i).join(' '),
+    ].any(_irAlli.contains);
+  }
+
+  static final _apunta = RegExp('(?:$_laPreposicion)$_elArticulo\$');
 
   /// Igual de largo que el original, para que el tramo encontrado sirva para
   /// cortar. Bajar acentos uno a uno lo consigue; quitar separadores, no.

@@ -75,10 +75,16 @@ abstract interface class ElDespachoDeCarpeta {
   /// [loQueSeVe] es lo que se pinta en el chat, que casi nunca es el encargo
   /// entero: un error con su traza son treinta líneas y en la conversación
   /// sobra con una.
+  ///
+  /// [elFocoSigue] dice si quien lo pide está delante de la pantalla, igual que
+  /// en [despachar]. Lo pone en `false` lo que arranca solo —un encargo
+  /// programado a las cinco de la tarde—: mover el foco ahí sería interrumpir a
+  /// media frase a alguien que no pidió nada en ese momento.
   Future<LoQueQuedaPorHacer> aEstaCarpeta(
     String carpeta, {
     required String tarea,
     required String loQueSeVe,
     bool allowWrites = true,
+    bool elFocoSigue = true,
   });
 }

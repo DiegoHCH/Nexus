@@ -24,6 +24,7 @@ import 'package:nexus/features/workspace/presentation/providers/workspace_provid
 import 'package:nexus/features/workspace/presentation/pages/settings_page.dart';
 import 'package:nexus/features/remote/presentation/providers/channel_providers.dart';
 import 'package:nexus/features/agenda/presentation/providers/el_vigilante_de_la_agenda.dart';
+import 'package:nexus/features/programadas/presentation/providers/el_vigilante_de_las_programadas.dart';
 import 'package:nexus/features/assistant/domain/entities/conversation.dart';
 
 Future<void> main() async {
@@ -228,6 +229,12 @@ class _MainAppState extends ConsumerState<MainApp> {
     // *hace* algo por su cuenta no puede tener como único testigo la pantalla que
     // lo configura. Se arma donde vive la app, no donde se ajusta.
     ref.watch(elVigilanteDeLaAgendaProvider);
+
+    // Y por lo mismo, el reloj de las tareas programadas: también *hace* algo
+    // por su cuenta —lanza un encargo a su hora— y tampoco puede depender de
+    // que alguien abra la lista para existir. Es la tercera vez que se escribe
+    // esta línea por el mismo motivo, así que va pegada a la de arriba.
+    ref.watch(lasCitasProvider);
 
     return MaterialApp(
       navigatorKey: _navigatorKey,

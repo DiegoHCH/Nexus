@@ -11,10 +11,11 @@ import 'package:nexus/features/assistant/domain/usecases/la_compresion_de_la_con
 /// había hecho algo.
 void main() {
   group('cuándo toca', () {
-    bool toca(int? contexto, {bool comprimiendo = false}) =>
+    bool toca(int? contexto, {bool comprimiendo = false, int? dejoEn}) =>
         LaCompresionDeLaConversacion.toca(
           contexto: contexto,
           yaComprimiendo: comprimiendo,
+          dondeLoDejoLaUltima: dejoEn,
         );
 
     test('por debajo del umbral no se toca nada', () {
@@ -38,6 +39,29 @@ void main() {
     test('comprimiendo ya, no se dispara otra', () {
       expect(toca(95, comprimiendo: true), isFalse);
       expect(toca(132, comprimiendo: true), isFalse);
+    });
+
+    // 🔴 **El bucle que lo trajo.** Reportado así: «a cada rato me sale el
+    // mensaje de comprimiendo esta conversación y nunca se comprime». Una
+    // compresión que no baja nada deja la condición intacta, así que al final
+    // del turno siguiente vuelve a cumplirse — siete veces seguidas en la
+    // sesión medida, cero bajadas. Cada vuelta es un turno entero de Claude, y
+    // encima toma el turno de la carpeta.
+    test('donde la dejó la última y sigue ahí, no se reintenta', () {
+      expect(toca(100, dejoEn: 100), isFalse);
+      expect(toca(90, dejoEn: 95), isFalse);
+    });
+
+    // Pero si ha crecido desde entonces, sí: es contexto nuevo, no el mismo.
+    test('si ha crecido desde entonces, otra vez sí', () {
+      expect(toca(96, dejoEn: 95), isTrue);
+      expect(toca(100, dejoEn: 90), isTrue);
+    });
+
+    // Sin compresión previa no hay nada que recordar, y manda el umbral.
+    test('la primera vez no la frena nadie', () {
+      expect(toca(90), isTrue);
+      expect(toca(84, dejoEn: 50), isFalse, reason: 'el umbral sigue primero');
     });
 
     test('sin medida no se decide nada', () {

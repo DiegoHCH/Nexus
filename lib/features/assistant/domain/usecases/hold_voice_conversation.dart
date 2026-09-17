@@ -499,11 +499,17 @@ class HoldVoiceConversation {
             case ClaudeMcpCaido():
               break;
 
+            // 🔴 **Lo que se espera es lo tuyo, no lo de otra.** Esto decía
+            // «hay otra conversación trabajando en esa carpeta» y no podía ser
+            // verdad: con la carpeta tomada por otra se bifurca y se trabaja a
+            // la vez —`ClaudeEnParalelo`, aquí abajo—, así que a este caso solo
+            // se llega cuando el turno lo tiene esta misma conversación. Ver
+            // [ClaudeQueued].
             case ClaudeQueued():
               controller.add(
                 const VoiceToolProgress(
-                  'Espero turno: hay otra conversación trabajando en esa '
-                  'carpeta.',
+                  'Espero turno: todavía estoy con lo anterior de esta '
+                  'conversación.',
                 ),
               );
             // Y esto sí que hay que decirlo en voz alta: van a tocar los

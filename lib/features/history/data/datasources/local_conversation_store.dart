@@ -124,6 +124,21 @@ class LocalConversationStore {
                 'permiso': peticion.toJson(),
               if (message.decision case final decision?)
                 'decision': decision.name,
+              // 🔴 **Una propuesta sin contestar sí vale mañana**, al revés que
+              // una pregunta de permiso: al otro lado de aquella había un
+              // `claude -p` que murió con la sesión, y aquí no hay nadie
+              // esperando — programar el documento al día siguiente es tan
+              // válido como hacerlo hoy. Por eso se guarda entera y vuelve con
+              // sus botones. Ver [PropuestaDeProgramar].
+              if (message.propuesta case final propuesta?)
+                'propuesta': propuesta.toJson(),
+              if (message.decidido case final decidido?)
+                'decidido': decidido.name,
+              // Solo la marca: las filas salen del estado vivo, así que releer
+              // esto mañana enseña las tareas de mañana y no una foto vieja con
+              // botones que ya no corresponden. Ver
+              // [ChatMessage.esLaListaDeProgramadas].
+              if (message.esLaListaDeProgramadas) 'lista_programadas': true,
             },
         ],
       }),
@@ -372,6 +387,9 @@ class LocalConversationStore {
       actividad: _pasosDe(message['pasos']),
       fallo: message['fallo'] == true,
       attachments: _adjuntosDe(message['adjuntos']),
+      propuesta: PropuestaDeProgramar.fromJson(message['propuesta']),
+      esLaListaDeProgramadas: message['lista_programadas'] == true,
+      decidido: DecisionDeProgramarJson.deJson(message['decidido']),
       permiso: peticion,
       // 🔴 **Una pregunta releída nunca sigue esperando.** Si se guardó sin
       // decisión —la app se cerró de golpe, con la pregunta en pie— vuelve

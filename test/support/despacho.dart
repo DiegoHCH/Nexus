@@ -25,5 +25,6 @@ class SinEnrutar implements ElDespachoDeCarpeta {
     required String tarea,
     required String loQueSeVe,
     bool allowWrites = true,
+    bool elFocoSigue = true,
   }) async => AtiendeloTu(tarea);
 }

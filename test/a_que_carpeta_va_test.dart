@@ -139,6 +139,57 @@ void main() {
       );
     });
 
+    // 🔴 **El fallo de verdad, con una carpeta llamada `General`.** Un mensaje
+    // largo sobre otra cosa, escrito desde la conversación de la feria, se iba
+    // entero a `General` porque en mitad decía «el resumen general» — y encima
+    // llegaba allí sin la palabra, que el recorte tomaba por la mención.
+    //
+    // Los nombres de carpeta corrientes son palabras del idioma, y esto vale
+    // para `personal` y `documentos` igual que para `general`.
+    test('el nombre en mitad de una frase no apunta a nada', () {
+      final general = carpeta('/Users/alguien/General');
+
+      expect(
+        va('el gerente puede ver el resumen general de su carpa', [general]),
+        isA<NoSeNombroCarpeta>(),
+      );
+      expect(
+        va('quiero el balance general de la feria', [general]),
+        isA<NoSeNombroCarpeta>(),
+      );
+      expect(
+        va('esto es personal, no lo subas', [
+          carpeta('/Users/alguien/personal'),
+        ]),
+        isA<NoSeNombroCarpeta>(),
+      );
+    });
+
+    // Y lo que sí apunta sigue apuntando: la preposición delante, o abrir la
+    // frase. Sin esto el arreglo de arriba se llevaría por delante el enrutado.
+    test('con puntero delante, o abriendo la frase, sí', () {
+      final general = carpeta('/Users/alguien/General');
+
+      for (final frase in [
+        'en General, mira el resumen',
+        'guarda esto en el General',
+        'General: mira el resumen',
+      ]) {
+        expect((va(frase, [general])).runtimeType, AEstaCarpeta, reason: frase);
+      }
+    });
+
+    // La misma palabra dos veces: la que apunta es la que manda, esté donde
+    // esté. Mirar solo la primera aparición perdería la mención de verdad.
+    test('gana la aparición que apunta, no la primera', () {
+      final general = carpeta('/Users/alguien/General');
+      final r =
+          va('el resumen general guárdalo en General', [general])
+              as AEstaCarpeta;
+
+      expect(r.tarea, 'el resumen general guárdalo');
+    });
+
     // «Mira en el archivo de configuración» no nombra ninguna carpeta, así que
     // ese «en» no se toca — solo se quita el que introducía la mención.
     test('un «en» que no introducía una carpeta se queda', () {

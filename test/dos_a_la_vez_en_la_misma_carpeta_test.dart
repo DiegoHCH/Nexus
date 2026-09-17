@@ -230,4 +230,38 @@ void main() {
       reason: 'el segundo turno propio espera, no arranca a la vez',
     );
   });
+
+  // 🔴 **La regla que hay que poder citar, y la que faltaba.** De las dos
+  // pruebas de arriba sale un invariante: `ClaudeQueued` **solo** aparece
+  // esperándose a uno mismo. Con la carpeta tomada por otra conversación se
+  // bifurca y sale `ClaudeEnParalelo`, nunca una espera.
+  //
+  // Sin esto escrito, quien pinta el aviso se lo tiene que imaginar — y se lo
+  // imaginó al revés: el mensaje decía «esperando a la otra conversación sobre
+  // esta carpeta» con una sola conversación abierta, y se reportó dos veces
+  // como un cuelgue.
+  test('esperar es siempre esperarse a uno mismo, nunca a otra', () async {
+    // A se queda con la carpeta —el puente deja el primero trabajando—.
+    final a = deLaConversacion('c1');
+    a('lo de A').listen((_) {});
+    await unosInstantes();
+
+    // Lo tuyo detrás de lo tuyo: se espera, y **ahí** sale el aviso.
+    final propia = <ClaudeEvent>[];
+    a('lo mío de después').listen(propia.add);
+    await unosInstantes();
+
+    expect(propia.whereType<ClaudeQueued>(), hasLength(1));
+
+    // Otra conversación con la misma carpeta tomada: se bifurca, y no espera
+    // nada. Este es el lado que hace imposible el mensaje que se enseñaba.
+    final deOtra = await deLaConversacion('c2')('lo de B').toList();
+
+    expect(
+      deOtra.whereType<ClaudeQueued>(),
+      isEmpty,
+      reason: 'otra conversación no se espera: se trabaja en paralelo',
+    );
+    expect(deOtra.whereType<ClaudeEnParalelo>(), hasLength(1));
+  });
 }

@@ -25,14 +25,60 @@ class SessionMeter {
     return bracket == -1 ? value : value.substring(0, bracket);
   }
 
-  /// Ventana de contexto del modelo, en tokens.
+  /// La ventana de cada modelo, en tokens.
   ///
-  /// Se deduce del propio identificador: la variante `[1m]` es la de un millón
-  /// y el resto de la familia usa 200k. Si algún día cambia, este es el único
-  /// sitio que hay que tocar — y por eso el porcentaje no se enseña cuando no
-  /// hay dato de tokens, en vez de dibujar un cero tranquilizador.
-  int get contextWindow =>
-      (model?.contains('[1m]') ?? false) ? 1000000 : 200000;
+  /// 🔴 **Deducirla del corchete costaba una compresión por turno.** La regla
+  /// era «`[1m]` es de un millón y el resto 200k», y el resto no es 200k:
+  /// Sonnet 5 también tiene un millón y el CLI lo reporta a secas, sin
+  /// corchete. Medido en la máquina: una sesión con `claude-sonnet-5` iba por
+  /// 252.460 tokens en una petición que **no falló** —cosa imposible en una
+  /// ventana de 200k—, y la app la pintaba al 100 % y pedía comprimir al final
+  /// de cada turno, para siempre.
+  ///
+  /// Así que se escriben las que se saben, y el corchete sigue mandando cuando
+  /// viene. Lo que no esté aquí no tiene ventana: ver [contextWindow].
+  static const _ventanas = <String, int>{
+    'claude-fable-5-1': 1000000,
+    'claude-fable-5': 1000000,
+    'claude-mythos-5-1': 1000000,
+    'claude-opus-5': 1000000,
+    'claude-opus-4-8': 1000000,
+    'claude-opus-4-7': 1000000,
+    'claude-opus-4-6': 1000000,
+    'claude-sonnet-5': 1000000,
+    'claude-sonnet-4-6': 1000000,
+    'claude-haiku-4-5': 200000,
+  };
+
+  /// Ventana de contexto del modelo, en tokens. `null` si no se sabe.
+  ///
+  /// 🔴 **Sin dato se dice que no se sabe, y no se asume.** Asumir 200k para
+  /// todo lo desconocido es lo que disparaba la compresión en bucle, y el coste
+  /// de las dos equivocaciones no se parece: quedarse sin medidor es una cifra
+  /// que falta en el HUD, y asumir de menos es un turno entero de Claude
+  /// gastado al final de cada turno. Ver [contextPercent], que devuelve `null`,
+  /// y `LaCompresionDeLaConversacion.toca`, que sin medida no dispara.
+  ///
+  /// El corchete va primero: es lo que dice el CLI de **esta** corrida, y manda
+  /// sobre lo que la tabla sepa de la familia.
+  int? get contextWindow {
+    final id = model;
+    if (id == null) return null;
+    if (id.contains('[1m]')) return 1000000;
+    final limpio = displayModel!;
+    if (_ventanas[limpio] case final exacta?) return exacta;
+    // Con sufijo de fecha —`claude-haiku-4-5-20251001`— gana el prefijo más
+    // largo, o `claude-fable-5` se comería a `claude-fable-5-1`.
+    int? ventana;
+    var largo = 0;
+    _ventanas.forEach((nombre, tokens) {
+      if (limpio.startsWith(nombre) && nombre.length > largo) {
+        largo = nombre.length;
+        ventana = tokens;
+      }
+    });
+    return ventana;
+  }
 
   /// Acotado al 100 %, como el círculo que lo acompaña.
   ///
@@ -44,15 +90,17 @@ class SessionMeter {
   /// se pasó, sin pedirle al porcentaje que signifique algo que no significa.
   int? get contextPercent {
     final used = contextTokens;
-    if (used == null || used <= 0) return null;
-    return ((used / contextWindow) * 100).round().clamp(0, 100);
+    final ventana = contextWindow;
+    if (used == null || used <= 0 || ventana == null) return null;
+    return ((used / ventana) * 100).round().clamp(0, 100);
   }
 
   /// Cuánto de la ventana va ocupado, de 0 a 1. Lo que llena el círculo.
   double get contextFraction {
     final used = contextTokens;
-    if (used == null || used <= 0) return 0;
-    return (used / contextWindow).clamp(0.0, 1.0);
+    final ventana = contextWindow;
+    if (used == null || used <= 0 || ventana == null) return 0;
+    return (used / ventana).clamp(0.0, 1.0);
   }
 
   /// `63,3k / 1,0M (6 %)`.
@@ -63,8 +111,11 @@ class SessionMeter {
   String? get contextLabel {
     final used = contextTokens;
     if (used == null || used <= 0) return null;
-    return '${_short(used)} / ${_short(contextWindow)} '
-        '(${contextPercent ?? 0} %)';
+    // Sin ventana conocida se enseñan los tokens y nada más: inventar el
+    // denominador es justo lo que hacía mentir al porcentaje.
+    final ventana = contextWindow;
+    if (ventana == null) return _short(used);
+    return '${_short(used)} / ${_short(ventana)} (${contextPercent ?? 0} %)';
   }
 
   /// `63,3k`, `1,0M`. La coma decimal es la española, como en el resto del HUD.

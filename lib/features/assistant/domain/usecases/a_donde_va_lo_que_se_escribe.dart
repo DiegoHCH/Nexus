@@ -3,6 +3,7 @@ import 'package:nexus/features/artifacts/domain/usecases/lo_que_se_pide_dibujar.
 import 'package:nexus/features/assistant/domain/usecases/el_trabajo_aparte.dart';
 import 'package:nexus/features/assistant/domain/usecases/los_comandos_de_la_casa.dart';
 import 'package:nexus/features/history/domain/usecases/el_parte_de_ayer.dart';
+import 'package:nexus/features/programadas/domain/usecases/lo_que_se_pide_programar.dart';
 import 'package:nexus/features/workspace/domain/usecases/el_comando_directo.dart';
 
 /// Dónde acaba lo que se escribe en el compositor.
@@ -69,6 +70,21 @@ final class AOlvidar extends ADondeVa {
   const AOlvidar();
 }
 
+/// A la lista de tareas que se repiten, dentro de la conversación.
+final class ALasProgramadas extends ADondeVa {
+  const ALasProgramadas();
+}
+
+/// A proponer una tarea que se repite. **Todavía no se crea nada.**
+///
+/// Ver [PropuestaDeProgramar]: se pregunta antes de guardar porque reconocer
+/// una programación dentro de una frase normal es el mismo riesgo que reconocer
+/// el nombre de una carpeta, y el daño sería mayor.
+final class AProgramar extends ADondeVa {
+  const AProgramar(this.loQueSeEntendio);
+  final LoQueSeEntendio loQueSeEntendio;
+}
+
 /// El camino normal.
 final class AClaude extends ADondeVa {
   const AClaude();
@@ -122,6 +138,8 @@ abstract final class ADondeVaLoQueSeEscribe {
         return const ALaAgenda();
       case ElComandoDeLaCasa.mcp:
         return const ALosMcp();
+      case ElComandoDeLaCasa.programadas:
+        return const ALasProgramadas();
 
       // Los que llevan texto los reconoce su dueño, unas líneas más abajo: aquí
       // no se repite esa decisión.
@@ -148,6 +166,18 @@ abstract final class ADondeVaLoQueSeEscribe {
       return const ALaAgenda();
     }
     if (ElParteDeAyer.loEstanPidiendo(limpia)) return const AlParte();
+
+    // 🔴 **Lo último antes de Claude, y ese sitio es la decisión.** Programar
+    // podría ir mucho más arriba —lleva días y hora, que es bastante señal—
+    // pero puesto delante se comería lo que ya funciona: «¿qué reuniones tengo
+    // el martes a las 5?» trae día y hora y **no** es una tarea que repetir.
+    //
+    // Aquí abajo solo puede interceptar lo que iba a acabar en Claude como un
+    // encargo suelto, así que no le quita nada a nadie. Y aunque se equivoque,
+    // lo único que hace es preguntar: ver [PropuestaDeProgramar].
+    if (LoQueSePideProgramar.deLaFrase(limpia) case final entendido?) {
+      return AProgramar(entendido);
+    }
 
     return const AClaude();
   }

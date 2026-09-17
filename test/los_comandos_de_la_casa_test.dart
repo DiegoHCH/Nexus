@@ -99,6 +99,7 @@ void main() {
         ElComandoDeLaCasa.parte => textos.ayudaParte,
         ElComandoDeLaCasa.agenda => textos.ayudaAgenda,
         ElComandoDeLaCasa.mcp => textos.ayudaMcp,
+        ElComandoDeLaCasa.programadas => textos.ayudaProgramadas,
         ElComandoDeLaCasa.olvida => textos.ayudaOlvida,
         ElComandoDeLaCasa.ayuda => textos.ayudaAyuda,
       },

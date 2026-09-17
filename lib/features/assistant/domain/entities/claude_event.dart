@@ -4,8 +4,20 @@ sealed class ClaudeEvent {
   const ClaudeEvent();
 }
 
-/// El encargo espera turno: otra conversación está trabajando sobre la misma
-/// carpeta, y esa sesión de Claude no admite dos a la vez.
+/// El encargo espera turno, y **lo que tiene el turno es de esta misma
+/// conversación**: el encargo anterior, un reintento, su compresión.
+///
+/// 🔴 **Este comentario decía «otra conversación», y de ahí salieron los dos
+/// mensajes que mentían.** Era verdad antes del hilo en paralelo; hoy no puede
+/// serlo, y se demuestra en [AskClaude]: este evento se emite en la rama `else`
+/// de `if (enParalelo)`, y llegar ahí exige `_miSesion == null` y
+/// `bifurcando == false`, o sea `turno.laTieneOtra == false`. Con la carpeta
+/// tomada por otra conversación no se espera — se bifurca y se trabaja a la
+/// vez, que es [ClaudeEnParalelo].
+///
+/// Quien lo lea y quiera decirlo en pantalla o en voz: **no hay otra
+/// conversación a la que culpar**. Se reportó dos veces como un cuelgue, la
+/// segunda con una sola conversación abierta sobre la carpeta.
 ///
 /// Se anuncia en vez de esperar en silencio porque un turno de cola y un cuelgue
 /// se ven exactamente igual desde fuera.

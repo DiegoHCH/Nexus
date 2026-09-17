@@ -82,6 +82,7 @@ class _Despacho implements ElDespachoDeCarpeta {
     required String tarea,
     required String loQueSeVe,
     bool allowWrites = true,
+    bool elFocoSigue = true,
   }) async {
     llevados.add((carpeta: carpeta, tarea: tarea, loQueSeVe: loQueSeVe));
     return YaSeFue(carpeta.split('/').last);

@@ -116,13 +116,65 @@ mixin NucleoStrings {
   String get restoreWindow;
   String stepsProgress(int done, int total);
   String stepsTaken(int steps);
-  String get waitingForOtherConversation;
 
-  /// La espera cuando quien tiene el turno es **esta misma conversación**,
-  /// comprimiéndose. Culparla de «la otra conversación» con una sola abierta se
-  /// lee como un cuelgue, y se reportó como tal.
+  /// La espera cuando quien tiene el turno es **algo tuyo que sigue en
+  /// marcha**: el encargo anterior de esta misma conversación, un reintento,
+  /// una compresión ya encolada.
+  ///
+  /// 🔴 **Sustituye a `waitingForOtherConversation`, que solo podía mentir.**
+  /// Desde que existe el hilo en paralelo, la carpeta ocupada por **otra**
+  /// conversación ya no se espera: se bifurca y se trabaja a la vez
+  /// (`ClaudeEnParalelo`). Así que cuando se espera de verdad, quien tiene el
+  /// turno eres tú — está demostrado en el propio `AskClaude`, donde el
+  /// `ClaudeQueued` vive en la rama a la que solo se llega con
+  /// `laTieneOtra == false`.
+  ///
+  /// Se reportó dos veces como un cuelgue, y la segunda así: «me sale a cada
+  /// rato el mensaje de otra conversación está trabajando en esta carpeta,
+  /// cuando no hay más conversaciones abiertas sobre esa carpeta».
+  String get waitingForOwnErrand;
+
+  /// La misma espera cuando lo tuyo es **la compresión**, que se dice aparte
+  /// porque tarda un minuto largo y saberlo cambia si esperas o te vas.
   String get waitingForOwnCompaction;
   String get waitingByVoice;
+
+  // ── las tareas que se repiten ───────────────────────────────────────────
+
+  /// Los siete días, cortos y empezando en lunes. Los junta
+  /// `ComoSeLeeLaCita`, que no sabe de idiomas.
+  List<String> get diasCortos;
+  String get todosLosDiasDicho;
+
+  /// Lo que encabeza una propuesta de repetir algo. Corto a propósito: el
+  /// detalle —qué, dónde y cuándo sería la primera vez— lo pinta la fila.
+  String get propuestaDeProgramar;
+  String get programarlo;
+  String get soloEstaVez;
+  String get yaProgramada;
+  String get seHizoSoloEstaVez;
+  String laProximaCita(String cuando);
+
+  /// Sin carpeta no se puede programar: de ella cuelgan la cuenta, el modelo y
+  /// los permisos, así que una tarea sin carpeta no sabría ni con qué cuenta
+  /// escribir.
+  String get sinCarpetaParaProgramar;
+
+  /// Lo que encabeza la lista de `/programadas`. Las filas salen del estado
+  /// vivo, no del texto.
+  String get laListaDeProgramadas;
+  String get ningunaProgramada;
+  String get ayudaProgramadas;
+  String get apagarla;
+  String get encenderla;
+  String get borrarla;
+  String get estaApagada;
+
+  /// Una tarea programada a la que le tocaba y no corrió, porque Nexus estaba
+  /// cerrado. Ver `SePaso`: ni se ejecuta sola ni se calla.
+  String sePasoLaCita(String tarea, String cuando);
+  String get hacerlaAhora;
+  String get saltarla;
   String get noFolderForConversation;
 
   /// Se nombró más de una carpeta: se pregunta en vez de elegir.
@@ -426,14 +478,65 @@ mixin NucleoStringsEs implements NucleoStrings {
   String stepsTaken(int steps) =>
       steps == 1 ? 'VER EL PASO QUE DIO' : 'VER LOS $steps PASOS QUE DIO';
   @override
-  String get waitingForOtherConversation =>
-      'Esperando a la otra conversación sobre esta carpeta';
+  String get waitingForOwnErrand =>
+      'Esperando a que termine lo anterior de esta conversación';
   @override
   String get waitingForOwnCompaction =>
       'Comprimiendo esta conversación: tu encargo entra en cuanto termine';
   @override
   String get waitingByVoice =>
-      'Espero turno: hay otra conversación trabajando en esa carpeta.';
+      'Espero turno: todavía estoy con lo anterior de esta conversación.';
+  @override
+  List<String> get diasCortos => const [
+    'lun',
+    'mar',
+    'mié',
+    'jue',
+    'vie',
+    'sáb',
+    'dom',
+  ];
+  @override
+  String get todosLosDiasDicho => 'todos los días';
+  @override
+  String get propuestaDeProgramar => '¿Quieres que lo repita?';
+  @override
+  String get programarlo => 'Programar';
+  @override
+  String get soloEstaVez => 'Solo ahora';
+  @override
+  String get yaProgramada => 'Programada';
+  @override
+  String get seHizoSoloEstaVez => 'Solo esta vez';
+  @override
+  String laProximaCita(String cuando) => 'la próxima: $cuando';
+  @override
+  String get sinCarpetaParaProgramar =>
+      'Esta conversación no tiene carpeta, así que no sabría dónde correrlo. '
+      'Empareja una y vuelve a pedírmelo.';
+  @override
+  String get laListaDeProgramadas => 'Lo que se repite:';
+  @override
+  String get ningunaProgramada =>
+      'Todavía no hay ninguna. Pídeme algo con su día y su hora —«actualiza el '
+      'documento de lunes a viernes a las 5pm»— y te pregunto si lo programo.';
+  @override
+  String get ayudaProgramadas => 'las tareas que se repiten';
+  @override
+  String get apagarla => 'Apagar';
+  @override
+  String get encenderla => 'Encender';
+  @override
+  String get borrarla => 'Borrar';
+  @override
+  String get estaApagada => 'apagada';
+  @override
+  String sePasoLaCita(String tarea, String cuando) =>
+      'Se pasó: $tarea ($cuando)';
+  @override
+  String get hacerlaAhora => 'Hacerlo ahora';
+  @override
+  String get saltarla => 'Saltar';
   @override
   String get noFolderForConversation =>
       'Esta conversación no tiene carpeta emparejada: no hay dónde trabajar.';
@@ -851,14 +954,65 @@ mixin NucleoStringsEn implements NucleoStrings {
   String stepsTaken(int steps) =>
       steps == 1 ? 'SEE THE STEP IT TOOK' : 'SEE THE $steps STEPS IT TOOK';
   @override
-  String get waitingForOtherConversation =>
-      'Waiting for the other conversation on this folder';
+  String get waitingForOwnErrand =>
+      'Waiting for the previous errand in this conversation to finish';
   @override
   String get waitingForOwnCompaction =>
       'Compacting this conversation: your errand starts as soon as it ends';
   @override
   String get waitingByVoice =>
-      'I am waiting my turn: another conversation is working on that folder.';
+      'I am waiting my turn: I am still on the previous errand here.';
+  @override
+  List<String> get diasCortos => const [
+    'Mon',
+    'Tue',
+    'Wed',
+    'Thu',
+    'Fri',
+    'Sat',
+    'Sun',
+  ];
+  @override
+  String get todosLosDiasDicho => 'every day';
+  @override
+  String get propuestaDeProgramar => 'Want me to repeat this?';
+  @override
+  String get programarlo => 'Schedule';
+  @override
+  String get soloEstaVez => 'Just now';
+  @override
+  String get yaProgramada => 'Scheduled';
+  @override
+  String get seHizoSoloEstaVez => 'Just this once';
+  @override
+  String laProximaCita(String cuando) => 'next: $cuando';
+  @override
+  String get sinCarpetaParaProgramar =>
+      'This conversation has no folder, so I would not know where to run it. '
+      'Pair one and ask me again.';
+  @override
+  String get laListaDeProgramadas => 'What repeats:';
+  @override
+  String get ningunaProgramada =>
+      'Nothing yet. Ask me for something with its day and time — «update the '
+      'document every weekday at 5pm» — and I will ask whether to schedule it.';
+  @override
+  String get ayudaProgramadas => 'the tasks that repeat';
+  @override
+  String get apagarla => 'Turn off';
+  @override
+  String get encenderla => 'Turn on';
+  @override
+  String get borrarla => 'Delete';
+  @override
+  String get estaApagada => 'off';
+  @override
+  String sePasoLaCita(String tarea, String cuando) =>
+      'Missed: $tarea ($cuando)';
+  @override
+  String get hacerlaAhora => 'Run it now';
+  @override
+  String get saltarla => 'Skip';
   @override
   String get noFolderForConversation =>
       'This conversation has no folder paired: there is nowhere to work.';

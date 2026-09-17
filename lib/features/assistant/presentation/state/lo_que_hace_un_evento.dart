@@ -9,7 +9,12 @@ import 'package:nexus/features/workspace/data/datasources/git_data_source.dart';
 /// Entran como dato y no se leen aquí porque **traducir no es mapear**: con el
 /// proveedor de textos dentro, comprobar qué espera se enseña pediría montar
 /// media app. Cuál de los dos se usa sí es una regla, y esa se decide aquí.
-typedef TextosDeLaEspera = ({String laPropia, String deOtra});
+///
+/// 🔴 **Los dos hablan de lo tuyo, y ninguno culpa a otra conversación.** El
+/// segundo se llamaba `deOtra` y decía «esperando a la otra conversación»: eso
+/// no puede ser verdad nunca: ver [ClaudeQueued], que solo se emite cuando el
+/// turno lo tiene esta misma conversación.
+typedef TextosDeLaEspera = ({String laPropia, String loAnterior});
 
 /// Cómo se piden esos textos: **una función y no los textos**, porque por este
 /// mapeo pasan los deltas de Claude —cientos por respuesta— y solo uno de los
@@ -40,10 +45,12 @@ AssistantHudState conElEvento(
   ClaudeEvent evento, {
   required LosTextosDeLaEspera espera,
 
-  /// Si esta conversación es la que se está comprimiendo. Decide **cuál** de las
-  /// dos esperas se enseña, y era una condición del controlador: la espera es de
-  /// esta conversación o de otra, y decirlo mal es decirle a alguien que espera
-  /// por su propio trabajo cuando espera por el de otro.
+  /// Si lo que tiene el turno es **la compresión** de esta conversación.
+  ///
+  /// Decide cuál de las dos esperas se enseña, y las dos son de aquí: la
+  /// pregunta no es «¿mía o de otra?» —eso ya lo contestó la cola, y si fuera
+  /// de otra no se estaría esperando— sino **cuál de las mías**, que es lo
+  /// único que cambia si conviene esperar o irse.
   required bool comprimiendose,
 
   /// La pregunta que este texto contesta, cuando no es la de justo arriba.
@@ -61,7 +68,7 @@ AssistantHudState conElEvento(
           ...actual.activity,
           ActivityItem(
             id: idDeLaEspera,
-            description: comprimiendose ? textos.laPropia : textos.deOtra,
+            description: comprimiendose ? textos.laPropia : textos.loAnterior,
             writes: false,
           ),
         ],
@@ -169,6 +176,8 @@ abstract final class LosMensajes {
     List<String> attachments = const [],
     String? respondeA,
     bool esElParte = false,
+    PropuestaDeProgramar? propuesta,
+    bool esLaListaDeProgramadas = false,
   }) => [
     ...mensajes,
     ChatMessage(
@@ -178,6 +187,8 @@ abstract final class LosMensajes {
       streaming: true,
       attachments: attachments,
       respondeA: respondeA,
+      propuesta: propuesta,
+      esLaListaDeProgramadas: esLaListaDeProgramadas,
       // Solo la respuesta, no lo que se pidió: el botón de enviar va bajo el
       // parte, y lo que se pidió es la instrucción que lo generó.
       esElParte: autor == ChatAuthor.nexus && esElParte,

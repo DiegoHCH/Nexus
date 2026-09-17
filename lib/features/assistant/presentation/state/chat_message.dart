@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart';
 import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
 import 'package:nexus/features/assistant/domain/entities/el_trabajo_que_salio.dart';
+import 'package:nexus/features/programadas/domain/entities/propuesta_de_programar.dart';
 import 'package:nexus/features/workspace/data/datasources/git_data_source.dart';
 
 // 🔴 `DecisionDePermiso` **es de dominio y vivía aquí**, en presentation. Eso
@@ -13,6 +14,9 @@ export 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dar
 // Lo mismo: quien pinta un mensaje necesita nombrarlo, y no tiene por qué saber
 // de qué carpeta del dominio salió.
 export 'package:nexus/features/assistant/domain/entities/el_trabajo_que_salio.dart';
+// Y lo mismo con la decisión de programar: la pinta la conversación y la guarda
+// el vigilante, y ninguno de los dos tiene por qué saber de dónde salió.
+export 'package:nexus/features/programadas/domain/entities/propuesta_de_programar.dart';
 
 /// Quién habla en una línea de la conversación.
 enum ChatAuthor { user, nexus }
@@ -38,6 +42,9 @@ class ChatMessage {
     this.fallo = false,
     this.permiso,
     this.decision,
+    this.propuesta,
+    this.decidido,
+    this.esLaListaDeProgramadas = false,
     this.trabajo,
   });
 
@@ -105,6 +112,33 @@ class ChatMessage {
   /// Qué se contestó, o `null` si sigue esperando.
   final DecisionDePermiso? decision;
 
+  /// Una tarea que se repetiría, **propuesta y todavía sin crear**.
+  ///
+  /// Vive en el mensaje por lo mismo que [permiso], y con la misma decisión
+  /// detrás: no es una modal. La pregunta se queda donde ocurrió, se puede
+  /// subir a releerla, y el turno conserva qué se contestó. Ver
+  /// [PropuestaDeProgramar] para por qué se pregunta en vez de programar.
+  ///
+  /// Solo lo llevan los mensajes vivos, como el permiso: al releer la
+  /// conversación del disco viene `null` y queda el texto. Ofrecer un botón de
+  /// «programar» sobre una propuesta de hace tres días sería mentir.
+  final PropuestaDeProgramar? propuesta;
+
+  /// Qué se contestó a la propuesta, o `null` si sigue en pie.
+  final DecisionDeProgramar? decidido;
+
+  /// Este mensaje **es** la lista de tareas que se repiten.
+  ///
+  /// 🔴 Se marca el mensaje y no se guarda la lista dentro, y la diferencia
+  /// importa: lo que se pinta sale del estado vivo, así que apagar o borrar una
+  /// se ve en el acto y releer la conversación mañana enseña **lo que hay
+  /// mañana**. Una copia de la lista guardada en el turno sería una foto vieja
+  /// con botones que ya no corresponden a nada.
+  final bool esLaListaDeProgramadas;
+
+  /// Hay una propuesta sin contestar en este mensaje.
+  bool get esperaPropuesta => propuesta != null && decidido == null;
+
   /// Hay una pregunta en pie en este mensaje.
   bool get esperaPermiso => permiso != null && decision == null;
 
@@ -150,6 +184,7 @@ class ChatMessage {
     List<ActivityItem>? actividad,
     bool? fallo,
     DecisionDePermiso? decision,
+    DecisionDeProgramar? decidido,
   }) => ChatMessage(
     author: author,
     text: text ?? this.text,
@@ -164,6 +199,9 @@ class ChatMessage {
     respondeA: respondeA,
     permiso: permiso,
     decision: decision ?? this.decision,
+    propuesta: propuesta,
+    decidido: decidido ?? this.decidido,
+    esLaListaDeProgramadas: esLaListaDeProgramadas,
     trabajo: trabajo,
   );
 
@@ -173,5 +211,9 @@ class ChatMessage {
   /// Y uno que trae una pregunta de permiso tampoco: lo que hay que mirar son
   /// los botones, no el texto.
   bool get isEmpty =>
-      text.trim().isEmpty && attachments.isEmpty && permiso == null;
+      text.trim().isEmpty &&
+      attachments.isEmpty &&
+      permiso == null &&
+      propuesta == null &&
+      !esLaListaDeProgramadas;
 }

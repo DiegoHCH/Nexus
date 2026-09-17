@@ -41,6 +41,13 @@ enum ElComandoDeLaCasa {
   /// de la conversación para responder una pregunta de una línea.
   mcp(['/mcp', '/mcps'], conTexto: false),
 
+  /// Las tareas que se repiten: verlas, apagarlas y borrarlas.
+  ///
+  /// En el chat y no en Ajustes por lo mismo que el listado de MCP: apagar algo
+  /// que está a punto de correr no puede costar cruzar la pantalla. Y porque es
+  /// donde se crean —contestando a una propuesta—, así que es donde se buscan.
+  programadas(['/programadas', '/tareas'], conTexto: false),
+
   /// Dibujar desde cero. Vive en [LoQueSePideDibujar] —lo reconoce él— y aquí
   /// solo está para que la ayuda lo cuente.
   imagen(['/imagen', '/img'], conTexto: true),
@@ -103,6 +110,7 @@ enum ElComandoDeLaCasa {
     parte,
     agenda,
     mcp,
+    programadas,
     olvida,
     ayuda,
   ];

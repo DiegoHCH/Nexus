@@ -138,8 +138,9 @@ AssistantHudState conElEvento(
     case ClaudeFailed() ||
         ClaudeMcpCaido() ||
         ClaudeRulesChanged() ||
+        ClaudeCompacto() ||
         ClaudeEnParalelo():
-      // Ver la cabecera: estos cuatro no son mapeo. Se nombran uno a uno y no con
+      // Ver la cabecera: estos cinco no son mapeo. Se nombran uno a uno y no con
       // un `default` para que **añadir un evento nuevo no compile** hasta que
       // alguien decida de qué lado cae.
       return actual;

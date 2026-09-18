@@ -348,12 +348,34 @@ class ClaudeBridgeImpl implements ClaudeBridge {
   /// Devuelve una lista y no un solo evento porque **un mensaje puede traer
   /// varias herramientas a la vez**: Claude pide leer tres archivos en el
   /// mismo turno y los tres llegan en el mismo `assistant`.
-  List<ClaudeEvent> _decode(
+  /// La traducción de una línea del CLI a eventos, **sin montar un proceso**.
+  ///
+  /// Se expone para poder probarla: lo que pasa aquí —qué línea del binario
+  /// significa qué— es lo que no se puede comprobar de otra forma sin lanzar un
+  /// `claude` de verdad en cada prueba.
+  @visibleForTesting
+  static List<ClaudeEvent> eventosDe(
+    Map<String, dynamic> json,
+    String workingDirectory,
+  ) => _decode(json, workingDirectory);
+
+  static List<ClaudeEvent> _decode(
     Map<String, dynamic> json,
     String workingDirectory,
   ) {
     switch (json['type']) {
       case 'system':
+        // Cómo acabó la compactación, que es lo único que dice si comprimió de
+        // verdad. Ver [ClaudeCompacto]. El `status: compacting` de antes no se
+        // reenvía: que empezó ya lo sabe quien la pidió.
+        if (json['compact_result'] case final resultado?) {
+          return [
+            ClaudeCompacto(
+              ok: resultado == 'success',
+              error: json['compact_error'] as String?,
+            ),
+          ];
+        }
         if (json['subtype'] != 'init') return const [];
         // 🔴 **Solo los que fallaron.** El arranque trae cada servidor con su
         // estado, y ahí `pending` es lo normal —conectan después— y

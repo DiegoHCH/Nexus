@@ -58,6 +58,33 @@ enum NexusAudioError: LocalizedError {
 
 final class NexusAudioEngine: NSObject, FlutterStreamHandler {
 
+  /// Si al colgar hay que desmontar **ya**, en vez de quedarse caliente.
+  ///
+  /// Pura y estática por lo mismo que [sirve]: lo demás de aquí pide hardware, y
+  /// esto es una decisión que se rompe en silencio —quedarse caliente de más no
+  /// lanza ningún error, solo deja al Mac sin audio para lo demás—.
+  ///
+  /// 🔴 **Lo que cuesta la ventana caliente es el micrófono abierto.** Reportado
+  /// así: «estoy escuchando música en los airpods y no se escucha», y una
+  /// notificación que tampoco sonó. Unos auriculares Bluetooth tienen dos
+  /// perfiles y en cuanto una app abre la entrada macOS conmuta al de llamada,
+  /// que no lleva música: colgabas y se quedaban así un minuto entero por una
+  /// conversación terminada.
+  ///
+  /// Y con auriculares el minuto no compraba nada. Existe para amortizar el
+  /// dispositivo agregado del cancelador de eco, que **solo se monta cuando la
+  /// salida es el altavoz interno** —ver `cancelEcho` en `start`—. Sin agregado
+  /// que reutilizar solo quedaba el precio.
+  ///
+  /// Montado solo para hablar no entra: ahí la entrada nunca se abrió, así que
+  /// no hay perfil que conmutar ni nada que devolverle a nadie.
+  static func hayQueDesmontarAlColgar(
+    montado: PropositoDelMotor?,
+    salidaEsAltavozInterno: Bool
+  ) -> Bool {
+    montado == .conversar && !salidaEsAltavozInterno
+  }
+
   /// Si un motor ya montado sirve para lo que se le pide ahora.
   ///
   /// La decisión entera del propósito, y **pura para poder probarla**: lo demás
@@ -159,13 +186,22 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
   /// para poder cancelarlo si vuelves a hablarle antes.
   private var teardownWork: DispatchWorkItem?
 
-  /// Cuánto se queda el motor caliente después de colgar.
+  /// Cuánto se queda el motor caliente después de colgar, **con el altavoz
+  /// interno**.
   ///
   /// Montar el dispositivo agregado del cancelador de eco cuesta ~1,3 s de los
   /// 1,76 s que tardaba en poder hablar, y solo se ahorra teniéndolo ya
   /// montado. Un minuto cubre el caso real —seguir hablándole— sin dejar el
   /// micrófono abierto toda la sesión. Decisión del usuario, no técnica: las
   /// tres opciones estaban sobre la mesa y esta es la elegida.
+  ///
+  /// 🔴 **Y no se aplica con cualquier otra salida**, que es la corrección de
+  /// esa decisión con lo que faltaba encima de la mesa: se pesó el indicador
+  /// naranja del micrófono, no que unos auriculares Bluetooth se quedan en modo
+  /// llamada mientras la entrada esté abierta —sin música y sin avisos—. Ahí se
+  /// desmonta al colgar, y encima no se pierde nada: el agregado que este
+  /// minuto viene a amortizar solo se monta con el altavoz interno. Ver
+  /// [stop].
   private static let warmSeconds = 60.0
 
   /// Por dónde suena la respuesta, si el usuario eligió un aparato concreto.
@@ -823,6 +859,30 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
     Self.log.notice(
       "reproducción · \(gaps, privacy: .public) huecos, el peor de \(worst, privacy: .public) ms"
     )
+
+    // 🔴 **Con la salida fuera del altavoz interno se desmonta al colgar, sin
+    // esperar el minuto.** Reportado así: «estoy escuchando música en los
+    // airpods y no se escucha», y también con una notificación que no sonó.
+    //
+    // La causa no es el cancelador: es el **micrófono**, que sigue abierto toda
+    // la ventana caliente. Unos auriculares Bluetooth tienen dos perfiles, y en
+    // cuanto una app abre la entrada macOS conmuta al de llamada —mono, y sin
+    // la música—. Colgabas, y tus AirPods se quedaban en modo llamada un minuto
+    // entero por una conversación que ya había terminado.
+    //
+    // Y la ventana no estaba comprando nada a cambio: existe para amortizar el
+    // dispositivo agregado del cancelador de eco, que **solo se monta cuando la
+    // salida es el altavoz interno** —ver `cancelEcho` en `start`—. Con
+    // auriculares no hay agregado que reutilizar, así que el minuto solo tenía
+    // precio. Con el altavoz del Mac sí lo hay, y ahí se conserva entero.
+    if Self.hayQueDesmontarAlColgar(
+      montado: montadoPara,
+      salidaEsAltavozInterno: outputIsBuiltInSpeaker()
+    ) {
+      Self.log.info("la salida no es el altavoz interno · se desmonta al colgar")
+      teardown()
+      return
+    }
 
     let work = DispatchWorkItem { [weak self] in self?.teardown() }
     teardownWork = work

@@ -378,6 +378,22 @@ class ElVigilanteDeLaAgenda extends Notifier<Avisos> {
       await delMac.start();
       await delMovil.start();
 
+      // 🔴 **Y se suelta pase lo que pase, que es lo que faltaba.** Los dos
+      // `stop()` de abajo cubrían los caminos de error y **el bueno no soltaba
+      // nada**: un aviso que sonaba bien dejaba el altavoz cogido para siempre.
+      //
+      // Lo que cuesta no es el altavoz, es todo lo demás. El contador de
+      // `NativeAudioDataSource` decide si se manda el `stop` al motor, y con un
+      // usuario pendiente **no se manda nunca**: sin `stop` no hay desmontaje
+      // programado, así que el micrófono se queda abierto hasta cerrar la app —
+      // y unos auriculares Bluetooth se quedan en modo llamada, sin música y
+      // sin avisos del sistema. Reportado así: «quedaron bloqueados los airpods
+      // por nexus», veinte minutos después de colgar la voz.
+      //
+      // El propio código de aquí abajo ya lo decía para el camino de error
+      // —«Dejarlo cogido mantiene el micrófono abierto, el motor es el mismo»—;
+      // lo que faltaba era decirlo una sola vez y para todos los caminos.
+
       // 🔴 **Cuánto tardó en sintetizar, dicho en el log.** Esta línea resolvió
       // en una pulsación lo que llevaba media hora sin resolverse: cuatro
       // avisos seguidos habían muerto en «no contestó en 30s» contra un host
@@ -385,35 +401,38 @@ class ElVigilanteDeLaAgenda extends Notifier<Avisos> {
       // lento o si la petición no volvía nunca. Con el número delante se vio
       // que lo normal son ~3,9 s, o sea que un tope agotado no es «faltó un
       // poco»: es el servicio en problemas.
-      final empezo = DateTime.now();
-      // 🔴 **Por la sesión de voz y ya no por el TTS.** El cupo del modelo de
-      // texto a voz del nivel gratuito se agota con dos o tres avisos —medido al
-      // sacar la 1.8.0: `RPD 13/10`— y un aviso que llega en silencio ha dejado
-      // de ser un aviso. El Live es el mismo servicio que sostiene las
-      // conversaciones y no se agota en uso normal. Ver [LaVozDelAviso].
-      final dicho = await ref.read(laVozDelAvisoProvider).decir(frase);
-      debugPrint(
-        'agenda · decirlo tardó '
-        '${DateTime.now().difference(empezo).inMilliseconds} ms',
-      );
-      if (!ref.mounted) {
-        // El altavoz se pidió por adelantado: si ya no hay a quien avisarle, se
-        // suelta. Dejarlo cogido mantiene el micrófono abierto —el motor es el
-        // mismo— y eso se ve en la barra de macOS sin que nada lo justifique.
-        await delMac.stop();
-        return;
-      }
-      if (!dicho.salio) {
-        debugPrint('agenda · no se pudo decir el aviso: ${dicho.problema}');
-        await delMac.stop();
-        await _soloNotificar(reunion.titulo, frase);
-        return;
-      }
+      try {
+        final empezo = DateTime.now();
+        // 🔴 **Por la sesión de voz y ya no por el TTS.** El cupo del modelo de
+        // texto a voz del nivel gratuito se agota con dos o tres avisos —medido al
+        // sacar la 1.8.0: `RPD 13/10`— y un aviso que llega en silencio ha dejado
+        // de ser un aviso. El Live es el mismo servicio que sostiene las
+        // conversaciones y no se agota en uso normal. Ver [LaVozDelAviso].
+        final dicho = await ref.read(laVozDelAvisoProvider).decir(frase);
+        debugPrint(
+          'agenda · decirlo tardó '
+          '${DateTime.now().difference(empezo).inMilliseconds} ms',
+        );
+        // Si ya no hay a quien avisarle, no se dice nada. El altavoz lo suelta
+        // el `finally`, como en todos los demás caminos.
+        if (!ref.mounted) return;
+        if (!dicho.salio) {
+          debugPrint('agenda · no se pudo decir el aviso: ${dicho.problema}');
+          await _soloNotificar(reunion.titulo, frase);
+          return;
+        }
 
-      await _sonarEnLosDos(delMac, delMovil, dicho.pcm!);
-      // El aviso de macOS va **además** de la voz: si estabas en otra sala, la
-      // frase se la lleva el aire y la notificación sigue ahí al volver.
-      await NotificationsChannel.notify(title: reunion.titulo, body: frase);
+        await _sonarEnLosDos(delMac, delMovil, dicho.pcm!);
+        // El aviso de macOS va **además** de la voz: si estabas en otra sala, la
+        // frase se la lleva el aire y la notificación sigue ahí al volver.
+        await NotificationsChannel.notify(title: reunion.titulo, body: frase);
+      } finally {
+        // El del móvil también: es el mismo descuido, y aunque ahí no haya
+        // micrófono que liberar, un altavoz remoto tomado sin dueño es un
+        // recurso que nadie va a soltar.
+        await delMac.stop();
+        await delMovil.stop();
+      }
     } finally {
       _hablando = false;
     }

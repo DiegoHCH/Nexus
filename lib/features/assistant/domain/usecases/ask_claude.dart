@@ -165,10 +165,32 @@ class AskClaude {
       final enParalelo = bifurcando || _miSesion != null;
       try {
         if (enParalelo) {
-          // El turno se suelta ya: quedárselo bloquearía a los demás por un
-          // encargo que no va a escribir en la sesión de la carpeta.
-          turno.soltar();
-          yield const ClaudeEnParalelo();
+          // 🔴 **Se avisa solo cuando de verdad hay otra trabajando ahora.**
+          // Esto se emitía en **cada** encargo desde que la conversación se
+          // bifurcaba una vez, porque `enParalelo` mira `_miSesion`, que ya no
+          // se apaga nunca. Reportado con la captura delante: «solo tengo una
+          // conversación de feria-iglesia pero en cada mensaje me sale esto».
+          // Tener hilo propio es una condición permanente; que otra esté
+          // tocando los mismos archivos **ahora** no lo es, y es lo único que
+          // este aviso cuenta.
+          if (turno.laTieneOtra) yield const ClaudeEnParalelo();
+
+          // 🔴 **Pero lo tuyo sí se espera, y esto es la mitad cara.**
+          // Bifurcarse libra de esperar a las demás conversaciones —el hilo es
+          // propio— y se estaba entendiendo como libre de esperar a nadie: el
+          // turno se soltaba de entrada, así que los encargos de esta misma
+          // conversación dejaban de serializarse **entre ellos**. Y ese hilo
+          // sigue siendo uno solo.
+          //
+          // Lo que costó, medido en la sesión de `feria-iglesia`: la compresión
+          // arrancó a las 19:11:39 y tarda dos minutos y medio; el mensaje
+          // siguiente del usuario entró a las 19:13:35 sobre la misma sesión, y
+          // de los dos `--resume` a la vez **el turno que se perdió fue el de la
+          // compresión**. Nueve veces seguidas sin que el contexto bajara, con
+          // la app diciendo «comprimiendo». Es exactamente el fallo que esta
+          // cola existe para impedir, entrando por la puerta de al lado.
+          if (turno.hayQueEsperarLoTuyo) yield const ClaudeQueued();
+          yield* _mientras(turno.cuandoToqueLoTuyo);
         } else if (turno.hayQueEsperar) {
           // Esperando a lo tuyo, que es lo único que queda por esperar: aquí
           // solo se llega con `laTieneOtra == false`.
@@ -197,6 +219,8 @@ class AskClaude {
         // por lo que `stopWork` tuvo que dejar de esperar a su propia
         // cancelación. Ahora corre el `finally` de aquí abajo en el momento, y
         // el turno se suelta ya.
+        // Y el de la carpeta solo lo espera quien escribe en la sesión de la
+        // carpeta. Ver arriba: el hilo bifurcado ya esperó lo suyo.
         if (!enParalelo) yield* _mientras(turno.cuandoToque);
         // La memoria va **por carpeta**, no por conversación: es la regla del
         // producto. Dos chats sobre el mismo repo comparten contexto —reanudan

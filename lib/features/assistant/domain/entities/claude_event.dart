@@ -25,6 +25,27 @@ final class ClaudeQueued extends ClaudeEvent {
   const ClaudeQueued();
 }
 
+/// Lo que dejó una compactación: si comprimió de verdad, y si no, por qué.
+///
+/// 🔴 **El CLI lo dice y se estaba tirando.** Nexus mandaba `/compact` y solo
+/// miraba el `result` final, así que no distinguía una compactación que
+/// funcionó de una que falló: anunciaba «se actualiza en el siguiente turno» en
+/// los dos casos. Medido contra el binario: el CLI emite
+/// `{"type":"system","subtype":"status","status":"compacting"}` y después otro
+/// con `compact_result` y, si falló, `compact_error`.
+///
+/// Sin esto, una carpeta podía pasarse nueve compactaciones seguidas sin que el
+/// contexto bajara **y sin que la app tuviera forma de saberlo**.
+final class ClaudeCompacto extends ClaudeEvent {
+  const ClaudeCompacto({required this.ok, this.error});
+
+  final bool ok;
+
+  /// Lo que dijo el CLI cuando no pudo. Se enseña tal cual: el motivo es suyo
+  /// y traducirlo sería inventarse un diagnóstico.
+  final String? error;
+}
+
 /// Un servidor MCP declarado **no arrancó**, y el encargo corre sin él.
 ///
 /// 🔴 **Solo los que fallaron, y esto está medido.** El mensaje de arranque del

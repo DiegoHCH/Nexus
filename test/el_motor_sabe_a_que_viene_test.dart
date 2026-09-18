@@ -157,4 +157,65 @@ void main() {
       expect(llamadas, isEmpty);
     });
   });
+
+  /// 🔴 **Quién suelta el motor, que es lo que nadie miraba.**
+  ///
+  /// Reportado así: «quedaron bloqueados los airpods por nexus», veinte minutos
+  /// después de colgar la voz. La causa no estaba en el motor ni en la ventana
+  /// caliente: un aviso de agenda que sonaba bien **no soltaba el altavoz**, y
+  /// con un usuario pendiente el `stop` no se manda nunca. Sin `stop` no hay
+  /// desmontaje programado, así que el micrófono se queda abierto hasta cerrar
+  /// la app — y unos auriculares Bluetooth, en modo llamada y sin música.
+  ///
+  /// Lo que se rompe aquí no lanza nada y no se ve en pantalla: se ve en que el
+  /// Mac deja de sonar para todo lo demás.
+  group('soltar el motor', () {
+    List<String> metodos() => [for (final l in llamadas) l.method];
+
+    test('el último en soltar es quien manda parar', () async {
+      final altavoz = AudioOutputImpl(audio, para: ParaQue.hablar);
+      await altavoz.start();
+      await altavoz.stop();
+
+      expect(metodos(), contains('stop'));
+    });
+
+    // La regla que hacía invisible el fallo: mientras quede alguien, no se
+    // manda parar. Es correcto —el grafo lo comparten— y por eso un solo
+    // usuario olvidado basta para dejar el micrófono abierto para siempre.
+    test('con alguien todavía dentro, no se para', () async {
+      final elAviso = AudioOutputImpl(audio, para: ParaQue.hablar);
+      final laVoz = AudioOutputImpl(audio, para: ParaQue.conversar);
+      await elAviso.start();
+      await laVoz.start();
+
+      await laVoz.stop();
+
+      expect(
+        metodos(),
+        isNot(contains('stop')),
+        reason: 'el aviso sigue hablando: pararlo lo cortaría a media palabra',
+      );
+
+      // Y al soltar el que quedaba, sí.
+      await elAviso.stop();
+      expect(metodos(), contains('stop'));
+    });
+
+    // Soltar dos veces es gratis y está previsto: el `finally` que arregla el
+    // fallo puede coincidir con un camino que ya había soltado.
+    test('soltarlo dos veces no molesta a nadie', () async {
+      final altavoz = AudioOutputImpl(audio, para: ParaQue.hablar);
+      await altavoz.start();
+
+      await altavoz.stop();
+      await altavoz.stop();
+
+      expect(
+        metodos().where((m) => m == 'stop').length,
+        1,
+        reason: 'el segundo no baja el contador de nadie más',
+      );
+    });
+  });
 }

@@ -948,6 +948,54 @@ final class PropositoDelMotorTests: XCTestCase {
     )
   }
 
+  // 🔴 **Cuánto se queda el motor caliente después de colgar.**
+  //
+  // Reportado así: «estoy escuchando música en los airpods y no se escucha», y
+  // una notificación que tampoco sonó. La causa no es el cancelador de eco: es
+  // el micrófono, que seguía abierto el minuto entero de la ventana caliente.
+  // Unos auriculares Bluetooth conmutan al perfil de llamada en cuanto una app
+  // abre la entrada, y ese perfil no lleva música.
+  //
+  // Lo que se rompe aquí no lanza nada: solo deja al Mac sin audio para lo
+  // demás, un minuto, después de una conversación ya terminada.
+  func testConAuricularesSeDesmontaAlColgar() {
+    XCTAssertTrue(
+      NexusAudioEngine.hayQueDesmontarAlColgar(
+        montado: .conversar,
+        salidaEsAltavozInterno: false
+      ),
+      "el minuto caliente solo amortiza el agregado del cancelador, y ese no "
+        + "se monta con auriculares: quedaba el precio y ninguna ganancia"
+    )
+  }
+
+  func testConElAltavozInternoSeQuedaCaliente() {
+    XCTAssertFalse(
+      NexusAudioEngine.hayQueDesmontarAlColgar(
+        montado: .conversar,
+        salidaEsAltavozInterno: true
+      ),
+      "aquí sí hay agregado que reutilizar, y es la decisión que se tomó"
+    )
+  }
+
+  // Solo salida nunca abrió la entrada, así que no hay perfil que conmutar ni
+  // nada que devolverle a nadie.
+  func testSoloHablarNoTieneQueDesmontarse() {
+    XCTAssertFalse(
+      NexusAudioEngine.hayQueDesmontarAlColgar(
+        montado: .hablar,
+        salidaEsAltavozInterno: false
+      )
+    )
+    XCTAssertFalse(
+      NexusAudioEngine.hayQueDesmontarAlColgar(
+        montado: nil,
+        salidaEsAltavozInterno: false
+      )
+    )
+  }
+
   /// El propósito viaja por el canal como cadena, así que un cambio de nombre
   /// aquí es un `nil` en el otro lado —y `nil` cae en `.conversar`, o sea el
   /// micrófono encendido para decir una frase, que es el fallo que se vino a

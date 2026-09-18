@@ -1150,6 +1150,10 @@ class AssistantController extends Notifier<AssistantHudState> {
             ClaudeEnParalelo() => _onEnParalelo(),
             ClaudeRulesChanged() => _onRulesChanged(event.paths),
             ClaudeMcpCaido() => _onMcpCaido(event.servidores),
+            // Por aquí no llega: la compactación la pide `_compactIfNeeded`,
+            // que consume su propio flujo. Se nombra para que añadir un evento
+            // nuevo siga sin compilar hasta que alguien decida de qué lado cae.
+            ClaudeCompacto() => null,
             ClaudeSessionStarted() => _alArrancarLaSesion(event),
             ClaudeTextDelta() => _onTextDelta(buffer, event),
             ClaudeToolUsed() => _onClaudeToolUsed(event),
@@ -2112,11 +2116,18 @@ class AssistantController extends Notifier<AssistantHudState> {
       ],
     );
 
+    ClaudeCompacto? comoFue;
     try {
       await for (final event in ref.read(askClaudeProvider(conversationId))(
         '/compact',
         remember: false,
       )) {
+        // 🔴 **Cómo fue, que es lo único que dice si comprimió de verdad.**
+        // Antes solo se miraba el turno completado, así que una compactación
+        // fallida y una buena se contaban igual — y una carpeta se pasó nueve
+        // seguidas sin que el contexto bajara y sin que la app lo supiera. Ver
+        // [ClaudeCompacto].
+        if (event case final ClaudeCompacto compacto) comoFue = compacto;
         if (event case ClaudeTurnCompleted(:final contextTokens)) {
           medido = contextTokens;
           if (!_vive) return;
@@ -2141,6 +2152,18 @@ class AssistantController extends Notifier<AssistantHudState> {
       // no decir nada hacía dudar de si la compresión había hecho algo. Sí la
       // hizo: lo que faltaba era la medida nueva, que llega con el turno
       // siguiente.
+      // Lo que no pudo comprimir se dice tal cual, con el motivo del CLI: una
+      // compactación que no comprime y anuncia que «se actualiza en el
+      // siguiente turno» deja mirando un número que no va a moverse.
+      if (comoFue case ClaudeCompacto(ok: false, :final error)) {
+        _say(
+          ChatAuthor.nexus,
+          ref.read(stringsProvider).noSePudoComprimir(error ?? ''),
+        );
+        _sealLast();
+        return;
+      }
+
       final dejo = LaCompresionDeLaConversacion.loQueDejo(
         antes: before,
         despues: medido == null ? null : state.meter.contextPercent,

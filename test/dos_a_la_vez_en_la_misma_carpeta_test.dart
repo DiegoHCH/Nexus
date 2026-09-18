@@ -26,6 +26,9 @@ class _Puente implements ClaudeBridge {
   final pedidos = <({String instruccion, String? resume, bool fork})>[];
   final sigueTrabajando = Completer<void>();
 
+  /// Qué encargos se quedan a medias, por orden de llegada.
+  var seQuedan = <int>{0};
+
   /// Qué sesión dice que arrancó, por vuelta.
   final sesiones = <String>['hilo-bifurcado', 'hilo-bifurcado'];
 
@@ -63,8 +66,10 @@ class _Puente implements ClaudeBridge {
           : _sesionDeLaCarpeta,
       model: 'm',
     );
-    // El primero se queda trabajando: es el que tiene la carpeta.
-    if (mia == 0) await sigueTrabajando.future;
+    // Los que se quedan trabajando. Por defecto el primero, que es el que
+    // tiene la carpeta; una prueba necesita además que el primero de B siga en
+    // vuelo cuando B se pide otra cosa a sí misma.
+    if (seQuedan.contains(mia)) await sigueTrabajando.future;
     yield ClaudeTurnCompleted(result: 'hecho: $instruction');
   }
 
@@ -228,6 +233,89 @@ void main() {
       puente.pedidos,
       hasLength(1),
       reason: 'el segundo turno propio espera, no arranca a la vez',
+    );
+  });
+
+  // 🔴 **Bifurcarse libra de esperar a las demás, no a sí misma.**
+  //
+  // Lo que costó, medido en la sesión de `feria-iglesia`: una vez bifurcada, la
+  // conversación soltaba el turno de entrada y dejaba de serializar **sus
+  // propios** encargos. La compresión arrancó a las 19:11:39 —tarda dos minutos
+  // y medio— y el mensaje siguiente entró a las 19:13:35 sobre la misma sesión.
+  // De los dos `--resume` a la vez, el turno que se perdió fue el de la
+  // compresión: nueve veces seguidas sin que el contexto bajara, con la app
+  // diciendo «comprimiendo». El hilo es propio, pero es **uno**.
+  test('bifurcada, sigue esperándose a sí misma', () async {
+    // A ocupa la carpeta y se queda trabajando.
+    deLaConversacion('c1')('lo de A').listen((_) {});
+    await unosInstantes();
+
+    // B se bifurca y arranca en paralelo, sin esperar a A — y se queda
+    // trabajando, que es lo que hace posible el choque que esto mide.
+    puente.seQuedan = {0, 1};
+    final b = deLaConversacion('c2');
+    b('lo primero de B').listen((_) {});
+    await unosInstantes();
+    expect(puente.pedidos, hasLength(2), reason: 'B no esperó a A');
+
+    // Y ahora B se pide **otra cosa a sí misma**, con la suya todavía en vuelo.
+    final segundoDeB = <ClaudeEvent>[];
+    b('lo segundo de B').listen(segundoDeB.add);
+    await unosInstantes();
+
+    expect(
+      puente.pedidos,
+      hasLength(2),
+      reason: 'dos --resume a la vez sobre el hilo de B perderían un turno',
+    );
+    expect(segundoDeB.whereType<ClaudeQueued>(), hasLength(1));
+  });
+
+  // La otra cara: esperarse a uno mismo no puede volver a encadenarte a las
+  // demás. Si no, bifurcarse no serviría de nada.
+  test('pero no vuelve a esperar a la otra conversación', () async {
+    deLaConversacion('c1')('lo de A').listen((_) {});
+    await unosInstantes();
+
+    final deB = await deLaConversacion('c2')('lo de B').toList();
+
+    expect(deB.whereType<ClaudeQueued>(), isEmpty);
+    expect(
+      deB.whereType<ClaudeTurnCompleted>().single.result,
+      'hecho: lo de B',
+      reason: 'contesta mientras A sigue trabajando',
+    );
+  });
+
+  // 🔴 **El aviso es de ahora, no de siempre.** Reportado con la captura
+  // delante: «solo tengo una conversación de feria-iglesia pero en cada mensaje
+  // me sale esto». Tener hilo propio es permanente; que otra esté tocando los
+  // mismos archivos ahora mismo, no — y es lo único que el aviso cuenta.
+  test('el aviso de paralelo no se repite cuando ya no hay otra', () async {
+    final a = deLaConversacion('c1');
+    a('lo de A').listen((_) {});
+    await unosInstantes();
+
+    final b = deLaConversacion('c2');
+    final primero = <ClaudeEvent>[];
+    b('lo de B').listen(primero.add);
+    await unosInstantes();
+    expect(
+      primero.whereType<ClaudeEnParalelo>(),
+      hasLength(1),
+      reason: 'al bifurcarse sí hay otra, y hay que decirlo',
+    );
+
+    // A termina: ya no hay nadie más en la carpeta.
+    puente.sigueTrabajando.complete();
+    await unosInstantes();
+
+    final segundo = await b('y otra cosa de B').toList();
+
+    expect(
+      segundo.whereType<ClaudeEnParalelo>(),
+      isEmpty,
+      reason: 'sin otra conversación no hay nada que avisar',
     );
   });
 

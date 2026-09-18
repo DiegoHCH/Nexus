@@ -499,6 +499,12 @@ class HoldVoiceConversation {
             case ClaudeMcpCaido():
               break;
 
+            // Cómo fue la compactación tampoco se dice en alto: hablando, cada
+            // frase que no es la respuesta compite con la respuesta. Queda en
+            // la conversación, que es donde se mira.
+            case ClaudeCompacto():
+              break;
+
             // 🔴 **Lo que se espera es lo tuyo, no lo de otra.** Esto decía
             // «hay otra conversación trabajando en esa carpeta» y no podía ser
             // verdad: con la carpeta tomada por otra se bifurca y se trabaja a

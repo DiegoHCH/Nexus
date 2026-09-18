@@ -158,6 +158,10 @@ mixin NucleoStrings {
   /// Sin carpeta no se puede programar: de ella cuelgan la cuenta, el modelo y
   /// los permisos, así que una tarea sin carpeta no sabría ni con qué cuenta
   /// escribir.
+  /// La compactación que no comprimió, con el motivo que dio el CLI. Se enseña
+  /// el motivo tal cual: es suyo, y traducirlo sería inventar un diagnóstico.
+  String noSePudoComprimir(String motivo);
+
   String get sinCarpetaParaProgramar;
 
   /// Lo que encabeza la lista de `/programadas`. Las filas salen del estado
@@ -510,6 +514,10 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get seHizoSoloEstaVez => 'Solo esta vez';
   @override
   String laProximaCita(String cuando) => 'la próxima: $cuando';
+  @override
+  String noSePudoComprimir(String motivo) => motivo.trim().isEmpty
+      ? 'No se pudo comprimir la conversación.'
+      : 'No se pudo comprimir la conversación: $motivo';
   @override
   String get sinCarpetaParaProgramar =>
       'Esta conversación no tiene carpeta, así que no sabría dónde correrlo. '
@@ -986,6 +994,10 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get seHizoSoloEstaVez => 'Just this once';
   @override
   String laProximaCita(String cuando) => 'next: $cuando';
+  @override
+  String noSePudoComprimir(String motivo) => motivo.trim().isEmpty
+      ? 'Could not compact this conversation.'
+      : 'Could not compact this conversation: $motivo';
   @override
   String get sinCarpetaParaProgramar =>
       'This conversation has no folder, so I would not know where to run it. '

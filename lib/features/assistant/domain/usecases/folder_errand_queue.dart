@@ -68,7 +68,9 @@ class FolderErrandQueue {
   ({
     bool hayQueEsperar,
     bool laTieneOtra,
+    bool hayQueEsperarLoTuyo,
     Future<void> cuandoToque,
+    Future<void> cuandoToqueLoTuyo,
     void Function() soltar,
   })
   pedirTurno(String folder, {String? de}) {
@@ -92,9 +94,15 @@ class FolderErrandQueue {
       if (puestos.every((puesto) => puesto.soltado)) _fila.remove(folder);
     }
 
+    final mios = [
+      for (final puesto in delante)
+        if (puesto.de == de) puesto,
+    ];
+
     return (
       hayQueEsperar: delante.isNotEmpty,
       laTieneOtra: delante.any((puesto) => puesto.de != de),
+      hayQueEsperarLoTuyo: mios.isNotEmpty,
       // A **todos** los que están delante, no solo al último: uno que se va a
       // mitad de la espera no puede adelantar a los de detrás, o entrarían con
       // el primero todavía dentro — dos encargos a la vez sobre la misma
@@ -104,6 +112,17 @@ class FolderErrandQueue {
       // conversación revienta, el siguiente tiene que entrar igual.
       cuandoToque: Future.wait([
         for (final puesto in delante) puesto.suTurno.future,
+      ]),
+      // 🔴 **Solo los tuyos, para quien ya trabaja en su propio hilo.**
+      // Bifurcarse libra de esperar a las demás conversaciones —el hilo es
+      // suyo y no se lo pisa nadie— pero **no de esperarse a sí misma**: ese
+      // hilo sigue siendo uno, y dos `--resume` a la vez sobre él pierden un
+      // turno. Está medido arriba, y se pagó: la compresión de una carpeta
+      // corrió a la vez que el mensaje siguiente del usuario y **el resultado
+      // de la compresión fue el que se perdió** — nueve veces seguidas sin que
+      // el contexto bajara, con la app diciendo que estaba comprimiendo.
+      cuandoToqueLoTuyo: Future.wait([
+        for (final puesto in mios) puesto.suTurno.future,
       ]),
       soltar: soltar,
     );

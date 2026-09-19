@@ -111,6 +111,19 @@ class LaVentanaDeActividad {
     );
   }
 
+  /// Deja de seguir una conversación y suelta lo suyo.
+  ///
+  /// 🔴 **Esta suscripción no se cerraba nunca, y era la que sujetaba el resto.**
+  /// El mapa de arriba solo se consultaba y se llenaba: no había un `remove` en
+  /// todo el archivo. Cada conversación seguida dejaba viva su suscripción y,
+  /// con ella, **el `assistantControllerProvider` de esa conversación** —con sus
+  /// mensajes, sus pasos y sus búferes— aunque la hubieras cerrado hacía horas.
+  ///
+  /// Abrir y cerrar conversaciones durante una jornada no liberaba ni una.
+  void olvidar(String conversationId) {
+    _siguiendo.remove(conversationId)?.close();
+  }
+
   /// Lo que dio de sí un turno que ya terminó.
   ///
   /// No se sigue nada: esa lista no va a cambiar nunca más. Y lleva **su

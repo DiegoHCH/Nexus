@@ -375,6 +375,7 @@ class AssistantSurface implements RemoteSurface {
         .any((c) => c.id == conversationId)) {
       return;
     }
+    _ref.read(soltarLaConversacionProvider)(conversationId);
     await _ref.read(conversationsProvider.notifier).close(conversationId);
   }
 

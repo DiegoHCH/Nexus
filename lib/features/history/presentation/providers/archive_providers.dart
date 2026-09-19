@@ -371,6 +371,7 @@ final deleteConversationProvider =
             assistantControllerProvider(conversation.id).notifier,
           );
           if (!controller.isShowing(record.id)) continue;
+          ref.read(soltarLaConversacionProvider)(conversation.id);
           await ref.read(conversationsProvider.notifier).close(conversation.id);
         }
 

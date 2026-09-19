@@ -296,6 +296,73 @@ jobs:
       # dentro de la app (`SUPublicEDKey` en el Info.plist) y la privada solo aquí:
       # aunque alguien lograra colgar un zip en las releases de este repo público,
       # sin esta firma Sparkle lo rechaza antes de descomprimirlo.
+      # 🔴 **Los parches, que son la diferencia entre 720 KB y 25 MB.**
+      #
+      # Medido con las dos versiones reales del repo: el `.zip` entero de la
+      # 1.18.2 pesa 25 MB y el parche desde la 1.18.1, **720 KB** — el 3 %. Eso
+      # es lo que se descarga cada vez que la app se actualiza sola, así que
+      # bajarlo no es cosmético.
+      #
+      # **Y no puede tumbar una publicación.** Un parche es una optimización: si
+      # falta el zip anterior, si la descarga falla o si `BinaryDelta` se queja,
+      # se sigue adelante sin él y Sparkle baja el completo, que es exactamente
+      # lo que hacía hasta hoy. Por eso cada vuelta va con `|| continue` y el
+      # paso entero no rompe nada si acaba con las manos vacías.
+      - name: generar los parches contra las versiones anteriores
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLAVE: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -o pipefail
+          V="${{ needs.decidir.outputs.version }}"
+          NUEVA="build/macos/Build/Products/Release/Nexus.app"
+          mkdir -p build/parches "$RUNNER_TEMP/viejas"
+          printf '%s' "$CLAVE" | tr -d '\r\n' > "$RUNNER_TEMP/sparkle.key"
+
+          # Tres hacia atrás: cubre a quien se saltó un par de versiones sin
+          # pagar una descarga de 25 MB por cada una en cada release. Quien
+          # venga de más atrás baja el completo, que sigue estando.
+          ANTERIORES="$(git tag --sort=-v:refname | grep '^v' | grep -vx "v$V" | head -3)"
+          echo "parches contra: $(echo $ANTERIORES)"
+
+          for TAG in $ANTERIORES; do
+            VIEJA="${TAG#v}"
+            DIR="$RUNNER_TEMP/viejas/$VIEJA"
+            mkdir -p "$DIR"
+            gh release download "$TAG" --pattern '*.zip' --dir "$DIR" --clobber \
+              || { echo "::warning::sin zip para $TAG, se omite el parche"; continue; }
+            (cd "$DIR" && unzip -qo ./*.zip) \
+              || { echo "::warning::el zip de $TAG no se pudo abrir"; continue; }
+            [[ -d "$DIR/Nexus.app" ]] \
+              || { echo "::warning::el zip de $TAG no traía Nexus.app"; continue; }
+
+            # El número que Sparkle compara es el build, no la versión visible:
+            # `sparkle:deltaFrom` tiene que decir el del paquete de origen, leído
+            # de él y no deducido.
+            DESDE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' \
+              "$DIR/Nexus.app/Contents/Info.plist" 2>/dev/null)" || continue
+            [[ -n "$DESDE" ]] || continue
+
+            PARCHE="build/parches/Nexus-$VIEJA-a-$V.delta"
+            macos/Pods/Sparkle/bin/BinaryDelta create \
+              "$DIR/Nexus.app" "$NUEVA" "$PARCHE" \
+              || { echo "::warning::no se pudo crear el parche desde $VIEJA"; continue; }
+
+            FIRMA="$(macos/Pods/Sparkle/bin/sign_update "$PARCHE" \
+              --ed-key-file "$RUNNER_TEMP/sparkle.key")" || continue
+            [[ "$FIRMA" == *edSignature* ]] || continue
+
+            # Una línea por parche, ya en XML, para que el paso de abajo solo
+            # tenga que pegarlas: armar el appcast es de allí y no de aquí.
+            echo "        <enclosure url=\"https://github.com/${{ github.repository }}/releases/download/v$V/$(basename "$PARCHE")\" sparkle:deltaFrom=\"$DESDE\" type=\"application/octet-stream\" $FIRMA />" \
+              >> build/parches/enclosures.xml
+            echo "parche desde $VIEJA (build $DESDE): $(du -h "$PARCHE" | cut -f1)"
+            rm -rf "$DIR"
+          done
+
+          rm -f "$RUNNER_TEMP/sparkle.key"
+          echo "parches generados: $(ls build/parches/*.delta 2>/dev/null | wc -l | tr -d ' ')"
+
       - name: armar el appcast y firmarlo
         env:
           CLAVE: ${{ secrets.SPARKLE_PRIVATE_KEY }}
@@ -352,6 +419,15 @@ jobs:
             echo "                 sparkle:shortVersionString=\"$V\""
             echo '                 type="application/octet-stream"'
             echo "                 $FIRMA />"
+            # Los parches, si los hubo. Van **dentro del mismo item** y después
+            # del enclosure completo: Sparkle elige el que encaje con la versión
+            # instalada y, si ninguno encaja o el parche falla al aplicarse, cae
+            # al zip de arriba. Por eso el completo no se va nunca.
+            if [[ -s build/parches/enclosures.xml ]]; then
+              echo '      <sparkle:deltas>'
+              cat build/parches/enclosures.xml
+              echo '      </sparkle:deltas>'
+            fi
             echo '    </item>'
             echo '  </channel>'
             echo '</rss>'
@@ -376,6 +452,11 @@ jobs:
         run: |
           V="${{ needs.decidir.outputs.version }}"
           ASSETS=("build/Nexus-$V.dmg" "build/Nexus-$V.zip" "build/appcast.xml")
+          # Y los parches, que el appcast ya apunta por su nombre. Si no se
+          # generó ninguno, el glob no casa y la lista se queda como estaba.
+          for PARCHE in build/parches/*.delta; do
+            [[ -e "$PARCHE" ]] && ASSETS+=("$PARCHE")
+          done
           if gh release view "v$V" >/dev/null 2>&1; then
             gh release upload "v$V" "${ASSETS[@]}" --clobber
           else

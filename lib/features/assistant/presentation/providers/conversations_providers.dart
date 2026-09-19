@@ -9,6 +9,9 @@ import 'package:nexus/features/history/domain/entities/conversation_summary.dart
 import 'package:nexus/features/history/presentation/providers/archive_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
 import 'package:nexus/features/assistant/presentation/providers/la_sesion_sin_dueno.dart';
+import 'package:nexus/features/assistant/presentation/providers/la_ventana_de_actividad.dart';
+import 'package:nexus/features/assistant/presentation/providers/claude_bridge_providers.dart';
+import 'package:nexus/features/assistant/presentation/providers/lo_que_dejo_el_encargo.dart';
 
 final conversationsDataSourceProvider = Provider<ConversationsDataSource>(
   (ref) => const ConversationsDataSource(),
@@ -246,6 +249,10 @@ class ConversationsController extends Notifier<Conversations> {
     );
   }
 
+  /// Cerrar quita la ficha, **y soltar lo que esa conversación tenía cogido es
+  /// de quien llama**: ver [soltarLaConversacionProvider], que explica por qué
+  /// no puede estar aquí dentro. Hay una prueba que vigila que nadie se lo
+  /// salte.
   Future<void> close(String id) async {
     // Y aquí igual: cerrar reescribe la lista. Sin cargar, «cerrar una» se convertía en
     // «dejar la lista vacía».
@@ -311,6 +318,40 @@ final conversationFolderProvider = Provider.family<String?, String>(
   (ref, conversationId) =>
       ref.watch(conversationsProvider).byId(conversationId)?.folderPath,
 );
+
+/// Suelta lo que una conversación cerrada tenía cogido.
+///
+/// 🔴 **Cerrar no liberaba nada, y eso es RAM que no vuelve.** `close` quitaba
+/// la ficha de la lista y la persistía, y ahí acababa: en todo `lib/` no había
+/// ni una llamada a `invalidate` de estos proveedores. Como son `family` **sin
+/// `autoDispose`**, el `AssistantController` de cada conversación abierta seguía
+/// vivo en el contenedor raíz —con sus mensajes, sus pasos y sus búferes— hasta
+/// cerrar la app. Una jornada abriendo y cerrando no soltaba ni una.
+///
+/// **Fuera del notifier por lo mismo que [retomarDelArchivoProvider]**, y se
+/// intentó al revés primero: `conversationFolderProvider` hace `watch` de
+/// `conversationsProvider` y el controlador lo lee, así que llamar a esto desde
+/// el notifier cierra el círculo y Riverpod lanza `CircularDependencyError`. El
+/// comentario de ahí abajo ya lo avisaba. Aquí las lecturas pasan al llamar y
+/// no al construir, así que no hay ciclo.
+///
+/// El orden importa: primero la ventana de actividad, que **sujeta al
+/// controlador** con una suscripción del contenedor —ver
+/// [LaVentanaDeActividad.olvidar]—. Invalidar con esa suscripción puesta lo
+/// reconstruye en el acto, y habríamos cambiado una fuga por otra.
+///
+/// Y se invalidan los cuatro juntos porque cuelgan unos de otros: el controlador
+/// lee el puente y el puente lee la carpeta. Dejar uno vivo deja enganchado lo
+/// que ese uno tenga dentro.
+final soltarLaConversacionProvider = Provider<void Function(String)>((ref) {
+  return (id) {
+    ref.read(laVentanaDeActividadProvider).olvidar(id);
+    ref.invalidate(assistantControllerProvider(id));
+    ref.invalidate(askClaudeProvider(id));
+    ref.invalidate(loQueDejoElEncargoProvider(id));
+    ref.invalidate(conversationFolderProvider(id));
+  };
+});
 
 /// Retomar una conversación del archivo.
 ///

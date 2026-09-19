@@ -293,7 +293,24 @@ String _hecho(String texto) => '$texto... COMPLETED\n';
 /// es una cadena de `await`: leer el `.yaml`, resolver el proveedor de credenciales
 /// —que a su vez le pregunta a git— y comprobar la instalación. Con una sola espera
 /// se quedaba a medias y la prueba decía que no se había lanzado nada.
-Future<void> _tocarYEsperar(WidgetTester tester, Finder que) async {
+/// Toca algo y espera **a que pase lo que se espera**, no a que pase un rato.
+///
+/// 🔴 **Eran diez vueltas de 20 ms, y por eso esta prueba se caía sola dentro de
+/// la suite entera.** Doscientos milisegundos de reloj contra un lanzamiento que
+/// pasa por varios `await`: en una máquina cargada eso no es tiempo, es una
+/// apuesta — la misma familia de fallo que ya documenta `hastaQue`, y el mismo
+/// remedio. Lo que aguanta aquí es el plazo, que es un guardia contra el
+/// cuelgue y no una medida.
+///
+/// [hasta] lo escribe quien llama porque es quien sabe qué está esperando. Sin
+/// él se bombea un poco y se sigue, que es lo que necesitan los toques que no
+/// disparan nada asíncrono.
+Future<void> _tocarYEsperar(
+  WidgetTester tester,
+  Finder que, {
+  bool Function()? hasta,
+  Duration limite = const Duration(seconds: 15),
+}) async {
   // El historial vive dentro de un `SingleChildScrollView` y la hoja mide 800×600
   // en las pruebas, así que lo de abajo puede quedar fuera del viewport — pasó al
   // añadir el resumen de arriba. Se desplaza hasta el botón en vez de recortar lo
@@ -301,10 +318,23 @@ Future<void> _tocarYEsperar(WidgetTester tester, Finder que) async {
   // quepa a la primera prohíbe crecer.
   await tester.ensureVisible(que);
   await tester.pump();
+  final desde = DateTime.now();
+  var vueltas = 0;
   await tester.runAsync(() async {
     await tester.tap(que);
-    for (var i = 0; i < 10; i++) {
+    while (true) {
       await tester.pump();
+      // Diez vueltas mínimas aunque no haya condición: es lo que había, y hay
+      // toques que solo repintan.
+      if (hasta == null ? vueltas >= 10 : hasta()) return;
+      if (DateTime.now().difference(desde) > limite) {
+        fail(
+          'no llegó a pasar lo que se esperaba tras tocar\n'
+          'se rindió tras ${DateTime.now().difference(desde).inMilliseconds} ms '
+          'y $vueltas vueltas',
+        );
+      }
+      vueltas++;
       await Future<void>.delayed(const Duration(milliseconds: 20));
     }
   });
@@ -920,7 +950,16 @@ void main() {
         lanzados: lanzados,
       );
 
-      await _tocarYEsperar(tester, find.text(strings.e2eRun));
+      // Se espera al aviso, que es lo que esta prueba afirma. Y lo de «no
+      // lanzó» se comprueba después: para eso un reloj sí vale —una máquina
+      // lenta hace que pasen menos cosas, no más—, pero solo una vez que
+      // consta que el intento llegó a su final.
+      await _tocarYEsperar(
+        tester,
+        find.text(strings.e2eRun),
+        hasta: () =>
+            find.text(strings.e2eMissingVars('CORREO')).evaluate().isNotEmpty,
+      );
 
       expect(find.text(strings.e2eMissingVars('CORREO')), findsOneWidget);
       expect(lanzados, isEmpty, reason: 'lanzó sin la credencial');
@@ -935,7 +974,11 @@ void main() {
         lanzados: lanzados,
       );
 
-      await _tocarYEsperar(tester, find.text(strings.e2eRun));
+      await _tocarYEsperar(
+        tester,
+        find.text(strings.e2eRun),
+        hasta: () => lanzados.isNotEmpty,
+      );
 
       expect(lanzados, ['login@emulator-5550']);
     });

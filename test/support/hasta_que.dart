@@ -3,6 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 /// Espera **a que pase algo**, no a que pase un rato — y si se rinde, dice qué
 /// estaba viendo.
 ///
+/// En una prueba de widget esto no basta por sí solo —hay que bombear para que
+/// la interfaz avance—, y por eso `el_panel_de_pruebas_test` tiene su
+/// `_tocarYEsperar`, que es esto mismo con un `pump()` en cada vuelta. La regla
+/// de abajo es la que comparten.
+///
 /// 🔴 **Vive aquí porque ya son dos, y las dos eran intermitentes.** Nació en
 /// `el_registro_no_pierde_el_documento_test`, que se cae solo dentro de la suite
 /// entera; el mismo día el CI tumbó `el_enlace_del_movil_test` —«desconectar

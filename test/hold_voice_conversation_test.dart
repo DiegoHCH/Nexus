@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/features/assistant/domain/repositories/el_despacho_de_carpeta.dart';
 
 import 'support/despacho.dart';
+import 'support/hasta_que.dart';
 
 import 'package:nexus/features/assistant/domain/entities/audio_frame.dart';
 import 'package:nexus/features/assistant/domain/entities/claude_event.dart';
@@ -656,11 +657,25 @@ void main() {
       // de memoria — así que arranca la corrección, que tardará.
       session.emit(const VoiceUserTranscript('dame un resumen de gitflow'));
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      // 🔴 **Se espera a que la corrección haya arrancado, no a que pasen 20
+      // ms.** Con un reloj fijo, una máquina cargada emite el turno 2 antes de
+      // que el 1 hubiera pedido nada, y entonces esto no mide lo que dice.
+      await hastaQue(
+        () => session.notes.contains(VoiceRouting.pasaloTu),
+        esperando: 'que el turno 1 le pida a él que lo pase',
+        loQueSeVe: () => 'notas=${session.notes}',
+      );
 
       // Turno 2: el usuario no espera y pregunta otra cosa.
       session.emit(const VoiceUserTranscript('enséñame cómo es un flujo'));
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      // Y a que la respuesta tardía de Claude haya llegado y se haya
+      // descartado: es el momento exacto que esta prueba juzga, y esperar «un
+      // rato» a que ocurra es lo que la hacía intermitente.
+      await hastaQue(
+        () => registro.any((l) => l.contains('descartada por vieja')),
+        esperando: 'que la respuesta del turno 1 llegue tarde y se descarte',
+        loQueSeVe: () => 'registro=$registro · notas=${session.notes}',
+      );
 
       // 🔴 Se filtran las notas: ahora la primera cosa que se le manda es
       // «pásalo tú», y esa **sí** tiene que estar. Lo que no puede llegar es la
@@ -700,7 +715,14 @@ void main() {
       session.emit(const VoiceUserTranscript('dame un resumen de gitflow'));
       session.emit(const VoiceTurnCompleted());
       // Nadie habla encima: el turno sigue siendo el mismo cuando Claude vuelve.
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      // Se espera a las dos notas y no a 200 ms: el puente tarda 120, y bajo
+      // carga eso pasa de 200 sin despeinarse — era la mitad de esta suite
+      // cayéndose sola.
+      await hastaQue(
+        () => session.notes.length >= 2,
+        esperando: 'las dos notas: primero «pásalo tú» y luego la corrección',
+        loQueSeVe: () => 'notas=${session.notes}',
+      );
 
       // Dos notas y en este orden: primero se le pide que lo pase él, y solo
       // al no hacerlo llega la corrección con lo que dijo Claude.

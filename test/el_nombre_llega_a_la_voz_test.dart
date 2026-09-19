@@ -73,7 +73,13 @@ void main() {
     expect(texto, contains('ZONA GRIS'));
     expect(texto, contains('EL PARTE'));
     expect(texto, contains('SKILLS'));
-    expect(texto, contains('Respondes en español'));
+    // 🔴 **Decía «Respondes en», y ahora lo dice una frase compartida.** El
+    // idioma con su acento lo necesitan las tres puertas —la conversación, el
+    // saludo del arranque y el aviso de agenda— y solo lo tenía esta, así que
+    // el saludo hablaba con el acento que el modelo eligiera. Al unificarlo
+    // cambió el verbo: «respondes» no encaja en un aviso, que no contesta a
+    // nadie. Ver `GeminiVoiceGateway.enQueIdioma`.
+    expect(texto, contains('Hablas en español'));
   });
 
   /// 🔴 **Es información, no disfraz.** [LosNombres.paraElPrompt] lo dice y la

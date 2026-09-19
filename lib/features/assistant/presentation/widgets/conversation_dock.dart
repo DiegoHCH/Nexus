@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
@@ -126,8 +127,13 @@ class ConversationDock extends ConsumerWidget {
           isFocused: conversation.id == conversations.focused?.id,
           onTap: () =>
               ref.read(conversationsProvider.notifier).focus(conversation.id),
-          onClose: () =>
+          // Soltar va con cerrar, siempre: ver [soltarLaConversacionProvider].
+          onClose: () {
+            ref.read(soltarLaConversacionProvider)(conversation.id);
+            unawaited(
               ref.read(conversationsProvider.notifier).close(conversation.id),
+            );
+          },
         ),
       if (!conversations.isFull) const _OpenAnother(),
     ];

@@ -176,8 +176,7 @@ class GeminiVoiceGateway implements VoiceGateway {
       // era, contestaba lo que sí sabía de sí mismo —el modelo que lo mueve—.
       // Ver [QuienEsNexus], donde está escrito lo que es y lo que hace.
       '${QuienEsNexus.comoSePresenta(agente)}\n'
-      'Respondes en $idioma, en frases cortas: esto se escucha, '
-      'no se lee.\n'
+      '${enQueIdioma(idioma)}'
       '$nombres'
       'REGLA PRINCIPAL: absolutamente todo lo que te pidan —cualquier '
       'pregunta, consulta, tarea o encargo, sea de código o no— se lo pasas a '
@@ -318,7 +317,10 @@ class GeminiVoiceGateway implements VoiceGateway {
               nombres: _losNombres(),
             ),
             ComoLaPuerta() => laPuerta(perfil),
-            ComoUnAviso(:final frase) => elAviso(frase),
+            ComoUnAviso(:final frase) => elAviso(
+              frase,
+              idioma: _readLanguage(),
+            ),
           },
         },
       ],
@@ -349,6 +351,8 @@ class GeminiVoiceGateway implements VoiceGateway {
   /// [instruccionDelSistema] cuando entró el idioma: la puerta ya no dice lo
   /// mismo siempre, depende de cómo se llame quien atiende.
   String laPuerta(ComoLaPuerta puerta) =>
+      // El idioma con su acento, lo primero: ver [enQueIdioma].
+      '${enQueIdioma(_readLanguage())}'
       // 🔴 **La puerta también tiene que saber quién es.** El PR que le puso
       // identidad a la voz y a los encargos no la tocó —compone su prompt
       // aparte— así que preguntarle «¿quién eres?» al saludo del arranque se
@@ -385,13 +389,34 @@ class GeminiVoiceGateway implements VoiceGateway {
   /// y por eso la frase va en la instrucción y no como turno de usuario: así el
   /// modelo no la comenta ni dice que se la pidieron. Es la misma piedra con la
   /// que tropezó la puerta.
-  static String elAviso(String frase) =>
+  static String elAviso(String frase, {required String idioma}) =>
+      '${enQueIdioma(idioma)}'
       'Vas a decir un aviso en voz alta y nada más.\n'
       'Recibirás un mensaje que dice "(inicio)": es la señal, no lo menciones.\n'
       'Al recibirlo di exactamente esto, palabra por palabra, sin añadir ni '
       'quitar nada y sin comentarlo: "$frase"\n'
       'Después cállate. No preguntes, no ofrezcas ayuda, no saludes y no digas '
       'nada más: no hay nadie esperando para contestarte.';
+
+  /// Con qué idioma y acento se habla, dicho con palabras.
+  ///
+  /// 🔴 **Sale de aquí porque las tres puertas lo necesitan y solo una lo
+  /// tenía.** El acento no se puede fijar en el protocolo —la doc de la Live
+  /// API es explícita: «Explicitly setting a language code is not supported for
+  /// native audio output models»— así que viaja en la instrucción del sistema,
+  /// con palabras. Ver [ElAcento].
+  ///
+  /// Y la instrucción la compone cada perfil por su cuenta: la conversación
+  /// recibía el idioma y **la puerta y el aviso no**, así que el saludo del
+  /// arranque hablaba con el acento que el modelo decidiera esa vez. Reportado
+  /// así: «el saludo siempre cambia de voz […] como si fuera una voz
+  /// diferente». El timbre sí era el suyo —`voiceName` va en el `speechConfig`,
+  /// que es común a las tres—; lo que cambiaba era la región.
+  ///
+  /// Es el mismo agujero que ya tuvo la identidad, y por el mismo motivo: la
+  /// puerta arma su prompt aparte. Por eso ahora hay un solo sitio que lo dice.
+  static String enQueIdioma(String idioma) =>
+      'Hablas en $idioma, en frases cortas: esto se escucha, no se lee.\n';
 
   /// La única función que la puerta puede llamar.
   ///

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/features/e2e/domain/usecases/pasos_de_una_prueba.dart';
 import 'package:nexus/features/e2e/presentation/providers/e2e_providers.dart';
+import 'package:nexus/features/run/presentation/providers/la_ventana_del_registro.dart';
 
 /// Que se vea el paso que corre **mientras corre**.
 ///
@@ -21,6 +22,27 @@ void main() {
 
   PruebaEnMarcha conLaSalida(String salida) =>
       PruebaEnMarcha(flow: 'login', delFlow: delFlow, salida: salida);
+
+  // 🔴 **El repintado se agrupa, y el número sale de otro sitio a propósito.**
+  // Cada `_pinta` reconstruye la página entera —los pasos se parsean de toda la
+  // salida— y la escribe a disco; Maestro escupe a ráfagas, así que repintar por
+  // trozo era pedirle al visor una recarga por línea, con la página
+  // parpadeando. Es el mismo problema que `LasVentanasDelRegistro` ya tuvo con
+  // `logcat`, así que se usa su mismo ritmo en vez de elegir otro número.
+  //
+  // Esta prueba existe para que cambiar uno obligue a mirar el otro: separarlos
+  // no rompe nada visible, solo deja dos criterios donde había uno.
+  test('el panel repinta al mismo ritmo que la ventana del registro', () {
+    expect(
+      PruebaEnMarchaController.ritmoDelRepintado,
+      LasVentanasDelRegistro.ritmo,
+    );
+    expect(
+      PruebaEnMarchaController.ritmoDelRepintado,
+      const Duration(milliseconds: 300),
+      reason: 'si sube, la salida en vivo empieza a ir a tirones',
+    );
+  });
 
   test('el anuncio a medias ya enseña el paso corriendo', () {
     // 29.17s  'Running on Medium_Phone_API_36.1\n > Flow welcome_to_login\n'

@@ -311,6 +311,21 @@ class PruebaEnMarchaController extends Notifier<PruebaEnMarcha?> {
   /// enseñar una imagen que solo se mira al acabar.
   Map<String, String> _capturas = const {};
 
+  /// Cada cuánto se repinta como mucho mientras la pasada corre.
+  ///
+  /// 🔴 **Maestro escupe a ráfagas y se repintaba por trozo.** Cada `_pinta`
+  /// reconstruye la página entera —los pasos se parsean de la salida completa— y
+  /// la escribe a disco, así que una pasada que suelta cientos de líneas pedía
+  /// cientos de reconstrucciones y otras tantas recargas al visor, con la página
+  /// parpadeando de paso.
+  ///
+  /// El número y el motivo son los de `LasVentanasDelRegistro.ritmo`, que ya
+  /// tenía este problema con `logcat` y lo resolvió así. Lo que llega en este
+  /// rato se junta y se escribe una vez.
+  static const ritmoDelRepintado = Duration(milliseconds: 300);
+
+  Timer? _repintadoPendiente;
+
   /// Con qué se lanzó, para poder anotarlo al terminar.
   ({
     String raiz,
@@ -336,6 +351,9 @@ class PruebaEnMarchaController extends Notifier<PruebaEnMarcha?> {
     // quitaba en silencio y dejaba de funcionar el de aquí. Ahora hay un
     // despachador y cada uno atiende lo suyo.
     LoQuePideLaPagina.escuchar('parar', (_) => parar());
+    // Y el temporizador del repintado se suelta con el controlador: un `Timer`
+    // que sobrevive a su dueño es de los que no fallan y se quedan.
+    ref.onDispose(() => _repintadoPendiente?.cancel());
     return null;
   }
 
@@ -456,6 +474,9 @@ class PruebaEnMarchaController extends Notifier<PruebaEnMarcha?> {
         );
         _capturas = ds.capturasDe(_artefactos);
 
+        // Terminó: lo pendiente ya no sirve y la última foto va entera y ya.
+        _repintadoPendiente?.cancel();
+        _repintadoPendiente = null;
         unawaited(_pinta());
         unawaited(_dejaConstancia());
       }),
@@ -467,6 +488,11 @@ class PruebaEnMarchaController extends Notifier<PruebaEnMarcha?> {
   void parar() {
     _proceso?.kill();
     _proceso = null;
+    // Y el repintado que estuviera esperando: un temporizador que vence cuando
+    // ya no hay pasada es lo mismo que la ventana del registro tuvo que
+    // aprender —«esto no es un widget y nadie las cancela por nosotros»—.
+    _repintadoPendiente?.cancel();
+    _repintadoPendiente = null;
   }
 
   /// Más salida de Maestro. Se pega al final y se repinta.
@@ -481,7 +507,7 @@ class PruebaEnMarchaController extends Notifier<PruebaEnMarcha?> {
       ruido: actual.ruido,
       salioMal: actual.salioMal,
     );
-    unawaited(_pinta());
+    _repintarAlRitmo();
   }
 
   /// Más `stderr`. Va a su lista, no a la salida que se parsea.
@@ -498,7 +524,21 @@ class PruebaEnMarchaController extends Notifier<PruebaEnMarcha?> {
       ruido: [...actual.ruido, limpio],
       salioMal: actual.salioMal,
     );
-    unawaited(_pinta());
+    _repintarAlRitmo();
+  }
+
+  /// Junta lo que llegue en [ritmoDelRepintado] y repinta una vez.
+  ///
+  /// **Solo para lo que llega a chorro** —salida y ruido—. El final de la pasada
+  /// y el arranque siguen llamando a [_pinta] directo: ahí no hay ráfaga que
+  /// agrupar y esperar 300 ms sería dejar la página vieja a la vista después de
+  /// que todo terminó.
+  void _repintarAlRitmo() {
+    if (_repintadoPendiente != null) return;
+    _repintadoPendiente = Timer(ritmoDelRepintado, () {
+      _repintadoPendiente = null;
+      if (state != null) unawaited(_pinta());
+    });
   }
 
   /// Reescribe la página de la pasada. La ventana se recarga sola al verla

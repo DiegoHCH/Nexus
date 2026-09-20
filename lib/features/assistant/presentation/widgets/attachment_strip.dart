@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -148,10 +149,38 @@ class _ThumbnailState extends State<_Thumbnail> {
 
   static const _side = 34.0;
 
+  /// Lo que se pinta sin intermediarios: lo que Flutter sabe decodificar él.
+  ///
+  /// 🔴 **Para una imagen, QuickLook sobra — y estaba fallando.** Reportado con
+  /// la captura delante: al generar una imagen, el chip salía con el icono
+  /// genérico de documento en vez de la miniatura. El icono es la red de
+  /// seguridad del lado nativo, así que algo devolvía vacío por ese camino.
+  ///
+  /// No se encontró la causa: la misma llamada —`QLThumbnailGenerator`, 34
+  /// puntos a escala 2— reproducida fuera de la app contra esa misma imagen
+  /// devuelve su miniatura de 128×128 sin queja, con el archivo recién creado o
+  /// ya asentado, y la app corre sin sandbox. El fallo no se pudo reproducir.
+  ///
+  /// Lo que sí se puede quitar es la dependencia: un PNG no necesita que el
+  /// sistema lo interprete, Flutter lo dibuja. QuickLook se queda para lo que de
+  /// verdad hace falta —un PDF, un `.dart`, un `.zip`—, donde no hay nada que
+  /// decodificar y el icono decorado **es** la respuesta correcta.
+  ///
+  /// El `.svg` no entra aunque sea una imagen: Flutter no lo pinta de serie.
+  static const _queFlutterDibuja = {'.png', '.jpg', '.jpeg', '.gif', '.webp'};
+
+  bool get _laPintaFlutter {
+    final punto = widget.path.lastIndexOf('.');
+    if (punto < 0) return false;
+    return _queFlutterDibuja.contains(
+      widget.path.substring(punto).toLowerCase(),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
-    _load();
+    if (!_laPintaFlutter) _load();
   }
 
   Future<void> _load() async {
@@ -170,7 +199,23 @@ class _ThumbnailState extends State<_Thumbnail> {
       child: SizedBox(
         width: _side,
         height: _side,
-        child: _bytes == null
+        child: _laPintaFlutter
+            ? Image.file(
+                File(widget.path),
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.medium,
+                // 🔴 **Decodificada al tamaño del chip y no entera.** Una imagen
+                // generada son 600 kB y varios megapíxeles; pintarla completa
+                // para enseñarla a 34 puntos es memoria tirada en cada chip de
+                // la conversación. El doble, que la pantalla es Retina.
+                cacheWidth: (_side * 2).round(),
+                // Si el archivo se movió o se borró, el chip sigue siendo útil:
+                // queda su nombre al lado. Un hueco gris dice lo mismo que
+                // decía antes de que existiera la miniatura.
+                errorBuilder: (_, _, _) =>
+                    ColoredBox(color: colors.rule2.withValues(alpha: 0.35)),
+              )
+            : _bytes == null
             // Mientras llega, el hueco en gris y no un giro de carga: la
             // miniatura tarda decenas de milisegundos y un indicador que
             // aparece y desaparece se lee como un error.

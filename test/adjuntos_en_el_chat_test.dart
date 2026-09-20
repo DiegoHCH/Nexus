@@ -109,6 +109,72 @@ void main() {
     );
   });
 
+  // 🔴 **Una imagen la pinta Flutter, sin pasar por QuickLook.**
+  //
+  // Reportado con la captura delante: al generar una imagen, el chip salía con
+  // el icono genérico de documento en vez de la miniatura. Ese icono es la red
+  // de seguridad del lado nativo, así que algo volvía vacío por ese camino — y
+  // la causa no se encontró: la misma llamada reproducida fuera de la app
+  // devuelve la miniatura sin queja.
+  //
+  // Lo que se quitó es la dependencia. Un PNG no necesita que el sistema lo
+  // interprete. QuickLook se queda para lo que sí hace falta —un PDF, un
+  // `.dart`— donde el icono decorado **es** la respuesta correcta.
+  group('quién dibuja cada cosa', () {
+    Widget conElChip(String ruta) => ProviderScope(
+      child: MaterialApp(
+        theme: NexusTheme.dark(),
+        builder: (context, child) =>
+            StringsScope(strings: const NexusStringsEs(), child: child!),
+        home: Scaffold(body: AttachmentStrip(paths: [ruta])),
+      ),
+    );
+
+    testWidgets('un png lo dibuja Flutter', (tester) async {
+      await tester.pumpWidget(conElChip('/Users/alguien/lo-generado.png'));
+      await tester.pump();
+
+      expect(
+        find.byType(Image),
+        findsOneWidget,
+        reason: 'sin esto vuelve a depender de que el sistema conteste',
+      );
+    });
+
+    testWidgets('y da igual cómo venga escrita la extensión', (tester) async {
+      for (final ruta in [
+        '/Users/alguien/foto.JPG',
+        '/Users/alguien/animada.gif',
+        '/Users/alguien/moderna.webp',
+      ]) {
+        await tester.pumpWidget(conElChip(ruta));
+        await tester.pump();
+        expect(find.byType(Image), findsOneWidget, reason: ruta);
+      }
+    });
+
+    // Lo que Flutter no sabe decodificar sigue yendo al sistema: ahí el icono
+    // decorado no es un fallo, es lo único que hay que enseñar.
+    testWidgets('un pdf y un svg siguen pidiéndosela al sistema', (
+      tester,
+    ) async {
+      for (final ruta in [
+        '/Users/alguien/informe.pdf',
+        '/Users/alguien/vector.svg',
+      ]) {
+        await tester.pumpWidget(conElChip(ruta));
+        await tester.pump();
+
+        expect(
+          find.byType(Image),
+          findsNothing,
+          reason:
+              '$ruta: sin miniatura del sistema queda el hueco, no un Image',
+        );
+      }
+    });
+  });
+
   group('tocar el adjunto lo abre', () {
     testWidgets('lo que el visor sabe pintar, en el visor de la app', (
       tester,

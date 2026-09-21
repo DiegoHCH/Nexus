@@ -62,24 +62,54 @@ abstract final class ACarpetaVaLoQueDices {
 
   static AQueCarpetaVa de(String frase, List<PairedFolder> carpetas) {
     final plano = _aplanar(frase);
-    final hallazgos = <({PairedFolder carpeta, RegExpMatch? donde})>[];
 
+    // Todas las apariciones de cada una, y no solo la que apunta: para saber si
+    // una carpeta es **el padre dentro de la ruta de otra** hay que poder mirar
+    // dónde cae cada mención.
+    final apariciones = <PairedFolder, List<RegExpMatch>>{};
     for (final carpeta in carpetas) {
       final nombre = carpeta.path.split('/').last;
       if (_aplanar(nombre).replaceAll(_separadores, '').length <
           minimoDelNombre) {
         continue;
       }
-      final apariciones = _patronDe(nombre)?.allMatches(plano) ?? const [];
-      if (apariciones.isEmpty) continue;
+      final encontradas =
+          _patronDe(nombre)?.allMatches(plano).toList() ??
+          const <RegExpMatch>[];
+      if (encontradas.isEmpty) continue;
+      apariciones[carpeta] = encontradas;
+    }
+
+    // 🔴 **Una ruta no son dos carpetas nombradas.** Con `personal` emparejada
+    // y `personal/Pixela` también, escribir la ruta encontraba las dos y
+    // preguntaba cuál — y la respuesta natural es repetir la ruta, que vuelve a
+    // encontrar las dos. Un bucle del que solo se sale escribiendo `Pixela` a
+    // secas, y sin que nada lo diga. Reportado así: «le digo dónde y me
+    // responde que no puede elegir».
+    //
+    // Nombrarlas de verdad por separado —«copia de personal a Pixela»— sigue
+    // preguntando: lo que se colapsa es el padre **pegado a la hija por una
+    // barra**, que es una ruta y no una elección.
+    final absorbidas = _lasQueSonPadreEnLaMismaRuta(apariciones, plano);
+
+    final hallazgos =
+        <({PairedFolder carpeta, ({int desde, int hasta})? donde})>[];
+    for (final entrada in apariciones.entries) {
+      if (absorbidas.contains(entrada.key)) continue;
       // La que **apunta**, si alguna lo hace: puede no ser la primera —«el
       // resumen general guárdalo en General» nombra la carpeta al final—.
-      hallazgos.add((
-        carpeta: carpeta,
-        donde: apariciones
-            .where((m) => _apuntaAUnaCarpeta(plano.substring(0, m.start)))
-            .firstOrNull,
-      ));
+      ({int desde, int hasta})? donde;
+      for (final m in entrada.value) {
+        // Se mira lo que hay delante de **la ruta entera**, no del último
+        // tramo: en «en personal/Pixela» el puntero es ese «en», y queda al
+        // otro lado del padre.
+        final desde = _inicioDeLaRuta(m, entrada.key, apariciones, plano);
+        if (_apuntaAUnaCarpeta(plano.substring(0, desde))) {
+          donde = (desde: desde, hasta: m.end);
+          break;
+        }
+      }
+      hallazgos.add((carpeta: entrada.key, donde: donde));
     }
 
     if (hallazgos.isEmpty) return const NoSeNombroCarpeta();
@@ -98,9 +128,66 @@ abstract final class ACarpetaVaLoQueDices {
     // Nombrada de pasada, dentro de una frase que hablaba de otra cosa.
     if (donde == null) return const NoSeNombroCarpeta();
 
-    final resto = _sinLaMencion(frase, donde.start, donde.end);
+    final resto = _sinLaMencion(frase, donde.desde, donde.hasta);
     return AEstaCarpeta(hallazgo.carpeta, _esSoloIrAlli(resto) ? '' : resto);
   }
+
+  /// Si [padre] contiene a [hija] en el disco.
+  static bool _esPadreDe(PairedFolder padre, PairedFolder hija) =>
+      hija.path.startsWith('${padre.path}/');
+
+  /// Entre el final de una mención y el principio de la siguiente solo hay la
+  /// barra de una ruta. Un espacio a los lados se tolera; una palabra, no.
+  static final _soloUnaBarra = RegExp(r'^\s*[/\\]\s*$');
+
+  static bool _seguidasEnLaMismaRuta(String plano, int fin, int inicio) =>
+      inicio >= fin && _soloUnaBarra.hasMatch(plano.substring(fin, inicio));
+
+  /// Dónde empieza la ruta a la que pertenece [m], subiendo por los padres que
+  /// vengan pegados con una barra. En «en personal/Pixela», la mención de
+  /// `Pixela` empieza en la `p` de `personal`.
+  static int _inicioDeLaRuta(
+    RegExpMatch m,
+    PairedFolder hija,
+    Map<PairedFolder, List<RegExpMatch>> apariciones,
+    String plano,
+  ) {
+    var desde = m.start;
+    for (var subio = true; subio;) {
+      subio = false;
+      for (final entrada in apariciones.entries) {
+        if (!_esPadreDe(entrada.key, hija)) continue;
+        for (final otra in entrada.value) {
+          if (!_seguidasEnLaMismaRuta(plano, otra.end, desde)) continue;
+          desde = otra.start;
+          subio = true;
+          break;
+        }
+        if (subio) break;
+      }
+    }
+    return desde;
+  }
+
+  /// Las carpetas cuyas menciones son **todas** el padre de otra dentro de la
+  /// misma ruta. Si alguna aparición queda suelta —«copia de personal a
+  /// personal/Pixela»— no se absorbe: ahí sí se nombraron dos.
+  static Set<PairedFolder> _lasQueSonPadreEnLaMismaRuta(
+    Map<PairedFolder, List<RegExpMatch>> apariciones,
+    String plano,
+  ) => {
+    for (final entrada in apariciones.entries)
+      if (entrada.value.every(
+        (m) => apariciones.entries.any(
+          (otra) =>
+              _esPadreDe(entrada.key, otra.key) &&
+              otra.value.any(
+                (h) => _seguidasEnLaMismaRuta(plano, m.end, h.start),
+              ),
+        ),
+      ))
+        entrada.key,
+  };
 
   static final _separadores = RegExp(r'[\s_\-.]+');
 

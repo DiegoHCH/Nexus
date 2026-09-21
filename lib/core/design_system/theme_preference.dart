@@ -1,4 +1,3 @@
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -75,8 +74,57 @@ final themeControllerProvider = NotifierProvider<ThemeController, ThemeChoice>(
   ThemeController.new,
 );
 
+/// El brillo que pide el sistema, **escuchado** y no leído una vez.
+///
+/// 🔴 [isDarkProvider] leía `platformBrightness` en su cuerpo, y un `Provider`
+/// solo se recalcula cuando cambia algo que observa. El brillo no era una de
+/// esas cosas, así que el valor quedaba clavado en el del arranque: con el tema
+/// en «el del sistema», cambiar el Mac de oscuro a claro con Nexus abierto movía
+/// el contenido —de eso se encarga `MaterialApp`, que mira el `MediaQuery`— y
+/// dejaba **el marco de la ventana con el tema anterior** hasta reiniciar. Es el
+/// mismo fallo que este archivo vino a cerrar, entrando por el otro lado.
+///
+/// Se escucha con un observador del binding y no con
+/// `PlatformDispatcher.onPlatformBrightnessChanged`: ese es un único hueco y
+/// quien lo ocupa desaloja al anterior —lo ocupa el propio Flutter, que es quien
+/// mueve el `MediaQuery`—. Los observadores conviven.
+class ElBrilloDelSistema extends Notifier<Brightness> {
+  @override
+  Brightness build() {
+    final observador = _CuandoCambieElBrillo(_apunta);
+    WidgetsBinding.instance.addObserver(observador);
+    ref.onDispose(() => WidgetsBinding.instance.removeObserver(observador));
+    return _delSistema;
+  }
+
+  void _apunta() {
+    if (state != _delSistema) state = _delSistema;
+  }
+
+  /// Se pregunta **por el binding** y no a `PlatformDispatcher.instance`.
+  ///
+  /// Son el mismo objeto cuando la app corre de verdad, y distintos en una
+  /// prueba: ahí el binding trae un despachador con valores que se pueden
+  /// mover, y el `instance` global sigue siendo el del sistema. Leyendo el
+  /// global, esto no se podía probar — y era una prueba que hacía falta.
+  static Brightness get _delSistema =>
+      WidgetsBinding.instance.platformDispatcher.platformBrightness;
+}
+
+class _CuandoCambieElBrillo extends WidgetsBindingObserver {
+  _CuandoCambieElBrillo(this.avisa);
+
+  final VoidCallback avisa;
+
+  @override
+  void didChangePlatformBrightness() => avisa();
+}
+
+final elBrilloDelSistemaProvider =
+    NotifierProvider<ElBrilloDelSistema, Brightness>(ElBrilloDelSistema.new);
+
 /// Si ahora mismo toca oscuro, ya resuelto. Lo miran la app y el marco nativo.
 final isDarkProvider = Provider<bool>((ref) {
   final choice = ref.watch(themeControllerProvider);
-  return choice.isDark(PlatformDispatcher.instance.platformBrightness);
+  return choice.isDark(ref.watch(elBrilloDelSistemaProvider));
 });

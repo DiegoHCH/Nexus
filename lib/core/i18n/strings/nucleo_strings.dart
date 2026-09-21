@@ -184,6 +184,12 @@ mixin NucleoStrings {
   /// Se nombró más de una carpeta: se pregunta en vez de elegir.
   String variasCarpetasNombradas(String cuales);
 
+  /// El encabezado del hilo que viaja con un encargo enrutado.
+  String elHiloVieneDe(String carpeta);
+  String get enElHiloLaPersona;
+  String get enElHiloElAsistente;
+  String get loQueSePideAhora;
+
   /// A dónde se fue el encargo, cuando quien lo pidió no va a verlo llegar.
   String seMandoA(String carpeta);
 
@@ -552,6 +558,16 @@ mixin NucleoStringsEs implements NucleoStrings {
   String variasCarpetasNombradas(String cuales) =>
       'Nombraste varias carpetas —$cuales— y no elijo por ti: '
       'de la carpeta salen la cuenta y los permisos. Di solo una.';
+  @override
+  String elHiloVieneDe(String carpeta) =>
+      'Este encargo viene de otra conversación de Nexus, la de «$carpeta». '
+      'Esto es lo último que se dijo allí, para que sepas de qué habla:';
+  @override
+  String get enElHiloLaPersona => 'La persona';
+  @override
+  String get enElHiloElAsistente => 'El asistente';
+  @override
+  String get loQueSePideAhora => 'Y esto es lo que se pide ahora, ya aquí:';
   @override
   String seMandoA(String carpeta) =>
       'Lo mandé a «$carpeta», que es la carpeta que nombraste. El trabajo sale por ahí.';
@@ -1032,6 +1048,16 @@ mixin NucleoStringsEn implements NucleoStrings {
   String variasCarpetasNombradas(String cuales) =>
       'You named several folders — $cuales — and I will not pick for you: '
       'the account and the permissions come from the folder. Name just one.';
+  @override
+  String elHiloVieneDe(String carpeta) =>
+      'This errand comes from another Nexus conversation, the one in "$carpeta". '
+      'Here is the last of what was said there, so you know what it refers to:';
+  @override
+  String get enElHiloLaPersona => 'The person';
+  @override
+  String get enElHiloElAsistente => 'The assistant';
+  @override
+  String get loQueSePideAhora => 'And this is what is being asked now, here:';
   @override
   String seMandoA(String carpeta) =>
       'Sent it to "$carpeta", the folder you named. The work happens there.';

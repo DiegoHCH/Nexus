@@ -59,6 +59,7 @@ import 'package:nexus/features/workspace/data/datasources/claude_auth_data_sourc
 import 'package:nexus/features/workspace/data/datasources/claude_profiles_data_source.dart';
 import 'package:nexus/features/workspace/domain/usecases/el_comando_directo.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_hilo_que_viaja.dart';
 
 /// El pegamento entre los dos modelos y la pantalla: traduce cada
 /// [ClaudeEvent] y cada [VoiceEvent] al mismo [AssistantHudState] que el orbe,
@@ -821,6 +822,18 @@ class AssistantController extends Notifier<AssistantHudState> {
             allowWrites: allowWrites,
             attachments: attachments,
             elFocoSigue: elFocoSigue,
+            // 🔴 **Y con lo que se venía diciendo aquí.** Si esto se va a otra
+            // carpeta, allí nace una conversación que sabe la tarea y no de qué
+            // hablaba: «copia eso en Pixela» aterrizaba sin saber qué era
+            // «eso». Se manda desde aquí porque el hilo es de esta
+            // conversación, y el despacho no sabe de quién es el encargo.
+            hilo: [
+              for (final mensaje in state.messages)
+                TurnoDicho(
+                  mio: mensaje.author == ChatAuthor.user,
+                  texto: mensaje.text,
+                ),
+            ],
           )) {
         case AtiendeloTu(:final tarea):
           trimmed = tarea;

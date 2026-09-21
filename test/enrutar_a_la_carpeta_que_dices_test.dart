@@ -194,6 +194,51 @@ void main() {
     );
   });
 
+  // 🔴 **Y se lleva de qué se hablaba, que si no llega en blanco.**
+  //
+  // Reportado así: «al escribir el nombre de la carpeta donde quiero que copie
+  // eso, lo que hace es abrirme una conversación en esa carpeta». Era verdad y
+  // era peor de lo que suena: el encargo llegaba allí con la tarea suelta, y una
+  // tarea suelta pierde aquello de lo que hablaba. «Copia eso» sin el hilo no
+  // dice qué es «eso», así que la conversación de destino nacía sin nada que
+  // hacer — moverte de sitio sin llevarte el hilo es lo peor de los dos mundos.
+  test('y se lleva lo que se venía diciendo donde se pidió', () async {
+    final container = montar(dosAbiertas);
+    final aqui = container.read(assistantControllerProvider('aqui').notifier);
+
+    // Una conversación con pasado: esto es lo que no puede quedarse atrás.
+    await aqui.submit('genera los tres diagramas');
+    await asentar();
+
+    await aqui.submit('en el front mobile b2c, copia eso');
+    await asentar();
+
+    final llego = dondeCayo['alla']!.single;
+    expect(
+      llego,
+      contains('genera los tres diagramas'),
+      reason: 'sin el hilo, allí no se sabe qué es «eso»',
+    );
+    expect(
+      llego,
+      endsWith('copia eso'),
+      reason: 'el hilo acompaña a la tarea, no la sustituye',
+    );
+  });
+
+  // Y una recién nacida no arrastra encabezado: no hay hilo que contar, y un
+  // «esto es lo que se dijo» sin nada debajo se paga igual.
+  test('pero una conversación sin pasado viaja ligera', () async {
+    final container = montar(dosAbiertas);
+
+    await container
+        .read(assistantControllerProvider('aqui').notifier)
+        .submit('en el front mobile b2c, arregla el login');
+    await asentar();
+
+    expect(dondeCayo['alla'], ['arregla el login']);
+  });
+
   // El foco es la única señal de que pasó algo: sin eso, se escribe en una
   // pestaña y el trabajo aparece en otra que no se está mirando.
   test('y el foco se va con él', () async {

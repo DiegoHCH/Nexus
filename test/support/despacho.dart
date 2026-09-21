@@ -1,4 +1,5 @@
 import 'package:nexus/features/assistant/domain/repositories/el_despacho_de_carpeta.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_hilo_que_viaja.dart';
 
 /// Un despacho que no enruta: todo se atiende donde se pidió.
 ///
@@ -17,6 +18,7 @@ class SinEnrutar implements ElDespachoDeCarpeta {
     required bool allowWrites,
     required List<String> attachments,
     bool elFocoSigue = true,
+    List<TurnoDicho> hilo = const [],
   }) async => AtiendeloTu(frase);
 
   @override

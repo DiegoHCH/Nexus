@@ -299,7 +299,18 @@ class ClaudeCliDataSource {
             // diálogo, y por ahí siguen llegando los deltas del texto. La
             // pregunta se lanza y el bucle sigue; quien conteste escribe por
             // stdin cuando toque.
-            unawaited(_contestar(process, peticion, alPedirPermiso));
+            // 🔴 **Y se apunta que hay una en pie.** Esta rama sale del
+            // bucle por el `continue` de aquí abajo, sin pasar por la llamada
+            // que reinicia la gracia del cierre: la línea que más necesita el
+            // stdin abierto era justo la que no lo pedía.
+            vivo.unPermisoEnPie();
+            unawaited(
+              _contestar(
+                process,
+                peticion,
+                alPedirPermiso,
+              ).whenComplete(vivo.unPermisoMenos),
+            );
             continue;
           }
         }
@@ -521,9 +532,55 @@ class ElProcesoDelTurno {
   /// terminado de necesitar su entrada. La fuga sigue cubierta: lo que se
   /// alarga son segundos, no la vida de la app.
   void elTurnoAcabo() {
+    if (_proceso == null || !_preguntando) return;
+    _turnoAcabo = true;
+    _programarCierre();
+  }
+
+  /// Una pregunta de permiso esperando a una persona.
+  ///
+  /// 🔴 **Mientras haya una en pie, la entrada no se cierra — y este era el
+  /// agujero.** La gracia la reiniciaba [todaviaHabla], que se llama al final
+  /// del bucle de lectura; pero una pregunta de permiso sale de ese bucle por un
+  /// `continue` mucho antes de llegar ahí, así que **la única línea que de
+  /// verdad necesita el stdin abierto era la única que no lo pedía**.
+  ///
+  /// Con el turno ya terminado, la cuenta de tres segundos seguía corriendo
+  /// mientras la persona leía el diálogo. Leer tarda más que eso: a los tres
+  /// segundos se cerraba la entrada por debajo, y la respuesta llegaba a un
+  /// canal muerto. Reportado tal cual, empujando desde una conversación: «Tool
+  /// permission request failed: AbortError: Stream closed» y el turno pegado.
+  ///
+  /// Se cuenta y no se marca con un booleano porque puede haber varias a la vez
+  /// —los subagentes piden en paralelo— y la primera en contestarse no puede
+  /// cerrarle la puerta a las demás.
+  void unPermisoEnPie() {
+    _enPie++;
+    _cierre?.cancel();
+    _cierre = null;
+  }
+
+  /// Contestada. La última en salir vuelve a contar la gracia.
+  void unPermisoMenos() {
+    if (_enPie > 0) _enPie--;
+    if (_enPie == 0) _programarCierre();
+  }
+
+  var _enPie = 0;
+  var _turnoAcabo = false;
+  var _entradaCerrada = false;
+
+  void _programarCierre() {
     final proceso = _proceso;
     if (proceso == null || !_preguntando) return;
+    // Antes del `result` no hay nada que retrasar, y después de cerrar ya no hay
+    // vuelta atrás.
+    if (!_turnoAcabo || _entradaCerrada) return;
     _cierre?.cancel();
+    if (_enPie > 0) {
+      _cierre = null;
+      return;
+    }
     _cierre = Timer(gracia, () => _cerrarLaEntrada(proceso));
   }
 
@@ -531,13 +588,11 @@ class ElProcesoDelTurno {
   ///
   /// Solo cuenta con el cierre pendiente: antes del `result` no hay nada que
   /// retrasar, y después de cerrar ya no hay vuelta atrás.
-  void todaviaHabla() {
-    if (_cierre == null) return;
-    elTurnoAcabo();
-  }
+  void todaviaHabla() => _programarCierre();
 
   void _cerrarLaEntrada(Process proceso) {
     _cierre = null;
+    _entradaCerrada = true;
     unawaited(proceso.stdin.close().catchError((_) {}));
     _remate ??= Timer(plazo, () {
       debugPrint('claude · no salió al cerrarle el stdin: se remata');

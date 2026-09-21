@@ -109,6 +109,25 @@ class _MainAppState extends ConsumerState<MainApp> {
       onOpenHistory: _openHistory,
       onOpenArtifacts: _openArtifacts,
     );
+    // **El marco de la ventana va por libre —es AppKit— y se le avisa aparte.**
+    //
+    // 🔴 Esto vivía en el `build`, tres líneas debajo de un comentario que
+    // explicaba por qué no podía vivir ahí. Avisar al sistema no es parte de
+    // dibujar: cada reconstrucción de la raíz le reasignaba `appearance` y
+    // `backgroundColor` a **todas** las ventanas abiertas, y reasignar la
+    // apariencia de una `NSWindow` obliga a AppKit a resolverla otra vez para
+    // toda la jerarquía y a redibujarla.
+    //
+    // `listenManual` y no `listen` porque esto no se construye: se arma una vez
+    // al nacer la app y se suelta con ella. `fireImmediately` es la primera
+    // pasada —al arrancar el marco lo puso Swift con lo que dice el sistema, y
+    // aquí ya se sabe si el usuario eligió otra cosa—; a partir de ahí solo
+    // habla cuando el valor cambia de verdad.
+    ref.listenManual(
+      isDarkProvider,
+      (_, dark) => AppearanceChannel.apply(dark: dark),
+      fireImmediately: true,
+    );
   }
 
   /// Los documentos generados (⌘J). No dependen de la conversación abierta —un
@@ -192,17 +211,6 @@ class _MainAppState extends ConsumerState<MainApp> {
     // El acento elegido en la rueda. El tema claro no puede usar el mismo tono
     // que el oscuro y seguir siendo legible, así que cada uno pide el suyo.
     final acento = ref.watch(accentControllerProvider);
-
-    // El marco de la ventana va por libre —es AppKit— así que se le avisa cada
-    // vez que cambia lo que toca pintar. `ref.listen` y no una llamada en el
-    // build: esto es un efecto sobre el sistema, no parte de dibujar.
-    ref.listen(isDarkProvider, (previous, next) {
-      if (previous != next) AppearanceChannel.apply(dark: next);
-    });
-    // Y la primera vez, que `listen` no dispara solo: al arrancar, el marco lo
-    // puso Swift con lo que dice el sistema, y aquí ya se sabe si el usuario
-    // eligió otra cosa.
-    AppearanceChannel.apply(dark: ref.watch(isDarkProvider));
 
     // **El canal del móvil, vivo desde el arranque.**
     //

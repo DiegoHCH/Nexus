@@ -29,6 +29,7 @@ import 'package:nexus/features/assistant/domain/usecases/voice_routing.dart';
 import 'package:nexus/features/assistant/domain/usecases/lo_que_sale_hacia_la_voz.dart';
 import 'package:nexus/features/assistant/presentation/state/session_meter.dart';
 import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_hilo_que_viaja.dart';
 
 /// Un despacho que siempre se lleva el encargo a otra parte.
 class _SeLoLleva implements ElDespachoDeCarpeta {
@@ -44,6 +45,7 @@ class _SeLoLleva implements ElDespachoDeCarpeta {
     required bool allowWrites,
     required List<String> attachments,
     bool elFocoSigue = true,
+    List<TurnoDicho> hilo = const [],
   }) async => YaSeFue(carpeta);
 
   // Esta prueba va de la voz: llevar un encargo a una carpeta que ya se sabe

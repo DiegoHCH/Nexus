@@ -16,6 +16,7 @@ import 'package:nexus/features/run/presentation/providers/la_consola_que_se_abre
 import 'package:nexus/features/run/presentation/providers/la_ventana_del_registro.dart';
 import 'package:nexus/features/run/presentation/widgets/la_botonera_de_corridas.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_hilo_que_viaja.dart';
 
 /// La botonera de la corrida, flotando encima de la conversación.
 ///
@@ -96,6 +97,7 @@ class _Despacho implements ElDespachoDeCarpeta {
     required bool allowWrites,
     required List<String> attachments,
     bool elFocoSigue = true,
+    List<TurnoDicho> hilo = const [],
   }) async => AtiendeloTu(frase);
 }
 

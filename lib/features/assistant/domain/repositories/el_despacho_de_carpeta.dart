@@ -1,3 +1,5 @@
+import 'package:nexus/features/assistant/domain/usecases/el_hilo_que_viaja.dart';
+
 /// Lo que queda por hacer después de mirar a qué carpeta iba el encargo.
 sealed class LoQueQuedaPorHacer {
   const LoQueQuedaPorHacer();
@@ -49,6 +51,11 @@ abstract interface class ElDespachoDeCarpeta {
   /// Mac sin haberlo pedido**, y encima dejaría al teléfono mirando una pestaña
   /// donde no pasa nada. Con `false` el foco se queda quieto y quien lo pidió
   /// recibe una frase diciendo a dónde fue.
+  /// [hilo] es lo que se venía diciendo **donde se pidió**. Viaja con el
+  /// encargo cuando este se va a otra carpeta: sin él, la conversación de
+  /// destino nace sabiendo la tarea y no aquello de lo que hablaba —«copia eso
+  /// en Pixela» llegaba allí sin saber qué era «eso»—. Vacío es legítimo: hay
+  /// puertas que no tienen hilo que contar, como la voz.
   Future<LoQueQuedaPorHacer> despachar(
     String frase, {
     required String? carpetaDeAqui,
@@ -56,6 +63,7 @@ abstract interface class ElDespachoDeCarpeta {
     required bool allowWrites,
     required List<String> attachments,
     bool elFocoSigue = true,
+    List<TurnoDicho> hilo = const [],
   });
 
   /// Lleva un encargo a **una carpeta que ya se sabe cuál es**, sin mirar la

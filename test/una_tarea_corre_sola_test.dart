@@ -6,6 +6,7 @@ import 'package:nexus/features/programadas/domain/entities/encargo_programado.da
 import 'package:nexus/features/programadas/domain/repositories/las_programadas.dart';
 import 'package:nexus/features/programadas/presentation/providers/el_vigilante_de_las_programadas.dart';
 import 'package:nexus/features/updates/presentation/providers/updates_providers.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_hilo_que_viaja.dart';
 
 /// **Una tarea programada que corre sola a su hora.**
 ///
@@ -96,6 +97,7 @@ class _Despacho implements ElDespachoDeCarpeta {
     required bool allowWrites,
     required List<String> attachments,
     bool elFocoSigue = true,
+    List<TurnoDicho> hilo = const [],
   }) async => AtiendeloTu(frase);
 }
 

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/features/assistant/domain/repositories/el_despacho_de_carpeta.dart';
 import 'package:nexus/features/assistant/domain/usecases/a_que_carpeta_va.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_hilo_que_viaja.dart';
 import 'package:nexus/features/assistant/domain/usecases/que_hacer_con_el_encargo.dart';
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
@@ -25,6 +26,7 @@ class ElDespachoDeCarpetaImpl implements ElDespachoDeCarpeta {
     required bool allowWrites,
     required List<String> attachments,
     bool elFocoSigue = true,
+    List<TurnoDicho> hilo = const [],
   }) async {
     final strings = _ref.read(stringsProvider);
     final destino = QueHacerConLoQueSeDijo.de(
@@ -49,6 +51,8 @@ class ElDespachoDeCarpetaImpl implements ElDespachoDeCarpeta {
           allowWrites: allowWrites,
           attachments: attachments,
           elFocoSigue: elFocoSigue,
+          hilo: hilo,
+          vengoDe: carpetaDeAqui,
         );
 
       case AbrirUnaPara(:final carpeta, :final tarea):
@@ -76,6 +80,8 @@ class ElDespachoDeCarpetaImpl implements ElDespachoDeCarpeta {
           allowWrites: allowWrites,
           attachments: attachments,
           elFocoSigue: elFocoSigue,
+          hilo: hilo,
+          vengoDe: carpetaDeAqui,
         );
 
       case NoCabeOtraConversacion(:final carpeta):
@@ -122,6 +128,8 @@ class ElDespachoDeCarpetaImpl implements ElDespachoDeCarpeta {
       allowWrites: allowWrites,
       attachments: const [],
       elFocoSigue: elFocoSigue,
+      hilo: const [],
+      vengoDe: null,
     );
   }
 
@@ -136,6 +144,11 @@ class ElDespachoDeCarpetaImpl implements ElDespachoDeCarpeta {
     required bool allowWrites,
     required List<String> attachments,
     required bool elFocoSigue,
+    required List<TurnoDicho> hilo,
+    // 🔴 **De dónde viene, y por parámetro y no mirando el foco.** Cuando esto
+    // corre, `focus` ya movió el foco al destino: preguntarle al foco de dónde
+    // venimos contestaría «de aquí mismo».
+    required String? vengoDe,
   }) async {
     // 🔴 **El foco solo se mueve para quien está mirando.** Desde el Mac es la
     // única señal de que el trabajo se fue a otra parte; desde el teléfono
@@ -153,10 +166,27 @@ class ElDespachoDeCarpetaImpl implements ElDespachoDeCarpeta {
     // Sin tarea solo se cambia de sitio, que es exactamente lo que se pidió.
     if (tarea.trim().isEmpty) return YaSeFue(nombre);
 
+    // 🔴 **Y con lo que se venía diciendo, que si no llega en blanco.** La
+    // tarea sola pierde aquello de lo que hablaba: «copia eso en Pixela»
+    // aterrizaba allí sin saber qué era «eso». El texto que se **ve** sigue
+    // siendo el corto: el hilo es para quien lo lee del otro lado, no para la
+    // pantalla.
+    final strings = _ref.read(stringsProvider);
+    final conElHilo = ElHiloQueViaja.pegadoA(
+      tarea,
+      hilo: hilo,
+      textos: TextosDelHilo(
+        encabezado: strings.elHiloVieneDe((vengoDe ?? '').split('/').last),
+        persona: strings.enElHiloLaPersona,
+        asistente: strings.enElHiloElAsistente,
+        loQueSePide: strings.loQueSePideAhora,
+      ),
+    );
+
     await _ref
         .read(assistantControllerProvider(conversacion).notifier)
         .submit(
-          tarea,
+          conElHilo,
           loQueSeVe: loQueSeVe,
           // 🔴 **El tope viaja con el encargo.** `allowWrites` baja lo que la
           // carpeta concede y nunca lo sube; sin reenviarlo, un teléfono en

@@ -91,8 +91,26 @@ class _Artefactos extends ArtifactsDataSource {
 }
 
 class _Claude implements AskClaude {
-  _Claude({required this.contextos, this.documento, Completer<void>? yaMiro})
-    : yaMiro = yaMiro ?? Completer<void>();
+  _Claude({
+    required this.contextos,
+    this.documento,
+    Completer<void>? yaMiro,
+    this.diceSiComprimio = true,
+    this.sigueVivo,
+  }) : yaMiro = yaMiro ?? Completer<void>();
+
+  /// Si se pasa, el flujo **no se cierra** al dar el resultado: se queda
+  /// abierto hasta que se cumpla. Es lo que hace el CLI de verdad —el turno
+  /// acaba con el `result` y el proceso muere mucho después, cuando mueren sus
+  /// servidores MCP— y es justo la ventana en la que no se puede comprimir.
+  final Completer<void>? sigueVivo;
+
+  /// Si el CLI reporta cómo acabó el `/compact`.
+  ///
+  /// El binario lo reporta **siempre** que procesa el comando, así que lo
+  /// normal es `true`. En `false` modela el silencio, que no es «comprimió y no
+  /// midió» sino «no consta que comprimiera».
+  final bool diceSiComprimio;
 
   /// Se cumple cuando la foto de «antes» ya se tomó. Escribir el documento
   /// antes de eso lo dejaría en las dos listas y no contaría como nuevo.
@@ -137,10 +155,15 @@ class _Claude implements AskClaude {
     // carrera que esto mide no existiría ni con el código viejo.
     await Future<void>.delayed(Duration.zero);
     yield const ClaudeTextDelta('ya está');
+    // Cómo acabó la compactación, como lo manda el CLI: antes del resultado.
+    if (instruction == '/compact' && diceSiComprimio) {
+      yield const ClaudeCompacto(ok: true);
+    }
     yield ClaudeTurnCompleted(
       result: 'ya está',
       contextTokens: vuelta < contextos.length ? contextos[vuelta] : null,
     );
+    if (vuelta == 0 && sigueVivo != null) await sigueVivo!.future;
   }
 
   @override
@@ -261,7 +284,12 @@ void main() {
     _DestinoQueCuenta destino,
     _Claude claude,
   })
-  montar({required List<int?> contextos, File? documento}) {
+  montar({
+    required List<int?> contextos,
+    File? documento,
+    bool diceSiComprimio = true,
+    Completer<void>? sigueVivo,
+  }) {
     final almacen = _AlmacenQueApunta();
     final destino = _DestinoQueCuenta();
     final yaMiro = Completer<void>();
@@ -269,6 +297,8 @@ void main() {
       contextos: contextos,
       documento: documento,
       yaMiro: yaMiro,
+      diceSiComprimio: diceSiComprimio,
+      sigueVivo: sigueVivo,
     );
     final container = ProviderContainer(
       overrides: [
@@ -328,6 +358,97 @@ void main() {
           'antes se archivaba mientras el documento aún se buscaba, y el '
           'registro quedaba con documento: null — el enlace no volvía al '
           'reabrir la app aunque el archivo siguiera en el disco',
+    );
+  });
+
+  // 🔴 **Sin confirmación no se canta una compresión.**
+  //
+  // Reportado con el contexto clavado: «está comprimiendo y sigue en 88 %, le
+  // envío un mensaje nuevo y vuelve a comprimir». Y era peor de lo que parecía.
+  // Medido en el archivo de sesión de la carpeta: 864 turnos de asistente, tres
+  // `/compact` mandados —recibidos y procesados por el CLI, consta en el
+  // registro— y **cero compactaciones**. El contexto solo subía, hasta 907.171
+  // tokens, y la app anunciaba las tres como hechas.
+  //
+  // Que no llegue `compact_result` no es «comprimió y no midió»: el binario lo
+  // reporta siempre que procesa el comando, así que su silencio es que no
+  // consta que comprimiera. Decir lo contrario es afirmar lo que no se sabe, y
+  // manda a esperar una medida que no va a llegar.
+  test('la compresión que el CLI no confirma no se anuncia como hecha', () async {
+    final todo = montar(
+      contextos: const [_contextoLleno, null],
+      diceSiComprimio: false,
+    );
+    final controlador = todo.container.read(
+      assistantControllerProvider(_id).notifier,
+    );
+
+    await controlador.submit('resume lo que hicimos');
+    final strings = todo.container.read(stringsProvider);
+
+    await hastaQue(
+      () =>
+          todo.claude.pedidos.contains('/compact') &&
+          todo.container
+              .read(assistantControllerProvider(_id))
+              .messages
+              .any((m) => m.text == strings.compactedUnconfirmed),
+      esperando: 'que se diga que la compresión no se pudo confirmar',
+      loQueSeVe: () =>
+          '${todo.container.read(assistantControllerProvider(_id)).messages.map((m) => m.text)}'
+          ' · pedidos=${todo.claude.pedidos}',
+    );
+
+    final textos = todo.container
+        .read(assistantControllerProvider(_id))
+        .messages
+        .map((m) => m.text);
+    expect(
+      textos,
+      isNot(contains(strings.compactedUnknown)),
+      reason:
+          'ese mensaje promete una medida para el turno siguiente, y sin '
+          'compresión no va a moverse nada',
+    );
+  });
+
+  // 🔴 **No se comprime con el proceso del turno todavía vivo.**
+  //
+  // El `result` no cierra el proceso: el flujo solo termina cuando el proceso
+  // muere, y hasta entonces Nexus le deja el stdin abierto para los permisos.
+  // Pero el fin de encargo sale del `result`, así que `/compact` arrancaba un
+  // segundo después — dos `claude --resume` a la vez sobre la misma sesión, que
+  // en este repo ya estaba medido: contestan bien los dos y después solo consta
+  // uno. La que se perdía era la compactación, en silencio.
+  test('la compresión espera a que el proceso del turno se haya ido', () async {
+    final sigueVivo = Completer<void>();
+    final todo = montar(
+      contextos: const [_contextoLleno, null],
+      sigueVivo: sigueVivo,
+    );
+    final controlador = todo.container.read(
+      assistantControllerProvider(_id).notifier,
+    );
+
+    await controlador.submit('resume lo que hicimos');
+
+    // El turno ya dio su resultado y el proceso sigue vivo: aquí no se toca la
+    // sesión.
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    expect(
+      todo.claude.pedidos,
+      isNot(contains('/compact')),
+      reason:
+          'resumir la sesión mientras el proceso anterior la tiene cogida es '
+          'perder la compactación sin enterarse',
+    );
+
+    // Se fue: ahora sí.
+    sigueVivo.complete();
+    await hastaQue(
+      () => todo.claude.pedidos.contains('/compact'),
+      esperando: 'que la compresión arranque al irse el proceso',
+      loQueSeVe: () => '${todo.claude.pedidos}',
     );
   });
 

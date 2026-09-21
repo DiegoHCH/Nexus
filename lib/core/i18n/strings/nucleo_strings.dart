@@ -223,6 +223,9 @@ mixin NucleoStrings {
   /// Se comprimió, pero todavía no hay medida nueva: llega con el turno
   /// siguiente. Decir una cifra inventada sería peor que no darla.
   String get compactedUnknown;
+
+  /// La compactación de la que el CLI no dijo nada. Ver `compactedUnknown`.
+  String get compactedUnconfirmed;
   // Ajustes
   String get settings;
   String get closeEsc;
@@ -620,6 +623,11 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get compactedUnknown =>
       'Conversación comprimida. La medida del contexto se actualiza en el '
       'siguiente turno.';
+  @override
+  String get compactedUnconfirmed =>
+      'No pude confirmar que la conversación se comprimiera: el contexto sigue '
+      'como estaba. Si se repite, empieza una conversación nueva sobre esta '
+      'carpeta.';
   @override
   String compacted(int before, int after) =>
       'Conversación comprimida: el contexto baja del $before % al $after %. '
@@ -1109,6 +1117,11 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String get compactedUnknown =>
       'Conversation compacted. The context reading updates on the next turn.';
+  @override
+  String get compactedUnconfirmed =>
+      'I could not confirm the conversation was compacted: the context is '
+      'unchanged. If it keeps happening, start a new conversation on this '
+      'folder.';
   @override
   String compacted(int before, int after) =>
       'Conversation compacted: context drops from $before% to $after%. Claude '

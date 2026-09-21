@@ -80,6 +80,23 @@ class AssistantController extends Notifier<AssistantHudState> {
 
   StreamSubscription<ClaudeEvent>? _subscription;
 
+  /// Se cumple cuando el proceso del turno **se fue de verdad**, que no es
+  /// cuando dio su resultado.
+  ///
+  /// 🔴 **Comprimir con el anterior todavía vivo pierde la compactación.** El
+  /// `result` no cierra el proceso: el flujo solo termina cuando el proceso
+  /// muere —lo marca `ElFinalDeLaSalida`— y hasta entonces Nexus le deja el
+  /// stdin abierto para los permisos. Pero `_afterErrand` sale del `result`, así
+  /// que `/compact` arrancaba un segundo después, con **dos `claude --resume`
+  /// a la vez sobre la misma sesión**. Eso ya estaba medido en este repo: los
+  /// dos contestan bien y después solo consta uno. La que se perdía era la
+  /// compactación.
+  ///
+  /// Medido en el archivo de sesión de una carpeta: 864 turnos, tres `/compact`
+  /// recibidos y procesados por el CLI, **cero compactaciones** en el registro y
+  /// el contexto subiendo hasta 907.171 tokens.
+  Completer<void>? _elProcesoSeFue;
+
   /// Lo que se escribió mientras había un encargo corriendo.
   ///
   /// 🔴 **Enviar no interrumpe.** Antes cada mensaje nuevo cancelaba el encargo
@@ -1148,6 +1165,7 @@ class AssistantController extends Notifier<AssistantHudState> {
     unawaited(_loQueDejo.tomaLaMarca(_workingDirectory));
 
     final ask = ref.read(askClaudeProvider(conversationId));
+    _elProcesoSeFue = Completer<void>();
     _subscription =
         ask(
           paraClaude,
@@ -1198,6 +1216,12 @@ class AssistantController extends Notifier<AssistantHudState> {
   /// cuando vuelva a pasar, porque ahora deja dicho—; lo que no puede pasar es
   /// **presentar media frase como una respuesta entera**.
   void _elTurnoSeCorto() {
+    // **Antes del guardia de abajo**: el cierre del generador es la única señal
+    // de que el proceso murió, y eso hace falta tanto si el turno acabó bien
+    // como si no. Ver [_elProcesoSeFue].
+    if (_elProcesoSeFue case final aviso? when !aviso.isCompleted) {
+      aviso.complete();
+    }
     // Terminó bien: `_onTurnCompleted` ya lo cerró y esto es solo el cierre del
     // generador.
     if (_subscription == null) return;
@@ -2115,6 +2139,21 @@ class AssistantController extends Notifier<AssistantHudState> {
     // No nulo por la línea de arriba: `toca` devuelve falso sin medida.
     final before = medida!;
 
+    // 🔴 **Y se espera a que el proceso del turno se haya ido.** Ver
+    // [_elProcesoSeFue]: resumir la sesión mientras el anterior sigue vivo es
+    // perder la compactación en silencio.
+    //
+    // El plazo está acotado por el propio cierre —a los tres segundos del
+    // resultado se le cierra la entrada y a los diez más se le remata—, así que
+    // treinta segundos es holgado. Si aun así no se fue, **no se comprime**: se
+    // deja para el turno siguiente, que es mucho mejor que gastar un turno
+    // entero de Claude en una compactación que se va a perder.
+    if (_elProcesoSeFue case final aviso? when !aviso.isCompleted) {
+      await aviso.future.timeout(esperaAQueSeVaya, onTimeout: () {});
+      if (!_vive) return;
+      if (!aviso.isCompleted) return;
+    }
+
     _compacting = true;
     int? medido;
     final strings = ref.read(stringsProvider);
@@ -2176,6 +2215,21 @@ class AssistantController extends Notifier<AssistantHudState> {
         _sealLast();
         return;
       }
+      // 🔴 **Sin confirmación no se canta una compresión.** Que no llegue
+      // `compact_result` no es «comprimió y no midió»: es que **no consta que
+      // comprimiera**, y el CLI lo reporta siempre que procesa el `/compact`.
+      //
+      // Decir «conversación comprimida, la medida se actualiza en el siguiente
+      // turno» ante ese silencio es afirmar lo que no se sabe — y lo que se
+      // sabía era lo contrario. Medido en el archivo de sesión de una carpeta:
+      // 864 turnos, tres `/compact` mandados, **cero compactaciones** en el
+      // registro, y la app anunciando las tres. El contexto seguía subiendo y
+      // el mensaje decía que no.
+      if (comoFue == null) {
+        _say(ChatAuthor.nexus, strings.compactedUnconfirmed);
+        _sealLast();
+        return;
+      }
 
       final dejo = LaCompresionDeLaConversacion.loQueDejo(
         antes: before,
@@ -2219,6 +2273,9 @@ class AssistantController extends Notifier<AssistantHudState> {
   }
 
   static const _compactItemId = 'comprimiendo';
+
+  /// Cuánto se le espera al proceso del turno antes de comprimir.
+  static const esperaAQueSeVaya = Duration(seconds: 30);
 
   /// Una compresión ya anunciada a la que le falta la medida final.
   ///

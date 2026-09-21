@@ -203,6 +203,66 @@ void main() {
     });
   });
 
+  // 🔴 **Una ruta no son dos carpetas nombradas.**
+  //
+  // Reportado como un bucle: «le digo dónde y me responde que no puede elegir».
+  // Con la carpeta padre emparejada además de la hija —que es lo normal si
+  // trabajas en `personal` y también en `personal/Pixela`—, escribir la ruta
+  // encontraba las dos y preguntaba cuál. Y la respuesta natural es repetir la
+  // ruta, que vuelve a encontrar las dos. La única salida era escribir el
+  // nombre de la hija a secas, sin que nada lo dijera.
+  group('una carpeta dentro de otra', () {
+    final personal = carpeta('/Users/alguien/personal');
+    final pixela = carpeta('/Users/alguien/personal/Pixela');
+    final anidadas = [personal, pixela, nexus];
+
+    test('la ruta entera va a la de dentro, sin preguntar', () {
+      final r = va('monta el repositorio en personal/Pixela', anidadas);
+
+      expect(r, isA<AEstaCarpeta>());
+      expect((r as AEstaCarpeta).carpeta.path, pixela.path);
+      expect(
+        r.tarea,
+        'monta el repositorio',
+        reason: 'la ruta entera es la mención: no puede quedar «personal/»',
+      );
+    });
+
+    test('y la ruta sola sigue siendo solo cambiar de sitio', () {
+      final r = va('personal/Pixela', anidadas) as AEstaCarpeta;
+
+      expect(r.carpeta.path, pixela.path);
+      expect(r.tarea, isEmpty);
+    });
+
+    // Tres niveles: el patrón es el mismo y no debe pararse en el primero.
+    test('y da igual cuántos niveles tenga la ruta', () {
+      final r = va('en personal/nexus corre las pruebas', anidadas);
+
+      expect((r as AEstaCarpeta).carpeta.path, nexus.path);
+      expect(r.tarea, 'corre las pruebas');
+    });
+
+    // 🔴 **Pero nombrarlas de verdad por separado sigue preguntando.** Lo que
+    // se colapsa es el padre pegado a la hija por una barra, que es una ruta.
+    // «De personal a Pixela» son dos carpetas y una elección, y ahí la regla de
+    // siempre manda: nunca se trabaja en la que no era.
+    test('dos nombradas aparte siguen siendo dos', () {
+      expect(
+        va('copia de personal a Pixela', anidadas),
+        isA<SeNombraronVarias>(),
+      );
+    });
+
+    // Y si el padre aparece además suelto, tampoco se absorbe: ahí sí hubo dos.
+    test('el padre suelto en otra parte no se absorbe', () {
+      expect(
+        va('saca personal de personal/Pixela', anidadas),
+        isA<SeNombraronVarias>(),
+      );
+    });
+  });
+
   test('sin carpetas emparejadas no hay nada que enrutar', () {
     expect(
       va('en el front mobile arregla esto', const []),

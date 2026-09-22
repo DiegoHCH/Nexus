@@ -379,13 +379,30 @@ class ClaudeCliDataSource {
     }
   }
 
-  /// Lo que dice el CLI cuando un `Agent` se queda trabajando por su cuenta.
+  /// Lo que dice el CLI cuando deja trabajo corriendo por su cuenta.
   ///
-  /// Copiado de una corrida real: el resultado de la herramienta empieza por
-  /// esta frase y trae el `agentId` detrás.
-  static const marcaDelAgenteSuelto = 'Async agent launched successfully';
+  /// Copiadas de corridas reales, no deducidas. Son varias porque hay varias
+  /// formas de dejar algo detrás, y **mirar solo una fue el fallo**: con la
+  /// primera puesta, retomar una revisión seguía matándola. El CLI no la lanza
+  /// con `Agent` sino con `SendMessage`, y eso no dice «launched» sino
+  /// `resumedAgentId` — reportado tras el arreglo: «volví a lanzar el flow
+  /// review con la nueva versión» y se cortó igual.
+  ///
+  /// **La lista es generosa a propósito.** Equivocarse de más cuesta un proceso
+  /// vivo unos minutos; equivocarse de menos cuesta el trabajo que pediste, y
+  /// encima en silencio. No se parecen.
+  static const marcasDeTrabajoDetras = [
+    // Un `Agent` lanzado en segundo plano.
+    'Async agent launched successfully',
+    // Y el mismo, retomado: `SendMessage` contesta con esto.
+    'resumedAgentId',
+    // Un comando de `Bash` que sigue corriendo después de contestar.
+    'Command running in background with ID',
+    // Y un vigía, que existe justamente para hablar más tarde.
+    'Monitor started',
+  ];
 
-  /// Si esta línea dice que el turno dejó un subagente asíncrono en marcha.
+  /// Si esta línea dice que el turno dejó trabajo corriendo por detrás.
   ///
   /// 🔴 **Un subagente asíncrono existe para seguir después del resultado, y
   /// nosotros matábamos el proceso justo ahí.** Reportado como «pedí un flow
@@ -405,7 +422,8 @@ class ClaudeCliDataSource {
     for (final block in content ?? const []) {
       if (block is! Map<String, dynamic>) continue;
       if (block['type'] != 'tool_result') continue;
-      if (_dice(block['content']).contains(marcaDelAgenteSuelto)) return true;
+      final dicho = _dice(block['content']);
+      if (marcasDeTrabajoDetras.any(dicho.contains)) return true;
     }
     return false;
   }

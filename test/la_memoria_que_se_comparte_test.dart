@@ -12,6 +12,7 @@ import 'package:nexus/features/history/data/datasources/local_conversation_store
 import 'package:nexus/features/history/domain/entities/conversation_summary.dart';
 import 'package:nexus/features/history/presentation/providers/archive_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:nexus/features/assistant/domain/entities/conversation.dart';
 
 /// Dos chats sobre la misma carpeta **no son dos hilos**, y lo parecían.
 ///
@@ -100,12 +101,40 @@ void main() {
   group('la regla', () {
     test('se cuentan todas las que comparten, también la que pregunta', () {
       expect(
-        LaSesionQueSeComparte.cuantasComparten([
-          _carpeta,
-          _carpeta,
-          '/otra',
+        LaSesionQueSeComparte.cuantasComparten(const [
+          (carpeta: _carpeta, propia: false),
+          (carpeta: _carpeta, propia: false),
+          (carpeta: '/otra', propia: false),
         ], _carpeta),
         2,
+      );
+    });
+
+    // 🔴 **La que se fue sola no cuenta.**
+    //
+    // Reportado así: «tengo una conversación abierta, di empezar de cero, abro
+    // otra y me aparece el chip en las dos». Estar sobre la misma carpeta ya no
+    // basta: desde que empezar de cero independiza una conversación, contar
+    // carpetas deja el chip mintiendo en la que se queda — dice que comparte con
+    // alguien que ya se fue.
+    test('pero la que empezó de cero ya no comparte', () {
+      expect(
+        LaSesionQueSeComparte.cuantasComparten(const [
+          (carpeta: _carpeta, propia: true),
+          (carpeta: _carpeta, propia: false),
+        ], _carpeta),
+        1,
+        reason: 'una sola no comparte con nadie, y el chip no debe salir',
+      );
+    });
+
+    test('y con dos idas, no queda nadie compartiendo', () {
+      expect(
+        LaSesionQueSeComparte.cuantasComparten(const [
+          (carpeta: _carpeta, propia: true),
+          (carpeta: _carpeta, propia: true),
+        ], _carpeta),
+        0,
       );
     });
 
@@ -276,6 +305,44 @@ void main() {
       await contenedor.read(laSesionSinDuenoProvider)(_carpeta);
 
       expect(memoria.olvidadas, [_carpeta]);
+    });
+  });
+
+  // 🔴 **Separarse sobrevive al reinicio.**
+  //
+  // Empezó viviendo solo en memoria y eso dejaba atrapado a quien lo usara: al
+  // reabrir la app la conversación volvía al hilo de la carpeta, y el botón de
+  // empezar de cero solo aparece dentro del aviso de «continué donde quedé» —
+  // que ya no sale, porque la sesión se había olvidado. Sin sesión que olvidar
+  // no había forma de volver a separarse. Reportado tal cual: «di empezar de
+  // cero, abro otra y me aparece el chip en las dos».
+  group('la ficha recuerda que se fue sola', () {
+    test('y lo escribe', () {
+      const ficha = Conversation(id: 'c1', folderPath: _carpeta);
+
+      expect(ficha.toJson()['memoriaPropia'], isNull);
+      expect(ficha.conMemoriaPropia().toJson()['memoriaPropia'], isTrue);
+    });
+
+    test('y lo vuelve a leer', () {
+      final crudo = const Conversation(
+        id: 'c1',
+        folderPath: _carpeta,
+      ).conMemoriaPropia().toJson();
+
+      expect(Conversation.fromJson(crudo)?.memoriaPropia, isTrue);
+    });
+
+    // Lo de siempre sigue leyéndose igual: las fichas guardadas antes de esto no
+    // traen la marca, y eso significa que comparten, que es lo que hacían.
+    test('y una ficha de antes no se inventa nada', () {
+      expect(
+        Conversation.fromJson({
+          'id': 'c1',
+          'folderPath': _carpeta,
+        })?.memoriaPropia,
+        isFalse,
+      );
     });
   });
 }

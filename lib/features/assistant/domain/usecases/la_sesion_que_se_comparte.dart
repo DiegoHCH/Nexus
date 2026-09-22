@@ -21,8 +21,17 @@ abstract final class LaSesionQueSeComparte {
   /// Se cuentan **todas**, también la que pregunta: es el número que se enseña
   /// —«compartida entre 2»— y decir «con 1 más» obligaría a sumar de cabeza
   /// para saber cuántas hay.
-  static int cuantasComparten(Iterable<String> carpetas, String carpeta) =>
-      carpetas.where((otra) => otra == carpeta).length;
+  /// Cuántas conversaciones abiertas comparten **de verdad** la sesión de esta
+  /// carpeta.
+  ///
+  /// 🔴 **Estar sobre la misma carpeta ya no basta.** Desde que «empezar de
+  /// cero» independiza una conversación, contar carpetas dejaba el chip
+  /// mintiendo en la que se quedaba: leía «memoria compartida · 2 chats»
+  /// cuando la otra se había ido y ya no compartía con nadie.
+  static int cuantasComparten(
+    Iterable<({String carpeta, bool propia})> abiertas,
+    String carpeta,
+  ) => abiertas.where((o) => o.carpeta == carpeta && !o.propia).length;
 
   /// Si al abrir una conversación se está continuando un hilo que no se ve.
   ///

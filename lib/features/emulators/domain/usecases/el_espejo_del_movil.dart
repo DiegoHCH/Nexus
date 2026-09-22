@@ -15,6 +15,21 @@
 abstract final class ElEspejoDelMovil {
   static const binario = 'scrcpy';
 
+  /// Si ya hay un espejo de **este** dispositivo entre los procesos vivos.
+  ///
+  /// 🔴 Hace falta desde que el espejo se abre solo al correr la app: sin esto,
+  /// volver a correr con la ventana anterior todavía abierta deja dos espejos
+  /// del mismo teléfono. Y la alternativa —no reabrirlo nunca dentro de la misma
+  /// sesión— es peor: cierras la ventana, vuelves a correr y no vuelve.
+  ///
+  /// Se mira la línea de comandos y no una lista nuestra, porque el espejo
+  /// también se abre a mano desde los paneles: una cuenta propia no sabría nada
+  /// de esos y volvería a duplicar.
+  static bool yaEstaEspejando(String deviceId, Iterable<String> procesos) =>
+      procesos.any(
+        (linea) => linea.contains(binario) && linea.contains(deviceId),
+      );
+
   /// Con qué se llama a scrcpy.
   ///
   /// Aparte para poder comprobarlo, igual que los de Maestro: lo que importa aquí

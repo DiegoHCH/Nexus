@@ -82,6 +82,13 @@ class LocalConversationStore {
               'autor': message.author.name,
               'texto': message.text,
               'hablado': message.spoken,
+              // La hora y lo que costó. **Se guardan o se pierden**, como los
+              // cambios y los pasos: al reabrir la conversación mañana, un
+              // turno sin hora ni coste es justo el que uno vuelve a mirar
+              // para saber cuánto tardó aquello.
+              if (message.enviadoEl case final cuando?)
+                'cuando': cuando.toIso8601String(),
+              if (message.loQueCosto case final coste?) 'costo': coste.toJson(),
               // Lo que dejó ese turno. **Se guarda o se pierde**: vivía solo en
               // memoria, así que al cerrar la app y retomar la conversación el
               // botón de ver cambios ya no estaba — y lo que ese encargo tocó
@@ -377,6 +384,10 @@ class LocalConversationStore {
       author: message['autor'] == 'user' ? ChatAuthor.user : ChatAuthor.nexus,
       text: message['texto'] as String? ?? '',
       spoken: message['hablado'] as bool? ?? false,
+      // Los registros de antes de esto no lo traen, y eso no es un error: un
+      // turno sin hora se pinta sin ella.
+      enviadoEl: DateTime.tryParse(message['cuando'] as String? ?? ''),
+      loQueCosto: LoQueCostoElTurno.fromJson(message['costo']),
       cambios: _cambiosDe(message['cambios']),
       // El documento **solo si sigue estando**. Un botón que no lleva
       // a ningún sitio enseña a no pulsarlo, y entonces tampoco se

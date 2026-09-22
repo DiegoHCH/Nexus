@@ -179,11 +179,15 @@ abstract final class LosMensajes {
     bool esElParte = false,
     PropuestaDeProgramar? propuesta,
     bool esLaListaDeProgramadas = false,
+    DateTime? enviadoEl,
   }) => [
     ...mensajes,
     ChatMessage(
       author: autor,
       text: texto,
+      // La hora se pone al nacer el mensaje y no al sellarlo: lo que interesa
+      // es cuándo se dijo, y una respuesta larga se sella minutos después.
+      enviadoEl: enviadoEl ?? DateTime.now(),
       spoken: spoken,
       streaming: true,
       attachments: attachments,

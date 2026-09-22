@@ -316,6 +316,19 @@ jobs:
           set -o pipefail
           V="${{ needs.decidir.outputs.version }}"
           NUEVA="build/macos/Build/Products/Release/Nexus.app"
+
+          # 🔴 **A qué versión lleva el parche, que es lo que faltaba.** Sparkle
+          # trata cada parche como una actualización por derecho propio: sin
+          # `sparkle:version` no sabe a dónde lleva, lo descarta y se baja el zip
+          # entero. Reportado tal cual, con los parches publicados, firmados y
+          # con su `deltaFrom` correcto: «esta versión revisé y descargó de nuevo
+          # 24.5 MB».
+          #
+          # Se lee del paquete recién construido y no del pubspec, por lo mismo
+          # que abajo: tiene que ser el número que la app dirá de sí misma.
+          HASTA="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' \
+            "$NUEVA/Contents/Info.plist")"
+
           mkdir -p build/parches "$RUNNER_TEMP/viejas"
           printf '%s' "$CLAVE" | tr -d '\r\n' > "$RUNNER_TEMP/sparkle.key"
 
@@ -354,7 +367,7 @@ jobs:
 
             # Una línea por parche, ya en XML, para que el paso de abajo solo
             # tenga que pegarlas: armar el appcast es de allí y no de aquí.
-            echo "        <enclosure url=\"https://github.com/${{ github.repository }}/releases/download/v$V/$(basename "$PARCHE")\" sparkle:deltaFrom=\"$DESDE\" type=\"application/octet-stream\" $FIRMA />" \
+            echo "        <enclosure url=\"https://github.com/${{ github.repository }}/releases/download/v$V/$(basename "$PARCHE")\" sparkle:version=\"$HASTA\" sparkle:deltaFrom=\"$DESDE\" type=\"application/octet-stream\" $FIRMA />" \
               >> build/parches/enclosures.xml
             echo "parche desde $VIEJA (build $DESDE): $(du -h "$PARCHE" | cut -f1)"
             rm -rf "$DIR"

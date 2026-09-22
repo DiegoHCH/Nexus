@@ -168,6 +168,28 @@ class EmuladoresDataSource {
   /// Si scrcpy está instalado. Es opcional: sin él, el botón no se ofrece.
   bool hayEspejo() => BinarioEnElPath.hay(ElEspejoDelMovil.binario);
 
+  /// Si ya hay un espejo abierto de este dispositivo.
+  ///
+  /// Se pregunta a los procesos vivos y no a una cuenta nuestra: el espejo
+  /// también se abre a mano desde los paneles, y una cuenta propia no sabría
+  /// nada de esos. Ver [ElEspejoDelMovil.yaEstaEspejando].
+  ///
+  /// Ante la duda, `false`: no poder preguntar no es motivo para no abrir lo que
+  /// se pidió — como mucho aparece una ventana de más.
+  Future<bool> yaHayEspejoDe(String deviceId) async {
+    try {
+      final salida = await Process.run('pgrep', [
+        '-fl',
+        ElEspejoDelMovil.binario,
+      ]);
+      final texto = salida.stdout;
+      if (texto is! String) return false;
+      return ElEspejoDelMovil.yaEstaEspejando(deviceId, texto.split('\n'));
+    } on ProcessException {
+      return false;
+    }
+  }
+
   /// Abre la pantalla de un iPhone con lo que trae macOS.
   ///
   /// **No recibe dispositivo, y no es un olvido**: Duplicado abre el iPhone

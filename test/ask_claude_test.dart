@@ -171,6 +171,56 @@ void main() {
     expect(bridge.resumed, [null, 'sesion-1']);
   });
 
+  // 🔴 **Empezar de cero manda a esta conversación por su cuenta.**
+  //
+  // Reportado así: «por más que le doy empezar de cero, si tengo las dos
+  // conversaciones abiertas sigue saliendo el chip de memoria compartida». Y el
+  // chip decía la verdad: olvidar borraba la sesión **de la carpeta**, así que
+  // la siguiente volvía a ser común y empezar de cero duraba lo que tardara la
+  // otra en escribir.
+  test('empezando de cero, no se reanuda la sesión de la carpeta', () async {
+    final bridge = _Bridge();
+    final memory = _Memory();
+    final ask = _askWith(bridge, memory);
+
+    await ask('primero').toList();
+    expect(bridge.resumed, [null]);
+
+    ask.empezarSolo();
+    await ask('segundo').toList();
+
+    expect(bridge.resumed, [
+      null,
+      null,
+    ], reason: 'con hilo propio, la sesión de la carpeta no se reanuda');
+  });
+
+  // Y **tampoco se la lleva**: la otra conversación sigue con la suya, que es
+  // lo que distingue independizarse de borrarle el contexto a todo el mundo.
+  test('y lo suyo no vuelve a la memoria de la carpeta', () async {
+    final bridge = _Bridge();
+    final memory = _Memory()..sessionId = 'la-de-la-carpeta';
+    final ask = _askWith(bridge, memory);
+
+    ask.empezarSolo();
+    await ask('primero').toList();
+
+    expect(memory.sessionId, 'la-de-la-carpeta');
+  });
+
+  // Su propio hilo sí lo conserva: empezar de cero es empezar, no olvidar en
+  // cada mensaje.
+  test('pero el suyo sí lo continúa', () async {
+    final bridge = _Bridge();
+    final ask = _askWith(bridge, _Memory());
+
+    ask.empezarSolo();
+    await ask('primero').toList();
+    await ask('segundo').toList();
+
+    expect(bridge.resumed, [null, 'sesion-1']);
+  });
+
   // Comprimir no es una petición del usuario: si apareciera en «lo que le has
   // pedido», la lista para repetir peticiones se llenaría de /compact.
   test('comprimir no ensucia el historial de peticiones', () async {

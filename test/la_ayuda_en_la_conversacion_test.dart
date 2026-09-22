@@ -46,6 +46,12 @@ class _Claude implements AskClaude {
   /// repetir en pantalla.
   final List<String> mcpCaidos;
 
+  /// Si se le dijo que siguiera por su cuenta.
+  var seFueSola = false;
+
+  @override
+  void empezarSolo() => seFueSola = true;
+
   @override
   Stream<ClaudeEvent> call(
     String instruction, {
@@ -254,6 +260,18 @@ void main() {
       reason: 'sin decir nada, borrar la pantalla parece un cuelgue',
     );
     expect(claude.pedidos, hasLength(1), reason: 'solo el «hola» de antes');
+    // 🔴 **Y esta conversación se queda sola.**
+    //
+    // Reportado así: «por más que le doy empezar de cero, si tengo las dos
+    // conversaciones abiertas sigue saliendo el chip de memoria compartida». El
+    // olvido es de la carpeta —lo dice el `expect` de arriba—, así que sin esto
+    // la siguiente sesión volvía a ser común y empezar de cero duraba lo que
+    // tardara la otra en escribir.
+    expect(
+      claude.seFueSola,
+      isTrue,
+      reason: 'olvidar sin separarse deja el borrón a merced de la otra',
+    );
   });
 
   group('el marco de trabajo apagado', () {

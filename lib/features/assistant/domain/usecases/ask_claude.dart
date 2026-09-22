@@ -71,6 +71,26 @@ class AskClaude {
   /// esto existiera.
   String? _miSesion;
 
+  /// Esta conversación dejó de compartir la sesión de la carpeta.
+  ///
+  /// 🔴 **«Empezar de cero» borraba la sesión de la carpeta, no el reparto.**
+  /// Con dos conversaciones abiertas sobre el mismo repo, olvidar se llevaba el
+  /// contexto de las dos y la siguiente volvía a ser común: el chip de memoria
+  /// compartida seguía ahí porque decía la verdad. Reportado así: «por más que
+  /// le doy empezar de cero, si tengo las dos conversaciones abiertas sigue
+  /// saliendo el chip de memoria compartida · 2 chats».
+  ///
+  /// Empezar de cero pasa a significar lo que se esperaba de él: **esta** empieza
+  /// sola. Es la misma condición que ya tenía una conversación bifurcada —hilo
+  /// propio, permanente— solo que decidida a mano en vez de por chocar con otra.
+  var _voySolo = false;
+
+  /// Que esta conversación siga por su cuenta.
+  void empezarSolo() {
+    _voySolo = true;
+    _miSesion = null;
+  }
+
   /// Lo que Claude recuerda de esta carpeta. Se consulta al empezar cada
   /// encargo y se actualiza al arrancar la sesión, de modo que el siguiente
   /// continúe donde quedó el anterior.
@@ -162,7 +182,7 @@ class AskClaude {
       // [ClaudeEnParalelo]. Una vez bifurcada, esta conversación ya no
       // necesita el turno de la carpeta: su hilo es suyo y no se lo pisa nadie.
       final bifurcando = _miSesion == null && turno.laTieneOtra;
-      final enParalelo = bifurcando || _miSesion != null;
+      final enParalelo = bifurcando || _miSesion != null || _voySolo;
       try {
         if (enParalelo) {
           // 🔴 **Se avisa solo cuando de verdad hay otra trabajando ahora.**
@@ -248,7 +268,11 @@ class AskClaude {
           extraDirectories: context.extraDirectories,
           // El hilo propio si esta conversación ya se bifurcó; si no, el de la
           // carpeta, que es la regla de siempre.
-          resumeSessionId: _miSesion ?? memory.sessionId,
+          // **Yendo sola, la de la carpeta no se mira.** Si no, bastaría con que
+          // la otra conversación estrenara sesión antes de tu turno siguiente
+          // para que esta se enganchara a ella — y empezar de cero habría
+          // durado lo que tardó la otra en escribir.
+          resumeSessionId: _voySolo ? _miSesion : _miSesion ?? memory.sessionId,
           forkSession: bifurcando,
           claudeProfile: context.claudeProfile,
           model: context.model,

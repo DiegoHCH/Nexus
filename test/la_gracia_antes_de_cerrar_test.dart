@@ -310,6 +310,42 @@ void main() {
       );
     });
 
+    // 🔴 **Y el que se retoma, también.** Con solo la marca del lanzamiento
+    // puesta, `flow review` seguía muriéndose: el CLI no retoma con `Agent`
+    // sino con `SendMessage`, y eso no dice «launched». Copiado de la corrida
+    // que lo destapó.
+    test('y el que se retoma, también', () {
+      expect(
+        ClaudeCliDataSource.dejaUnAgenteTrabajando(
+          resultadoCon(
+            '{"success":true,"message":"Resuming agent a8a5452",'
+            '"resumedAgentId":"a8a545292b4a35578"}',
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    // Un comando en segundo plano y un vigía también hablan después del turno,
+    // y también viven dentro de este proceso.
+    test('un comando en segundo plano, también', () {
+      expect(
+        ClaudeCliDataSource.dejaUnAgenteTrabajando(
+          resultadoCon('Command running in background with ID: b8jv732xb'),
+        ),
+        isTrue,
+      );
+    });
+
+    test('y un vigía, también', () {
+      expect(
+        ClaudeCliDataSource.dejaUnAgenteTrabajando(
+          resultadoCon('Monitor started (task bqos9rtu8, expires in 30m…)'),
+        ),
+        isTrue,
+      );
+    });
+
     test('un resultado cualquiera, no', () {
       expect(
         ClaudeCliDataSource.dejaUnAgenteTrabajando(

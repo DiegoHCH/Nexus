@@ -28,7 +28,33 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # 🔴 **El CI corría dos veces el mismo código.** Entero en el PR de la
+      # funcionalidad, y entero otra vez en el de release — que sobre lo ya
+      # probado añade **una línea del `pubspec`**. Seis minutos y medio para
+      # verificar que `1.19.5+64` pasó a ser `1.19.6+65`.
+      #
+      # Se mira el contenido y no el nombre de la rama: una `release/…` que
+      # traiga código de verdad se prueba como cualquier otra. Lo que autoriza a
+      # saltárselo no es cómo se llama, es que el árbol sea el mismo que ya pasó.
+      #
+      # El job **no se salta**, se vacía: el nombre del check tiene que seguir
+      # apareciendo o la protección de rama espera para siempre algo que nunca
+      # va a llegar.
+      - name: ¿esto es solo el número de versión?
+        id: solo
+        run: |
+          git fetch --no-tags --depth=1 origin develop
+          if ./scripts/solo_sube_la_version.sh FETCH_HEAD; then
+            echo "basta=true" >> "$GITHUB_OUTPUT"
+            echo "Solo sube la versión: la suite ya pasó sobre este árbol." \
+              >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "basta=false" >> "$GITHUB_OUTPUT"
+          fi
+
+
       - uses: subosito/flutter-action@v2
+        if: steps.solo.outputs.basta != 'true'
         with:
           # Clavada, no "stable": la suite depende de detalles del harness de
           # pruebas —cómo mide texto la fuente de prueba, cómo se comporta
@@ -39,6 +65,7 @@ jobs:
           cache: true
 
       - run: flutter pub get
+        if: steps.solo.outputs.basta != 'true'
 
       # Las del paquete del protocolo van **antes** del análisis, y ese orden es el
       # arreglo de un fallo real: `flutter analyze` desde la raíz analiza también
@@ -50,6 +77,7 @@ jobs:
       # el runner no tiene. Es el mismo error que con `sign_update`, verificar un
       # camino cuyas condiciones no son las del camino real.
       - name: resolver el paquete del protocolo
+        if: steps.solo.outputs.basta != 'true'
         working-directory: packages/nexus_protocol
         run: dart pub get
 
@@ -61,6 +89,7 @@ jobs:
       # no rompe el CI es un aviso que se acumula. Hoy el análisis sale en cero, así
       # que exigirlo no cuesta nada — y ese es justo el momento de exigirlo.
       - name: flutter analyze
+        if: steps.solo.outputs.basta != 'true'
         run: flutter analyze --fatal-infos
 
       # Y el formato, por el mismo motivo que `--fatal-infos`: 55 archivos
@@ -71,6 +100,7 @@ jobs:
       #
       # `--output=none` no toca nada: solo dice si algo está sin formatear.
       - name: dart format
+        if: steps.solo.outputs.basta != 'true'
         run: dart format --output=none --set-exit-if-changed lib test packages
 
       # Y sus pruebas, que `flutter test` **no mira**: es Dart puro con su propio
@@ -79,10 +109,12 @@ jobs:
       # el código con `docs/PROTOCOL.md`: si se queda sin ejecutar, el documento y
       # el contrato pueden separarse en silencio.
       - name: pruebas del protocolo
+        if: steps.solo.outputs.basta != 'true'
         working-directory: packages/nexus_protocol
         run: dart test
 
       - name: flutter test
+        if: steps.solo.outputs.basta != 'true'
         run: flutter test --coverage
 
       # El número, dicho en voz alta — y **por capa**, que es lo que lo hace
@@ -107,6 +139,7 @@ jobs:
       # después de empujar. Ahora lo corren los dos —este paso y
       # `scripts/gate.sh`— y por definición dicen el mismo número.
       - name: cobertura
+        if: steps.solo.outputs.basta != 'true'
         run: ./scripts/cobertura.sh | tee -a "$GITHUB_STEP_SUMMARY"
 
   # Aparte porque pide macOS: es el único sitio donde se pueden correr, y no hay
@@ -124,13 +157,40 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # 🔴 **El CI corría dos veces el mismo código.** Entero en el PR de la
+      # funcionalidad, y entero otra vez en el de release — que sobre lo ya
+      # probado añade **una línea del `pubspec`**. Seis minutos y medio para
+      # verificar que `1.19.5+64` pasó a ser `1.19.6+65`.
+      #
+      # Se mira el contenido y no el nombre de la rama: una `release/…` que
+      # traiga código de verdad se prueba como cualquier otra. Lo que autoriza a
+      # saltárselo no es cómo se llama, es que el árbol sea el mismo que ya pasó.
+      #
+      # El job **no se salta**, se vacía: el nombre del check tiene que seguir
+      # apareciendo o la protección de rama espera para siempre algo que nunca
+      # va a llegar.
+      - name: ¿esto es solo el número de versión?
+        id: solo
+        run: |
+          git fetch --no-tags --depth=1 origin develop
+          if ./scripts/solo_sube_la_version.sh FETCH_HEAD; then
+            echo "basta=true" >> "$GITHUB_OUTPUT"
+            echo "Solo sube la versión: la suite ya pasó sobre este árbol." \
+              >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "basta=false" >> "$GITHUB_OUTPUT"
+          fi
+
+
       - uses: subosito/flutter-action@v2
+        if: steps.solo.outputs.basta != 'true'
         with:
           flutter-version: 3.47.0
           channel: stable
           cache: true
 
       - run: flutter pub get
+        if: steps.solo.outputs.basta != 'true'
 
       # `--config-only`: genera la configuración efímera de macOS —sin ella
       # Xcode no encuentra `Generated.xcconfig`— pero **no construye**. Construir
@@ -139,12 +199,14 @@ jobs:
       # ese certificado. Quien construye es el `xcodebuild` de abajo, que sí puede
       # hacerlo sin firmar.
       - name: preparar el proyecto sin construirlo
+        if: steps.solo.outputs.basta != 'true'
         run: flutter build macos --debug --config-only
 
       # Sin firma: aquí no se distribuye nada, solo se corren pruebas. Con la
       # firma puesta, el runner busca un certificado del equipo Y9H7TRB5L7 que no
       # existe y el build muere antes de compilar una línea.
       - name: xcodebuild test
+        if: steps.solo.outputs.basta != 'true'
         working-directory: macos
         run: |
           xcodebuild test \

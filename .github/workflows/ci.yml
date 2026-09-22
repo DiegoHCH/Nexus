@@ -8,8 +8,24 @@
 name: CI
 
 on:
+  # 🔴 **Solo `master`, y `develop` no.** Un cambio disparaba cinco corridas: el
+  # PR, el `push` a `develop` al mezclarlo, el PR de release, el `push` a
+  # `master`, y el `push` a `develop` al traer `master` de vuelta. De esas,
+  # **dos no aportan nada**: la última compara un árbol idéntico al que acaba de
+  # pasar dos veces, y la segunda solo diría algo si `develop` se hubiera movido
+  # entre la última corrida del PR y la mezcla.
+  #
+  # `develop` queda protegido por los PR, que es donde se decide. Y `master`
+  # conserva una pasada entera sobre exactamente lo que se va a publicar —
+  # importa más desde que el PR de release se salta la suite por traer solo el
+  # número de versión.
+  #
+  # Lo que esto destapa: un PR mezclado sobre una base que se movió no se
+  # comprueba hasta el `push` a `master`. Si algún día hace falta cerrarlo, se
+  # activa «requerir que la rama esté al día antes de mezclar» en la protección
+  # de rama y vuelve a estar cubierto sin tocar esto.
   push:
-    branches: [master, develop]
+    branches: [master]
   pull_request:
     branches: [master, develop]
 

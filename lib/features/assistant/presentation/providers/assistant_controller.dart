@@ -1216,15 +1216,25 @@ class AssistantController extends Notifier<AssistantHudState> {
   /// cuando vuelva a pasar, porque ahora deja dicho—; lo que no puede pasar es
   /// **presentar media frase como una respuesta entera**.
   void _elTurnoSeCorto() {
-    // **Antes del guardia de abajo**: el cierre del generador es la única señal
-    // de que el proceso murió, y eso hace falta tanto si el turno acabó bien
-    // como si no. Ver [_elProcesoSeFue].
+    // ── La puerta que no se puede saltar ──────────────────────────────────
+    //
+    // 🔴 **Hay tres finales de turno y uno se escapó.** Reportado con la
+    // pantalla delante: dos pasos girando, el orbe en «trabajando», y en la
+    // máquina **ni un `claude` vivo** ni una tubería suya abierta — o sea, el
+    // flujo se había cerrado y ninguna de las tres salidas lo recogió.
+    //
+    // Lo de aquí arriba corre **siempre**, antes del guardia: cerrar el
+    // generador es lo único que pasa seguro, y es la única señal que no depende
+    // de qué camino tomó el turno.
     if (_elProcesoSeFue case final aviso? when !aviso.isCompleted) {
       aviso.complete();
     }
-    // Terminó bien: `_onTurnCompleted` ya lo cerró y esto es solo el cierre del
-    // generador.
-    if (_subscription == null) return;
+    final loLlevabaAlguien = _subscription != null;
+    _cerrarLosPasosAbiertos();
+    if (!loLlevabaAlguien) {
+      _elOrbeNoSeQuedaTrabajando();
+      return;
+    }
     _sealLast();
     _marcaElFallo();
     state = state.copyWith(
@@ -1401,6 +1411,44 @@ class AssistantController extends Notifier<AssistantHudState> {
   /// reintenta es la petición. Se busca el último tuyo porque un fallo puede
   /// llegar con texto a medias ya escrito debajo, y entonces el último mensaje
   /// de la lista es de Nexus.
+  /// Cierra los pasos que se quedaron a medias.
+  ///
+  /// 🔴 **Un paso solo se cierra cuando llega el resultado de su herramienta**,
+  /// y un turno que se corta no trae ninguno: los que estaban en curso se
+  /// quedan diciendo «corriendo» para siempre. Es lo que se ve en pantalla
+  /// cuando ya no hay nada que correr — reportado así, dos pasos girando sobre
+  /// un proceso muerto hacía media hora.
+  ///
+  /// Se marcan terminados y no se borran: lo que se hizo, se hizo, y esconderlo
+  /// sería peor que enseñarlo sin su resultado.
+  void _cerrarLosPasosAbiertos() {
+    if (!state.activity.any((paso) => !paso.done)) return;
+    state = state.copyWith(
+      activity: [
+        for (final paso in state.activity)
+          if (paso.done) paso else paso.asDone(),
+      ],
+    );
+  }
+
+  /// La red de seguridad: si el flujo se cerró y el orbe sigue trabajando, es
+  /// que ninguna de las tres salidas lo recogió.
+  ///
+  /// **No tapa el fallo, lo cuenta.** Un turno que se pierde en silencio deja
+  /// la conversación muda y sin rastro que mirar —tres cuelgues distintos se
+  /// diagnosticaron a mano por esto—; dicho, al menos se sabe qué pasó y que no
+  /// hay nada esperando.
+  ///
+  /// La voz y la compresión tienen su propio ciclo y no pasan por aquí: si una
+  /// de las dos está viva, el orbe trabaja con razón.
+  void _elOrbeNoSeQuedaTrabajando() {
+    if (state.orbState != NexusOrbState.think) return;
+    if (state.voiceActive || _compacting) return;
+    state = state.copyWith(orbState: NexusOrbState.sleep, isStreaming: false);
+    _say(ChatAuthor.nexus, ref.read(stringsProvider).elTurnoSeQuedoSinDueno);
+    _sealLast();
+  }
+
   void _marcaElFallo() {
     final mensajes = [...state.messages];
     final donde = mensajes.lastIndexWhere(
@@ -2317,6 +2365,7 @@ class AssistantController extends Notifier<AssistantHudState> {
 
   void _onFailed(String message) {
     _sealLast();
+    _cerrarLosPasosAbiertos();
     _marcaElFallo();
     state = state.copyWith(
       orbState: NexusOrbState.sleep,
@@ -2630,6 +2679,9 @@ class AssistantController extends Notifier<AssistantHudState> {
     // puede estar deteniéndolo es justamente un permiso sin contestar. Negarlo
     // primero es lo que suelta ese `await`.
     _cancelarPermisos();
+    // Y los pasos que estaban a medias se cierran: detener no los va a
+    // terminar, y dejarlos girando dice que sigue pasando algo.
+    _cerrarLosPasosAbiertos();
     state = state.copyWith(orbState: NexusOrbState.sleep, isStreaming: false);
     unawaited(enVuelo?.cancel() ?? Future<void>.value());
   }

@@ -290,6 +290,11 @@ class ClaudeCliDataSource {
           stderrBuffer.writeln(line);
           continue;
         }
+        // El turno dejó un subagente trabajando aparte: a partir de aquí no se
+        // le puede cerrar la entrada al terminar, porque ese subagente vive
+        // dentro de este proceso. Ver [dejaUnAgenteTrabajando].
+        if (dejaUnAgenteTrabajando(decoded)) vivo.quedaUnAgenteTrabajando();
+
         // Las preguntas de permiso no son eventos del encargo: no las ve el
         // dominio, se contestan aquí y el turno sigue como si nada.
         if (alPedirPermiso != null) {
@@ -373,6 +378,49 @@ class ClaudeCliDataSource {
       vivo.olvida();
     }
   }
+
+  /// Lo que dice el CLI cuando un `Agent` se queda trabajando por su cuenta.
+  ///
+  /// Copiado de una corrida real: el resultado de la herramienta empieza por
+  /// esta frase y trae el `agentId` detrás.
+  static const marcaDelAgenteSuelto = 'Async agent launched successfully';
+
+  /// Si esta línea dice que el turno dejó un subagente asíncrono en marcha.
+  ///
+  /// 🔴 **Un subagente asíncrono existe para seguir después del resultado, y
+  /// nosotros matábamos el proceso justo ahí.** Reportado como «pedí un flow
+  /// review y no sé si está corriendo o se murió»: se murió. El turno contestó
+  /// «te traigo los hallazgos cuando termine», el `result` salió detrás, y a los
+  /// segundos el subagente se cortó a mitad de leer archivos — vive dentro de
+  /// este proceso, así que se va con él.
+  ///
+  /// Se mira el resultado de la herramienta y no su nombre: un `Agent` normal
+  /// termina dentro del turno y no cambia nada. El que hay que esperar es el que
+  /// dice que se lanzó y volverá.
+  static bool dejaUnAgenteTrabajando(Map<String, dynamic> json) {
+    if (json['type'] != 'user') return false;
+    final content =
+        (json['message'] as Map<String, dynamic>?)?['content']
+            as List<dynamic>?;
+    for (final block in content ?? const []) {
+      if (block is! Map<String, dynamic>) continue;
+      if (block['type'] != 'tool_result') continue;
+      if (_dice(block['content']).contains(marcaDelAgenteSuelto)) return true;
+    }
+    return false;
+  }
+
+  /// El texto de un `tool_result`, que llega suelto o en bloques según la
+  /// herramienta. Aquí solo hace falta para buscar una marca dentro.
+  static String _dice(Object? content) => switch (content) {
+    String texto => texto,
+    List<dynamic> bloques =>
+      bloques
+          .whereType<Map<String, dynamic>>()
+          .map((b) => b['text'] as String? ?? '')
+          .join('\n'),
+    _ => '',
+  };
 
   /// La petición de permiso que trae esta línea, o `null` si no es una.
   ///
@@ -581,7 +629,7 @@ class ElProcesoDelTurno {
       _cierre = null;
       return;
     }
-    _cierre = Timer(gracia, () => _cerrarLaEntrada(proceso));
+    _cierre = Timer(_plazo, () => _cerrarLaEntrada(proceso));
   }
 
   /// Siguió llegando algo por su salida después del resultado.
@@ -608,6 +656,35 @@ class ElProcesoDelTurno {
   /// que corren pegados al final del turno. Y cada línea que llegue vuelve a
   /// contarlos, así que un cierre con trabajo detrás no se queda corto.
   static const gracia = Duration(seconds: 3);
+
+  /// Y cuánto cuando el turno dejó un subagente asíncrono trabajando.
+  ///
+  /// 🔴 **Tres segundos matan justo lo que se pidió.** Un subagente asíncrono
+  /// se lanza *para* seguir después del resultado, así que el plazo de los
+  /// hooks de cierre —que tardan un suspiro— lo corta a mitad. Medido en la
+  /// máquina: lanzado a las 16:17:05, el turno contestó a las 16:17:07 y el
+  /// subagente escribió por última vez a las 16:17:35, cortado leyendo
+  /// archivos.
+  ///
+  /// Diez minutos **desde lo último que diga**, no desde el resultado: mientras
+  /// trabaje va emitiendo, y cada línea vuelve a contarlos. Así que lo que se
+  /// alarga de verdad es el rato que pasa callado al final, no el trabajo.
+  static const graciaConAgente = Duration(minutes: 10);
+
+  var _agenteAparte = false;
+
+  /// El turno dejó un subagente asíncrono en marcha.
+  ///
+  /// Puede llegar antes o después del resultado, así que reprograma lo que
+  /// hubiera pendiente: si la cuenta corta ya estaba corriendo, se cambia por la
+  /// larga en vez de dejar que venza.
+  void quedaUnAgenteTrabajando() {
+    if (_agenteAparte) return;
+    _agenteAparte = true;
+    _programarCierre();
+  }
+
+  Duration get _plazo => _agenteAparte ? graciaConAgente : gracia;
 
   Timer? _cierre;
 

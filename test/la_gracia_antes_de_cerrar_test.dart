@@ -223,4 +223,110 @@ void main() {
       reason: 'y sin soltarlo al contestar, el proceso no sale nunca',
     );
   });
+
+  // 🔴 **Un subagente asíncrono no se mata a los tres segundos.**
+  //
+  // Reportado así: «pedí un flow review y no sé si está corriendo o se murió».
+  // Se murió. El turno lanzó un `Agent` asíncrono, contestó «te traigo los
+  // hallazgos cuando termine», y el `result` salió detrás — que es lo que
+  // arranca la cuenta para cerrarle la entrada al CLI. El subagente vive dentro
+  // de ese proceso, así que se fue con él: medido en la máquina, lanzado a las
+  // 16:17:05 y cortado a las 16:17:35 leyendo archivos.
+  //
+  // Un subagente asíncrono existe **para** seguir después del resultado. El
+  // plazo de los hooks de cierre es justo el que no le sirve.
+  group('con un subagente trabajando aparte', () {
+    test('no se le cierra la entrada con el plazo corto', () {
+      fakeAsync((reloj) {
+        final proceso = _ProcesoDeMentira();
+        ElProcesoDelTurno()
+          ..tomar(proceso, preguntando: true)
+          ..quedaUnAgenteTrabajando()
+          ..elTurnoAcabo();
+
+        reloj.elapse(ElProcesoDelTurno.gracia * 4);
+        expect(
+          proceso.entrada.cerrada,
+          isFalse,
+          reason: 'aquí es donde el flow review se quedaba a medias',
+        );
+
+        reloj.elapse(ElProcesoDelTurno.graciaConAgente);
+        expect(
+          proceso.entrada.cerrada,
+          isTrue,
+          reason: 'y tiene tope: un proceso inmortal es la fuga de siempre',
+        );
+      });
+    });
+
+    // El aviso puede llegar **después** del resultado —el `tool_result` que lo
+    // anuncia y el `result` van casi pegados—, así que tiene que poder cambiar
+    // una cuenta ya empezada en vez de dejarla vencer.
+    test('y avisar tarde reprograma la cuenta que ya corría', () {
+      fakeAsync((reloj) {
+        final proceso = _ProcesoDeMentira();
+        final turno = ElProcesoDelTurno()
+          ..tomar(proceso, preguntando: true)
+          ..elTurnoAcabo();
+
+        reloj.elapse(const Duration(seconds: 1));
+        turno.quedaUnAgenteTrabajando();
+
+        reloj.elapse(ElProcesoDelTurno.gracia * 4);
+        expect(proceso.entrada.cerrada, isFalse);
+      });
+    });
+  });
+
+  // Y se reconoce por lo que dice el CLI, no por el nombre de la herramienta:
+  // un `Agent` corriente termina dentro del turno y no cambia nada.
+  group('quién deja un subagente trabajando', () {
+    Map<String, dynamic> resultadoCon(String texto) => {
+      'type': 'user',
+      'message': {
+        'role': 'user',
+        'content': [
+          {
+            'type': 'tool_result',
+            'tool_use_id': 'toolu_1',
+            'content': [
+              {'type': 'text', 'text': texto},
+            ],
+          },
+        ],
+      },
+    };
+
+    test('el que se lanzó y volverá, sí', () {
+      expect(
+        ClaudeCliDataSource.dejaUnAgenteTrabajando(
+          resultadoCon(
+            'Async agent launched successfully. (This tool result is internal '
+            'metadata…)\nagentId: a8a545292b4a35578',
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('un resultado cualquiera, no', () {
+      expect(
+        ClaudeCliDataSource.dejaUnAgenteTrabajando(
+          resultadoCon('42 archivos revisados, ninguno con hallazgos'),
+        ),
+        isFalse,
+      );
+    });
+
+    test('y lo que no es un resultado de herramienta tampoco', () {
+      expect(
+        ClaudeCliDataSource.dejaUnAgenteTrabajando({
+          'type': 'assistant',
+          'message': {'content': <dynamic>[]},
+        }),
+        isFalse,
+      );
+    });
+  });
 }

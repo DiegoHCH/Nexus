@@ -8,6 +8,7 @@ import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dar
 import 'package:nexus/features/assistant/domain/repositories/conversation_memory.dart';
 import 'package:nexus/features/assistant/domain/usecases/ask_claude.dart';
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
+import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/assistant/presentation/providers/claude_bridge_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/history/data/datasources/local_conversation_store.dart';
@@ -38,6 +39,15 @@ const _carpeta = '/Users/alguien/General';
 /// Un Claude que se va a mitad de la frase: manda dos trozos y **cierra el
 /// generador** sin `ClaudeTurnCompleted` y sin error. Es lo que se vio.
 class _ClaudeQueSeVa implements AskClaude {
+  _ClaudeQueSeVa({this.abreUnPaso = false, this.terminaYSeQueda});
+
+  /// Si deja un paso en curso antes de irse, como haría un comando largo.
+  final bool abreUnPaso;
+
+  /// Si se pasa, el turno **completa** y el flujo se queda abierto hasta que se
+  /// cumpla. Es lo que hace el CLI de verdad: el `result` no cierra el proceso.
+  final Completer<void>? terminaYSeQueda;
+
   final pedidos = <String>[];
 
   @override
@@ -51,6 +61,17 @@ class _ClaudeQueSeVa implements AskClaude {
     yield const ClaudeSessionStarted(sessionId: 's1', model: 'm');
     yield const ClaudeTextDelta('Gate en curso: barrels limpio, ');
     yield const ClaudeTextDelta('sigue con mockito-freeze y en ');
+    if (abreUnPaso) {
+      yield ClaudeToolUsed(
+        id: 'paso-1',
+        description: 'Corriendo make check',
+        writes: false,
+      );
+    }
+    if (terminaYSeQueda case final espera?) {
+      yield const ClaudeTurnCompleted(result: 'listo');
+      await espera.future;
+    }
     // Y aquí se acaba, sin decir nada más.
   }
 
@@ -107,8 +128,14 @@ void main() {
   late _ClaudeQueSeVa claude;
   late _ElAlmacen almacen;
 
-  ProviderContainer contenedor() {
-    claude = _ClaudeQueSeVa();
+  ProviderContainer contenedor({
+    bool abreUnPaso = false,
+    Completer<void>? terminaYSeQueda,
+  }) {
+    claude = _ClaudeQueSeVa(
+      abreUnPaso: abreUnPaso,
+      terminaYSeQueda: terminaYSeQueda,
+    );
     almacen = _ElAlmacen();
     final c = ProviderContainer(
       overrides: [
@@ -181,6 +208,99 @@ void main() {
       textos.any((t) => t.contains('mockito-freeze')),
       isTrue,
       reason: 'lo que alcanzó a decir también es lo hablado',
+    );
+  });
+
+  // 🔴 **Un paso a medias no se queda corriendo para siempre.**
+  //
+  // Reportado con la pantalla delante: dos pasos girando y el rótulo en
+  // «trabajando», media hora después de que el `make check` hubiera terminado —
+  // en la máquina no quedaba ni un `claude` vivo ni una tubería suya abierta.
+  //
+  // Un paso solo se cierra cuando llega el resultado de su herramienta, y un
+  // turno que se corta no trae ninguno.
+  test('los pasos que quedaron a medias se cierran', () async {
+    final c = contenedor(abreUnPaso: true);
+
+    await c.read(assistantControllerProvider(_id).notifier).submit('haz algo');
+    await vueltas();
+
+    final estado = c.read(assistantControllerProvider(_id));
+    expect(estado.activity, isNotEmpty, reason: 'el paso tiene que estar');
+    expect(
+      estado.activity.every((paso) => paso.done),
+      isTrue,
+      reason:
+          'un paso girando dice que sigue pasando algo, y no está pasando nada',
+    );
+  });
+
+  // Y con el botón de detener, por lo mismo: detener no va a terminarlos.
+  test('y también al detener', () async {
+    final c = contenedor(abreUnPaso: true, terminaYSeQueda: Completer<void>());
+    final control = c.read(assistantControllerProvider(_id).notifier);
+
+    await control.submit('haz algo');
+    await vueltas();
+    await control.stopWork();
+    await vueltas();
+
+    expect(
+      c.read(assistantControllerProvider(_id)).activity.every((p) => p.done),
+      isTrue,
+    );
+  });
+
+  // 🔴 **La red de seguridad: hay tres finales de turno y uno se escapó.**
+  //
+  // El flujo se había cerrado —las tuberías estaban sueltas— y aun así el orbe
+  // seguía en «trabajando», que es lo único que pinta ese rótulo. Ninguna de
+  // las tres salidas lo recogió, y un turno perdido en silencio deja la
+  // conversación muda y sin rastro que mirar.
+  test(
+    'si el flujo se cierra con el orbe trabajando, se recoge y se dice',
+    () async {
+      final sigueVivo = Completer<void>();
+      final c = contenedor(terminaYSeQueda: sigueVivo);
+      final control = c.read(assistantControllerProvider(_id).notifier);
+
+      await control.submit('haz algo');
+      await vueltas();
+      // El turno completó, así que ya no lo lleva nadie. Se simula el estado que
+      // se vio en la máquina: el orbe quedó trabajando igual.
+      control.state = control.state.copyWith(orbState: NexusOrbState.think);
+
+      sigueVivo.complete();
+      await vueltas();
+
+      final estado = c.read(assistantControllerProvider(_id));
+      expect(
+        estado.orbState,
+        NexusOrbState.sleep,
+        reason: 'cerrado el flujo, nadie está trabajando',
+      );
+      expect(
+        estado.messages.map((m) => m.text),
+        contains(c.read(stringsProvider).elTurnoSeQuedoSinDueno),
+        reason: 'callarse es lo que dejó tres cuelgues sin diagnosticar',
+      );
+    },
+  );
+
+  // Y no se dispara cuando el turno acabó como debía: un aviso que sale siempre
+  // deja de querer decir algo.
+  test('pero un turno que terminó bien no lo dispara', () async {
+    final sigueVivo = Completer<void>();
+    final c = contenedor(terminaYSeQueda: sigueVivo);
+
+    await c.read(assistantControllerProvider(_id).notifier).submit('haz algo');
+    await vueltas();
+    sigueVivo.complete();
+    await vueltas();
+
+    expect(
+      c.read(assistantControllerProvider(_id)).messages.map((m) => m.text),
+      isNot(contains(c.read(stringsProvider).elTurnoSeQuedoSinDueno)),
     );
   });
 }

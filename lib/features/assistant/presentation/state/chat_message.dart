@@ -21,6 +21,40 @@ export 'package:nexus/features/programadas/domain/entities/propuesta_de_programa
 /// Quién habla en una línea de la conversación.
 enum ChatAuthor { user, nexus }
 
+/// Lo que costó un turno: cuántos tokens y cuánto tardó.
+///
+/// Van juntos porque se leen juntos —«dos millones en cuatro minutos» dice algo
+/// que ninguno de los dos dice solo— y porque llegan juntos, en el mismo evento
+/// de fin de turno.
+@immutable
+class LoQueCostoElTurno {
+  const LoQueCostoElTurno({this.tokens, this.duracion});
+
+  /// Los del turno entero, no solo los de la respuesta: es lo que se pagó por
+  /// contestar, que es la pregunta que uno se hace mirando esto.
+  final int? tokens;
+
+  final Duration? duracion;
+
+  bool get hayAlgoQueDecir => tokens != null || duracion != null;
+
+  Map<String, dynamic> toJson() => {
+    if (tokens != null) 'tokens': tokens,
+    if (duracion != null) 'ms': duracion!.inMilliseconds,
+  };
+
+  static LoQueCostoElTurno? fromJson(Object? crudo) {
+    if (crudo is! Map<String, dynamic>) return null;
+    final tokens = (crudo['tokens'] as num?)?.toInt();
+    final ms = (crudo['ms'] as num?)?.toInt();
+    if (tokens == null && ms == null) return null;
+    return LoQueCostoElTurno(
+      tokens: tokens,
+      duracion: ms == null ? null : Duration(milliseconds: ms),
+    );
+  }
+}
+
 /// Un turno de la conversación, venga de la voz o del teclado.
 ///
 /// Los dos caminos producen lo mismo a propósito: para quien mira, hablar y
@@ -46,10 +80,27 @@ class ChatMessage {
     this.decidido,
     this.esLaListaDeProgramadas = false,
     this.trabajo,
+    this.enviadoEl,
+    this.loQueCosto,
   });
 
   final ChatAuthor author;
   final String text;
+
+  /// Cuándo se dijo.
+  ///
+  /// Opcional y no obligatorio a propósito: hay mensajes que se construyen sin
+  /// reloj —las pruebas, y los que se releen de un registro viejo que no lo
+  /// guardaba— y un turno sin hora se pinta sin ella, no revienta.
+  final DateTime? enviadoEl;
+
+  /// Lo que costó la respuesta, cuando este mensaje es una.
+  ///
+  /// Cuelga del mensaje y no del medidor de arriba por lo mismo que los pasos y
+  /// los cambios: el medidor enseña **lo último**, así que al pedir la segunda
+  /// cosa ya no se sabía qué había costado la primera. Subiendo por la
+  /// conversación, cada turno conserva lo suyo.
+  final LoQueCostoElTurno? loQueCosto;
 
   /// Lo que **este** encargo dejó tocado, si tocó algo.
   ///
@@ -185,6 +236,7 @@ class ChatMessage {
     bool? fallo,
     DecisionDePermiso? decision,
     DecisionDeProgramar? decidido,
+    LoQueCostoElTurno? loQueCosto,
   }) => ChatMessage(
     author: author,
     text: text ?? this.text,
@@ -203,6 +255,8 @@ class ChatMessage {
     decidido: decidido ?? this.decidido,
     esLaListaDeProgramadas: esLaListaDeProgramadas,
     trabajo: trabajo,
+    enviadoEl: enviadoEl,
+    loQueCosto: loQueCosto ?? this.loQueCosto,
   );
 
   /// Un mensaje que solo trae adjuntos **no está vacío**: soltar un archivo y

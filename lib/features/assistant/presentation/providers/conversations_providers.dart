@@ -220,6 +220,26 @@ class ConversationsController extends Notifier<Conversations> {
     await _persist(Conversations(items: items, focusedId: state.focusedId));
   }
 
+  /// Esta conversación dejó de compartir la sesión de la carpeta.
+  ///
+  /// Lo llama «empezar de cero». Va a la ficha y no solo al estado de su
+  /// pantalla porque **lo pregunta otra conversación**: el chip de memoria
+  /// compartida cuenta con quién se comparte, y mirarlo en el estado de las
+  /// demás obligaría a construirles el controlador — que es caro y ya costó una
+  /// fuga medida.
+  ///
+  /// No se persiste: `_persist` escribe lo que dice `toJson`, y esto no está
+  /// ahí a propósito. El hilo propio vive en memoria, así que al reabrir la app
+  /// la conversación vuelve al de la carpeta y el chip tiene que volver con ella.
+  void seFueSola(String id) {
+    state = state.copyWith(
+      items: [
+        for (final item in state.items)
+          if (item.id == id) item.conMemoriaPropia() else item,
+      ],
+    );
+  }
+
   /// Espera a que la lista esté leída del disco.
   ///
   /// Público porque **quien pregunta desde fuera necesita lo mismo**: leer esta lista

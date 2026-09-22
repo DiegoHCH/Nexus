@@ -23,16 +23,7 @@ import 'package:nexus/features/workspace/presentation/providers/workspace_provid
 /// esto era una etiqueta que decía que no había carpeta y no hacía nada — un
 /// cartel en el sitio donde uno va a arreglarlo.
 class ComposerChips extends ConsumerWidget {
-  const ComposerChips({
-    super.key,
-    required this.folder,
-    this.folderPath,
-    this.memoriaPropia = false,
-  });
-
-  /// Esta conversación ya no comparte la sesión de la carpeta: lo dijo
-  /// «empezar de cero». Ver [AssistantHudState.memoriaPropia].
-  final bool memoriaPropia;
+  const ComposerChips({super.key, required this.folder, this.folderPath});
 
   final PairedFolder? folder;
 
@@ -65,7 +56,10 @@ class ComposerChips extends ConsumerWidget {
     final comparten = folderPath == null
         ? 0
         : LaSesionQueSeComparte.cuantasComparten(
-            ref.watch(conversationsProvider).items.map((i) => i.folderPath),
+            ref
+                .watch(conversationsProvider)
+                .items
+                .map((i) => (carpeta: i.folderPath, propia: i.memoriaPropia)),
             folderPath!,
           );
 
@@ -282,7 +276,7 @@ class ComposerChips extends ConsumerWidget {
         // abiertas sigue saliendo el chip». Decía la verdad —olvidar borraba la
         // sesión de la carpeta, no el reparto— y ahora ya no la dice, porque
         // empezar de cero manda a esta por su cuenta.
-        if (comparten > 1 && !memoriaPropia)
+        if (comparten > 1)
           _Chip(
             icon: Icons.merge_type,
             label: strings.memoriaCompartida(comparten),

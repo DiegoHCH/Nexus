@@ -140,6 +140,7 @@ class AssistantController extends Notifier<AssistantHudState> {
 
     unawaited(_loadMemory());
     unawaited(_recuperarLoDicho());
+    unawaited(_siYaSeHabiaIdoSola());
     _cuandoAcabeElTrabajo();
 
     // Perder el foco cierra el micrófono: solo la conversación en foco puede
@@ -172,6 +173,37 @@ class AssistantController extends Notifier<AssistantHudState> {
   /// El historial es de la carpeta, no de la ficha: dos conversaciones sobre
   /// el mismo repo comparten contexto, así que compartir también lo pedido es
   /// lo coherente — verían el mismo hilo desde dos sitios.
+  /// Si esta conversación ya se había separado, se lo dice a su `AskClaude`.
+  ///
+  /// 🔴 **Sin esto, separarse duraba hasta el siguiente arranque.** El hilo
+  /// propio vive en memoria, así que al reabrir la app la conversación volvía al
+  /// de la carpeta — y sin sesión que olvidar, el botón de empezar de cero ya no
+  /// aparece, porque vive dentro del aviso de «continué donde quedé». Quien lo
+  /// hubiera usado se quedaba compartiendo y sin forma de volver a separarse.
+  ///
+  /// La ficha sí lo recuerda, así que lo que faltaba era volver a decirlo al
+  /// cargar.
+  Future<void> _siYaSeHabiaIdoSola() async {
+    // 🔴 **Fuera del `build`, y por un salto de microtarea.** Pedir la lista
+    // puede reconciliarla con el disco, o sea **escribir en otro proveedor
+    // mientras este se construye** — Riverpod lo prohíbe y lo dice con una
+    // aserción. Lo cazó la prueba de cerrar una conversación, que monta el
+    // controlador de verdad; sin ella habría llegado a la app.
+    //
+    // Es la tercera vez que este repo tropieza con la misma regla —ver
+    // `soltarLaConversacionProvider` y `retomarDelArchivo`—, y las tres veces la
+    // salida ha sido la misma: salirse del ciclo de construcción antes de tocar
+    // nada.
+    await Future<void>.microtask(() {});
+    if (!_vive) return;
+    await ref.read(conversationsProvider.notifier).asegurarCargado();
+    if (!_vive) return;
+    final ficha = ref.read(conversationsProvider).byId(conversationId);
+    if (ficha?.memoriaPropia != true) return;
+    ref.read(askClaudeProvider(conversationId)).empezarSolo();
+    state = state.copyWith(memoriaPropia: true);
+  }
+
   Future<void> _loadMemory() async {
     final folder = _folder;
     if (folder == null) return;
@@ -282,6 +314,9 @@ class AssistantController extends Notifier<AssistantHudState> {
     // siguiente volvía a ser común — empezar de cero duraba hasta que la otra
     // escribiera. Ver `AskClaude.empezarSolo`.
     ref.read(askClaudeProvider(conversationId)).empezarSolo();
+    // Y que se sepa desde fuera: el chip de memoria compartida lo mira en la
+    // ficha, porque lo pregunta **la otra** conversación.
+    ref.read(conversationsProvider.notifier).seFueSola(conversationId);
     state = state.copyWith(
       subtitle: ref.read(stringsProvider).conversationForgotten,
       meter: const SessionMeter(),

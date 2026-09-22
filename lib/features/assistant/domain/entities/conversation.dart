@@ -13,10 +13,31 @@ class Conversation {
     required this.folderPath,
     this.name,
     this.recordId,
+    this.memoriaPropia = false,
   });
 
   final String id;
   final String folderPath;
+
+  /// Esta conversación dejó de compartir la sesión de la carpeta.
+  ///
+  /// Lo pone «empezar de cero». Vive en la ficha y no solo en el estado de su
+  /// pantalla porque **lo pregunta otra conversación**: el chip de memoria
+  /// compartida cuenta con quién se comparte, y para eso hay que poder mirar a
+  /// las demás sin construirles el controlador — que es caro y fue el origen de
+  /// una fuga ya medida.
+  ///
+  /// 🔴 **Y se guarda.** Empezó sin guardarse, y eso dejaba a quien lo usaba
+  /// atrapado: reiniciar la app devolvía la conversación al hilo de la carpeta,
+  /// y el botón de empezar de cero solo aparece dentro del aviso de «continué
+  /// donde quedé» — que ya no sale, porque la sesión se había olvidado. Sin
+  /// sesión que olvidar no había forma de volver a separarse. Reportado tal
+  /// cual: «di empezar de cero, abro otra y me aparece el chip en las dos».
+  ///
+  /// Guardarlo cambia también el otro lado: al cargar, la conversación marcada
+  /// le dice a su `AskClaude` que siga sola, así que la decisión sobrevive al
+  /// reinicio como cualquier otra que se toma una vez.
+  final bool memoriaPropia;
 
   /// El nombre que le puso el usuario, si le puso uno.
   ///
@@ -50,11 +71,20 @@ class Conversation {
     recordId: adoptado,
   );
 
+  Conversation conMemoriaPropia() => Conversation(
+    id: id,
+    folderPath: folderPath,
+    name: name,
+    recordId: recordId,
+    memoriaPropia: true,
+  );
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'folderPath': folderPath,
     if (name != null) 'name': name,
     if (recordId != null) 'recordId': recordId,
+    if (memoriaPropia) 'memoriaPropia': true,
   };
 
   static Conversation? fromJson(Map<String, dynamic> json) {
@@ -68,6 +98,7 @@ class Conversation {
       folderPath: folderPath,
       name: json['name'] as String?,
       recordId: json['recordId'] as String?,
+      memoriaPropia: json['memoriaPropia'] == true,
     );
   }
 }

@@ -112,6 +112,7 @@ class AssistantHudState {
     this.laSesionCaduco = false,
     this.notice,
     this.puedeEmpezarDeCero = false,
+    this.memoriaPropia = false,
     this.changes,
     this.enCola = 0,
   });
@@ -170,6 +171,12 @@ class AssistantHudState {
   /// aviso de la sesión caducada.
   final bool puedeEmpezarDeCero;
 
+  /// Esta conversación ya no comparte la sesión de la carpeta.
+  ///
+  /// Lo pone «empezar de cero». Sirve para no seguir diciendo «memoria
+  /// compartida» cuando esta dejó de compartirla, que es lo que se reportó.
+  final bool memoriaPropia;
+
   /// Lo que **este turno** dejó tocado en el repositorio, si tocó algo.
   ///
   /// De este turno y no de la conversación: acumular los cambios haría que el
@@ -202,6 +209,7 @@ class AssistantHudState {
     bool? laSesionCaduco,
     Object? notice = _unset,
     bool? puedeEmpezarDeCero,
+    bool? memoriaPropia,
     Object? changes = _unset,
     int? enCola,
   }) {
@@ -220,6 +228,7 @@ class AssistantHudState {
       laSesionCaduco: laSesionCaduco ?? this.laSesionCaduco,
       notice: notice == _unset ? this.notice : notice as String?,
       puedeEmpezarDeCero: puedeEmpezarDeCero ?? this.puedeEmpezarDeCero,
+      memoriaPropia: memoriaPropia ?? this.memoriaPropia,
       changes: changes == _unset ? this.changes : changes as GitChanges?,
       enCola: enCola ?? this.enCola,
     );

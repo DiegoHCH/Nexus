@@ -277,12 +277,18 @@ class AssistantController extends Notifier<AssistantHudState> {
     final folder = _folder;
     if (folder == null) return;
     await ref.read(conversationMemoryProvider).forget(folder);
+    // Y **esta** deja de compartir la de la carpeta. Sin esto, con dos
+    // conversaciones abiertas, olvidar se llevaba el contexto de las dos y la
+    // siguiente volvía a ser común — empezar de cero duraba hasta que la otra
+    // escribiera. Ver `AskClaude.empezarSolo`.
+    ref.read(askClaudeProvider(conversationId)).empezarSolo();
     state = state.copyWith(
       subtitle: ref.read(stringsProvider).conversationForgotten,
       meter: const SessionMeter(),
       // El aviso se va con la sesión: ya no continúa nada.
       notice: null,
       puedeEmpezarDeCero: false,
+      memoriaPropia: true,
     );
   }
 
@@ -1449,6 +1455,30 @@ class AssistantController extends Notifier<AssistantHudState> {
     _sealLast();
   }
 
+  /// Lo que costó el turno, pegado a la respuesta que lo contestó.
+  ///
+  /// Al último mensaje de Nexus y no al estado de la pantalla: el medidor de
+  /// arriba enseña **lo último**, así que al pedir la segunda cosa dejaba de
+  /// saberse qué había costado la primera. Colgado del mensaje, cada turno
+  /// conserva lo suyo aunque subas por la conversación.
+  void _apuntarLoQueCosto(ClaudeTurnCompleted evento) {
+    final coste = LoQueCostoElTurno(
+      tokens: evento.turnTokens,
+      duracion: evento.durationMs == null
+          ? null
+          : Duration(milliseconds: evento.durationMs!),
+    );
+    if (!coste.hayAlgoQueDecir) return;
+
+    final mensajes = [...state.messages];
+    final donde = mensajes.lastIndexWhere(
+      (mensaje) => mensaje.author == ChatAuthor.nexus,
+    );
+    if (donde == -1) return;
+    mensajes[donde] = mensajes[donde].copyWith(loQueCosto: coste);
+    state = state.copyWith(messages: mensajes);
+  }
+
   void _marcaElFallo() {
     final mensajes = [...state.messages];
     final donde = mensajes.lastIndexWhere(
@@ -1658,6 +1688,7 @@ class AssistantController extends Notifier<AssistantHudState> {
 
   void _onTurnCompleted(ClaudeTurnCompleted event) {
     _aplicar(event);
+    _apuntarLoQueCosto(event);
     // Con el medidor ya actualizado: es de aquí de donde sale el número que le
     // faltaba al aviso de la compresión anterior.
     _completarLaCompresion();

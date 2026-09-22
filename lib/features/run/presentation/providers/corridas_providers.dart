@@ -13,6 +13,7 @@ import 'package:nexus/features/run/domain/usecases/el_error_que_pinta_la_app.dar
 import 'package:nexus/features/run/domain/usecases/el_freno_de_la_app.dart';
 import 'package:nexus/features/run/domain/usecases/estado_de_la_corrida.dart';
 import 'package:nexus/features/run/presentation/providers/la_consola_que_se_abre.dart';
+import 'package:nexus/features/run/presentation/providers/el_espejo_que_se_abre.dart';
 
 /// Lo que está corriendo, por dispositivo.
 ///
@@ -79,6 +80,15 @@ class CorridasController extends Notifier<Map<String, Corrida>> {
     // mira ni una línea.
     final consola = ref.read(laConsolaQueSeAbreProvider)
       ..alArrancar(deviceId: deviceId, args: args);
+
+    // Y la pantalla del móvil, si es uno de verdad. Sin esperarla: abrir un
+    // espejo no puede retrasar el arranque de la app, y si falla lo dice en el
+    // registro. Ver [ElEspejoQueSeAbre].
+    unawaited(
+      ref
+          .read(elEspejoQueSeAbreProvider)
+          .alArrancar(deviceId: deviceId, dispositivo: dispositivo),
+    );
 
     final viva = await CorridaViva.arrancar(
       flutter: flutter,

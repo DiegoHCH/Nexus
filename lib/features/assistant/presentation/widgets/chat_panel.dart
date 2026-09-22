@@ -22,6 +22,7 @@ import 'package:nexus/features/programadas/domain/entities/encargo_programado.da
 import 'package:nexus/features/programadas/domain/usecases/lo_que_toca_lanzar.dart';
 import 'package:nexus/features/programadas/presentation/providers/el_vigilante_de_las_programadas.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:nexus/features/assistant/domain/usecases/como_se_lee_un_turno.dart';
 
 /// La conversación entera a la derecha: lo que pediste y lo que respondió.
 ///
@@ -278,6 +279,19 @@ class _Turn extends StatelessWidget {
                 const Spacer(),
                 _PasarloAlMarco(onTap: () => onPasarElTrabajo!(trabajo)),
               ],
+              // Cuándo se dijo, al otro extremo de la fila del nombre.
+              //
+              // El `Spacer` va **solo si no lo puso ya** uno de los botones de
+              // arriba: dos empujan a partes iguales y dejarían la fecha a
+              // media fila en vez de al borde.
+              if (message.enviadoEl case final cuando?) ...[
+                if (!message.fallo && message.trabajo == null) const Spacer(),
+                const SizedBox(width: NexusSpacing.s3),
+                Text(
+                  ComoSeLeeUnTurno.laFechaYLaHora(cuando),
+                  style: NexusTypography.data.copyWith(color: colors.faint),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 4),
@@ -355,6 +369,29 @@ class _Turn extends StatelessWidget {
               message.esElParte ||
               message.actividad.isNotEmpty)
             _LoQueDejo(message: message),
+          // Lo que costó, al pie y a la derecha.
+          //
+          // **Etiqueta y no parte del mensaje**: se pide así porque no es algo
+          // que Nexus haya dicho, es una medida de lo que dijo. Por eso va con
+          // el mismo tono apagado que la fecha de arriba y fuera del texto, que
+          // además es lo que se copia al seleccionar la conversación.
+          if (message.loQueCosto case final coste?)
+            if (ComoSeLeeUnTurno.loQueCosto(
+                  tokens: coste.tokens,
+                  duracion: coste.duracion,
+                )
+                case final dicho?)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    dicho,
+                    textAlign: TextAlign.right,
+                    style: NexusTypography.data.copyWith(color: colors.faint),
+                  ),
+                ),
+              ),
         ],
       ),
     );

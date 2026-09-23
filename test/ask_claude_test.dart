@@ -221,6 +221,49 @@ void main() {
     expect(bridge.resumed, [null, 'sesion-1']);
   });
 
+  // 🔴 **Una conversación separada tiene que poder decir cuál es su sesión.**
+  //
+  // No escribe en la memoria de la carpeta —esa es toda la gracia—, así que
+  // quien lea de ahí obtiene la sesión de la otra. Reportado con un minuto de
+  // diferencia: «flow init» contestó que el marco estaba activo y, al mandar
+  // «flow pr», Nexus dijo que estaba apagado. Había mirado la de la carpeta.
+  group('cuál es mi sesión', () {
+    test('compartiendo, la suya es la de la carpeta y no dice otra', () async {
+      final bridge = _Bridge();
+      final ask = _askWith(bridge, _Memory());
+
+      await ask('primero').toList();
+
+      expect(
+        ask.miSesion,
+        isNull,
+        reason: 'null es «pregúntale a la carpeta», que es lo correcto aquí',
+      );
+    });
+
+    test('pero yendo sola, la suya es la que dice ella', () async {
+      final bridge = _Bridge();
+      final memory = _Memory()..sessionId = 'la-de-la-carpeta';
+      final ask = _askWith(bridge, memory);
+
+      ask.empezarSolo();
+      await ask('primero').toList();
+
+      expect(ask.miSesion, 'sesion-1');
+      expect(
+        memory.sessionId,
+        'la-de-la-carpeta',
+        reason: 'y la de la carpeta sigue siendo de la otra',
+      );
+    });
+
+    test('y antes del primer encargo todavía no hay ninguna', () {
+      final ask = _askWith(_Bridge(), _Memory())..empezarSolo();
+
+      expect(ask.miSesion, isNull);
+    });
+  });
+
   // Comprimir no es una petición del usuario: si apareciera en «lo que le has
   // pedido», la lista para repetir peticiones se llenaría de /compact.
   test('comprimir no ensucia el historial de peticiones', () async {

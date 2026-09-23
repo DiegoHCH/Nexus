@@ -372,6 +372,13 @@ class AssistantController extends Notifier<AssistantHudState> {
         .read(conversationMemoryProvider)
         .read(folder, claudeProfile: perfil);
     if (!ref.mounted) return;
+    // 🔴 **Y no si esta ya va sola.** Una conversación separada no continúa la
+    // sesión de la carpeta: decirle «continué donde quedé» sería prometerle un
+    // hilo que no tiene, y ofrecerle empezar de cero, deshacer algo que no pasó.
+    //
+    // Pasa al reabrir la app: la marca se guarda, así que una separada y vacía
+    // llega hasta aquí como cualquier pestaña recién nacida.
+    if (state.memoriaPropia) return;
     if (!LaSesionQueSeComparte.continuaSinVerse(memoria.sessionId)) return;
     // Lo que haya llegado mientras se leía el disco manda: avisar de que se
     // continúa encima de una conversación que ya empezó sería ruido.
@@ -635,15 +642,23 @@ class AssistantController extends Notifier<AssistantHudState> {
     final encendidas = ref.read(lasSesionesDelMarcoProvider).de(perfil);
     if (encendidas.isEmpty) return false;
 
-    final memoria = await ref
-        .read(conversationMemoryProvider)
-        .read(folder, claudeProfile: _perfilDeLaCarpeta());
+    // **La suya primero, y la de la carpeta solo si comparte.** Una
+    // conversación separada lleva hilo propio y no escribe en la memoria de la
+    // carpeta, así que preguntar ahí devolvería la sesión de la otra — y con
+    // ella, que el marco está apagado un minuto después de encenderlo.
+    final suya = ref.read(askClaudeProvider(conversationId)).miSesion;
+    final sesion =
+        suya ??
+        (await ref
+                .read(conversationMemoryProvider)
+                .read(folder, claudeProfile: _perfilDeLaCarpeta()))
+            .sessionId;
     if (!_vive) return false;
 
     return ElMarcoApagado.hayQueAvisar(
       texto: texto,
       sesionesEncendidas: encendidas,
-      sesion: memoria.sessionId,
+      sesion: sesion,
     );
   }
 

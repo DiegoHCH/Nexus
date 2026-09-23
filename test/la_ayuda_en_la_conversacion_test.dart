@@ -52,6 +52,11 @@ class _Claude implements AskClaude {
   @override
   void empezarSolo() => seFueSola = true;
 
+  /// Como el de verdad: `null` mientras comparte —entonces la de la carpeta es
+  /// la suya— y una propia en cuanto se separa.
+  @override
+  String? get miSesion => seFueSola ? 'la-suya' : null;
+
   @override
   Stream<ClaudeEvent> call(
     String instruction, {

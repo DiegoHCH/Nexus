@@ -472,4 +472,83 @@ void main() {
       expect(claude.pedidos, ['ordena la casa']);
     });
   });
+
+  /// 🔴 **Reintentar mientras corre lo siguiente no lanza un segundo a la vez.**
+  ///
+  /// Reportado así: «no estaba haciendo nada, envié el flow pr y falló, le di
+  /// reintentar y me dice esperando a que termine lo anterior». Y era verdad
+  /// que había algo: fallar arranca **lo que estaba esperando turno**, así que
+  /// un segundo después del fallo hay otro encargo en marcha. El reintento se
+  /// saltaba la guarda y salía en paralelo, y a los dos los frenaba la cola de
+  /// la carpeta — que es de lo que se quejaba el paso en pantalla.
+  test('reintentar con algo ya corriendo se pone en la cola', () async {
+    final c = contenedor();
+    final controlador = c.read(assistantControllerProvider(_id).notifier);
+
+    await controlador.submit('flow pr');
+    await vueltas();
+    // Lo que se escribió mientras trabajaba, esperando turno.
+    await controlador.submit('y de paso mira el lint');
+    await vueltas();
+
+    claude.falla();
+    await vueltas();
+
+    final fallido = c
+        .read(assistantControllerProvider(_id))
+        .messages
+        .firstWhere((m) => m.fallo);
+    await controlador.reintentar(fallido);
+    await vueltas();
+
+    expect(claude.pedidos, [
+      'flow pr',
+      'y de paso mira el lint',
+    ], reason: 'el reintento no sale encima del que ya está corriendo');
+    expect(
+      c.read(assistantControllerProvider(_id)).enCola,
+      1,
+      reason: 'espera turno como cualquier otro, y se puede adelantar',
+    );
+
+    // Y sale cuando le toca.
+    claude.termina();
+    await vueltas();
+    expect(claude.pedidos, ['flow pr', 'y de paso mira el lint', 'flow pr']);
+  });
+
+  /// 🔴 **Y el que falló no se lleva por delante al que ya arrancó.**
+  ///
+  /// El flujo de un encargo que falla no se cierra en el acto —el `claude -p`
+  /// no sale hasta que mueren sus servidores MCP—, y para entonces fallar ya
+  /// ha sacado de la cola al siguiente. Sin esto, al cerrarse el anterior le
+  /// ponía al de ahora el fallo, el «el turno se cortó» y el orbe dormido, con
+  /// el encargo corriendo de verdad por debajo.
+  test(
+    'lo que se cierra tarde no mata al encargo que ya está corriendo',
+    () async {
+      final c = contenedor();
+      final controlador = c.read(assistantControllerProvider(_id).notifier);
+
+      await controlador.submit('flow pr');
+      await vueltas();
+      await controlador.submit('y de paso mira el lint');
+      await vueltas();
+
+      claude.falla();
+      await vueltas();
+
+      final estado = c.read(assistantControllerProvider(_id));
+      expect(claude.pedidos.last, 'y de paso mira el lint');
+      expect(
+        estado.isStreaming,
+        isTrue,
+        reason: 'sigue corriendo el siguiente',
+      );
+      expect(estado.errorMessage, isNull, reason: 'el fallo era del anterior');
+      expect(estado.messages.where((m) => m.fallo).map((m) => m.text), [
+        'flow pr',
+      ], reason: 'la marca es del que falló, no del que está corriendo');
+    },
+  );
 }

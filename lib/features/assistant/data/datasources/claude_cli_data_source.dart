@@ -332,6 +332,11 @@ class ClaudeCliDataSource {
         if (decoded['type'] == 'result') {
           vivo.elTurnoAcabo();
         } else {
+          // Que el modelo vuelva a producir es que hay **otro turno en
+          // marcha**, no la cola del anterior: el CLI inyecta los avisos de las
+          // tareas de fondo al retomar la sesión, contesta a eso y sigue con lo
+          // tuyo en el mismo proceso. Ver [ElProcesoDelTurno.otroTurnoEmpezo].
+          if (decoded['type'] == 'assistant') vivo.otroTurnoEmpezo();
           // Todo lo que llegue después del resultado vuelve a contar la gracia:
           // mientras hable, puede pedir un permiso más.
           vivo.todaviaHabla();
@@ -600,6 +605,9 @@ class ElProcesoDelTurno {
   void elTurnoAcabo() {
     if (_proceso == null || !_preguntando) return;
     _turnoAcabo = true;
+    // El turno que había empezado después del resultado anterior ya acabó: se
+    // vuelve al plazo corto, que es el que impide que se acumulen procesos.
+    _otroTurnoEnMarcha = false;
     _programarCierre();
   }
 
@@ -691,6 +699,34 @@ class ElProcesoDelTurno {
 
   var _agenteAparte = false;
 
+  /// El proceso volvió a trabajar **después** del resultado.
+  ///
+  /// 🔴 **Un proceso sirve más de un turno, y la gracia corta lo hacía polvo.**
+  /// El CLI inyecta los avisos de las tareas de fondo que quedaron pendientes
+  /// al retomar la sesión, así que atiende ese aviso, **emite su `result`**, y
+  /// a continuación sigue con lo que le mandaste. De ahí en adelante la cuenta
+  /// de tres segundos corre sobre un turno vivo, y lo único que la reinicia es
+  /// que el proceso diga algo: una herramienta que tarde más de tres segundos
+  /// en contestar no dice nada mientras corre.
+  ///
+  /// Medido en la sesión de `front-mobile-b2c`: la última línea salió a las
+  /// 12:50:35, a las 12:50:38 se le cerró la entrada y a las 12:50:48 lo
+  /// rematamos, con la herramienta devolviendo a las 12:50:42 y la respuesta
+  /// sin llegar nunca. Ahí es donde se quedó pegado el orbe.
+  ///
+  /// El plazo largo es el mismo que el del subagente y por el mismo motivo: no
+  /// se cuenta desde el resultado sino **desde lo último que dijo**, así que lo
+  /// que se alarga es el silencio del final, no el trabajo. Y sigue acotado: un
+  /// proceso que se cuelgue del todo se recoge igual.
+  var _otroTurnoEnMarcha = false;
+
+  /// El proceso está produciendo otra vez, con el turno ya dado por acabado.
+  void otroTurnoEmpezo() {
+    if (!_turnoAcabo || _otroTurnoEnMarcha) return;
+    _otroTurnoEnMarcha = true;
+    _programarCierre();
+  }
+
   /// El turno dejó un subagente asíncrono en marcha.
   ///
   /// Puede llegar antes o después del resultado, así que reprograma lo que
@@ -702,7 +738,8 @@ class ElProcesoDelTurno {
     _programarCierre();
   }
 
-  Duration get _plazo => _agenteAparte ? graciaConAgente : gracia;
+  Duration get _plazo =>
+      _agenteAparte || _otroTurnoEnMarcha ? graciaConAgente : gracia;
 
   Timer? _cierre;
 

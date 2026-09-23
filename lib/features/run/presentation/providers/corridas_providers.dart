@@ -14,6 +14,8 @@ import 'package:nexus/features/run/domain/usecases/el_freno_de_la_app.dart';
 import 'package:nexus/features/run/domain/usecases/estado_de_la_corrida.dart';
 import 'package:nexus/features/run/presentation/providers/la_consola_que_se_abre.dart';
 import 'package:nexus/features/run/presentation/providers/el_espejo_que_se_abre.dart';
+import 'package:nexus/core/i18n/language_preference.dart';
+import 'package:nexus/features/run/domain/usecases/como_fue_la_recarga.dart';
 
 /// Lo que está corriendo, por dispositivo.
 ///
@@ -135,7 +137,32 @@ class CorridasController extends Notifier<Map<String, Corrida>> {
       // que tienes delante está roto, no cuántas veces lo estuvo. Antes de
       // esperar el resultado, que es cuando se ve el cambio en la fila.
       _cambia(id, (c) => c.copyWith(errores: 0));
-      resultados[id] = await _vivas[id]!.recargar(completa: completa);
+      final salio = await _vivas[id]!.recargar(completa: completa);
+      resultados[id] = salio;
+
+      // 🔴 **Y se dice cómo fue, que es lo que faltaba.** Quien pulsa el botón
+      // tira el resultado —`onPulsar` no lo lee— así que una recarga que falla
+      // no deja rastro: ni error, ni aviso, ni línea. Reportado tal cual: «el
+      // botón de reiniciar y recargar me toca darle varias veces para que
+      // funcione». Pulsar y no ver nada se lee como que no se pulsó.
+      //
+      // Va al registro de la corrida, donde ya van los problemas del túnel y de
+      // la consola, y no a un aviso que tape la pantalla: esto se mira justo
+      // donde estabas.
+      final strings = ref.read(stringsProvider);
+      ref
+          .read(registrosProvider.notifier)
+          .anota(
+            id,
+            ComoFueLaRecarga.loQueSeAnota(
+              ok: salio.ok,
+              completa: completa,
+              motivoAlFallar: salio.error,
+              recargada: strings.laRecargaFue,
+              reiniciada: strings.elReinicioFue,
+              fallo: strings.laRecargaFallo,
+            ),
+          );
     }
     return resultados;
   }

@@ -82,6 +82,7 @@ class ChatMessage {
     this.trabajo,
     this.enviadoEl,
     this.loQueCosto,
+    this.porUnAvisoDeFondo = false,
   });
 
   final ChatAuthor author;
@@ -101,6 +102,15 @@ class ChatMessage {
   /// cosa ya no se sabía qué había costado la primera. Subiendo por la
   /// conversación, cada turno conserva lo suyo.
   final LoQueCostoElTurno? loQueCosto;
+
+  /// Este turno lo disparó un trabajo de fondo que terminó, no tú.
+  ///
+  /// 🔴 Reportado como «me respondió dos veces». No lo eran: eran dos turnos,
+  /// disparados por dos gates de fondo que acabaron con trece segundos de
+  /// diferencia. Nexus no puede evitar el segundo —lo genera el CLI cuando el
+  /// trabajo vuelve— pero sí decir de dónde salió, en vez de dejarlo como una
+  /// respuesta que nadie pidió.
+  final bool porUnAvisoDeFondo;
 
   /// Lo que **este** encargo dejó tocado, si tocó algo.
   ///
@@ -237,6 +247,7 @@ class ChatMessage {
     DecisionDePermiso? decision,
     DecisionDeProgramar? decidido,
     LoQueCostoElTurno? loQueCosto,
+    bool? porUnAvisoDeFondo,
   }) => ChatMessage(
     author: author,
     text: text ?? this.text,
@@ -257,6 +268,7 @@ class ChatMessage {
     trabajo: trabajo,
     enviadoEl: enviadoEl,
     loQueCosto: loQueCosto ?? this.loQueCosto,
+    porUnAvisoDeFondo: porUnAvisoDeFondo ?? this.porUnAvisoDeFondo,
   );
 
   /// Un mensaje que solo trae adjuntos **no está vacío**: soltar un archivo y

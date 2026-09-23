@@ -139,10 +139,15 @@ AssistantHudState conElEvento(
         ClaudeMcpCaido() ||
         ClaudeRulesChanged() ||
         ClaudeCompacto() ||
-        ClaudeEnParalelo():
-      // Ver la cabecera: estos cinco no son mapeo. Se nombran uno a uno y no con
+        ClaudeEnParalelo() ||
+        ClaudeAvisoDeFondo():
+      // Ver la cabecera: estos seis no son mapeo. Se nombran uno a uno y no con
       // un `default` para que **añadir un evento nuevo no compile** hasta que
       // alguien decida de qué lado cae.
+      //
+      // El aviso de fondo no cambia el estado: lo que hace es marcar el mensaje
+      // que nazca después, y eso lo sabe el controlador —de dónde vino el
+      // turno— y no este reductor, que solo ve el evento.
       return actual;
   }
 }

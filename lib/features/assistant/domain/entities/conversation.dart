@@ -163,9 +163,24 @@ class Conversations {
     return null;
   }
 
-  Conversations copyWith({List<Conversation>? items, String? focusedId}) =>
-      Conversations(
-        items: items ?? this.items,
-        focusedId: focusedId ?? this.focusedId,
-      );
+  /// 🔴 **`cargado` se conserva, y omitirlo tumbaba la pantalla entera.**
+  ///
+  /// Este `copyWith` construía un `Conversations` sin pasarlo, así que volvía a
+  /// su valor de fábrica —`false`— y la app creía que todavía no había leído el
+  /// disco. Lo que se ve entonces es la pantalla de primera vez: sin muelle, sin
+  /// caja de escribir, solo el orbe. Reportado con la captura delante: «le di
+  /// empezar de cero y me dejó así, y no me deja hacer nada».
+  ///
+  /// Es el mismo fallo que el comentario de [cargado] describe, entrando por
+  /// otra puerta: **vacío y «todavía no sé» no son lo mismo**. Un `copyWith`
+  /// que se deja un campo lo convierte en lo segundo sin que nadie lo pida.
+  Conversations copyWith({
+    List<Conversation>? items,
+    String? focusedId,
+    bool? cargado,
+  }) => Conversations(
+    items: items ?? this.items,
+    focusedId: focusedId ?? this.focusedId,
+    cargado: cargado ?? this.cargado,
+  );
 }

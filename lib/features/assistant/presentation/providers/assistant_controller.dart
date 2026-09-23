@@ -316,7 +316,7 @@ class AssistantController extends Notifier<AssistantHudState> {
     ref.read(askClaudeProvider(conversationId)).empezarSolo();
     // Y que se sepa desde fuera: el chip de memoria compartida lo mira en la
     // ficha, porque lo pregunta **la otra** conversación.
-    ref.read(conversationsProvider.notifier).seFueSola(conversationId);
+    await ref.read(conversationsProvider.notifier).seFueSola(conversationId);
     state = state.copyWith(
       subtitle: ref.read(stringsProvider).conversationForgotten,
       meter: const SessionMeter(),
@@ -1222,6 +1222,7 @@ class AssistantController extends Notifier<AssistantHudState> {
             ClaudeEnParalelo() => _onEnParalelo(),
             ClaudeRulesChanged() => _onRulesChanged(event.paths),
             ClaudeMcpCaido() => _onMcpCaido(event.servidores),
+            ClaudeAvisoDeFondo() => _onAvisoDeFondo(),
             // Por aquí no llega: la compactación la pide `_compactIfNeeded`,
             // que consume su propio flujo. Se nombra para que añadir un evento
             // nuevo siga sin compilar hasta que alguien decida de qué lado cae.
@@ -1656,6 +1657,29 @@ class AssistantController extends Notifier<AssistantHudState> {
   void _onTextDelta(StringBuffer buffer, ClaudeTextDelta event) {
     buffer.write(event.text);
     _aplicar(event);
+    _siLoDisparoUnAviso();
+  }
+
+  /// Un trabajo de fondo terminó: lo que se diga a partir de ahora lo dice él.
+  var _loSiguienteLoDiceUnAviso = false;
+
+  void _onAvisoDeFondo() => _loSiguienteLoDiceUnAviso = true;
+
+  /// Marca el mensaje que nació de ese aviso.
+  ///
+  /// Se hace aquí y no al crear el mensaje porque quien lo crea es el reductor
+  /// puro, que no sabe de dónde vino el turno — y ensanchar su firma por esto
+  /// obligaría a pasarlo por los seis sitios que lo llaman.
+  void _siLoDisparoUnAviso() {
+    if (!_loSiguienteLoDiceUnAviso) return;
+    _loSiguienteLoDiceUnAviso = false;
+    final mensajes = [...state.messages];
+    final donde = mensajes.lastIndexWhere(
+      (mensaje) => mensaje.author == ChatAuthor.nexus,
+    );
+    if (donde == -1) return;
+    mensajes[donde] = mensajes[donde].copyWith(porUnAvisoDeFondo: true);
+    state = state.copyWith(messages: mensajes);
   }
 
   /// ¿Sigue existiendo esta conversación?

@@ -231,12 +231,18 @@ class ConversationsController extends Notifier<Conversations> {
   /// No se persiste: `_persist` escribe lo que dice `toJson`, y esto no está
   /// ahí a propósito. El hilo propio vive en memoria, así que al reabrir la app
   /// la conversación vuelve al de la carpeta y el chip tiene que volver con ella.
-  void seFueSola(String id) {
-    state = state.copyWith(
-      items: [
-        for (final item in state.items)
-          if (item.id == id) item.conMemoriaPropia() else item,
-      ],
+  Future<void> seFueSola(String id) async {
+    // **Y se guarda**, que es la otra mitad. `toJson` ya escribe la marca, pero
+    // esto se quedó poniendo solo el estado en memoria: al reabrir la app la
+    // conversación volvía a compartir, que es justo lo que la marca venía a
+    // evitar. Comprobado en el disco: las fichas guardadas no la llevaban.
+    await _persist(
+      state.copyWith(
+        items: [
+          for (final item in state.items)
+            if (item.id == id) item.conMemoriaPropia() else item,
+        ],
+      ),
     );
   }
 

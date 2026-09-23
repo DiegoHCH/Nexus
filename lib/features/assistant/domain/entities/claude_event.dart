@@ -87,6 +87,27 @@ final class ClaudeMcpCaido extends ClaudeEvent {
   final List<String> servidores;
 }
 
+/// Un trabajo de fondo terminó y avisó: lo que venga después lo dice **él**, no tú.
+///
+/// 🔴 **Sin esto, una respuesta aparecía de la nada.** Reportado así: «revisa
+/// porque me respondió dos veces». No fueron dos respuestas a lo mismo: fueron
+/// dos turnos, disparados por dos gates de fondo que terminaron con trece
+/// segundos de diferencia. Medido en el registro de la sesión, con sus dos
+/// `result` en el mismo proceso.
+///
+/// Nexus no puede evitar el segundo turno —lo genera el CLI cuando el trabajo
+/// de fondo vuelve— pero sí puede decir de dónde salió, en vez de dejarlo como
+/// una respuesta que nadie pidió.
+///
+/// La forma está copiada de una corrida real: `system` con subtipo
+/// `task_notification`, con `summary` y `status`.
+final class ClaudeAvisoDeFondo extends ClaudeEvent {
+  const ClaudeAvisoDeFondo(this.resumen);
+
+  /// Lo que el CLI dice del trabajo que volvió: "Background command … completed".
+  final String resumen;
+}
+
 /// Los archivos de reglas de esta carpeta no son los mismos que la última vez.
 ///
 /// Llega antes de que Claude empiece, y **no detiene nada**: el encargo sigue.

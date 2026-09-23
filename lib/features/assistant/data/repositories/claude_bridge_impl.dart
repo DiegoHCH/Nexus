@@ -376,6 +376,11 @@ class ClaudeBridgeImpl implements ClaudeBridge {
             ),
           ];
         }
+        // Un trabajo de fondo que volvió. Lo que el modelo diga a partir de
+        // aquí lo dispara él, no quien escribe. Ver [ClaudeAvisoDeFondo].
+        if (json['subtype'] == 'task_notification') {
+          return [ClaudeAvisoDeFondo(json['summary'] as String? ?? '')];
+        }
         if (json['subtype'] != 'init') return const [];
         // 🔴 **Solo los que fallaron.** El arranque trae cada servidor con su
         // estado, y ahí `pending` es lo normal —conectan después— y

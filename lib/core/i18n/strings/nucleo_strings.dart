@@ -253,6 +253,9 @@ mixin NucleoStrings {
 
   /// El interruptor de los avisos de PR mezclado, y su explicación.
   String get avisosPrOn;
+
+  /// Qué explica la marca de un turno que disparó un trabajo de fondo.
+  String get loDisparoUnTrabajoDeFondo;
   String get avisosPrExplainer;
   String get avisosCuanto;
   String get avisosCarpeta;
@@ -694,6 +697,10 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get avisosOn => 'Avisarme de las reuniones';
   @override
   String get avisosPrOn => 'Avisarme cuando mezclen un PR mío';
+  @override
+  String get loDisparoUnTrabajoDeFondo =>
+      'Esto no contesta a lo último que escribiste: lo disparó un trabajo de '
+      'fondo al terminar.';
   @override
   String get avisosPrExplainer =>
       'Mira cada dos minutos si alguno de tus PR pasó a mezclado, en cualquier '
@@ -1200,6 +1207,10 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get avisosOn => 'Tell me about meetings';
   @override
   String get avisosPrOn => 'Tell me when a PR of mine is merged';
+  @override
+  String get loDisparoUnTrabajoDeFondo =>
+      'This is not answering what you last wrote: a background job triggered it '
+      'when it finished.';
   @override
   String get avisosPrExplainer =>
       'Checks every two minutes whether any of your PRs got merged, in any '

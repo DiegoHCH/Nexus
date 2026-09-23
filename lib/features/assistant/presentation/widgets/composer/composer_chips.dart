@@ -23,7 +23,19 @@ import 'package:nexus/features/workspace/presentation/providers/workspace_provid
 /// esto era una etiqueta que decía que no había carpeta y no hacía nada — un
 /// cartel en el sitio donde uno va a arreglarlo.
 class ComposerChips extends ConsumerWidget {
-  const ComposerChips({super.key, required this.folder, this.folderPath});
+  const ComposerChips({
+    super.key,
+    required this.folder,
+    this.folderPath,
+    this.alSepararse,
+  });
+
+  /// Qué hacer cuando se pide separar esta conversación de la carpeta.
+  ///
+  /// Llega de fuera porque este widget no sabe de qué conversación es: la
+  /// carpeta sí la recibe, el identificador no, y pedírselo solo para esto
+  /// sería ensanchar su contrato por un botón.
+  final VoidCallback? alSepararse;
 
   final PairedFolder? folder;
 
@@ -279,7 +291,18 @@ class ComposerChips extends ConsumerWidget {
         if (comparten > 1)
           _Chip(
             icon: Icons.merge_type,
-            label: strings.memoriaCompartida(comparten),
+            // 🔴 **El tiempo verbal.** Sin sesión guardada todavía no comparten
+            // nada: la crea la primera que escriba y la segunda se engancha.
+            // Decirlo en presente era afirmar algo que aún no había pasado —
+            // reportado así: «no hay sesión pero si abro otra conversación me
+            // sigue saliendo el chip».
+            label:
+                (ref.watch(laCarpetaTieneSesionProvider(folderPath!)).value ??
+                    true)
+                ? strings.memoriaCompartida(comparten)
+                : strings.memoriaQueSeCompartira(comparten),
+            explica: strings.tocaParaSepararla,
+            alTocar: alSepararse,
           ),
         // La modalidad de voz no se repite aquí: se decide por carpeta en
         // Ajustes, y tenerla también en la barra creaba dos sitios que decían
@@ -291,10 +314,22 @@ class ComposerChips extends ConsumerWidget {
 }
 
 class _Chip extends StatelessWidget {
-  const _Chip({required this.icon, required this.label, this.warn = false});
+  const _Chip({
+    required this.icon,
+    required this.label,
+    this.warn = false,
+    this.alTocar,
+    this.explica,
+  });
 
   final IconData icon;
   final String label;
+
+  /// Qué hace al pulsarlo, si hace algo. Casi ninguno hace nada: son estado.
+  final VoidCallback? alTocar;
+
+  /// Qué explica, para quien no sepa qué es eso de la memoria compartida.
+  final String? explica;
 
   /// Algo que falta o que conviene mirar: sin carpeta, sin git.
   final bool warn;
@@ -302,30 +337,46 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final chip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: warn ? colors.warn.withValues(alpha: 0.5) : colors.rule,
+        ),
+        borderRadius: BorderRadius.circular(NexusRadius.sm),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: warn ? colors.warn : colors.faint),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: NexusTypography.mono.copyWith(
+              color: warn ? colors.warn : colors.mute,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    // 🔴 **El que se puede tocar, se toca; los demás son estado y ya.**
+    //
+    // Casi todos estos chips dicen algo y no hacen nada, así que envolverlos
+    // todos en algo pulsable enseñaría a pulsarlos por si acaso. Solo el de la
+    // memoria compartida lleva acción, y por eso solo él cambia de cursor.
+    final envuelto = alTocar == null
+        ? chip
+        : MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(onTap: alTocar, child: chip),
+          );
+
     return Padding(
       padding: const EdgeInsets.only(right: NexusSpacing.s3),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: warn ? colors.warn.withValues(alpha: 0.5) : colors.rule,
-          ),
-          borderRadius: BorderRadius.circular(NexusRadius.sm),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 12, color: warn ? colors.warn : colors.faint),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: NexusTypography.mono.copyWith(
-                color: warn ? colors.warn : colors.mute,
-              ),
-            ),
-          ],
-        ),
-      ),
+      child: explica == null
+          ? envuelto
+          : Tooltip(message: explica!, child: envuelto),
     );
   }
 }

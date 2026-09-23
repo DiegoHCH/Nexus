@@ -50,6 +50,13 @@ abstract final class ComoSeLeeUnTurno {
 
   /// En las unidades que se usan al contarlo en voz alta: segundos hasta el
   /// minuto, minutos y segundos hasta la hora, y de ahí para arriba horas.
+  /// El mismo rato, para quien solo quiere el tiempo: `4m 12s`.
+  ///
+  /// Lo usa el aviso de que sigue pensando, que enseña un contador y no un
+  /// coste. Es la misma escala a propósito: dos formas de escribir un minuto y
+  /// medio en la misma pantalla se leen como dos medidas distintas.
+  static String elRato(Duration cuanto) => _tiempo(cuanto);
+
   static String _tiempo(Duration cuanto) {
     if (cuanto.inMinutes < 1) return '${cuanto.inSeconds}s';
     if (cuanto.inHours < 1) {

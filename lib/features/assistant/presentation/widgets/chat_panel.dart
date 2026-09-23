@@ -16,13 +16,13 @@ import 'package:nexus/features/assistant/presentation/widgets/attachment_strip.d
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/assistant/domain/usecases/los_enlaces_del_texto.dart';
 import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart';
+import 'package:nexus/features/assistant/domain/usecases/como_se_lee_un_turno.dart';
 import 'package:nexus/features/assistant/presentation/state/chat_message.dart';
 import 'package:nexus/features/programadas/domain/usecases/como_se_lee_la_cita.dart';
 import 'package:nexus/features/programadas/domain/entities/encargo_programado.dart';
 import 'package:nexus/features/programadas/domain/usecases/lo_que_toca_lanzar.dart';
 import 'package:nexus/features/programadas/presentation/providers/el_vigilante_de_las_programadas.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:nexus/features/assistant/domain/usecases/como_se_lee_un_turno.dart';
 
 /// La conversación entera a la derecha: lo que pediste y lo que respondió.
 ///
@@ -42,7 +42,20 @@ class ChatPanel extends StatefulWidget {
     this.onPropuesta,
     this.onCorrer,
     this.etiquetaDelAgente,
+    this.pensandoDesde,
   });
+
+  /// Desde cuándo lleva callado el turno en marcha, o `null` si no lo está.
+  ///
+  /// 🔴 **Lo que se mira es la conversación, no el rótulo del orbe.** Con media
+  /// respuesta escrita y nada apareciendo durante minutos, la pantalla se lee
+  /// como un cuelgue aunque arriba ponga otra cosa; pedido así: «debería
+  /// mostrar algo en el chat que diga que está haciendo algo todavía».
+  ///
+  /// Llega el instante y no el rato ya contado porque el rato **tiene que
+  /// correr**: un número que avanza es lo único que no se confunde con una
+  /// pantalla congelada. Ver [_Pensando].
+  final DateTime? pensandoDesde;
 
   /// Cómo se llama quien contesta. Opcional a propósito: sin ella se usa el
   /// nombre de la app, así que quien solo quiere pintar mensajes —los tests, y
@@ -175,16 +188,80 @@ class _ChatPanelState extends State<ChatPanel> {
       child: ListView.builder(
         controller: _controller,
         padding: const EdgeInsets.only(bottom: NexusSpacing.s5),
-        itemCount: widget.messages.length,
-        itemBuilder: (context, index) => _Turn(
-          message: widget.messages[index],
-          etiqueta: widget.etiquetaDelAgente,
-          onRetry: widget.onRetry,
-          onPasarElTrabajo: widget.onPasarElTrabajo,
-          onPermiso: widget.onPermiso,
-          onPropuesta: widget.onPropuesta,
-          onCorrer: widget.onCorrer,
-        ),
+        // Uno más cuando está pensando: va al final de la lista, que es donde
+        // está mirando quien espera.
+        itemCount:
+            widget.messages.length + (widget.pensandoDesde == null ? 0 : 1),
+        itemBuilder: (context, index) {
+          if (index == widget.messages.length) {
+            return _Pensando(desde: widget.pensandoDesde!);
+          }
+          return _Turn(
+            message: widget.messages[index],
+            etiqueta: widget.etiquetaDelAgente,
+            onRetry: widget.onRetry,
+            onPasarElTrabajo: widget.onPasarElTrabajo,
+            onPermiso: widget.onPermiso,
+            onPropuesta: widget.onPropuesta,
+            onCorrer: widget.onCorrer,
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// **Sigue en esto**, con el rato corriendo.
+///
+/// Se cuenta solo, con su propio reloj de un segundo: pedirle al controlador un
+/// estado nuevo cada segundo repintaría la pantalla entera —el orbe, el muelle,
+/// la columna de actividad— para mover dos dígitos.
+class _Pensando extends StatefulWidget {
+  const _Pensando({required this.desde});
+
+  final DateTime desde;
+
+  @override
+  State<_Pensando> createState() => _PensandoState();
+}
+
+class _PensandoState extends State<_Pensando> {
+  Timer? _tic;
+
+  @override
+  void initState() {
+    super.initState();
+    _tic = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _tic?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final rato = DateTime.now().difference(widget.desde);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: NexusSpacing.s5),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 11,
+            height: 11,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.4,
+              color: colors.accent.withValues(alpha: 0.7),
+            ),
+          ),
+          const SizedBox(width: NexusSpacing.s2),
+          Text(
+            context.strings.pensandoDesdeHace(ComoSeLeeUnTurno.elRato(rato)),
+            style: NexusTypography.label.copyWith(color: colors.faint),
+          ),
+        ],
       ),
     );
   }

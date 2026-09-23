@@ -287,6 +287,30 @@ void main() {
     },
   );
 
+  // 🔴 **Y hablando es justo el estado en el que se queda.** El orbe pasa a
+  // hablando con la primera palabra de la respuesta, así que un turno que se va
+  // mientras contesta —lo normal, porque contestar es lo que más dura— caía en
+  // el único estado que la red no miraba. Reportado: «en la conversación de
+  // front-mobile-b2c se quedó pegado el orbe en hablando».
+  test('y si se cierra con el orbe hablando, también se recoge', () async {
+    final sigueVivo = Completer<void>();
+    final c = contenedor(terminaYSeQueda: sigueVivo);
+    final control = c.read(assistantControllerProvider(_id).notifier);
+
+    await control.submit('haz algo');
+    await vueltas();
+    control.state = control.state.copyWith(orbState: NexusOrbState.speak);
+
+    sigueVivo.complete();
+    await vueltas();
+
+    expect(
+      c.read(assistantControllerProvider(_id)).orbState,
+      NexusOrbState.sleep,
+      reason: 'hablando sin nadie contestando es el mismo cuelgue',
+    );
+  });
+
   // Y no se dispara cuando el turno acabó como debía: un aviso que sale siempre
   // deja de querer decir algo.
   test('pero un turno que terminó bien no lo dispara', () async {

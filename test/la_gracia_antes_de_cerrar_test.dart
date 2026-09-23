@@ -365,4 +365,58 @@ void main() {
       );
     });
   });
+
+  /// 🔴 **Un proceso sirve más de un turno.** El CLI inyecta los avisos de las
+  /// tareas de fondo pendientes al retomar la sesión: contesta a eso —con su
+  /// `result`— y después sigue con lo que le mandaste, en el mismo proceso. A
+  /// partir de ahí la gracia corta corría sobre un turno vivo, y una
+  /// herramienta que tarda en contestar no dice nada mientras corre.
+  ///
+  /// Medido en `front-mobile-b2c`: última línea a las 12:50:35, entrada cerrada
+  /// a las 12:50:38, rematado a las 12:50:48, la herramienta devolviendo a las
+  /// 12:50:42 y la respuesta sin llegar. El orbe se quedó en «hablando».
+  group('otro turno después del resultado', () {
+    test('la herramienta que tarda ya no se queda sin entrada', () {
+      fakeAsync((reloj) {
+        final proceso = _ProcesoDeMentira();
+        final vivo = ElProcesoDelTurno()
+          ..tomar(proceso, preguntando: true)
+          ..elTurnoAcabo();
+
+        // El modelo vuelve a hablar: es otro turno, no la cola del anterior.
+        vivo.otroTurnoEmpezo();
+
+        // Lo que tardaba una herramienta de verdad, muy por encima de la gracia.
+        reloj.elapse(const Duration(seconds: 30));
+        expect(
+          proceso.entrada.cerrada,
+          isFalse,
+          reason: 'aquí es donde se le cerró la entrada a un turno vivo',
+        );
+        expect(proceso.matados, isEmpty);
+
+        // Y sigue acotado: callado del todo, se recoge igual.
+        reloj.elapse(ElProcesoDelTurno.graciaConAgente);
+        expect(proceso.entrada.cerrada, isTrue);
+      });
+    });
+
+    test('y cuando ese turno acaba se vuelve al plazo corto', () {
+      fakeAsync((reloj) {
+        final proceso = _ProcesoDeMentira();
+        final vivo = ElProcesoDelTurno()
+          ..tomar(proceso, preguntando: true)
+          ..elTurnoAcabo();
+        vivo.otroTurnoEmpezo();
+        vivo.elTurnoAcabo();
+
+        reloj.elapse(ElProcesoDelTurno.gracia + const Duration(seconds: 1));
+        expect(
+          proceso.entrada.cerrada,
+          isTrue,
+          reason: 'el plazo largo no se queda puesto, o se acumulan procesos',
+        );
+      });
+    });
+  });
 }

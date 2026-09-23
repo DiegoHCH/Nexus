@@ -256,6 +256,16 @@ mixin NucleoStrings {
 
   /// Qué explica la marca de un turno que disparó un trabajo de fondo.
   String get loDisparoUnTrabajoDeFondo;
+
+  /// Lo que dice la barra al separar una conversación de la carpeta.
+  String get ahoraVaSola;
+
+  /// El chip cuando la carpeta **todavía** no tiene sesión: no comparten nada
+  /// aún, pero compartirán en cuanto alguna escriba.
+  String memoriaQueSeCompartira(int cuantas);
+
+  /// Y qué se puede hacer con él.
+  String get tocaParaSepararla;
   String get avisosPrExplainer;
   String get avisosCuanto;
   String get avisosCarpeta;
@@ -701,6 +711,16 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get loDisparoUnTrabajoDeFondo =>
       'Esto no contesta a lo último que escribiste: lo disparó un trabajo de '
       'fondo al terminar.';
+  @override
+  String get ahoraVaSola =>
+      'Esta conversación va por su cuenta: lo que digas aquí ya no lo ve la otra.';
+  @override
+  String memoriaQueSeCompartira(int cuantas) =>
+      'compartirán memoria · $cuantas chats';
+  @override
+  String get tocaParaSepararla =>
+      'La sesión de Claude es de la carpeta, así que estas conversaciones la '
+      'comparten. Toca para que esta siga por su cuenta.';
   @override
   String get avisosPrExplainer =>
       'Mira cada dos minutos si alguno de tus PR pasó a mezclado, en cualquier '
@@ -1211,6 +1231,17 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get loDisparoUnTrabajoDeFondo =>
       'This is not answering what you last wrote: a background job triggered it '
       'when it finished.';
+  @override
+  String get ahoraVaSola =>
+      'This conversation is on its own now: what you say here is no longer seen '
+      'by the other.';
+  @override
+  String memoriaQueSeCompartira(int cuantas) =>
+      'will share memory · $cuantas chats';
+  @override
+  String get tocaParaSepararla =>
+      'Claude sessions belong to the folder, so these conversations share one. '
+      'Tap to put this one on its own.';
   @override
   String get avisosPrExplainer =>
       'Checks every two minutes whether any of your PRs got merged, in any '

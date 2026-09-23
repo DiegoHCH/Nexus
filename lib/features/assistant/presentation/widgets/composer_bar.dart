@@ -42,6 +42,7 @@ class ComposerBar extends ConsumerStatefulWidget {
     required this.onFocusChanged,
     this.loQueYaEscribi = const [],
     this.folderPath,
+    this.alSepararse,
     this.meter = const SessionMeter(),
     this.voiceActive = false,
     this.onToggleVoice,
@@ -62,6 +63,9 @@ class ComposerBar extends ConsumerStatefulWidget {
   final List<String> loQueYaEscribi;
 
   final String? folderPath;
+
+  /// Ver [ComposerChips.alSepararse].
+  final VoidCallback? alSepararse;
   final SessionMeter meter;
   final bool voiceActive;
   final VoidCallback? onToggleVoice;
@@ -177,7 +181,11 @@ class _ComposerBarState extends ConsumerState<ComposerBar> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              ComposerChips(folder: folder, folderPath: widget.folderPath),
+              ComposerChips(
+                folder: folder,
+                folderPath: widget.folderPath,
+                alSepararse: widget.alSepararse,
+              ),
               const SizedBox(height: NexusSpacing.s3),
               AttachmentStrip(paths: _attachments, onRemove: _detach),
               _Field(

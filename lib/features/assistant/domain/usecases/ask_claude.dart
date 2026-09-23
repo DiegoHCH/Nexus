@@ -85,6 +85,18 @@ class AskClaude {
   /// propio, permanente— solo que decidida a mano en vez de por chocar con otra.
   var _voySolo = false;
 
+  /// La sesión de **esta** conversación, cuando lleva hilo propio.
+  ///
+  /// 🔴 **Sin esto, lo que preguntara por la carpeta miraba a otra parte.** Una
+  /// conversación separada no escribe en la memoria de la carpeta —esa es toda
+  /// la gracia— así que quien leyera de ahí obtenía la sesión de la otra.
+  /// Reportado con un minuto de diferencia: «flow init» contestó que el marco
+  /// estaba activo, y al mandar «flow pr» Nexus dijo que estaba apagado. Había
+  /// mirado la sesión de la carpeta en vez de la de este chat.
+  ///
+  /// `null` mientras comparta: entonces la de la carpeta **es** la suya.
+  String? get miSesion => _miSesion;
+
   /// Que esta conversación siga por su cuenta.
   void empezarSolo() {
     _voySolo = true;

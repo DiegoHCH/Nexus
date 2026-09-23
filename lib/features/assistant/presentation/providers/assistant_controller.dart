@@ -1557,8 +1557,21 @@ class AssistantController extends Notifier<AssistantHudState> {
   ///
   /// La voz y la compresión tienen su propio ciclo y no pasan por aquí: si una
   /// de las dos está viva, el orbe trabaja con razón.
+  ///
+  /// 🔴 **Y «hablando» también se queda pegado.** Esto solo miraba
+  /// «trabajando», y el orbe pasa a hablando en cuanto llega la primera
+  /// palabra de la respuesta: un turno que se corta **después** de empezar a
+  /// contestar —que es lo normal, porque contestar es lo que más dura— caía
+  /// justo en el estado que la red no recogía. Reportado tal cual: «en la
+  /// conversación de front-mobile-b2c se quedó pegado el orbe en hablando».
+  ///
+  /// Comprobado en la sesión del CLI de ese turno: la última línea es el
+  /// resultado de una herramienta a las 12:50:42, sin respuesta detrás, y el
+  /// registro de la app dice que a las 12:50:48 rematamos el proceso. O sea que
+  /// el turno se fue mientras contestaba, que es el caso de arriba.
   void _elOrbeNoSeQuedaTrabajando() {
-    if (state.orbState != NexusOrbState.think) return;
+    const trabajando = {NexusOrbState.think, NexusOrbState.speak};
+    if (!trabajando.contains(state.orbState)) return;
     if (state.voiceActive || _compacting) return;
     state = state.copyWith(orbState: NexusOrbState.sleep, isStreaming: false);
     _say(ChatAuthor.nexus, ref.read(stringsProvider).elTurnoSeQuedoSinDueno);

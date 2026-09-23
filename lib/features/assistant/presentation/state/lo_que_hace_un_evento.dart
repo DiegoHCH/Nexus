@@ -212,6 +212,24 @@ abstract final class LosMensajes {
   ///
   /// 🔴 **La cita solo cuaja al crear**: alargando no se toca, así que las
   /// porciones siguientes no la repiten ni la borran.
+  ///
+  /// 🔴 **Y se alarga el que se está escribiendo, aunque no sea el último.**
+  /// Esto miraba `mensajes.last`, y escribir mientras Hestia contestaba
+  /// **partía su respuesta en dos**: lo que escribes se pinta en el acto
+  /// —tiene que verse, es lo que está esperando turno— y con ello el último
+  /// mensaje pasa a ser el tuyo, así que la porción siguiente de Claude ya no
+  /// encajaba con nadie y nacía en una burbuja nueva. Reportado con la
+  /// conversación delante, y partido a media palabra: «… en la bitácora de la
+  /// rama. L» / tú / «o disparás con flow close».
+  ///
+  /// Pedido tal cual: «primero debería terminar de escribir en el mismo
+  /// mensaje y ahí sí tomar lo mío». Es lo que hace buscar el que sigue
+  /// abierto: el turno de Claude se termina entero en su burbuja y lo tuyo se
+  /// queda debajo, esperando, que es justo lo que está pasando.
+  ///
+  /// Solo hay uno abierto a la vez, así que no hay ambigüedad: si el último que
+  /// sigue escribiéndose es de otro autor, esto no lo toca y nace uno nuevo,
+  /// como siempre.
   static List<ChatMessage> alargando(
     List<ChatMessage> mensajes,
     ChatAuthor autor,
@@ -220,11 +238,12 @@ abstract final class LosMensajes {
     String? respondeA,
     bool esElParte = false,
   }) {
-    final ultimo = mensajes.lastOrNull;
-    if (ultimo != null && ultimo.author == autor && ultimo.streaming) {
+    final donde = mensajes.lastIndexWhere((mensaje) => mensaje.streaming);
+    if (donde != -1 && mensajes[donde].author == autor) {
       return [
-        ...mensajes.take(mensajes.length - 1),
-        ultimo.copyWith(text: ultimo.text + texto),
+        ...mensajes.take(donde),
+        mensajes[donde].copyWith(text: mensajes[donde].text + texto),
+        ...mensajes.skip(donde + 1),
       ];
     }
     return diciendo(
@@ -242,13 +261,20 @@ abstract final class LosMensajes {
   /// 🔴 **Un turno que no llegó a decir nada no se deja en la ventana**, y esto
   /// pasa de verdad: un encargo que falla antes de la primera palabra dejaría
   /// una burbuja vacía con su cursor puesto para siempre.
+  ///
+  /// 🔴 **Se cierra el que está abierto, aunque tenga algo detrás.** Por lo
+  /// mismo que [alargando]: lo que escribes mientras Claude contesta se pone al
+  /// final, y entonces mirar solo el último dejaba la respuesta de Claude
+  /// **con el cursor puesto para siempre** — terminada, pero pintada como si
+  /// siguiera escribiéndose.
   static List<ChatMessage> sellados(List<ChatMessage> mensajes) {
-    final ultimo = mensajes.lastOrNull;
-    if (ultimo == null || !ultimo.streaming) return mensajes;
-    final sinElUltimo = mensajes.take(mensajes.length - 1);
+    final donde = mensajes.lastIndexWhere((mensaje) => mensaje.streaming);
+    if (donde == -1) return mensajes;
+    final elQueSeCierra = mensajes[donde];
     return [
-      ...sinElUltimo,
-      if (!ultimo.isEmpty) ultimo.copyWith(streaming: false),
+      ...mensajes.take(donde),
+      if (!elQueSeCierra.isEmpty) elQueSeCierra.copyWith(streaming: false),
+      ...mensajes.skip(donde + 1),
     ];
   }
 

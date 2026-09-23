@@ -329,6 +329,79 @@ void main() {
     expect(veces, 1);
   });
 
+  group('escribir mientras Hestia contesta', () {
+    // 🔴 Reportado con la conversación delante: la respuesta quedó partida a
+    // media palabra —«… en la bitácora de la rama. L», el mensaje del usuario,
+    // y después «o disparás con flow close»— porque lo que se escribe mientras
+    // Claude contesta se pinta en el acto y pasa a ser el último mensaje.
+    test('la respuesta se termina en su burbuja, no en una nueva', () {
+      final enMarcha = [
+        mensaje(ChatAuthor.user, 'flow pr'),
+        mensaje(
+          ChatAuthor.nexus,
+          'Lo que queda es el cierre. L',
+          streaming: true,
+        ),
+      ];
+
+      // Lo que escribes mientras tanto: se ve, y se ve al final.
+      final conLoMio = LosMensajes.sellados(
+        LosMensajes.diciendo(
+          enMarcha,
+          ChatAuthor.user,
+          'listo, ahora la evidencia',
+        ),
+      );
+
+      final siguiendo = LosMensajes.alargando(
+        conLoMio,
+        ChatAuthor.nexus,
+        'o disparás con flow close.',
+      );
+
+      expect(siguiendo.length, 3, reason: 'nadie nace de más');
+      expect(
+        siguiendo[1].text,
+        'Lo que queda es el cierre. Lo disparás con flow close.',
+      );
+      expect(
+        siguiendo[2].author,
+        ChatAuthor.user,
+        reason: 'lo tuyo sigue esperando debajo',
+      );
+    });
+
+    test('y al terminar se le quita el cursor al que estaba escribiéndose', () {
+      final mensajes = [
+        mensaje(ChatAuthor.nexus, 'ya está', streaming: true),
+        mensaje(ChatAuthor.user, 'y ahora esto'),
+      ];
+
+      final sellados = LosMensajes.sellados(mensajes);
+
+      expect(sellados[0].streaming, isFalse);
+      expect(sellados[1].author, ChatAuthor.user);
+    });
+
+    // El que sigue abierto es de otro autor: eso no se alarga, nace uno nuevo.
+    test('lo que abre otro no se alarga', () {
+      final mensajes = [
+        mensaje(ChatAuthor.nexus, 'lo de antes'),
+        mensaje(ChatAuthor.user, 'transcribiendo', streaming: true),
+      ];
+
+      final siguiendo = LosMensajes.alargando(
+        mensajes,
+        ChatAuthor.nexus,
+        'hola',
+      );
+
+      expect(siguiendo.length, 3);
+      expect(siguiendo.last.author, ChatAuthor.nexus);
+      expect(siguiendo[1].text, 'transcribiendo', reason: 'intacto');
+    });
+  });
+
   group('lo que dejó el encargo, colgado del mensaje', () {
     test('va en el último de Nexus y no en el de quien preguntó', () {
       final mensajes = [

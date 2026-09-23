@@ -41,6 +41,7 @@ import 'package:nexus/features/assistant/presentation/providers/model_providers.
 import 'package:nexus/features/assistant/presentation/providers/voice_session_providers.dart';
 import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
 import 'package:nexus/features/assistant/presentation/state/chat_message.dart';
+import 'package:nexus/features/assistant/presentation/state/el_orbe_cuando_calla.dart';
 import 'package:nexus/features/assistant/presentation/state/lo_que_hace_un_evento.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/assistant/presentation/state/session_meter.dart';
@@ -134,6 +135,7 @@ class AssistantController extends Notifier<AssistantHudState> {
       // toca el estado —Riverpod lo prohíbe en un ciclo de vida— y tampoco
       // haría falta: la conversación se está cerrando.
       _soltarPermisos();
+      _elSilencio?.cancel();
       _subscription?.cancel();
       _voiceSubscription?.cancel();
     });
@@ -1661,6 +1663,9 @@ class AssistantController extends Notifier<AssistantHudState> {
   /// la coreografía —avisar, archivar, recordar el modelo—, que es lo que sí
   /// necesita el resto de la app.
   void _aplicar(ClaudeEvent evento) {
+    // Cualquier cosa que llegue cuenta como que no está callado: un paso, una
+    // palabra, el arranque de la sesión. Ver [_contarElSilencio].
+    _contarElSilencio();
     state = conElEvento(
       state,
       evento,
@@ -1764,6 +1769,42 @@ class AssistantController extends Notifier<AssistantHudState> {
     buffer.write(event.text);
     _aplicar(event);
     _siLoDisparoUnAviso();
+  }
+
+  /// Lo que devuelve el orbe a «trabajando» si la respuesta se queda callada.
+  ///
+  /// Ver [ElOrbeCuandoCalla]: hablando es mientras salen palabras, y entre dos
+  /// trozos Claude puede callarse minutos. Se rearma con cada trozo, así que
+  /// mientras escriba no salta.
+  Timer? _elSilencio;
+
+  void _contarElSilencio() {
+    _elSilencio?.cancel();
+    // Volvió a decir algo: ya no está callado.
+    if (state.pensandoDesde != null) {
+      state = state.copyWith(pensandoDesde: null);
+    }
+    _elSilencio = Timer(ElOrbeCuandoCalla.sinPalabras, () {
+      if (!_vive || !state.isStreaming) return;
+      final ahora = ElOrbeCuandoCalla.loQueToca(
+        state.orbState,
+        enVuelo: state.isStreaming,
+      );
+      // Los dos a la vez o ninguno: el rótulo del orbe y el contador de la
+      // conversación son el mismo estado contado dos veces, y verlos decir
+      // cosas distintas es peor que no verlos. Trabajando callado no es
+      // pensando: ahí hay un paso corriendo y la columna lo enseña.
+      if (ahora == state.orbState) return;
+      state = state.copyWith(
+        orbState: ahora,
+        // Desde cuándo lleva callado, que es lo que la conversación enseña
+        // corriendo. Se cuenta desde lo último que dijo, no desde ahora: es el
+        // rato que llevas mirando una respuesta que no avanza.
+        pensandoDesde: ref
+            .read(relojProvider)()
+            .subtract(ElOrbeCuandoCalla.sinPalabras),
+      );
+    });
   }
 
   /// Un trabajo de fondo terminó: lo que se diga a partir de ahora lo dice él.
@@ -2112,6 +2153,12 @@ class AssistantController extends Notifier<AssistantHudState> {
   /// de antes con otra cara, porque cada uno cancelaría al anterior.
   void _elEncargoTermino() {
     _subscription = null;
+    // El turno ya no está en vuelo: el orbe lo resuelve su propio final.
+    _elSilencio?.cancel();
+    _elSilencio = null;
+    if (state.pensandoDesde != null) {
+      state = state.copyWith(pensandoDesde: null);
+    }
     if (_enCola.isEmpty) return;
     final siguiente = _enCola.removeAt(0);
     state = state.copyWith(enCola: _enCola.length);

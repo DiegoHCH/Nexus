@@ -340,6 +340,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 Expanded(
                                   child: ChatPanel(
                                     messages: hud.messages,
+                                    // Sigue en ello aunque no aparezca nada.
+                                    // Ver [NexusOrbState.ponder]: el orbe lo
+                                    // dice arriba y esto lo dice donde se está
+                                    // mirando.
+                                    pensandoDesde: hud.pensandoDesde,
                                     // El nombre configurado en Ajustes › Nombres, o
                                     // el de la app si no se ha elegido ninguno.
                                     etiquetaDelAgente: ref
@@ -997,6 +1002,7 @@ String _statusFor(NexusOrbState state, NexusStrings strings) => switch (state) {
   NexusOrbState.sleep => strings.asleep,
   NexusOrbState.listen => strings.listening,
   NexusOrbState.think => strings.working,
+  NexusOrbState.ponder => strings.pensando,
   NexusOrbState.speak => strings.speaking,
 };
 

@@ -120,6 +120,16 @@ class ConversationsController extends Notifier<Conversations> {
       for (final item in items) item.id: item,
     };
 
+    // 🔴 **El foco guardado se lee antes de tirarlo, que es todo el fallo.**
+    // La línea de abajo lo vaciaba y la única que lo usa está más abajo
+    // todavía, así que al arrancar la cuenta salía siempre igual: sin foco en
+    // el estado —recién nacido— y sin foco guardado —recién borrado—, se caía
+    // al primero de la lista. Reportado tal cual: «siempre que cierro la app y
+    // la vuelvo a abrir no se abre en la conversación en la que estaba
+    // posicionado sino en la primera». Y se guardaba bien: en el disco de la
+    // máquina estaba el `focusedId` correcto.
+    final guardado = _savedFocusId;
+
     // Lo guardado se recupera **una sola vez**. Antes se volvía a fusionar en
     // cada cambio del espacio de trabajo —y cambiar el permiso es uno—, así que
     // una conversación cerrada reaparecía sola en cuanto tocabas cualquier
@@ -149,9 +159,11 @@ class ConversationsController extends Notifier<Conversations> {
     }
 
     final list = unique.values.toList();
-    final focus =
-        list.any((item) => item.id == (state.focusedId ?? _savedFocusId))
-        ? (state.focusedId ?? _savedFocusId)
+    // El del estado manda sobre el guardado: si ya se cambió de conversación
+    // mientras esto cuadraba las carpetas, lo último que hizo el usuario gana.
+    final quiere = state.focusedId ?? guardado;
+    final focus = list.any((item) => item.id == quiere)
+        ? quiere
         : list.first.id;
     if (list.length == state.items.length && state.focusedId == focus) {
       return;

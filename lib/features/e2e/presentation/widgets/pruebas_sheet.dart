@@ -562,8 +562,8 @@ class _LanzaderaState extends ConsumerState<_Lanzadera> {
           // pasada viva y tocas la pantalla, Maestro y tú estáis inyectando
           // eventos en el mismo dispositivo y el fallo que salga no será real.
           //
-          // Y encima de todo mientras corre, que es cuando se quiere mirar sin
-          // perder Nexus de vista.
+          // Y encima de todo, que es lo que hace ahora cualquier espejo: nace
+          // detrás de Nexus y sin esto no se ve. Ver [ElEspejoDelMovil].
           if (ref.watch(elDispositivoProvider) case final donde?
               when ref.watch(sePuedeVerLaPantallaProvider(donde)))
             Padding(
@@ -584,7 +584,6 @@ class _LanzaderaState extends ConsumerState<_Lanzadera> {
                           deviceId: donde,
                           titulo: _comoSeLlama(donde),
                           conControl: !corriendo,
-                          encima: corriendo,
                         ),
                     child: Text(
                       corriendo

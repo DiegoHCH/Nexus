@@ -69,6 +69,8 @@ class FolderErrandQueue {
     bool hayQueEsperar,
     bool laTieneOtra,
     bool hayQueEsperarLoTuyo,
+    int cuantosDelante,
+    int cuantosMios,
     Future<void> cuandoToque,
     Future<void> cuandoToqueLoTuyo,
     void Function() soltar,
@@ -102,6 +104,12 @@ class FolderErrandQueue {
     return (
       hayQueEsperar: delante.isNotEmpty,
       laTieneOtra: delante.any((puesto) => puesto.de != de),
+      // Cuántos, no solo si hay: una espera se reporta como «se quedó pegado»,
+      // y lo primero que hay que poder contestar es a cuántos encargos está
+      // esperando y de quién son. Sin esto, «esperando a lo anterior» y «no
+      // había nada corriendo» son la misma línea en el registro.
+      cuantosDelante: delante.length,
+      cuantosMios: mios.length,
       hayQueEsperarLoTuyo: mios.isNotEmpty,
       // A **todos** los que están delante, no solo al último: uno que se va a
       // mitad de la espera no puede adelantar a los de detrás, o entrarían con

@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:nexus/features/assistant/domain/entities/claude_event.dart';
 import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart';
 import 'package:nexus/features/assistant/domain/repositories/claude_bridge.dart';
@@ -221,7 +223,10 @@ class AskClaude {
           // compresión**. Nueve veces seguidas sin que el contexto bajara, con
           // la app diciendo «comprimiendo». Es exactamente el fallo que esta
           // cola existe para impedir, entrando por la puerta de al lado.
-          if (turno.hayQueEsperarLoTuyo) yield const ClaudeQueued();
+          if (turno.hayQueEsperarLoTuyo) {
+            _apuntaLaEspera(folder, turno.cuantosMios, turno.cuantosDelante);
+            yield const ClaudeQueued();
+          }
           yield* _mientras(turno.cuandoToqueLoTuyo);
         } else if (turno.hayQueEsperar) {
           // Esperando a lo tuyo, que es lo único que queda por esperar: aquí
@@ -234,6 +239,7 @@ class AskClaude {
           // misma conversación —que también toman el turno y no tocan esa
           // bandera— acababan culpando a una conversación que no existía. Ver
           // [ClaudeQueued].
+          _apuntaLaEspera(folder, turno.cuantosMios, turno.cuantosDelante);
           yield const ClaudeQueued();
         }
         // 🔴 **La espera va dentro de un `yield*` y no de un `await`.**
@@ -378,6 +384,22 @@ class AskClaude {
       awake();
     }
   }
+
+  /// Qué se está esperando, escrito donde se pueda leer después.
+  ///
+  /// 🔴 **Porque «esperando a lo anterior» se reporta como un cuelgue.** Y
+  /// desde fuera son indistinguibles: el paso dice lo mismo tanto si de verdad
+  /// hay un encargo trabajando delante —el siguiente de la cola, que arranca
+  /// solo al fallar el anterior— como si alguien se dejó un turno sin soltar.
+  /// Reportado así: «no estaba haciendo nada, mandé el flow pr, falló, le di
+  /// reintentar y me dice esperando a que termine lo anterior».
+  ///
+  /// Con esto, la próxima vez la respuesta está en el registro de la app en vez
+  /// de en la memoria de nadie: cuántos hay delante y cuántos son de esta misma
+  /// conversación.
+  void _apuntaLaEspera(String folder, int mios, int todos) => debugPrint(
+    'cola · $folder · espera a $todos encargo(s), $mios de esta conversación',
+  );
 
   /// Un flujo que no dice nada y se cierra cuando pasa [esto].
   ///

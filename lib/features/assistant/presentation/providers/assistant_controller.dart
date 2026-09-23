@@ -1188,11 +1188,31 @@ class AssistantController extends Notifier<AssistantHudState> {
       label: ref.read(stringsProvider).attachedFilesLabel,
     );
 
-    // Hay algo corriendo: se encola y se sale. Un reintento no, que es
-    // precisamente volver a lanzar lo que acaba de fallar.
-    if (_subscription != null && !reintento && !yaEstaDicho) {
-      _say(ChatAuthor.user, loQueSeVe ?? trimmed, attachments: attachments);
-      _sealLast();
+    // Hay algo corriendo: se encola y se sale.
+    //
+    // 🔴 **El reintento también, y por aquí se colaba.** Esto decía «un
+    // reintento no, que es precisamente volver a lanzar lo que acaba de
+    // fallar», y esa razón solo vale cuando de verdad no queda nada corriendo
+    // —que es lo que ya comprueba la línea de arriba—. Fallar arranca **lo
+    // siguiente de la cola** en el acto (ver [_elEncargoTermino]), así que un
+    // segundo después de ver el fallo hay otro encargo en marcha y pulsar
+    // «reintentar» lanzaba un segundo en paralelo sobre la misma sesión. Lo
+    // que se veía entonces —reportado— era un paso diciendo «esperando a que
+    // termine lo anterior de esta conversación» sin haber pedido nada más: la
+    // cola de la carpeta frenando a los dos encargos de la misma pestaña, que
+    // es justo para lo que está.
+    //
+    // Encolado se ve mejor y se puede adelantar: sale el contador y el botón
+    // de «decírselo ahora».
+    if (_subscription != null && !yaEstaDicho) {
+      // La marca del fallo se quita ya, no al llegarle el turno: el reintento
+      // está aceptado, y dejar el botón puesto invita a pulsarlo otra vez.
+      if (reintento) {
+        _quitaLaMarcaDeFallo();
+      } else {
+        _say(ChatAuthor.user, loQueSeVe ?? trimmed, attachments: attachments);
+        _sealLast();
+      }
       _enCola.add(
         _Encargo(
           instruction: instruction,
@@ -1200,6 +1220,7 @@ class AssistantController extends Notifier<AssistantHudState> {
           allowWrites: allowWrites,
           esElParte: esElParte,
           loQueSeVe: loQueSeVe,
+          pintado: !reintento,
         ),
       );
       // Y se cuenta, que es lo que permite ofrecer adelantarlo. Ver
@@ -1244,7 +1265,10 @@ class AssistantController extends Notifier<AssistantHudState> {
     unawaited(_loQueDejo.tomaLaMarca(_workingDirectory));
 
     final ask = ref.read(askClaudeProvider(conversationId));
-    _elProcesoSeFue = Completer<void>();
+    // Vale de aviso y de marca: quien se cierre tarde puede preguntar con él
+    // si el turno que está acabando sigue siendo el que manda. Ver
+    // [_elTurnoSeCorto].
+    final procesoDeEsteTurno = _elProcesoSeFue = Completer<void>();
     _subscription =
         ask(
           paraClaude,
@@ -1283,7 +1307,7 @@ class AssistantController extends Notifier<AssistantHudState> {
           // **»— y, peor, el encargo nunca se daba por cerrado: la suscripción
           // se quedaba puesta y lo siguiente que escribieras se encolaba detrás
           // de un turno que ya no existía.
-          onDone: _elTurnoSeCorto,
+          onDone: () => _elTurnoSeCorto(procesoDeEsteTurno),
         );
   }
 
@@ -1295,7 +1319,7 @@ class AssistantController extends Notifier<AssistantHudState> {
   /// paso. La causa de que el proceso se fuera puede ser de fuera —lo veremos
   /// cuando vuelva a pasar, porque ahora deja dicho—; lo que no puede pasar es
   /// **presentar media frase como una respuesta entera**.
-  void _elTurnoSeCorto() {
+  void _elTurnoSeCorto(Completer<void> suProceso) {
     // ── La puerta que no se puede saltar ──────────────────────────────────
     //
     // 🔴 **Hay tres finales de turno y uno se escapó.** Reportado con la
@@ -1306,9 +1330,21 @@ class AssistantController extends Notifier<AssistantHudState> {
     // Lo de aquí arriba corre **siempre**, antes del guardia: cerrar el
     // generador es lo único que pasa seguro, y es la única señal que no depende
     // de qué camino tomó el turno.
-    if (_elProcesoSeFue case final aviso? when !aviso.isCompleted) {
-      aviso.complete();
-    }
+    if (!suProceso.isCompleted) suProceso.complete();
+
+    // 🔴 **Y solo manda el turno que está mandando.** Un turno que ya falló
+    // sigue con el flujo abierto un rato —el `claude -p` no sale hasta que
+    // mueren sus servidores MCP— y mientras tanto ya arrancó **el siguiente**:
+    // fallar vacía la cola en el acto. Cuando por fin se cerraba, esto se
+    // ejecutaba entero sobre el turno del vecino: le marcaba el fallo, le
+    // ponía «el turno se cortó» y le soltaba la suscripción, dejando corriendo
+    // un encargo que la app ya daba por muerto.
+    //
+    // Lo que se veía después es lo que se reportó: reintentar lanzaba un
+    // segundo encargo encima del que seguía vivo, y la cola de la carpeta los
+    // frenaba — «no estaba haciendo nada, envié el flow pr, falló, le di
+    // reintentar y me dice esperando a que termine lo anterior».
+    if (!identical(_elProcesoSeFue, suProceso)) return;
     final loLlevabaAlguien = _subscription != null;
     _cerrarLosPasosAbiertos();
     if (!loLlevabaAlguien) {
@@ -1553,11 +1589,30 @@ class AssistantController extends Notifier<AssistantHudState> {
     state = state.copyWith(messages: mensajes);
   }
 
+  /// 🔴 **La marca va en el que falló, no en el último que escribiste.**
+  ///
+  /// Esto cogía el último mensaje del usuario, y escribir mientras Claude
+  /// trabaja pone uno detrás **sin haberse lanzado todavía**: si el encargo en
+  /// vuelo fallaba, la marca roja y el botón de reintentar aparecían sobre la
+  /// frase que aún esperaba turno. Y reintentar volvía a mandar **esa**, no la
+  /// que había fallado. Salió midiendo el reintento encolado, en este mismo
+  /// escenario.
+  ///
+  /// Los que esperan son los del final, tantos como encargos pintados haya en
+  /// la cola. El que falló es el primero por encima de ellos.
   void _marcaElFallo() {
     final mensajes = [...state.messages];
-    final donde = mensajes.lastIndexWhere(
-      (mensaje) => mensaje.author == ChatAuthor.user,
-    );
+    var enEspera = _enCola.where((encargo) => encargo.pintado).length;
+    var donde = -1;
+    for (var i = mensajes.length - 1; i >= 0; i--) {
+      if (mensajes[i].author != ChatAuthor.user) continue;
+      if (enEspera > 0) {
+        enEspera--;
+        continue;
+      }
+      donde = i;
+      break;
+    }
     if (donde == -1) return;
     mensajes[donde] = mensajes[donde].copyWith(fallo: true);
     state = state.copyWith(messages: mensajes);
@@ -3107,6 +3162,7 @@ class _Encargo {
     required this.allowWrites,
     required this.esElParte,
     required this.loQueSeVe,
+    this.pintado = true,
   });
 
   final String instruction;
@@ -3114,4 +3170,12 @@ class _Encargo {
   final bool allowWrites;
   final bool esElParte;
   final String? loQueSeVe;
+
+  /// Si al encolarlo se escribió su mensaje en la conversación.
+  ///
+  /// Casi siempre sí —lo que escribes se ve en el acto, esperando turno—, pero
+  /// un reintento no escribe nada: su mensaje ya está ahí desde que falló. Lo
+  /// necesita [AssistantController._marcaElFallo] para saber cuántos mensajes
+  /// del final están esperando y no son el que falló.
+  final bool pintado;
 }

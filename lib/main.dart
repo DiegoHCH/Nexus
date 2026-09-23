@@ -26,6 +26,7 @@ import 'package:nexus/features/remote/presentation/providers/channel_providers.d
 import 'package:nexus/features/agenda/presentation/providers/el_vigilante_de_la_agenda.dart';
 import 'package:nexus/features/programadas/presentation/providers/el_vigilante_de_las_programadas.dart';
 import 'package:nexus/features/assistant/domain/entities/conversation.dart';
+import 'package:nexus/features/prs/presentation/providers/el_vigilante_de_los_pr.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -243,6 +244,11 @@ class _MainAppState extends ConsumerState<MainApp> {
     // que alguien abra la lista para existir. Es la tercera vez que se escribe
     // esta línea por el mismo motivo, así que va pegada a la de arriba.
     ref.watch(lasCitasProvider);
+
+    // Y el vigía de los PR, por lo mismo y por cuarta vez. Mira si alguno tuyo
+    // pasó a mezclado y avisa; si solo lo armara su interruptor en Ajustes,
+    // estaría apagado justo cuando hace falta — que es con la app de fondo.
+    ref.watch(elVigilanteDeLosPrProvider);
 
     return MaterialApp(
       navigatorKey: _navigatorKey,

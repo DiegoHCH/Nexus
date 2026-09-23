@@ -67,6 +67,18 @@ const _configs = {
     breathe: 0.006,
     envelopeSpeed: 2.40,
   ),
+  // Pensando: **despacio y hondo**, que es lo que lo separa de trabajando a
+  // tres metros. El giro va entre el de dormido y el de trabajando, la
+  // respiración es la más amplia de las cinco y la envolvente late lento.
+  NexusOrbState.ponder: _StateConfig(
+    spin: 0.220,
+    edge: 0.22,
+    dot: 0.80,
+    size: 1.25,
+    halo: 0.130,
+    breathe: 0.022,
+    envelopeSpeed: 0.90,
+  ),
   NexusOrbState.speak: _StateConfig(
     spin: 0.120,
     edge: 0.26,
@@ -319,6 +331,12 @@ class NexusOrbPainter extends CustomPainter {
           rad = 1 + 0.13 * env * math.sin(p.y * 5.5 + t * 6.0);
         case NexusOrbState.think:
           rad = 1 + 0.05 * math.sin(i * 2.1 + t * 7.0);
+        // Ondas lentas de polo a polo: la misma esfera, recorrida en vez de
+        // vibrada. Frente al temblor rápido de trabajando —`i * 2.1 + t * 7`,
+        // que es ruido por vértice— esto es una sola onda que **viaja**, y se
+        // lee de lejos.
+        case NexusOrbState.ponder:
+          rad = 1 + 0.06 * math.sin(p.y * 2.4 - t * 1.6);
         case NexusOrbState.speak:
           rad = 1 + 0.09 * env * math.sin(p.y * 3.2 + t * 4.4);
         case NexusOrbState.sleep:
@@ -544,6 +562,34 @@ class NexusOrbPainter extends CustomPainter {
           Paint()
             ..shader = shader
             ..strokeWidth = 1.6,
+        );
+
+      // El péndulo: un tramo corto que va y viene, con el seno frenándolo en
+      // los extremos. Trabajando cruza siempre en la misma dirección y vuelve a
+      // empezar de golpe; esto no llega nunca al borde.
+      case NexusOrbState.ponder:
+        canvas.drawLine(
+          Offset(0, hy),
+          Offset(w, hy),
+          Paint()..color = accent.withValues(alpha: 0.08),
+        );
+        final centro = cx + math.sin(t * 0.8) * w * 0.26;
+        final shader = ui.Gradient.linear(
+          Offset(centro - w * 0.10, 0),
+          Offset(centro + w * 0.10, 0),
+          [
+            accent.withValues(alpha: 0),
+            accent.withValues(alpha: 0.40),
+            accent.withValues(alpha: 0),
+          ],
+          const [0.0, 0.5, 1.0],
+        );
+        canvas.drawLine(
+          Offset(math.max(0, centro - w * 0.10), hy),
+          Offset(math.min(w, centro + w * 0.10), hy),
+          Paint()
+            ..shader = shader
+            ..strokeWidth = 1.4,
         );
 
       case NexusOrbState.speak:

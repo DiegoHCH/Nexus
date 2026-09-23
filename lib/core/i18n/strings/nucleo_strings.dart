@@ -22,6 +22,13 @@ mixin NucleoStrings {
   String get working;
   String get speaking;
 
+  /// Con el turno en pie y sin una palabra desde hace rato. Ver
+  /// `ElOrbeCuandoCalla`.
+  String get pensando;
+
+  /// Lo mismo, en la conversación y con el rato que lleva: «Pensando · 1m 20s».
+  String pensandoDesdeHace(String rato);
+
   /// Lo que la puerta pone debajo del orbe cuando ya sabe dónde. Se escribe
   /// aunque el modelo no llegue a decirlo. Ver [LaPuertaAbrira].
   String laPuertaAbre(String carpeta);
@@ -353,6 +360,10 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get working => 'Trabajando';
   @override
   String get speaking => 'Hablando';
+  @override
+  String get pensando => 'Pensando';
+  @override
+  String pensandoDesdeHace(String rato) => 'Pensando · $rato';
   @override
   String laPuertaAbre(String carpeta) => 'Vale, abro $carpeta.';
   @override
@@ -875,6 +886,10 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get working => 'Working';
   @override
   String get speaking => 'Speaking';
+  @override
+  String get pensando => 'Thinking';
+  @override
+  String pensandoDesdeHace(String rato) => 'Thinking · $rato';
   @override
   String laPuertaAbre(String carpeta) => 'Right, opening $carpeta.';
   @override

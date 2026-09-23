@@ -115,6 +115,7 @@ class AssistantHudState {
     this.memoriaPropia = false,
     this.changes,
     this.enCola = 0,
+    this.pensandoDesde,
   });
 
   final NexusOrbState orbState;
@@ -196,6 +197,19 @@ class AssistantHudState {
   /// saber que hay algo esperando.
   final int enCola;
 
+  /// Desde cuándo lleva callado el turno que está en marcha, o `null` si no
+  /// está callado.
+  ///
+  /// 🔴 **Existe porque callarse se lee como colgarse.** Ver
+  /// [NexusOrbState.ponder]: entre dos trozos de respuesta Claude puede pensar
+  /// minutos —medidos tres y medio en un turno que acabó bien— y la pantalla se
+  /// quedaba con media respuesta escrita y nada apareciendo.
+  ///
+  /// Es un instante y no un booleano porque lo que de verdad tranquiliza es
+  /// **un número que se mueve**: un rótulo quieto, por bien escrito que esté,
+  /// se sigue pareciendo a un cuelgue.
+  final DateTime? pensandoDesde;
+
   AssistantHudState copyWith({
     NexusOrbState? orbState,
     String? subtitle,
@@ -212,6 +226,7 @@ class AssistantHudState {
     bool? memoriaPropia,
     Object? changes = _unset,
     int? enCola,
+    Object? pensandoDesde = _unset,
   }) {
     return AssistantHudState(
       orbState: orbState ?? this.orbState,
@@ -231,6 +246,9 @@ class AssistantHudState {
       memoriaPropia: memoriaPropia ?? this.memoriaPropia,
       changes: changes == _unset ? this.changes : changes as GitChanges?,
       enCola: enCola ?? this.enCola,
+      pensandoDesde: pensandoDesde == _unset
+          ? this.pensandoDesde
+          : pensandoDesde as DateTime?,
     );
   }
 }

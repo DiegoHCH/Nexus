@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/agenda/presentation/providers/el_vigilante_de_la_agenda.dart';
+import 'package:nexus/features/prs/presentation/providers/el_vigilante_de_los_pr.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/settings_chooser.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
@@ -43,6 +44,26 @@ class AvisosSection extends ConsumerWidget {
             onChanged: (on) => vigilante.cambiar(encendidos: on),
             title: Text(
               strings.avisosOn,
+              style: NexusTypography.body.copyWith(color: colors.ink),
+            ),
+          ),
+          const SizedBox(height: NexusSpacing.s5),
+          // Los PR mezclados: el otro aviso que ocurre sin que lo pidas, y por
+          // eso va aquí y no en una sección propia — quien viene a esta pantalla
+          // viene a decidir de qué quiere enterarse solo.
+          Text(
+            strings.avisosPrExplainer,
+            style: NexusTypography.mono.copyWith(color: colors.faint),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: ref.watch(losAvisosDePrProvider).value ?? false,
+            onChanged: (on) async {
+              await ElVigilanteDeLosPr.cambiar(a: on);
+              ref.invalidate(losAvisosDePrProvider);
+            },
+            title: Text(
+              strings.avisosPrOn,
               style: NexusTypography.body.copyWith(color: colors.ink),
             ),
           ),

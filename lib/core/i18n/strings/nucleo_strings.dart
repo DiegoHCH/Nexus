@@ -250,6 +250,10 @@ mixin NucleoStrings {
   String ejemploDeLoQueContesta(String vocativo);
   String get avisosExplainer;
   String get avisosOn;
+
+  /// El interruptor de los avisos de PR mezclado, y su explicación.
+  String get avisosPrOn;
+  String get avisosPrExplainer;
   String get avisosCuanto;
   String get avisosCarpeta;
   String get avisosSinCarpeta;
@@ -688,6 +692,13 @@ mixin NucleoStringsEs implements NucleoStrings {
       'de lo que tiene invitados: los bloques tuyos no suenan.';
   @override
   String get avisosOn => 'Avisarme de las reuniones';
+  @override
+  String get avisosPrOn => 'Avisarme cuando mezclen un PR mío';
+  @override
+  String get avisosPrExplainer =>
+      'Mira cada dos minutos si alguno de tus PR pasó a mezclado, en cualquier '
+      'repositorio. Al encenderlo no avisa de los de antes: empieza a contar '
+      'desde ahora.';
   @override
   String get avisosCuanto => 'CUÁNTO ANTES';
   @override
@@ -1187,6 +1198,13 @@ mixin NucleoStringsEn implements NucleoStrings {
       'only announces what has guests: your own blocks stay quiet.';
   @override
   String get avisosOn => 'Tell me about meetings';
+  @override
+  String get avisosPrOn => 'Tell me when a PR of mine is merged';
+  @override
+  String get avisosPrExplainer =>
+      'Checks every two minutes whether any of your PRs got merged, in any '
+      'repository. Turning it on says nothing about the earlier ones: it starts '
+      'counting from now.';
   @override
   String get avisosCuanto => 'HOW LONG BEFORE';
   @override

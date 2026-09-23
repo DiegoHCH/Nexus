@@ -26,6 +26,11 @@ mixin EjecucionStrings {
   String get runStop;
   String get runReload;
   String get runRestart;
+
+  /// Qué pasó al pulsar recargar o reiniciar. Ver `CorridasController.recargar`.
+  String laRecargaFallo(String motivo);
+  String get laRecargaFue;
+  String get elReinicioFue;
   String get runCompiling;
   String get runRunning;
   String get runStopping;
@@ -141,6 +146,12 @@ mixin EjecucionStringsEs implements EjecucionStrings {
   @override
   String get runRestart => 'Reiniciar';
   @override
+  String laRecargaFallo(String motivo) => 'no se pudo recargar: $motivo';
+  @override
+  String get laRecargaFue => 'recargada';
+  @override
+  String get elReinicioFue => 'reiniciada';
+  @override
   String get runCompiling => 'Compilando';
   @override
   String get runRunning => 'corriendo';
@@ -255,6 +266,12 @@ mixin EjecucionStringsEn implements EjecucionStrings {
   String get runReload => 'Reload';
   @override
   String get runRestart => 'Restart';
+  @override
+  String laRecargaFallo(String motivo) => 'could not reload: $motivo';
+  @override
+  String get laRecargaFue => 'reloaded';
+  @override
+  String get elReinicioFue => 'restarted';
   @override
   String get runCompiling => 'Compiling';
   @override

@@ -499,6 +499,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               TourAnchor(
                 stop: TourStop.composer,
                 child: ComposerBar(
+                  alSepararse: () => unawaited(controller.irSola()),
                   onSubmit: (texto, adjuntos) =>
                       controller.submit(texto, attachments: adjuntos),
                   onFocusChanged: controller.setListening,

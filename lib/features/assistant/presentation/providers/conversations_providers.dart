@@ -12,6 +12,7 @@ import 'package:nexus/features/assistant/presentation/providers/la_sesion_sin_du
 import 'package:nexus/features/assistant/presentation/providers/la_ventana_de_actividad.dart';
 import 'package:nexus/features/assistant/presentation/providers/claude_bridge_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/lo_que_dejo_el_encargo.dart';
+import 'package:nexus/features/assistant/domain/usecases/la_sesion_que_se_comparte.dart';
 
 final conversationsDataSourceProvider = Provider<ConversationsDataSource>(
   (ref) => const ConversationsDataSource(),
@@ -443,3 +444,18 @@ enum RetomarResultado {
   /// peor que el error.
   noEsta,
 }
+
+/// Si esta carpeta ya tiene sesión guardada.
+///
+/// Lo pregunta el chip de memoria compartida para elegir el tiempo verbal: sin
+/// sesión todavía no comparten nada —**compartirán** en cuanto alguna escriba—,
+/// y decirlo en presente era afirmar algo que aún no había pasado. Reportado
+/// así: «no hay sesión pero si abro otra conversación me sigue saliendo el
+/// chip».
+final laCarpetaTieneSesionProvider = FutureProvider.family<bool, String>((
+  ref,
+  carpeta,
+) async {
+  final memoria = await ref.read(conversationMemoryProvider).read(carpeta);
+  return LaSesionQueSeComparte.continuaSinVerse(memoria.sessionId);
+});

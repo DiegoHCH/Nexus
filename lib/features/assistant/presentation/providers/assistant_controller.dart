@@ -327,6 +327,29 @@ class AssistantController extends Notifier<AssistantHudState> {
     );
   }
 
+  /// Esta conversación sigue por su cuenta, **sin tocar a las demás**.
+  ///
+  /// 🔴 **Separarse y olvidar no son lo mismo, y hasta ahora iban juntos.** La
+  /// única puerta para independizar una conversación era «empezar de cero», que
+  /// además borra la sesión **de la carpeta** — o sea que para separar la tuya
+  /// le quitabas el contexto a la otra. Y esa puerta solo aparece cuando hay
+  /// sesión que olvidar: reportado tal cual, «me tocó escribir en la
+  /// conversación anterior para abrir una nueva y ahí sí saliera el modal».
+  ///
+  /// Esto hace solo la mitad que se pedía: de aquí en adelante esta lleva hilo
+  /// propio. La otra conserva el suyo, y lo que hubiera dicho sigue donde
+  /// estaba.
+  Future<void> irSola() async {
+    if (state.memoriaPropia) return;
+    ref.read(askClaudeProvider(conversationId)).empezarSolo();
+    await ref.read(conversationsProvider.notifier).seFueSola(conversationId);
+    if (!_vive) return;
+    state = state.copyWith(
+      memoriaPropia: true,
+      subtitle: ref.read(stringsProvider).ahoraVaSola,
+    );
+  }
+
   /// Si esta carpeta ya tenía sesión, decirlo: la pantalla vacía engaña.
   ///
   /// 🔴 **Cerrar todos los chats no suelta la sesión.** Cierras todo, abres una

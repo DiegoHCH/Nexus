@@ -499,6 +499,12 @@ class HoldVoiceConversation {
             case ClaudeMcpCaido():
               break;
 
+            // Y que un trabajo de fondo haya vuelto tampoco: hablando, lo que
+            // importa es la respuesta, y «ha terminado el gate» dicha en alto
+            // compite con ella. La marca es de la pantalla, no de la voz.
+            case ClaudeAvisoDeFondo():
+              break;
+
             // Cómo fue la compactación tampoco se dice en alto: hablando, cada
             // frase que no es la respuesta compite con la respuesta. Queda en
             // la conversación, que es donde se mira.

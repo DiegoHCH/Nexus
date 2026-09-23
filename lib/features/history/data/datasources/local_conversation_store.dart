@@ -89,6 +89,11 @@ class LocalConversationStore {
               if (message.enviadoEl case final cuando?)
                 'cuando': cuando.toIso8601String(),
               if (message.loQueCosto case final coste?) 'costo': coste.toJson(),
+              // De dónde vino el turno. Se guarda porque al releer mañana es
+              // justo lo que explica una respuesta que no contesta a nada de lo
+              // que hay encima — sin la marca vuelve a parecer que la app se
+              // repitió sola.
+              if (message.porUnAvisoDeFondo) 'por_un_aviso': true,
               // Lo que dejó ese turno. **Se guarda o se pierde**: vivía solo en
               // memoria, así que al cerrar la app y retomar la conversación el
               // botón de ver cambios ya no estaba — y lo que ese encargo tocó
@@ -388,6 +393,7 @@ class LocalConversationStore {
       // turno sin hora se pinta sin ella.
       enviadoEl: DateTime.tryParse(message['cuando'] as String? ?? ''),
       loQueCosto: LoQueCostoElTurno.fromJson(message['costo']),
+      porUnAvisoDeFondo: message['por_un_aviso'] == true,
       cambios: _cambiosDe(message['cambios']),
       // El documento **solo si sigue estando**. Un botón que no lleva
       // a ningún sitio enseña a no pulsarlo, y entonces tampoco se

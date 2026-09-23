@@ -257,6 +257,22 @@ class _Turn extends StatelessWidget {
                 // que venía del micrófono explica el disparate.
                 Icon(Icons.graphic_eq, size: 11, color: colors.faint),
               ],
+              // 🔴 **Y si lo disparó un trabajo de fondo, que se vea.**
+              //
+              // Reportado como «me respondió dos veces». No lo eran: eran dos
+              // turnos, disparados por dos gates que terminaron con trece
+              // segundos de diferencia. El segundo no contestaba a nada que
+              // hubieras escrito, y sin decirlo parece que la app se repite.
+              //
+              // Aquí y no en el texto: es de dónde viene el turno, no algo que
+              // se haya dicho.
+              if (message.porUnAvisoDeFondo) ...[
+                const SizedBox(width: NexusSpacing.s2),
+                Tooltip(
+                  message: context.strings.loDisparoUnTrabajoDeFondo,
+                  child: Icon(Icons.bolt, size: 12, color: colors.faint),
+                ),
+              ],
               // Al otro extremo de la fila, y **solo si falló**.
               //
               // Sin esto, un encargo que se cae deja como única salida copiar

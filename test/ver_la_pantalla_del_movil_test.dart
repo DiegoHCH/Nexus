@@ -7,7 +7,7 @@ import 'package:nexus/features/emulators/domain/usecases/el_espejo_del_movil.dar
 /// Y se lanza scrcpy en vez de hacerlo nosotros porque se midió la alternativa: una
 /// captura por `adb exec-out screencap` tarda ~690 ms, o sea 1,4 por segundo.
 void main() {
-  List<String> args({bool conControl = true, bool encima = false}) =>
+  List<String> args({bool conControl = true, bool encima = true}) =>
       ElEspejoDelMovil.argumentos(
         deviceId: '36c56d94',
         titulo: 'POCO F6',
@@ -45,12 +45,17 @@ void main() {
   });
 
   group('encima de todo', () {
-    test('solo cuando se pide', () {
-      expect(args(), isNot(contains('--always-on-top')));
+    // 🔴 **Y por defecto, que es a lo que se abre un espejo.** Esto era solo
+    // para las pruebas, y lo que pasaba el resto del tiempo era que scrcpy
+    // nacía **detrás** de Nexus: abrías el espejo y no veías nada hasta apartar
+    // la app a mano, cada vez. Reportado así: «cuando se abre el espejo del
+    // teléfono siempre se abre debajo y debería abrirse arriba de Nexus».
+    test('el espejo nace delante', () {
+      expect(args(), contains('--always-on-top'));
     });
 
-    test('con una corrida viva, sí: se mira sin perder Nexus de vista', () {
-      expect(args(encima: true), contains('--always-on-top'));
+    test('y se puede pedir que no', () {
+      expect(args(encima: false), isNot(contains('--always-on-top')));
     });
   });
 }

@@ -130,7 +130,7 @@ class EmuladoresDataSource {
     required String deviceId,
     required String titulo,
     required bool conControl,
-    bool encima = false,
+    bool encima = true,
   }) async {
     final scrcpy = await buscar(
       ElEspejoDelMovil.binario,

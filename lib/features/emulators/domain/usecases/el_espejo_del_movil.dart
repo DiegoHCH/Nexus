@@ -47,7 +47,7 @@ abstract final class ElEspejoDelMovil {
     required String deviceId,
     required String titulo,
     required bool conControl,
-    bool encima = false,
+    bool encima = true,
   }) => [
     '--serial',
     deviceId,
@@ -62,9 +62,18 @@ abstract final class ElEspejoDelMovil {
     // pantalla a la vez, los dos estáis peleando por él y el fallo que salga no
     // será real. Se habrá inventado entre los dos.
     if (!conControl) '--no-control',
-    // Encima de todo cuando se abre con una prueba en marcha: entonces lo que se
-    // quiere es mirarlo mientras Nexus sigue delante. Fuera de eso, una ventana que
-    // se pone encima de todo estorba.
+    // 🔴 **Encima, que es a lo que se abre.** Esto era solo para las pruebas
+    // —«fuera de eso, una ventana que se pone encima de todo estorba»— y lo que
+    // pasaba de verdad es lo contrario: scrcpy nace **detrás** de Nexus, así que
+    // abrías el espejo y no veías nada hasta apartar la app a mano, cada vez.
+    // Reportado así: «cuando se abre el espejo del teléfono siempre se abre
+    // debajo y debería abrirse arriba de Nexus, como lo hace el dashboard».
+    //
+    // Es un flag de scrcpy y no traer la ventana al frente desde el sistema
+    // porque lo segundo no es lo mismo: activar el proceso exige acertar el
+    // instante en que su ventana existe —scrcpy tarda en empujar su servidor al
+    // teléfono— y un fallo ahí deja la ventana donde estaba, detrás. Este llega
+    // con la ventana.
     if (encima) '--always-on-top',
   ];
 }

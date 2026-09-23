@@ -7,6 +7,7 @@ import 'package:nexus/features/emulators/domain/entities/emulador.dart';
 import 'package:nexus/features/run/domain/entities/corrida.dart';
 import 'package:nexus/features/run/presentation/providers/corridas_providers.dart';
 import 'package:nexus/features/run/presentation/widgets/la_botonera_de_corridas.dart';
+import 'package:nexus/features/workspace/presentation/widgets/hud_top_bar.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/domain/entities/workspace.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
@@ -88,6 +89,30 @@ void main() {
       barra.bottom,
       lessThanOrEqualTo(hud.bottom),
       reason: 'asomaba por debajo del recorte y ahí no se pinta nada',
+    );
+  });
+
+  /// 🔴 **Y su caja llega hasta arriba del todo.** Vivía dentro del `Stack` del
+  /// HUD, que empieza **debajo** de la barra de estado, así que solo se podía
+  /// dejar donde está el chat o el orbe. Pedido así: «quisiera que la ventana
+  /// flotante del emulador corriendo también se pueda colocar encima del nexus
+  /// y el estado del orbe».
+  testWidgets('se puede llevar encima de la barra de estado', (tester) async {
+    await pumpScreen(tester, const HomePage(), overrides: _conUnaCarpeta);
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final caja = tester.getRect(find.byType(LaBotoneraDeCorridas));
+    final barra = tester.getRect(find.byType(HudTopBar));
+
+    expect(
+      caja.top,
+      lessThanOrEqualTo(barra.top),
+      reason: 'la barra de estado queda dentro de donde puede ir',
+    );
+    expect(
+      caja.bottom,
+      greaterThan(barra.bottom),
+      reason: 'y sigue cubriendo lo de siempre',
     );
   });
 

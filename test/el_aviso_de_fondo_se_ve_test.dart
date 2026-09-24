@@ -33,17 +33,20 @@ void main() {
         'summary': 'Background command "Re-run the full gate" completed',
       }, carpeta);
 
-      expect(eventos, hasLength(1));
+      // El mismo aviso vale por dos: marca el turno **y** cierra la fila de la
+      // tarea que se estaba enseñando mientras corría. Ver
+      // `las_tareas_de_fondo_se_ven_test.dart`.
       expect(
-        (eventos.single as ClaudeAvisoDeFondo).resumen,
+        eventos.whereType<ClaudeAvisoDeFondo>().single.resumen,
         'Background command "Re-run the full gate" completed',
       );
     });
 
     // El CLI manda más cosas por el mismo canal —`task_started`,
-    // `task_updated`, `background_tasks_changed`— y ninguna es esto: marcar un
-    // turno al empezar la tarea diría lo contrario de lo que pasa.
-    test('pero el resto del canal de tareas no', () {
+    // `task_updated`, `background_tasks_changed`— y ninguna es **esto**: marcar
+    // un turno al empezar la tarea diría lo contrario de lo que pasa. (Que esas
+    // sí abren la fila de «está corriendo» es otra cosa, y se prueba aparte.)
+    test('pero el resto del canal no marca ningún turno', () {
       for (final subtipo in [
         'task_started',
         'task_updated',
@@ -54,7 +57,8 @@ void main() {
             'type': 'system',
             'subtype': subtipo,
             'task_id': 'blh4kzj8o',
-          }, carpeta),
+            'description': 'lo que sea',
+          }, carpeta).whereType<ClaudeAvisoDeFondo>(),
           isEmpty,
           reason: subtipo,
         );

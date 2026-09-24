@@ -78,6 +78,10 @@ mixin NucleoStrings {
   /// Mientras corre: lo que se enseña antes de la primera línea, y el botón de
   /// pararlo.
   String get elTrabajoArrancando;
+
+  /// Lo que Claude dejó corriendo aparte, en la botonera. Ver
+  /// `LasTareasDeFondo`.
+  String get laTareaDeFondo;
   String get elTrabajoParar;
   String elTrabajoSePasa(String comando);
 
@@ -416,6 +420,8 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get elTrabajoPasarAlMarco => 'Pasárselo a flow check';
   @override
   String get elTrabajoArrancando => 'arrancando…';
+  @override
+  String get laTareaDeFondo => 'en segundo plano';
   @override
   String get elTrabajoParar => 'Parar el trabajo';
   @override
@@ -942,6 +948,8 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get elTrabajoPasarAlMarco => 'Send it to flow check';
   @override
   String get elTrabajoArrancando => 'starting…';
+  @override
+  String get laTareaDeFondo => 'in the background';
   @override
   String get elTrabajoParar => 'Stop the job';
   @override

@@ -23,6 +23,7 @@ import 'package:nexus/features/assistant/domain/usecases/la_puerta_de_la_voz.dar
 import 'package:nexus/features/assistant/domain/usecases/las_preguntas_en_pie.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_marco_apagado.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_trabajo_aparte.dart';
+import 'package:nexus/features/assistant/presentation/providers/las_tareas_de_fondo.dart';
 import 'package:nexus/features/assistant/presentation/providers/los_trabajos_providers.dart';
 import 'package:nexus/features/assistant/domain/usecases/lo_que_queda_permitido.dart';
 import 'package:nexus/features/workspace/domain/usecases/el_permiso_que_vale.dart';
@@ -1287,6 +1288,7 @@ class AssistantController extends Notifier<AssistantHudState> {
             ClaudeRulesChanged() => _onRulesChanged(event.paths),
             ClaudeMcpCaido() => _onMcpCaido(event.servidores),
             ClaudeAvisoDeFondo() => _onAvisoDeFondo(),
+            ClaudeTareaDeFondo() => _laTareaDeFondo(event),
             // Por aquí no llega: la compactación la pide `_compactIfNeeded`,
             // que consume su propio flujo. Se nombra para que añadir un evento
             // nuevo siga sin compilar hasta que alguien decida de qué lado cae.
@@ -1805,6 +1807,26 @@ class AssistantController extends Notifier<AssistantHudState> {
             .subtract(ElOrbeCuandoCalla.sinPalabras),
       );
     });
+  }
+
+  /// Lo que Claude dejó corriendo aparte, para que se vea mientras corre.
+  ///
+  /// Ver [LasTareasDeFondo]: va a un sitio propio y no al estado de la
+  /// conversación porque **sobrevive al turno**, que es lo que la hace de
+  /// fondo.
+  void _laTareaDeFondo(ClaudeTareaDeFondo evento) {
+    final tareas = ref.read(lasTareasDeFondoProvider.notifier);
+    if (evento.acabo) {
+      tareas.acabo(conversationId, evento.id);
+      return;
+    }
+    tareas.anda(
+      TareaDeFondo(
+        id: evento.id,
+        conversacion: conversationId,
+        que: evento.que,
+      ),
+    );
   }
 
   /// Un trabajo de fondo terminó: lo que se diga a partir de ahora lo dice él.
@@ -2897,6 +2919,11 @@ class AssistantController extends Notifier<AssistantHudState> {
     // trabajando. Detener es detener.
     if (state.voiceActive) await stopVoice();
     if (!_vive) return;
+
+    // Lo mismo con lo que Claude dejó corriendo aparte: vive dentro del proceso
+    // que estamos matando, así que dejar su fila puesta sería enseñar un
+    // trabajo que ya no existe.
+    ref.read(lasTareasDeFondoProvider.notifier).olvidaLasDe(conversationId);
 
     // Y se tira lo que esperaba turno. Detener es «para», no «pausa»: dejar la
     // cola viva haría que al soltar el botón arrancara solo lo siguiente, que

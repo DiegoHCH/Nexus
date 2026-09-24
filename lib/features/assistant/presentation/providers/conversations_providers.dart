@@ -11,6 +11,7 @@ import 'package:nexus/features/assistant/presentation/providers/assistant_contro
 import 'package:nexus/features/assistant/presentation/providers/la_sesion_sin_dueno.dart';
 import 'package:nexus/features/assistant/presentation/providers/la_ventana_de_actividad.dart';
 import 'package:nexus/features/assistant/presentation/providers/claude_bridge_providers.dart';
+import 'package:nexus/features/assistant/presentation/providers/las_tareas_de_fondo.dart';
 import 'package:nexus/features/assistant/presentation/providers/lo_que_dejo_el_encargo.dart';
 import 'package:nexus/features/assistant/domain/usecases/la_sesion_que_se_comparte.dart';
 
@@ -385,6 +386,10 @@ final conversationFolderProvider = Provider.family<String?, String>(
 final soltarLaConversacionProvider = Provider<void Function(String)>((ref) {
   return (id) {
     ref.read(laVentanaDeActividadProvider).olvidar(id);
+    // Lo que Claude tuviera corriendo aparte se va con su proceso, así que la
+    // fila que lo cuenta se va también: una tarea de una conversación que ya no
+    // existe no la puede terminar nadie, y se quedaría puesta para siempre.
+    ref.read(lasTareasDeFondoProvider.notifier).olvidaLasDe(id);
     ref.invalidate(assistantControllerProvider(id));
     ref.invalidate(askClaudeProvider(id));
     ref.invalidate(loQueDejoElEncargoProvider(id));

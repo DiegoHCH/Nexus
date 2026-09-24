@@ -498,6 +498,12 @@ class HoldVoiceConversation {
             // aviso de la conversación, que es donde se mira al terminar.
             case ClaudeMcpCaido():
               break;
+            // Y una tarea de fondo tampoco: se enseña en la botonera, que es
+            // algo que se mira, no algo que se oye. Interrumpir una frase para
+            // leer en voz alta que un subagente arrancó sería pagar la
+            // respuesta que sí se pidió.
+            case ClaudeTareaDeFondo():
+              break;
 
             // Y que un trabajo de fondo haya vuelto tampoco: hablando, lo que
             // importa es la respuesta, y «ha terminado el gate» dicha en alto

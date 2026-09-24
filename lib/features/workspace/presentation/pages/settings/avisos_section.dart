@@ -91,6 +91,23 @@ class AvisosSection extends ConsumerWidget {
               style: NexusTypography.body.copyWith(color: colors.ink),
             ),
           ),
+          // Y si habla **también** con Nexus delante. Va debajo y no al lado
+          // porque solo tiene sentido con lo de arriba encendido, y porque lo
+          // que decide es algo que la app no puede saber: con tres pantallas,
+          // tenerla delante y estar mirándola dejan de ser lo mismo.
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: ref.watch(losAvisosAunqueLaMiresProvider).value ?? true,
+            onChanged: (on) async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool(ElQueHablaPrimero.aunqueLaMires, on);
+              ref.invalidate(losAvisosAunqueLaMiresProvider);
+            },
+            title: Text(
+              strings.avisosAunqueLaMiresOn,
+              style: NexusTypography.body.copyWith(color: colors.ink),
+            ),
+          ),
           const SizedBox(height: NexusSpacing.s5),
           Text(
             strings.avisosCarpeta,

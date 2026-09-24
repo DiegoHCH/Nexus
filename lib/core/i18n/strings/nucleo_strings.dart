@@ -285,6 +285,9 @@ mixin NucleoStrings {
   /// Y lo que hace, que es sobre todo lo que **no** hace.
   String get avisosEnVozAltaExplainer;
 
+  /// Hablar también con la app delante. Ver `ElQueHablaPrimero`.
+  String get avisosAunqueLaMiresOn;
+
   /// Qué explica la marca de un turno que disparó un trabajo de fondo.
   String get loDisparoUnTrabajoDeFondo;
 
@@ -759,9 +762,11 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get avisosEnVozAltaOn => 'Que me lo diga en voz alta';
   @override
   String get avisosEnVozAltaExplainer =>
-      'Cuando algo termina y no estás delante, te lo dice hablando además de '
-      'dejarlo escrito. Solo si no estás mirando la pantalla, nunca en medio '
-      'de una conversación de voz, y no repite lo mismo dos veces.';
+      'Cuando algo termina te lo dice hablando, además de dejarlo escrito. '
+      'Nunca en medio de una conversación de voz, y no repite lo mismo dos '
+      'veces.';
+  @override
+  String get avisosAunqueLaMiresOn => 'También con Nexus delante';
   @override
   String get loDisparoUnTrabajoDeFondo =>
       'Esto no contesta a lo último que escribiste: lo disparó un trabajo de '
@@ -1303,10 +1308,11 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get avisosEnVozAltaOn => 'Say it out loud';
   @override
   String get avisosEnVozAltaExplainer =>
-      'When something finishes and you are not around, it says so out loud as '
-      'well as leaving it written. Only when you are not looking at the screen, '
-      'never in the middle of a voice conversation, and never the same thing '
-      'twice.';
+      'When something finishes it says so out loud, as well as leaving it '
+      'written. Never in the middle of a voice conversation, and never the '
+      'same thing twice.';
+  @override
+  String get avisosAunqueLaMiresOn => 'Even with Nexus in front';
   @override
   String get loDisparoUnTrabajoDeFondo =>
       'This is not answering what you last wrote: a background job triggered it '

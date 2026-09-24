@@ -1,7 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
+import 'package:nexus/features/assistant/presentation/providers/las_tareas_de_fondo.dart';
 import 'package:nexus/features/assistant/presentation/providers/los_trabajos_providers.dart';
 import 'package:nexus/features/run/domain/entities/corrida.dart';
 import 'package:nexus/features/run/domain/usecases/el_freno_de_la_app.dart';
@@ -75,12 +78,35 @@ class LaBotoneraDeCorridas extends ConsumerStatefulWidget {
   static Offset dondeNace(Size caja) =>
       Offset(caja.width - ancho - NexusSpacing.s6, alDelSuelo);
 
-  /// La deja siempre agarrable, aunque la ventana se haya hecho más pequeña
-  /// desde la última vez. `dy` se cuenta **desde el suelo**; ver [dondeNace].
-  static Offset dentroDe(Size caja, Offset donde) => Offset(
-    donde.dx.clamp(-ancho + margen, caja.width - margen),
-    donde.dy.clamp(0, (caja.height - 48).clamp(0, double.infinity)),
-  );
+  /// La deja **entera** dentro de la ventana siempre que quepa, y agarrable
+  /// cuando no. `dy` se cuenta **desde el suelo**; ver [dondeNace].
+  ///
+  /// 🔴 **Encoger la ventana la echaba fuera.** Los topes de antes dejaban que
+  /// se saliera —240 px por la derecha y casi entera por arriba, con tal de que
+  /// quedaran 120 px asomando— y eso, que como gesto del usuario tiene sentido
+  /// —apartarla sin perderla—, al cambiar el tamaño de la ventana **no lo
+  /// decide nadie**: la barra se iba sola. Medido con una posición guardada en
+  /// una ventana de 1280 y la ventana bajada a 900: de 380×99 quedaban visibles
+  /// **120×48**, y el asa —que va arriba— fuera de la pantalla, así que ya no
+  /// había forma de traerla de vuelta. Reportado tal cual: «cuando reduzco el
+  /// tamaño de la ventana de Nexus y tengo el emulador corriendo, la ventanita
+  /// de las opciones del emulador se oculta».
+  ///
+  /// Ahora el tope es «que quepa»: entre 0 y lo que sobra. Solo cuando la caja
+  /// es **más estrecha que la barra** se permite salirse —no hay otra— y
+  /// entonces se deja escoger qué mitad se ve, nunca menos.
+  ///
+  /// [alto] es lo que mide la barra de verdad, que depende de cuántas corridas
+  /// haya. Cero mientras no se ha medido: la primera pasada la deja como
+  /// estaba y el fotograma siguiente la coloca.
+  static Offset dentroDe(Size caja, Offset donde, {double alto = 0}) {
+    final sobraAncho = caja.width - ancho;
+    final sobraAlto = caja.height - alto;
+    return Offset(
+      donde.dx.clamp(math.min(0.0, sobraAncho), math.max(0.0, sobraAncho)),
+      donde.dy.clamp(0, math.max(0.0, sobraAlto)),
+    );
+  }
 
   @override
   ConsumerState<LaBotoneraDeCorridas> createState() =>
@@ -106,8 +132,26 @@ class _LaBotoneraDeCorridasState extends ConsumerState<LaBotoneraDeCorridas> {
     () => _arrastrando = (_arrastrando ?? desde) + Offset(delta.dx, -delta.dy),
   );
 
+  /// Lo que mide la barra, para no dejarla salirse por arriba.
+  ///
+  /// Se mide en vez de calcularse: su alto es el de sus filas —una por corrida y
+  /// una por trabajo— y una suma escrita a mano aquí se queda vieja el día que
+  /// alguien añada una fila, que es justo cuando nadie lo mira.
+  final _laLlaveParaMedir = GlobalKey();
+  double _alto = 0;
+
+  void _mide() {
+    final alto = _laLlaveParaMedir.currentContext?.size?.height;
+    if (alto == null || alto == _alto) return;
+    setState(() => _alto = alto);
+  }
+
   void _suelta(Size caja, Offset desde) {
-    final donde = LaBotoneraDeCorridas.dentroDe(caja, _arrastrando ?? desde);
+    final donde = LaBotoneraDeCorridas.dentroDe(
+      caja,
+      _arrastrando ?? desde,
+      alto: _alto,
+    );
     ref.read(dondeFlotaLaBotoneraProvider.notifier).mover(donde);
     setState(() => _arrastrando = null);
   }
@@ -126,12 +170,15 @@ class _LaBotoneraDeCorridasState extends ConsumerState<LaBotoneraDeCorridas> {
         .entries
         .where((t) => t.value.corriendo)
         .toList();
+    // Y lo que Claude dejó corriendo aparte, que hasta ahora no se veía en
+    // ninguna parte. Ver [LasTareasDeFondo].
+    final hayDeFondo = ref.watch(lasTareasDeFondoProvider).isNotEmpty;
     // 🔴 **Vacía es un `Positioned`, no un `SizedBox`.** Este widget cuelga
     // directamente del `Stack` del HUD, y ahí un hijo **sin posicionar** lo
     // estira el `fit` del Stack hasta ocupar la pantalla entera: sin nada
     // corriendo, la botonera invisible se comía las pulsaciones del orbe. Lo
     // pescó la prueba del orbe sin conversaciones, que dejó de crear ninguna.
-    if (corridas.isEmpty && trabajos.isEmpty) {
+    if (corridas.isEmpty && trabajos.isEmpty && !hayDeFondo) {
       return const Positioned(width: 0, height: 0, child: SizedBox.shrink());
     }
 
@@ -146,11 +193,15 @@ class _LaBotoneraDeCorridasState extends ConsumerState<LaBotoneraDeCorridas> {
     return Positioned.fill(
       child: LayoutBuilder(
         builder: (context, caja) {
+          // Después de pintar, porque hasta entonces no hay nada que medir. Si
+          // cambió —otra corrida, la ventana— el fotograma siguiente la coloca.
+          WidgetsBinding.instance.addPostFrameCallback((_) => _mide());
           final donde = LaBotoneraDeCorridas.dentroDe(
             caja.biggest,
             _arrastrando ??
                 ref.watch(dondeFlotaLaBotoneraProvider) ??
                 LaBotoneraDeCorridas.dondeNace(caja.biggest),
+            alto: _alto,
           );
 
           return Stack(
@@ -179,38 +230,107 @@ class _LaBotoneraDeCorridasState extends ConsumerState<LaBotoneraDeCorridas> {
         .entries
         .where((t) => t.value.corriendo)
         .toList();
+    final deFondo = ref.watch(lasTareasDeFondoProvider).values.toList();
 
-    return Material(
-      key: LaBotoneraDeCorridas.laLlave,
-      color: Colors.transparent,
-      child: Container(
-        width: LaBotoneraDeCorridas.ancho,
-        decoration: BoxDecoration(
-          color: colors.deep,
-          border: Border.all(color: colors.rule),
-          borderRadius: BorderRadius.circular(NexusRadius.md),
-          boxShadow: [
-            // Despegada del fondo: es lo único que dice que está encima y no
-            // dentro de la pantalla.
-            BoxShadow(
-              color: colors.void_.withValues(alpha: 0.5),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-          ],
+    return KeyedSubtree(
+      // Solo para poder medirla: la llave de siempre se queda donde estaba,
+      // que es la que buscan las pruebas.
+      key: _laLlaveParaMedir,
+      child: Material(
+        key: LaBotoneraDeCorridas.laLlave,
+        color: Colors.transparent,
+        child: Container(
+          width: LaBotoneraDeCorridas.ancho,
+          decoration: BoxDecoration(
+            color: colors.deep,
+            border: Border.all(color: colors.rule),
+            borderRadius: BorderRadius.circular(NexusRadius.md),
+            boxShadow: [
+              // Despegada del fondo: es lo único que dice que está encima y no
+              // dentro de la pantalla.
+              BoxShadow(
+                color: colors.void_.withValues(alpha: 0.5),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ElAsa(
+                onArrastrar: (delta) => _mueve(delta, donde),
+                onSoltar: () => _suelta(caja, donde),
+              ),
+              for (final corrida in corridas) _Corrida(corrida: corrida),
+              for (final trabajo in trabajos)
+                _UnTrabajo(conversacion: trabajo.key, trabajo: trabajo.value),
+              for (final tarea in deFondo) _UnaTareaDeFondo(tarea: tarea),
+            ],
+          ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _ElAsa(
-              onArrastrar: (delta) => _mueve(delta, donde),
-              onSoltar: () => _suelta(caja, donde),
+      ),
+    );
+  }
+}
+
+/// Una tarea que Claude dejó corriendo aparte.
+///
+/// 🔴 **Sin botón de parar, y es a propósito.** Lo de al lado —[_UnTrabajo]—
+/// corre con Nexus de padre y por eso se puede matar desde aquí; esto vive
+/// **dentro del proceso de Claude** y quien lo gobierna es él. Un botón que
+/// dijera «parar» y no parase nada sería peor que no tenerlo: para eso está
+/// «detener», que se lleva el turno entero.
+class _UnaTareaDeFondo extends StatelessWidget {
+  const _UnaTareaDeFondo({required this.tarea});
+
+  final TareaDeFondo tarea;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        NexusSpacing.s3,
+        NexusSpacing.s2,
+        NexusSpacing.s3,
+        NexusSpacing.s2,
+      ),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: colors.rule)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 7,
+            height: 7,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: colors.accent,
             ),
-            for (final corrida in corridas) _Corrida(corrida: corrida),
-            for (final trabajo in trabajos)
-              _UnTrabajo(conversacion: trabajo.key, trabajo: trabajo.value),
-          ],
-        ),
+          ),
+          const SizedBox(width: NexusSpacing.s3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tarea.que,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: NexusTypography.data.copyWith(color: colors.ink),
+                ),
+                Text(
+                  context.strings.laTareaDeFondo,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: NexusTypography.mono.copyWith(color: colors.accent),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

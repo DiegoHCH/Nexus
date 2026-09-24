@@ -490,25 +490,54 @@ void main() {
 
     // Arrastrarla fuera la dejaría irrecuperable: no queda asa que agarrar para
     // traerla de vuelta.
-    test('nunca se sale del todo de su caja', () {
+    //
+    // 🔴 **Y ya no se sale ni un poco cuando cabe.** Antes se permitía que
+    // asomara con tal de dejar 120 px dentro, y eso como gesto tiene sentido
+    // —apartarla— pero al **encoger la ventana** no lo decide nadie: la barra se
+    // iba sola. Ver [LaBotoneraDeCorridas.dentroDe].
+    test('nunca se sale de su caja', () {
       const suCaja = Size(1200, 800);
+      const alto = 99.0;
 
       final lejos = LaBotoneraDeCorridas.dentroDe(
         suCaja,
         const Offset(5000, 5000),
+        alto: alto,
       );
-      expect(lejos.dx, suCaja.width - LaBotoneraDeCorridas.margen);
-      expect(lejos.dy, suCaja.height - 48);
+      expect(lejos.dx, suCaja.width - LaBotoneraDeCorridas.ancho);
+      expect(lejos.dy, suCaja.height - alto);
 
       final alOtroLado = LaBotoneraDeCorridas.dentroDe(
         suCaja,
         const Offset(-5000, -5000),
+        alto: alto,
       );
-      expect(
-        alOtroLado.dx,
-        LaBotoneraDeCorridas.margen - LaBotoneraDeCorridas.ancho,
-      );
+      expect(alOtroLado.dx, 0);
       expect(alOtroLado.dy, 0);
+    });
+
+    // Y cuando **no cabe** sí se sale, porque no hay otra: entonces se elige
+    // qué parte se ve, y nunca menos que eso.
+    test('en una ventana más estrecha que ella, se elige qué mitad se ve', () {
+      const estrecha = Size(300, 400);
+
+      final aLaDerecha = LaBotoneraDeCorridas.dentroDe(
+        estrecha,
+        const Offset(5000, 0),
+        alto: 99,
+      );
+      final aLaIzquierda = LaBotoneraDeCorridas.dentroDe(
+        estrecha,
+        const Offset(-5000, 0),
+        alto: 99,
+      );
+
+      expect(aLaDerecha.dx, 0, reason: 'pegada a la izquierda, sin hueco');
+      expect(
+        aLaIzquierda.dx,
+        300 - LaBotoneraDeCorridas.ancho,
+        reason: 'y pegada a la derecha, que es la otra mitad',
+      );
     });
 
     // Lo de la última vez puede caer fuera si la ventana se hizo más pequeña.
@@ -516,10 +545,11 @@ void main() {
       final donde = LaBotoneraDeCorridas.dentroDe(
         const Size(600, 400),
         const Offset(1500, 900),
+        alto: 99,
       );
 
-      expect(donde.dx, lessThanOrEqualTo(600 - LaBotoneraDeCorridas.margen));
-      expect(donde.dy, lessThanOrEqualTo(400 - 48));
+      expect(donde.dx, lessThanOrEqualTo(600 - LaBotoneraDeCorridas.ancho));
+      expect(donde.dy, lessThanOrEqualTo(400 - 99));
     });
   });
 }

@@ -76,9 +76,25 @@ void main() {
     expect(voz.dichas, ['En nexus, el encargo terminó.']);
   });
 
-  // Lo que iba a decir ya está escrito delante: hablar ahí es leerte en voz
-  // alta lo que estás leyendo. El aviso del sistema sale igual.
-  test('mirando la pantalla, no', () async {
+  // 🔴 **Con la app delante también habla, que es como viene de fábrica.**
+  // Reportado así: «quisiera que los avisos igual avisaran si lo tengo en
+  // pantalla, porque al final tengo 3 pantallas y en una tengo Nexus siempre
+  // visible».
+  test('con la app delante, también', () async {
+    ElQueHablaPrimero.miraSiLaMiran = () async => true;
+    final quien = conLaVoz();
+
+    await avisa(quien);
+
+    expect(voz.dichas, hasLength(1));
+  });
+
+  // Y quien lo prefiera al revés lo apaga: entonces lo que está escrito delante
+  // no se lee en voz alta.
+  test('y apagando «también delante», se calla', () async {
+    SharedPreferences.setMockInitialValues({
+      ElQueHablaPrimero.aunqueLaMires: false,
+    });
     ElQueHablaPrimero.miraSiLaMiran = () async => true;
     final quien = conLaVoz();
 

@@ -35,6 +35,14 @@ class ElQueHablaPrimero {
   /// fuiste a otra cosa, que es justo el caso para el que existe.
   static const encendido = 'avisos_en_voz_alta';
 
+  /// Y si habla también con la app delante.
+  ///
+  /// **Nace encendido**, que es lo contrario de lo que parecería prudente y es
+  /// lo que se pidió: con varias pantallas, «la tengo delante» y «la estoy
+  /// mirando» dejan de ser lo mismo, y de las dos solo la primera se puede
+  /// medir desde aquí.
+  static const aunqueLaMires = 'avisos_aunque_la_mires';
+
   /// Si la están mirando. Inyectable para poder probar los dos lados sin una
   /// ventana de verdad delante.
   @visibleForTesting
@@ -43,13 +51,16 @@ class ElQueHablaPrimero {
 
   Future<bool> _laEstanMirando() => miraSiLaMiran();
 
-  Future<bool> _elAjuste() async {
+  Future<({bool hablar, bool aunqueMire})> _elAjuste() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(encendido) ?? true;
+      return (
+        hablar: prefs.getBool(encendido) ?? true,
+        aunqueMire: prefs.getBool(aunqueLaMires) ?? true,
+      );
     } on Object catch (error) {
       debugPrint('avisos · no se pudo leer si hablar: $error');
-      return false;
+      return (hablar: false, aunqueMire: false);
     }
   }
 
@@ -79,12 +90,16 @@ class ElQueHablaPrimero {
     // contrario de lo que promete el interruptor.
     final ajuste = await _elAjuste();
     if (!_ref.mounted) return;
-    final mirando = await _laEstanMirando();
+    // Solo se le pregunta al sistema si la respuesta puede cambiar algo: con
+    // «aunque la mires» puesto, saber dónde miras no decide nada y preguntarlo
+    // sería un viaje al canal nativo por nada.
+    final mirando = ajuste.aunqueMire ? false : await _laEstanMirando();
     if (!_ref.mounted) return;
 
     final voz = _ref.read(laVozQueAvisaProvider);
     final seDice = LoQueMereceDecirse.seDice(
-      encendido: ajuste,
+      encendido: ajuste.hablar,
+      aunqueLaMires: ajuste.aunqueMire,
       mirando: mirando,
       hablando: voz.hablando || voz.hayVozAbierta(),
       que: llave,
@@ -114,4 +129,10 @@ final elQueHablaPrimeroProvider = Provider<ElQueHablaPrimero>(
 final losAvisosEnVozAltaProvider = FutureProvider<bool>((ref) async {
   final prefs = await SharedPreferences.getInstance();
   return prefs.getBool(ElQueHablaPrimero.encendido) ?? true;
+});
+
+/// Y si habla también con la app delante.
+final losAvisosAunqueLaMiresProvider = FutureProvider<bool>((ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(ElQueHablaPrimero.aunqueLaMires) ?? true;
 });

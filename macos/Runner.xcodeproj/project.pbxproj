@@ -34,6 +34,7 @@
 		NX0000000000000000000007 /* NexusThumbnails.swift in Sources */ = {isa = PBXBuildFile; fileRef = NX0000000000000000000008 /* NexusThumbnails.swift */; };
 		NX0000000000000000000009 /* NexusArtifacts.swift in Sources */ = {isa = PBXBuildFile; fileRef = NX0000000000000000000010 /* NexusArtifacts.swift */; };
 		NX0000000000000000000005 /* NexusPower.swift in Sources */ = {isa = PBXBuildFile; fileRef = NX0000000000000000000006 /* NexusPower.swift */; };
+		NX0000000000000000000095 /* NexusPresencia.swift in Sources */ = {isa = PBXBuildFile; fileRef = NX0000000000000000000096 /* NexusPresencia.swift */; };
 		NX0000000000000000000015 /* NexusNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = NX0000000000000000000016 /* NexusNotifications.swift */; };
 		NX0000000000000000000017 /* NexusUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = NX0000000000000000000018 /* NexusUpdater.swift */; };
 		NX0000000000000000000013 /* NexusStatusItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = NX0000000000000000000014 /* NexusStatusItem.swift */; };
@@ -93,6 +94,7 @@
 		NX0000000000000000000008 /* NexusThumbnails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusThumbnails.swift; sourceTree = "<group>"; };
 		NX0000000000000000000010 /* NexusArtifacts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusArtifacts.swift; sourceTree = "<group>"; };
 		NX0000000000000000000006 /* NexusPower.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusPower.swift; sourceTree = "<group>"; };
+		NX0000000000000000000096 /* NexusPresencia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusPresencia.swift; sourceTree = "<group>"; };
 		NX0000000000000000000016 /* NexusNotifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusNotifications.swift; sourceTree = "<group>"; };
 		NX0000000000000000000018 /* NexusUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusUpdater.swift; sourceTree = "<group>"; };
 		NX0000000000000000000014 /* NexusStatusItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusStatusItem.swift; sourceTree = "<group>"; };
@@ -207,6 +209,7 @@
 				NX0000000000000000000008 /* NexusThumbnails.swift */,
 				NX0000000000000000000010 /* NexusArtifacts.swift */,
 				NX0000000000000000000006 /* NexusPower.swift */,
+				NX0000000000000000000096 /* NexusPresencia.swift */,
 				NX0000000000000000000016 /* NexusNotifications.swift */,
 				NX0000000000000000000018 /* NexusUpdater.swift */,
 				NX0000000000000000000014 /* NexusStatusItem.swift */,
@@ -494,6 +497,7 @@
 				NX0000000000000000000007 /* NexusThumbnails.swift in Sources */,
 				NX0000000000000000000009 /* NexusArtifacts.swift in Sources */,
 				NX0000000000000000000005 /* NexusPower.swift in Sources */,
+				NX0000000000000000000095 /* NexusPresencia.swift in Sources */,
 				NX0000000000000000000015 /* NexusNotifications.swift in Sources */,
 				NX0000000000000000000017 /* NexusUpdater.swift in Sources */,
 				NX0000000000000000000013 /* NexusStatusItem.swift in Sources */,

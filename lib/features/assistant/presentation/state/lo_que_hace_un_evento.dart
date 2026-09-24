@@ -74,6 +74,12 @@ AssistantHudState conElEvento(
         ],
       );
 
+    // Las tareas de fondo no son del HUD: viven en la botonera, que es donde
+    // vive lo que corre aunque nadie lo mire, y sobreviven al turno. Ver
+    // [LasTareasDeFondo].
+    case ClaudeTareaDeFondo():
+      return actual;
+
     case ClaudeSessionStarted(:final model):
       // **Le llegó el turno**: la espera se cierra en cuanto arranca, y se
       // cierra igual que cualquier otro paso — por su identificador fijo.

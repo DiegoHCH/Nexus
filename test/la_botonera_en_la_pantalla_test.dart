@@ -1,11 +1,14 @@
 import 'dart:io';
 
+import 'package:flutter/material.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/features/assistant/presentation/pages/home_page.dart';
 import 'package:nexus/features/assistant/presentation/widgets/composer_bar.dart';
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
 import 'package:nexus/features/run/domain/entities/corrida.dart';
 import 'package:nexus/features/run/presentation/providers/corridas_providers.dart';
+import 'package:nexus/features/run/presentation/providers/donde_flota_la_botonera.dart';
 import 'package:nexus/features/run/presentation/widgets/la_botonera_de_corridas.dart';
 import 'package:nexus/features/workspace/presentation/widgets/hud_top_bar.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
@@ -27,6 +30,12 @@ import 'support/screen_harness.dart';
 /// La lección, que es la que hace falta escrita: una prueba de geometría en una
 /// caja que no es la de verdad **no prueba la geometría**.
 const _deviceId = 'emulator-5554';
+
+/// Lo que dejó apuntado una ventana de 1280×800.
+class _DondeDeUnaVentanaGrande extends DondeFlotaLaBotonera {
+  @override
+  Offset? build() => const Offset(820, 520);
+}
 
 class _Corridas extends CorridasController {
   @override
@@ -126,5 +135,34 @@ void main() {
     final compositor = tester.getRect(find.byType(ComposerBar));
 
     expect(barra.bottom, lessThanOrEqualTo(compositor.top));
+  });
+
+  /// 🔴 **Encoger la ventana la echaba fuera.** Reportado así: «cuando reduzco
+  /// el tamaño de la ventana de Nexus y tengo el emulador corriendo, la
+  /// ventanita de las opciones del emulador se oculta». Medido antes del
+  /// arreglo, con una posición guardada en una ventana de 1280 y la ventana
+  /// bajada a 900: de 380×99 quedaban visibles **120×48**, y el asa —que va
+  /// arriba— fuera de la pantalla, así que ya no había forma de traerla.
+  testWidgets('con la ventana más pequeña sigue entera dentro', (tester) async {
+    await pumpScreen(
+      tester,
+      const HomePage(),
+      size: const Size(900, 600),
+      overrides: [
+        ..._conUnaCarpeta,
+        dondeFlotaLaBotoneraProvider.overrideWith(_DondeDeUnaVentanaGrande.new),
+      ],
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    // Un fotograma más: la barra se mide después de pintarse.
+    await tester.pump();
+
+    final caja = tester.getRect(find.byType(LaBotoneraDeCorridas));
+    final barra = tester.getRect(find.byKey(LaBotoneraDeCorridas.laLlave));
+
+    expect(barra.left, greaterThanOrEqualTo(caja.left));
+    expect(barra.top, greaterThanOrEqualTo(caja.top));
+    expect(barra.right, lessThanOrEqualTo(caja.right));
+    expect(barra.bottom, lessThanOrEqualTo(caja.bottom));
   });
 }

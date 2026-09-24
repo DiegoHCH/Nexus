@@ -108,6 +108,41 @@ final class ClaudeAvisoDeFondo extends ClaudeEvent {
   final String resumen;
 }
 
+/// Una tarea que Claude dejó corriendo aparte, y en qué anda.
+///
+/// 🔴 **Se iban a segundo plano sin dejar rastro.** Reportado así: «cuando se
+/// van tareas a background no sé cómo van o qué se está haciendo, porque
+/// actualmente no hay nada que me diga». Y era literal: de los cuatro avisos
+/// que manda el CLI por este canal —`task_started`, `task_updated`,
+/// `background_tasks_changed` y `task_notification`— Nexus solo leía el último,
+/// que es **el que dice que ya terminó**. Lo de en medio, que es justo el rato
+/// en el que uno se pregunta, no se leía.
+///
+/// La forma está copiada de una corrida real, guardada en
+/// `test/fixtures/delegacion_real.jsonl`: `task_started` trae `task_id`,
+/// `description`, `subagent_type` y `task_type`; `task_notification` trae
+/// `task_id`, `status` y `summary`.
+final class ClaudeTareaDeFondo extends ClaudeEvent {
+  const ClaudeTareaDeFondo({
+    required this.id,
+    required this.que,
+    this.acabo = false,
+    this.resumen,
+  });
+
+  /// El `task_id` del CLI. Es lo que une el principio con el final.
+  final String id;
+
+  /// Qué le encargaron, con las palabras del CLI.
+  final String que;
+
+  /// Si este aviso es el de que terminó.
+  final bool acabo;
+
+  /// Lo que dijo al terminar, cuando lo dice.
+  final String? resumen;
+}
+
 /// Los archivos de reglas de esta carpeta no son los mismos que la última vez.
 ///
 /// Llega antes de que Claude empiece, y **no detiene nada**: el encargo sigue.

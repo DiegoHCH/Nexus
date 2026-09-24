@@ -378,8 +378,38 @@ class ClaudeBridgeImpl implements ClaudeBridge {
         }
         // Un trabajo de fondo que volvió. Lo que el modelo diga a partir de
         // aquí lo dispara él, no quien escribe. Ver [ClaudeAvisoDeFondo].
+        //
+        // **Y además se tacha de la lista**: el mismo aviso es el final de una
+        // tarea que se está enseñando mientras corre. Ver [ClaudeTareaDeFondo].
         if (json['subtype'] == 'task_notification') {
-          return [ClaudeAvisoDeFondo(json['summary'] as String? ?? '')];
+          final resumen = json['summary'] as String? ?? '';
+          return [
+            ClaudeAvisoDeFondo(resumen),
+            if (json['task_id'] case final String id when id.isNotEmpty)
+              ClaudeTareaDeFondo(
+                id: id,
+                que: resumen,
+                acabo: true,
+                resumen: resumen,
+              ),
+          ];
+        }
+        // Una tarea que arranca —o que dice algo nuevo— mientras el turno sigue.
+        // Es lo único que cuenta **qué** se está haciendo ahí detrás.
+        if (json['subtype'] == 'task_started' ||
+            json['subtype'] == 'task_updated') {
+          final que =
+              (json['description'] as String?) ??
+              (json['subagent_type'] as String?) ??
+              '';
+          // **Con identificador y con algo que decir**, las dos cosas: una fila
+          // sin texto no cuenta nada, y una sin identificador no se puede
+          // cerrar cuando la tarea vuelva — se quedaría puesta para siempre.
+          if (json['task_id'] case final String id
+              when id.isNotEmpty && que.isNotEmpty) {
+            return [ClaudeTareaDeFondo(id: id, que: que)];
+          }
+          return const [];
         }
         if (json['subtype'] != 'init') return const [];
         // 🔴 **Solo los que fallaron.** El arranque trae cada servidor con su

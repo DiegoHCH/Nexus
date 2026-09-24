@@ -12,6 +12,7 @@ void main() {
     bool encendido = true,
     bool mirando = false,
     bool hablando = false,
+    bool aunqueLaMires = false,
     String que = 'nexus·terminó',
     String? loUltimo,
     Duration? desdeLoUltimo,
@@ -19,6 +20,7 @@ void main() {
     encendido: encendido,
     mirando: mirando,
     hablando: hablando,
+    aunqueLaMires: aunqueLaMires,
     que: que,
     loUltimo: loUltimo,
     desdeLoUltimo: desdeLoUltimo,
@@ -34,8 +36,30 @@ void main() {
 
   // Lo que iba a decir ya está escrito delante de ti. Hablar ahí es leerte en
   // voz alta lo que estás leyendo.
-  test('si estás mirando la pantalla, no', () {
+  test('si la tienes delante, no', () {
     expect(seDice(mirando: true), isFalse);
+  });
+
+  // 🔴 **Salvo que digas lo contrario, que es como viene.** Reportado así:
+  // «quisiera que los avisos igual avisaran si lo tengo en pantalla, porque al
+  // final tengo 3 pantallas y en una tengo Nexus siempre visible». Tener el
+  // foco no es estar mirando cuando la ventana vive en un monitor para ella
+  // sola, y eso este código no lo puede saber.
+  test('y con varias pantallas, también delante', () {
+    expect(seDice(mirando: true, aunqueLaMires: true), isTrue);
+  });
+
+  // Lo que no se levanta ni con eso: el resto de condiciones siguen mandando.
+  test('pero delante no se salta lo demás', () {
+    expect(
+      seDice(mirando: true, aunqueLaMires: true, hablando: true),
+      isFalse,
+      reason: 'meterse en medio de una frase sigue siendo meterse en medio',
+    );
+    expect(
+      seDice(mirando: true, aunqueLaMires: true, encendido: false),
+      isFalse,
+    );
   });
 
   // Dos audios no se mezclan nunca, y meterse en medio de una frase es peor que

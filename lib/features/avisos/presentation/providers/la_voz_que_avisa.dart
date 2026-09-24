@@ -46,6 +46,23 @@ class LaVozQueAvisa {
     }
     _hablando = true;
     try {
+      return await _decirlo(titulo: titulo, frase: frase);
+    } on Object catch (error) {
+      // 🔴 **Decir algo no puede tumbar lo que lo provocó.** Aquí dentro se
+      // habla con el almacén de la llave, con el motor de audio y con la red, y
+      // cualquiera de los tres puede fallar de formas que no son culpa del
+      // encargo que acaba de terminar. Lo que sale mal se deja escrito, que es
+      // lo que un aviso mudo sigue siendo: un aviso.
+      debugPrint('voz · no se pudo decir: $error');
+      await _soloNotificar(titulo, frase);
+      return false;
+    } finally {
+      _hablando = false;
+    }
+  }
+
+  Future<bool> _decirlo({required String titulo, required String frase}) async {
+    {
       // 🔴 Si hay una sesión de voz abierta, se espera a que calle. Es la
       // decisión que evita tocar el motor duplex: dos audios no se mezclan
       // nunca, así que la parte que cancela el eco se queda como está.
@@ -118,8 +135,6 @@ class LaVozQueAvisa {
         await delMac.stop();
         await delMovil.stop();
       }
-    } finally {
-      _hablando = false;
     }
   }
 

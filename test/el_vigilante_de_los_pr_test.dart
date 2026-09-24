@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/features/prs/data/datasources/los_pr_data_source.dart';
 import 'package:nexus/features/prs/domain/entities/pr_mezclado.dart';
 import 'package:nexus/features/prs/presentation/providers/el_vigilante_de_los_pr.dart';
+import 'package:nexus/features/avisos/presentation/providers/el_que_habla_primero.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// **El vigía de los PR mezclados, mirado por lo que apunta.**
@@ -124,4 +125,59 @@ void main() {
     expect(prefs.getBool(ElVigilanteDeLosPr.encendido), isFalse);
     expect(prefs.getStringList(ElVigilanteDeLosPr.yaDichos), isNull);
   });
+
+  // 🔴 **Y se dice en voz alta cuando merece la pena.** Este aviso existe para
+  // enterarte de algo que pasó mientras hacías otra cosa, y una notificación
+  // muda no te saca de donde estés. Quien decide si hablar o callarse es
+  // `ElQueHablaPrimero`, con sus propias pruebas; lo que se comprueba aquí es
+  // que el vigía le pasa lo que tiene que pasarle.
+  test('el que se mezcló se cuenta con su repo y su número', () async {
+    SharedPreferences.setMockInitialValues({
+      ElVigilanteDeLosPr.encendido: true,
+    });
+    final dichos = <({String frase, String llave})>[];
+    final c = ProviderContainer(
+      overrides: [
+        losPrDataSourceProvider.overrideWithValue(
+          _Gh([
+            [_pr(1)],
+            [_pr(1), _pr(2)],
+          ]),
+        ),
+        elQueHablaPrimeroProvider.overrideWith(
+          (ref) => _QuienHabla(ref, dichos),
+        ),
+      ],
+    );
+    addTearDown(c.dispose);
+    c.read(elVigilanteDeLosPrProvider);
+    for (var i = 0; i < 12; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    await c.read(elVigilanteDeLosPrProvider).mirar();
+
+    expect(dichos, hasLength(1));
+    expect(dichos.single.frase, contains('2'));
+    expect(dichos.single.frase, contains('a/uno'));
+    expect(
+      dichos.single.llave,
+      'pr·a/uno#2',
+      reason: 'la llave distingue este PR de cualquier otro aviso',
+    );
+  });
+}
+
+/// Un pregonero que apunta en vez de hablar.
+class _QuienHabla extends ElQueHablaPrimero {
+  _QuienHabla(super.ref, this.dichos);
+
+  final List<({String frase, String llave})> dichos;
+
+  @override
+  Future<void> avisa({
+    required String titulo,
+    required String frase,
+    required String llave,
+    required String escrito,
+  }) async => dichos.add((frase: frase, llave: llave));
 }

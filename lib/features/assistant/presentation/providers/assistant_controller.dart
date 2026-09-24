@@ -758,6 +758,27 @@ class AssistantController extends Notifier<AssistantHudState> {
         ),
       );
       _sealLast();
+      // 🔴 **Y se avisa, que es lo que faltaba.** Un `/gate` tarda minutos —esa
+      // es la razón de lanzarlo aparte— así que cuando termina hace rato que te
+      // fuiste a otra cosa. Hasta ahora lo único que lo contaba era este
+      // mensaje en la conversación, y un mensaje en una pantalla que no estás
+      // mirando no cuenta nada.
+      unawaited(
+        ref
+            .read(elQueHablaPrimeroProvider)
+            .avisa(
+              titulo: _folder?.split('/').last ?? 'Nexus',
+              frase: strings.elTrabajoTerminoEnVoz(
+                _folder?.split('/').last ?? 'Nexus',
+                trabajo.comando,
+                ElTrabajoAparte.elVeredicto(codigo),
+              ),
+              escrito:
+                  '${trabajo.comando} · '
+                  '${ElTrabajoAparte.elVeredicto(codigo)}',
+              llave: 'trabajo·$conversationId·${trabajo.comando}·$codigo',
+            ),
+      );
       ref.read(losTrabajosProvider.notifier).recoger(conversationId);
     });
   }

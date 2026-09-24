@@ -2,7 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nexus/core/platform/notifications_channel.dart';
+import 'package:nexus/core/i18n/language_preference.dart';
+import 'package:nexus/features/avisos/presentation/providers/el_que_habla_primero.dart';
 import 'package:nexus/features/assistant/domain/repositories/el_despacho_de_carpeta.dart';
 import 'package:nexus/features/assistant/presentation/providers/el_despacho_de_carpeta_impl.dart';
 import 'package:nexus/features/programadas/data/datasources/las_programadas_en_preferencias.dart';
@@ -181,7 +182,17 @@ class ElVigilanteDeLasProgramadas extends Notifier<LasCitas> {
       HayQueDecir(:final texto) => texto,
       _ => encargo.tarea,
     };
-    await NotificationsChannel.notify(title: 'Nexus · $carpeta', body: cuerpo);
+    // Dicho en voz alta si no estás delante: un encargo programado corre
+    // **precisamente** cuando no lo estás mirando, que es el caso entero de
+    // este aviso. Ver [ElQueHablaPrimero].
+    await ref
+        .read(elQueHablaPrimeroProvider)
+        .avisa(
+          titulo: 'Nexus · $carpeta',
+          frase: ref.read(stringsProvider).loQueSeDice(carpeta, cuerpo),
+          escrito: cuerpo,
+          llave: 'programada·${encargo.id}',
+        );
   }
 
   /// Saltarse una que se pasó: se deja constancia de que ya no está pendiente

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/features/assistant/domain/repositories/el_despacho_de_carpeta.dart';
 import 'package:nexus/features/assistant/presentation/providers/el_despacho_de_carpeta_impl.dart';
@@ -107,6 +108,9 @@ void main() {
   // traga el `MissingPluginException` a propósito: un aviso que no sale no
   // puede tumbar un trabajo que ya está hecho.
   TestWidgetsFlutterBinding.ensureInitialized();
+  // Y el ajuste de si hablar se lee de las preferencias, como el idioma: sin
+  // esto, el aviso se lleva por delante la prueba de lo que sí funcionaba.
+  setUp(() => SharedPreferences.setMockInitialValues({}));
 
   // Martes 15 de septiembre de 2026.
   DateTime elMartesALas(int hora, [int minuto = 0]) =>

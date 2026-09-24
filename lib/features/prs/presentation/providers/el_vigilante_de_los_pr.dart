@@ -2,7 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nexus/core/platform/notifications_channel.dart';
+import 'package:nexus/core/i18n/language_preference.dart';
+import 'package:nexus/features/avisos/presentation/providers/el_que_habla_primero.dart';
 import 'package:nexus/features/prs/data/datasources/los_pr_data_source.dart';
 import 'package:nexus/features/prs/domain/usecases/los_pr_que_se_mezclaron.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -85,10 +86,21 @@ class ElVigilanteDeLosPr {
       await prefs.setStringList(yaDichos, toca.queRecordar);
 
       for (final pr in toca.queDecir) {
-        await NotificationsChannel.notify(
-          title: 'PR mezclado · ${pr.repo}',
-          body: '#${pr.numero} ${pr.titulo}',
-        );
+        // 🔴 **Y se dice en voz alta cuando merece la pena.** Este aviso existe
+        // para enterarte de algo que pasó **mientras hacías otra cosa**: si te
+        // pilla mirando la pantalla no hace falta hablar, y si no, una
+        // notificación muda no te saca de donde estés. Ver [ElQueHablaPrimero],
+        // que es quien decide.
+        await _ref
+            .read(elQueHablaPrimeroProvider)
+            .avisa(
+              titulo: 'PR mezclado · ${pr.repo}',
+              frase: _ref
+                  .read(stringsProvider)
+                  .elPrMezcladoEnVoz(pr.repo, pr.numero),
+              escrito: '#${pr.numero} ${pr.titulo}',
+              llave: 'pr·${pr.repo}#${pr.numero}',
+            );
       }
     } finally {
       _mirando = false;

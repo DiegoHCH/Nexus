@@ -86,6 +86,16 @@ mixin NucleoStrings {
   /// Un aviso dicho en voz alta: dónde pasó y qué pasó. Ver
   /// `ElQueHablaPrimero`.
   String loQueSeDice(String carpeta, String texto);
+
+  /// Un PR tuyo que acaban de mezclar, dicho en voz alta.
+  String elPrMezcladoEnVoz(String repo, int numero);
+
+  /// Un trabajo largo que terminó mientras no estabas. Ver `ElTrabajoAparte`.
+  String elTrabajoTerminoEnVoz(
+    String carpeta,
+    String comando,
+    String veredicto,
+  );
   String get elTrabajoParar;
   String elTrabajoSePasa(String comando);
 
@@ -434,6 +444,15 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get laTareaDeFondo => 'en segundo plano';
   @override
   String loQueSeDice(String carpeta, String texto) => 'En $carpeta, $texto';
+  @override
+  String elPrMezcladoEnVoz(String repo, int numero) =>
+      'Te mezclaron el PR $numero de $repo';
+  @override
+  String elTrabajoTerminoEnVoz(
+    String carpeta,
+    String comando,
+    String veredicto,
+  ) => 'En $carpeta, $comando $veredicto';
   @override
   String get elTrabajoParar => 'Parar el trabajo';
   @override
@@ -971,6 +990,15 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get laTareaDeFondo => 'in the background';
   @override
   String loQueSeDice(String carpeta, String texto) => 'In $carpeta, $texto';
+  @override
+  String elPrMezcladoEnVoz(String repo, int numero) =>
+      'Your PR $numero in $repo was merged';
+  @override
+  String elTrabajoTerminoEnVoz(
+    String carpeta,
+    String comando,
+    String veredicto,
+  ) => 'In $carpeta, $comando $veredicto';
   @override
   String get elTrabajoParar => 'Stop the job';
   @override

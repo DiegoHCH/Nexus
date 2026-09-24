@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/agenda/presentation/providers/el_vigilante_de_la_agenda.dart';
+import 'package:nexus/features/avisos/presentation/providers/el_que_habla_primero.dart';
 import 'package:nexus/features/prs/presentation/providers/el_vigilante_de_los_pr.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/settings_chooser.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Los avisos de agenda: lo único de Nexus que ocurre sin que se lo pidas.
 ///
@@ -64,6 +66,28 @@ class AvisosSection extends ConsumerWidget {
             },
             title: Text(
               strings.avisosPrOn,
+              style: NexusTypography.body.copyWith(color: colors.ink),
+            ),
+          ),
+          const SizedBox(height: NexusSpacing.s5),
+          // Que hable solo: el interruptor de lo único que Nexus hace **sin**
+          // que se lo pidan y **con voz**. Va aquí por lo mismo que el de los
+          // PR — quien viene a esta pantalla viene a decidir de qué quiere
+          // enterarse solo— y va el último porque es el más ruidoso.
+          Text(
+            strings.avisosEnVozAltaExplainer,
+            style: NexusTypography.mono.copyWith(color: colors.faint),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: ref.watch(losAvisosEnVozAltaProvider).value ?? true,
+            onChanged: (on) async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool(ElQueHablaPrimero.encendido, on);
+              ref.invalidate(losAvisosEnVozAltaProvider);
+            },
+            title: Text(
+              strings.avisosEnVozAltaOn,
               style: NexusTypography.body.copyWith(color: colors.ink),
             ),
           ),

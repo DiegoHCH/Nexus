@@ -82,6 +82,10 @@ mixin NucleoStrings {
   /// Lo que Claude dejó corriendo aparte, en la botonera. Ver
   /// `LasTareasDeFondo`.
   String get laTareaDeFondo;
+
+  /// Un aviso dicho en voz alta: dónde pasó y qué pasó. Ver
+  /// `ElQueHablaPrimero`.
+  String loQueSeDice(String carpeta, String texto);
   String get elTrabajoParar;
   String elTrabajoSePasa(String comando);
 
@@ -265,6 +269,12 @@ mixin NucleoStrings {
   /// El interruptor de los avisos de PR mezclado, y su explicación.
   String get avisosPrOn;
 
+  /// El interruptor de que Nexus hable solo. Ver `ElQueHablaPrimero`.
+  String get avisosEnVozAltaOn;
+
+  /// Y lo que hace, que es sobre todo lo que **no** hace.
+  String get avisosEnVozAltaExplainer;
+
   /// Qué explica la marca de un turno que disparó un trabajo de fondo.
   String get loDisparoUnTrabajoDeFondo;
 
@@ -422,6 +432,8 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get elTrabajoArrancando => 'arrancando…';
   @override
   String get laTareaDeFondo => 'en segundo plano';
+  @override
+  String loQueSeDice(String carpeta, String texto) => 'En $carpeta, $texto';
   @override
   String get elTrabajoParar => 'Parar el trabajo';
   @override
@@ -725,6 +737,13 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String get avisosPrOn => 'Avisarme cuando mezclen un PR mío';
   @override
+  String get avisosEnVozAltaOn => 'Que me lo diga en voz alta';
+  @override
+  String get avisosEnVozAltaExplainer =>
+      'Cuando algo termina y no estás delante, te lo dice hablando además de '
+      'dejarlo escrito. Solo si no estás mirando la pantalla, nunca en medio '
+      'de una conversación de voz, y no repite lo mismo dos veces.';
+  @override
   String get loDisparoUnTrabajoDeFondo =>
       'Esto no contesta a lo último que escribiste: lo disparó un trabajo de '
       'fondo al terminar.';
@@ -950,6 +969,8 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get elTrabajoArrancando => 'starting…';
   @override
   String get laTareaDeFondo => 'in the background';
+  @override
+  String loQueSeDice(String carpeta, String texto) => 'In $carpeta, $texto';
   @override
   String get elTrabajoParar => 'Stop the job';
   @override
@@ -1250,6 +1271,14 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get avisosOn => 'Tell me about meetings';
   @override
   String get avisosPrOn => 'Tell me when a PR of mine is merged';
+  @override
+  String get avisosEnVozAltaOn => 'Say it out loud';
+  @override
+  String get avisosEnVozAltaExplainer =>
+      'When something finishes and you are not around, it says so out loud as '
+      'well as leaving it written. Only when you are not looking at the screen, '
+      'never in the middle of a voice conversation, and never the same thing '
+      'twice.';
   @override
   String get loDisparoUnTrabajoDeFondo =>
       'This is not answering what you last wrote: a background job triggered it '

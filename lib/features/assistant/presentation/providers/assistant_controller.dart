@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
-import 'package:nexus/core/platform/notifications_channel.dart';
 import 'package:nexus/features/assistant/domain/usecases/attached_files.dart';
 import 'package:nexus/features/agenda/presentation/providers/el_vigilante_de_la_agenda.dart';
 import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
@@ -24,6 +23,7 @@ import 'package:nexus/features/assistant/domain/usecases/las_preguntas_en_pie.da
 import 'package:nexus/features/assistant/domain/usecases/el_marco_apagado.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_trabajo_aparte.dart';
 import 'package:nexus/features/assistant/presentation/providers/las_tareas_de_fondo.dart';
+import 'package:nexus/features/avisos/presentation/providers/el_que_habla_primero.dart';
 import 'package:nexus/features/assistant/presentation/providers/los_trabajos_providers.dart';
 import 'package:nexus/features/assistant/domain/usecases/lo_que_queda_permitido.dart';
 import 'package:nexus/features/workspace/domain/usecases/el_permiso_que_vale.dart';
@@ -2202,12 +2202,28 @@ class AssistantController extends Notifier<AssistantHudState> {
   /// base de datos de notificaciones del sistema, y meter ahí lo que Claude leyó
   /// de tu repo sería sacarlo de la app por una puerta que nadie ha mirado. Es la
   /// misma idea que i5, aplicada a otro sitio.
+  /// 🔴 **Y desde ahora se dice en voz alta cuando merece la pena.** Era una
+  /// notificación muda, y una notificación muda no te saca de donde estés: el
+  /// caso para el que existe este aviso es precisamente que te fuiste a otra
+  /// cosa. Quien decide si se dice o se calla es [ElQueHablaPrimero], y solo
+  /// habla si **no** estás mirando la pantalla — lo que ya ves no hace falta
+  /// que nadie te lo lea.
+  ///
+  /// El aviso escrito sale igual, se diga o no: hablar es un extra, no un
+  /// sustituto.
   Future<void> _avisar(String texto) async {
     final folder = _folder;
-    await NotificationsChannel.notify(
-      title: folder == null ? 'Nexus' : folder.split('/').last,
-      body: texto,
-    );
+    final carpeta = folder == null ? 'Nexus' : folder.split('/').last;
+    await ref
+        .read(elQueHablaPrimeroProvider)
+        .avisa(
+          titulo: carpeta,
+          // Hablando hace falta decir **dónde**: «el encargo terminó» desde la
+          // otra habitación no dice cuál de las tres conversaciones era.
+          frase: ref.read(stringsProvider).loQueSeDice(carpeta, texto),
+          escrito: texto,
+          llave: '$conversationId·$texto',
+        );
   }
 
   /// Deja la conversación guardada donde el usuario haya dicho.

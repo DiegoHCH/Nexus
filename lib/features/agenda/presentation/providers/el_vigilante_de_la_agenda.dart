@@ -3,24 +3,16 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
-import 'package:nexus/core/platform/notifications_channel.dart';
 import 'package:nexus/features/agenda/data/datasources/agenda_data_source.dart';
 import 'package:nexus/features/agenda/data/datasources/avisos_preferencias_data_source.dart';
 import 'package:nexus/features/agenda/domain/usecases/la_voz_del_aviso.dart';
 import 'package:nexus/features/assistant/presentation/providers/voice_session_providers.dart';
+import 'package:nexus/features/avisos/presentation/providers/la_voz_que_avisa.dart';
 import 'package:nexus/features/agenda/domain/entities/reunion.dart';
 import 'package:nexus/features/agenda/domain/usecases/la_lectura_que_toca.dart';
 import 'package:nexus/features/agenda/domain/usecases/lo_que_se_contesta_de_la_agenda.dart';
 import 'package:nexus/features/agenda/domain/usecases/lo_que_toca_avisar.dart';
-import 'package:nexus/features/assistant/data/datasources/native_audio_data_source.dart';
-import 'package:nexus/features/assistant/data/repositories/audio_output_impl.dart';
-import 'package:nexus/features/assistant/domain/repositories/audio_output.dart';
 import 'package:nexus/features/assistant/domain/repositories/la_agenda_de_hoy.dart';
-import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
-import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
-import 'package:nexus/features/assistant/presentation/providers/voice_input_providers.dart';
-import 'package:nexus/features/onboarding/presentation/providers/onboarding_providers.dart';
-import 'package:nexus/features/remote/presentation/providers/channel_providers.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
@@ -98,7 +90,6 @@ class ElVigilanteDeLaAgenda extends Notifier<Avisos> {
   DateTime? _leidoDesde;
   List<Reunion> _agenda = const [];
   final _yaAvisadas = <String>{};
-  var _hablando = false;
 
   /// La hora, por el proveedor y no por `DateTime.now()` directo.
   ///
@@ -167,7 +158,7 @@ class ElVigilanteDeLaAgenda extends Notifier<Avisos> {
   }
 
   Future<void> _mirar() async {
-    if (!state.listos || _hablando) return;
+    if (!state.listos || ref.read(laVozQueAvisaProvider).hablando) return;
     final ahora = _ahora();
     await _leerSiHaceFalta(ahora);
     if (!ref.mounted) return;
@@ -324,200 +315,28 @@ class ElVigilanteDeLaAgenda extends Notifier<Avisos> {
       ..addAll(siguenVivos);
   }
 
+  /// Lo dice en voz alta, o lo deja escrito si no se puede.
+  ///
+  /// 🔴 **Decirlo ya no vive aquí.** Todo lo que costó aprenderlo —pedir el
+  /// altavoz antes de sintetizar, el silencio de cabecera, esperar a que suene
+  /// antes de parar el motor, soltarlo pase lo que pase— se fue a
+  /// [LaVozQueAvisa] el día que hubo un segundo sitio que quería hablar. Tener
+  /// dos copias de eso habría sido tener dos copias de sus fallos, que además
+  /// se pagaron uno a uno.
   Future<void> _avisar(Reunion reunion, DateTime ahora) async {
-    _hablando = true;
-    try {
-      final s = ref.read(stringsProvider);
-      final frase = LoQueTocaAvisar.comoSeDice(
-        reunion,
-        cuando: ahora,
-        plantilla: s.reunionEnMinutos,
-        ahoraMismo: s.reunionAhora,
-      );
-
-      // 🔴 Si hay una sesión de voz abierta, se espera a que calle. Es la
-      // decisión que evita tocar el motor duplex: dos audios no se mezclan
-      // nunca, así que la parte que cancela el eco se queda como está.
-      if (!await _esperarSilencio()) {
-        await _soloNotificar(reunion.titulo, frase);
-        return;
-      }
-      if (!ref.mounted) return;
-
-      final llave = await ref.read(geminiKeyStoreProvider).read();
-      if (!ref.mounted) return;
-      if (llave == null || llave.isEmpty) {
-        await _soloNotificar(reunion.titulo, frase);
-        return;
-      }
-
-      // 🔴 **El altavoz se pide antes de sintetizar, no después.**
-      //
-      // Aquí se perdía el principio de la frase. Medido con el log del motor:
-      // arrancarlo cuesta ~316 ms, y sobre un dispositivo que no es el altavoz
-      // interno la ruta de audio tarda además en abrir de verdad — `isRunning`
-      // ya es cierto y el aparato todavía no rinde. Un aviso es **un solo
-      // buffer entregado de golpe** justo después de ese arranque en frío, así
-      // que lo que se come el despertar no es un chasquido: son las primeras
-      // palabras. En la conversación duplex no se ve porque el audio llega en
-      // muchos trozos a lo largo de segundos.
-      //
-      // Y por eso no se arregla metiendo una espera: se arregla poniendo el
-      // arranque **dentro del viaje de red que ya se paga**. Sintetizar tarda
-      // más de un segundo; el motor despierta durante ese tiempo y el coste
-      // añadido es cero. La demora que se siente no cambia — lo que cambia es
-      // que ya no se traga el principio.
-      // 🔴 **Solo salida.** Un aviso habla y no escucha, y pedir el motor entero
-      // encendía el micrófono para decir una frase — con el indicador naranja de
-      // macOS puesto todo el rato, sin nada que lo justificara.
-      final delMac = AudioOutputImpl(
-        ref.read(nativeAudioDataSourceProvider),
-        para: ParaQue.hablar,
-      );
-      final delMovil = ref.read(remoteAudioSinkProvider);
-      await delMac.start();
-      await delMovil.start();
-
-      // 🔴 **Y se suelta pase lo que pase, que es lo que faltaba.** Los dos
-      // `stop()` de abajo cubrían los caminos de error y **el bueno no soltaba
-      // nada**: un aviso que sonaba bien dejaba el altavoz cogido para siempre.
-      //
-      // Lo que cuesta no es el altavoz, es todo lo demás. El contador de
-      // `NativeAudioDataSource` decide si se manda el `stop` al motor, y con un
-      // usuario pendiente **no se manda nunca**: sin `stop` no hay desmontaje
-      // programado, así que el micrófono se queda abierto hasta cerrar la app —
-      // y unos auriculares Bluetooth se quedan en modo llamada, sin música y
-      // sin avisos del sistema. Reportado así: «quedaron bloqueados los airpods
-      // por nexus», veinte minutos después de colgar la voz.
-      //
-      // El propio código de aquí abajo ya lo decía para el camino de error
-      // —«Dejarlo cogido mantiene el micrófono abierto, el motor es el mismo»—;
-      // lo que faltaba era decirlo una sola vez y para todos los caminos.
-
-      // 🔴 **Cuánto tardó en sintetizar, dicho en el log.** Esta línea resolvió
-      // en una pulsación lo que llevaba media hora sin resolverse: cuatro
-      // avisos seguidos habían muerto en «no contestó en 30s» contra un host
-      // que respondía en 250 ms, y no había forma de saber si el servicio iba
-      // lento o si la petición no volvía nunca. Con el número delante se vio
-      // que lo normal son ~3,9 s, o sea que un tope agotado no es «faltó un
-      // poco»: es el servicio en problemas.
-      try {
-        final empezo = DateTime.now();
-        // 🔴 **Por la sesión de voz y ya no por el TTS.** El cupo del modelo de
-        // texto a voz del nivel gratuito se agota con dos o tres avisos —medido al
-        // sacar la 1.8.0: `RPD 13/10`— y un aviso que llega en silencio ha dejado
-        // de ser un aviso. El Live es el mismo servicio que sostiene las
-        // conversaciones y no se agota en uso normal. Ver [LaVozDelAviso].
-        final dicho = await ref.read(laVozDelAvisoProvider).decir(frase);
-        debugPrint(
-          'agenda · decirlo tardó '
-          '${DateTime.now().difference(empezo).inMilliseconds} ms',
+    final s = ref.read(stringsProvider);
+    await ref
+        .read(laVozQueAvisaProvider)
+        .decir(
+          titulo: reunion.titulo,
+          frase: LoQueTocaAvisar.comoSeDice(
+            reunion,
+            cuando: ahora,
+            plantilla: s.reunionEnMinutos,
+            ahoraMismo: s.reunionAhora,
+          ),
         );
-        // Si ya no hay a quien avisarle, no se dice nada. El altavoz lo suelta
-        // el `finally`, como en todos los demás caminos.
-        if (!ref.mounted) return;
-        if (!dicho.salio) {
-          debugPrint('agenda · no se pudo decir el aviso: ${dicho.problema}');
-          await _soloNotificar(reunion.titulo, frase);
-          return;
-        }
-
-        await _sonarEnLosDos(delMac, delMovil, dicho.pcm!);
-        // El aviso de macOS va **además** de la voz: si estabas en otra sala, la
-        // frase se la lleva el aire y la notificación sigue ahí al volver.
-        await NotificationsChannel.notify(title: reunion.titulo, body: frase);
-      } finally {
-        // El del móvil también: es el mismo descuido, y aunque ahí no haya
-        // micrófono que liberar, un altavoz remoto tomado sin dueño es un
-        // recurso que nadie va a soltar.
-        await delMac.stop();
-        await delMovil.stop();
-      }
-    } finally {
-      _hablando = false;
-    }
   }
-
-  /// 🔴 **En los dos, y es una excepción a la regla del canal.**
-  ///
-  /// El canal decide dónde suena la respuesta con «suena donde se preguntó, así
-  /// que nunca suenan los dos». Un aviso no se pregunta desde ningún sitio, así
-  /// que esa regla no lo cubre — y la salida elegida es sonar en ambos, porque
-  /// el aviso existe para sacarte de donde estés y no se sabe si estás delante
-  /// del Mac. El precio, aceptado: si estás al lado de los dos, se oye doble.
-  ///
-  /// Al teléfono solo llega si está conectado: `RemoteAudioSink` se traga el
-  /// trozo cuando no hay socket, que es exactamente lo que hay que hacer con
-  /// audio sin conexión.
-  Future<void> _sonarEnLosDos(
-    AudioOutput delMac,
-    AudioOutput delMovil,
-    Uint8List pcm,
-  ) async {
-    // 🔴 **Cuánto audio llegó, dicho en el log.** Es lo que separa «la máquina
-    // se comió el principio» de «Gemini devolvió menos frase», que se oyen
-    // exactamente igual y se arreglan en sitios distintos. Sin esto, la única
-    // forma de distinguirlos era un experimento a mano con un cronómetro.
-    debugPrint(
-      'agenda · aviso de ${_milisegundosDe(pcm)} ms '
-      '(${pcm.lengthInBytes} bytes)',
-    );
-
-    final conCabecera = _conSilencioDelante(pcm);
-    delMac.enqueue(conCabecera);
-    delMovil.enqueue(conCabecera);
-
-    // Sin esperar a que termine no se puede parar el motor sin cortar a media
-    // palabra — es la misma razón por la que `pending()` existe.
-    await Future<void>.delayed(await delMac.pending());
-  }
-
-  /// PCM de 16 bits a 24 kHz: dos bytes por muestra.
-  static const _bytesPorSegundo = 24000 * 2;
-
-  /// El silencio que se pone delante, por si el arranque anticipado no llegó.
-  ///
-  /// Un cuarto de segundo y no más: con el motor ya caliente esto sobra, y sobra
-  /// poco. Es el seguro contra las primeras muestras, no el arreglo — el arreglo
-  /// es pedir el altavoz antes de sintetizar.
-  ///
-  /// 🔴 Va **concatenado en el mismo buffer** y no entregado aparte, y eso no es
-  /// estilo: dos entregas con la cola vacía en medio cuentan como un hueco de
-  /// reproducción, y ese contador existe para medir la red. Un seguro que
-  /// ensucia la medida de otra cosa no es gratis.
-  static const _silencio = Duration(milliseconds: 250);
-
-  static int _milisegundosDe(Uint8List pcm) =>
-      (pcm.lengthInBytes / _bytesPorSegundo * 1000).round();
-
-  static Uint8List _conSilencioDelante(Uint8List pcm) {
-    final muestras = _bytesPorSegundo * _silencio.inMilliseconds ~/ 1000;
-    // Un `Uint8List` nace en ceros, y cero es silencio en PCM de 16 bits con
-    // signo: no hay que rellenarlo.
-    final conCabecera = Uint8List(muestras + pcm.lengthInBytes)
-      ..setRange(muestras, muestras + pcm.lengthInBytes, pcm);
-    return conCabecera;
-  }
-
-  Future<void> _soloNotificar(String titulo, String frase) =>
-      NotificationsChannel.notify(title: titulo, body: frase);
-
-  /// Espera a que ninguna conversación tenga la voz abierta. `false` si se
-  /// agota el plazo.
-  Future<bool> _esperarSilencio() async {
-    final hasta = _ahora().add(esperaMaxima);
-    while (_hayVozAbierta()) {
-      if (_ahora().isAfter(hasta)) return false;
-      await Future<void>.delayed(const Duration(seconds: 2));
-      if (!ref.mounted) return false;
-    }
-    return true;
-  }
-
-  bool _hayVozAbierta() => ref
-      .read(conversationsProvider)
-      .items
-      .any((c) => ref.read(assistantControllerProvider(c.id)).voiceActive);
 
   /// La carpeta emparejada, o `null` si todavía no está en el workspace.
   ///

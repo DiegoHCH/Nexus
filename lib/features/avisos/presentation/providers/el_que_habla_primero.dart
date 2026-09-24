@@ -43,6 +43,16 @@ class ElQueHablaPrimero {
 
   Future<bool> _laEstanMirando() => miraSiLaMiran();
 
+  Future<bool> _elAjuste() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(encendido) ?? true;
+    } on Object catch (error) {
+      debugPrint('avisos · no se pudo leer si hablar: $error');
+      return false;
+    }
+  }
+
   /// Lo último que se dijo y cuándo, para no repetirse ni ametrallar.
   String? _loUltimo;
   DateTime? _cuando;
@@ -62,14 +72,19 @@ class ElQueHablaPrimero {
     // de la línea siguiente —preguntarle a la voz— usa un proveedor muerto.
     // Lo pescaron las pruebas de los permisos, que cierran la conversación con
     // el aviso en vuelo, que es exactamente lo que pasa al pulsar la X.
-    final prefs = await SharedPreferences.getInstance();
+    // 🔴 **Y si no se puede leer el ajuste, se calla.** Un aviso no puede
+    // tumbar lo que lo provocó, así que esto no lanza nunca; y ante la duda se
+    // elige el silencio, que es la misma regla que sigue la presencia: hablar
+    // es lo excepcional, y hacerlo sin saber si estaba permitido sería lo
+    // contrario de lo que promete el interruptor.
+    final ajuste = await _elAjuste();
     if (!_ref.mounted) return;
     final mirando = await _laEstanMirando();
     if (!_ref.mounted) return;
 
     final voz = _ref.read(laVozQueAvisaProvider);
     final seDice = LoQueMereceDecirse.seDice(
-      encendido: prefs.getBool(encendido) ?? true,
+      encendido: ajuste,
       mirando: mirando,
       hablando: voz.hablando || voz.hayVozAbierta(),
       que: llave,

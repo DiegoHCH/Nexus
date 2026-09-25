@@ -2,15 +2,16 @@
 /// movimiento del orbe y el tipo de línea del horizonte, nunca solo el color
 /// — es lo que permite distinguir el estado a tres metros.
 enum NexusOrbState {
-  /// En reposo: solo puntos, sin malla. Respira lento, giro casi imperceptible.
+  /// En reposo: brasas que laten despacio, sin malla, y el anillo fino del
+  /// oído si está puesto. Pasados unos minutos duerme hondo y se apaga más.
   sleep,
 
-  /// Escuchando: la malla aparece, un anillo de voz rodea el orbe, el
-  /// horizonte se vuelve onda.
+  /// Escuchando: la malla aparece y una esfera de partículas envuelve al orbe
+  /// y se ondula con la voz.
   listen,
 
-  /// Trabajando: gira mucho más rápido, dos anillos lo barren, el horizonte
-  /// es un riel con un pulso que viaja.
+  /// Trabajando: gira mucho más rápido, encogido dentro del reactor —un anillo
+  /// de segmentos que se encienden según avanzan los pasos de Claude—.
   think,
 
   /// Pensando: el turno sigue en pie pero lleva rato sin decir una palabra.
@@ -25,12 +26,12 @@ enum NexusOrbState {
   /// Y con **su propio movimiento**, que es la regla de aquí arriba: el estado
   /// se distingue a tres metros o no se distingue. Gira despacio —entre dormido
   /// y trabajando—, respira hondo con ondas lentas que le recorren la esfera de
-  /// polo a polo, y el horizonte es un péndulo que va y viene en vez del riel
-  /// que cruza de trabajando. Lo que se ve es un orbe que está en algo, no uno
+  /// polo a polo, lo cruzan chispas lentas por dentro y por fuera un reloj da
+  /// una vuelta por minuto. Lo que se ve es un orbe que está en algo, no uno
   /// que está produciendo.
   ponder,
 
-  /// Hablando: late con la voz simulada y emite ondas concéntricas; el
-  /// horizonte se convierte en barras verticales.
+  /// Hablando: late con la voz, emite ondas concéntricas y lo rodea un anillo
+  /// de barras, del acento al violeta, que suelta ecos en los picos.
   speak,
 }

@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:nexus/core/design_system/orbe_preference.dart';
+import 'package:nexus/features/assistant/presentation/orb/nexus_orb_painter.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 
 /// El programa del shader, cargado una sola vez para todos los orbes.
@@ -30,9 +31,9 @@ abstract final class PlasmaDelOrbe {
 /// el orbe de puntos, más lo que solo tiene el plasma.
 ///
 /// Los números son los del mockup del escenario (`CFG` y `TAM` de
-/// `nexus-orbe-plasma.html`). Trabajando va a tamaño entero hasta que tenga su
-/// reactor alrededor —paso 04 del plan—: en el mockup encoge al 55 % porque el
-/// reactor ocupa el resto, y sin reactor quedaría un orbe pequeño y solo.
+/// `nexus-orbe-plasma.html`). Trabajando encoge al 55 % porque el reactor de
+/// `NexusOrbLayersPainter` lo rodea y ocupa el resto; si algún día el reactor
+/// se quita, esto tiene que volver a 1 o queda un orbe pequeño y solo.
 class _Movimiento {
   const _Movimiento({
     required this.giro,
@@ -55,6 +56,7 @@ const _movimientos = {
   NexusOrbState.think: _Movimiento(
     giro: 0.52,
     brillo: 0.85,
+    tamano: 0.55,
     torsion: 1.35,
     nucleo: 0.28,
   ),
@@ -90,6 +92,20 @@ class PlasmaVivo {
     angulo += dt * giro * math.pi * 2;
     tiempo += dt * estilo.velocidad * (giro / 0.17) * 0.35;
   }
+
+  /// Lleva los parámetros de golpe a los de [estado], sin acercarse.
+  ///
+  /// Para cuando no hay fotogramas que los acerquen —con «Reducir movimiento»
+  /// el ticker está parado— y para el primer fotograma: un orbe que aparece
+  /// trabajando no tiene que encogerse delante de nadie.
+  void fijar(NexusOrbState estado) {
+    final objetivo = _movimientos[estado]!;
+    giro = objetivo.giro;
+    brillo = objetivo.brillo;
+    tamano = objetivo.tamano;
+    torsion = objetivo.torsion;
+    nucleo = objetivo.nucleo;
+  }
 }
 
 /// Pinta el orbe de plasma con `shaders/orbe_plasma.frag`, en el mismo sitio y
@@ -105,6 +121,8 @@ class NexusOrbPlasmaPainter extends CustomPainter {
     required this.accent,
     required this.onLight,
     this.fillsBox = false,
+    this.nivel,
+    this.profundo = 0,
   });
 
   final ui.FragmentProgram programa;
@@ -118,16 +136,12 @@ class NexusOrbPlasmaPainter extends CustomPainter {
   final bool onLight;
   final bool fillsBox;
 
-  /// La envolvente de voz simulada, la misma del orbe de puntos, hasta que
-  /// llegue el nivel real del micrófono y del altavoz (paso 03 del plan).
-  static double _voz(double t) {
-    final v =
-        0.5 +
-        0.30 * math.sin(t * 5.1) +
-        0.16 * math.sin(t * 11.3 + 1.1) +
-        0.10 * math.sin(t * 19.7 + 2.4);
-    return v.clamp(0.06, 1.0);
-  }
+  /// El nivel de voz real, de 0 a 1; con `null`, la envolvente simulada, la
+  /// misma del orbe de puntos. Ver [vozDelOrbe].
+  final double? nivel;
+
+  /// Lo hondo que duerme, de 0 a 1: las brasas bajan a menos de la mitad.
+  final double profundo;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -142,7 +156,7 @@ class NexusOrbPlasmaPainter extends CustomPainter {
     final cy = h * (fillsBox ? 0.5 : 0.46);
     final lado = math.min(w, h);
 
-    final voz = _voz(t * 1.2);
+    final voz = vozDelOrbe(nivel, t * 1.2);
     final latido = math.pow(0.5 + 0.5 * math.sin(t * 1.57), 3).toDouble();
     final respira =
         1 +
@@ -170,7 +184,9 @@ class NexusOrbPlasmaPainter extends CustomPainter {
     f(
       estilo.intensidad *
           (vivo.brillo / 0.9) *
-          (estado == NexusOrbState.sleep ? 0.62 + 0.45 * latido : 1),
+          (estado == NexusOrbState.sleep
+              ? (0.62 + 0.45 * latido) * (1 - 0.55 * profundo)
+              : 1),
     ); // uIntensity
     f(estilo.turbulencia * vivo.torsion); // uWarp
     f(estilo.filamentos); // uScale

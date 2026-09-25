@@ -21,6 +21,10 @@ abstract final class OrbGeometry {
   static final List<OrbPoint> points = _buildPoints();
   static final List<(int, int)> edges = _buildEdges();
 
+  /// Los vecinos de cada punto por las aristas: por donde saltan las chispas
+  /// de pensando.
+  static final List<List<int>> neighbours = _buildNeighbours();
+
   static List<OrbPoint> _buildPoints() {
     final goldenAngle = math.pi * (3 - math.sqrt(5));
     return List.generate(pointCount, (i) {
@@ -29,6 +33,15 @@ abstract final class OrbGeometry {
       final theta = goldenAngle * i;
       return OrbPoint(math.cos(theta) * r, y, math.sin(theta) * r);
     });
+  }
+
+  static List<List<int>> _buildNeighbours() {
+    final result = List.generate(pointCount, (_) => <int>[]);
+    for (final (i, j) in edges) {
+      result[i].add(j);
+      result[j].add(i);
+    }
+    return result;
   }
 
   static List<(int, int)> _buildEdges() {

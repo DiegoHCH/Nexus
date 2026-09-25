@@ -42,7 +42,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// exactamente la clase de iniciativa que no se quiere.
 class ElOidoQueEspera {
   ElOidoQueEspera(this._ref) {
-    EscuchaChannel.cuandoTeLlamen(_teLlamaron, siSeCalla: _seCallo);
+    EscuchaChannel.cuandoTeLlamen(
+      _teLlamaron,
+      alOirTuNombre: _teOyo,
+      siSeCalla: _seCallo,
+    );
     _ref.onDispose(() {
       EscuchaChannel.cuandoTeLlamen(null);
       unawaited(EscuchaChannel.parar());
@@ -132,7 +136,18 @@ class ElOidoQueEspera {
   /// Cuánto se espera antes de volver a probar tras callarse sola.
   static const _reintento = Duration(seconds: 5);
 
-  void _teLlamaron() {
+  /// Oyó el nombre y todavía te está escuchando el resto: el orbe sale ya.
+  /// Montar la voz tarda un segundo largo, y en ese rato lo único que sabe que
+  /// la llamaste eres tú.
+  void _teOyo() {
+    if (_ref.read(conversationsProvider).focused == null) return;
+    unawaited(OrbeChannel.mostrar(NexusOrbState.listen.name, _elAcento()));
+  }
+
+  /// [resto] es lo que dijiste después del nombre. Si dijiste algo, es tu
+  /// primer turno y **no saluda**: «Hestia, ¿qué reuniones tengo?» se
+  /// contesta, no se recibe con un «¿Sí?» que te obligaría a repetirlo.
+  void _teLlamaron(String resto) {
     _puesto = false;
     final cual = _ref.read(conversationsProvider).focused?.id;
     if (cual == null) {
@@ -150,7 +165,10 @@ class ElOidoQueEspera {
     unawaited(
       _ref
           .read(assistantControllerProvider(cual).notifier)
-          .toggleVoice(saludo: _elSaludo()),
+          .toggleVoice(
+            saludo: resto.isEmpty ? _elSaludo() : null,
+            primeraFrase: resto.isEmpty ? null : resto,
+          ),
     );
   }
 

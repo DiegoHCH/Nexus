@@ -180,7 +180,13 @@ class HoldVoiceConversation {
   ///
   /// [saludo] es lo que dice al abrirse, cuando se abrió llamándola por su
   /// nombre. Ver [ComoUnaConversacion.saludo].
-  Stream<VoiceEvent> call({String? saludo}) {
+  ///
+  /// [primeraFrase] es lo que dijiste **después** del nombre —«Hestia, ¿qué
+  /// reuniones tengo?»—: va como tu primer turno, por escrito porque el micro
+  /// aún no estaba abierto cuando lo dijiste, y pasa por la misma regla que
+  /// cualquier turno —si ella contesta de memoria algo que era de Claude, se
+  /// corrige—. Con primera frase no hay saludo: ya sabes que te oyó.
+  Stream<VoiceEvent> call({String? saludo, String? primeraFrase}) {
     late StreamController<VoiceEvent> controller;
 
     /// Si está diciendo el saludo. **Hasta que acabe, el micro no sale.**
@@ -1006,7 +1012,20 @@ class HoldVoiceConversation {
             // Una vez por conversación: un reenganche también trae
             // `VoiceSessionReady`, y volver a saludar a media charla sería
             // raro.
-            if (saludo != null && !saludoPedido) {
+            if (primeraFrase != null && !saludoPedido) {
+              saludoPedido = true;
+              _log('voz · te llamaron con una frase: va como primer turno');
+              // Como si hubiera llegado transcrita: estrena turno y se acumula
+              // en `asked`, que es lo que juzga el cierre del turno.
+              turn++;
+              asked.write(primeraFrase);
+              live.sendSystemNote(primeraFrase);
+              // Después del «lista» en la pantalla, no antes: si no, la
+              // interfaz lo pintaría y luego lo borraría al abrirse.
+              scheduleMicrotask(
+                () => controller.add(VoiceUserTranscript(primeraFrase)),
+              );
+            } else if (saludo != null && !saludoPedido) {
               saludoPedido = true;
               saludando = true;
               _log('voz · te llamaron: saluda antes de escuchar');

@@ -62,6 +62,19 @@ final class NexusEscucha: NSObject {
   /// y todas contienen la palabra.
   private var ultimoAviso = Date.distantPast
 
+  /// Oyó el nombre y sigue escuchando **el resto de la frase**. Ver
+  /// [mirarSiLeLlamaron].
+  private var recogiendo = false
+  private var loOido = ""
+  private var desdeElNombre = Date.distantPast
+  private var laPausa: DispatchWorkItem?
+
+  /// Cuánto silencio cierra la frase, y cuánto se espera como mucho. La pausa
+  /// es corta porque se paga también cuando solo se dice el nombre: ese rato
+  /// es lo que tarda en saludar de más.
+  private static let pausaQueCierra: TimeInterval = 0.8
+  private static let loMasQueSeEspera: TimeInterval = 5
+
   static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(
       name: "com.katanalabs.nexus/escucha",
@@ -211,12 +224,23 @@ final class NexusEscucha: NSObject {
       guard let self, self.generacion == esta else { return }
       if let resultado {
         self.mirarSiLeLlamaron(resultado.bestTranscription.formattedString)
+        // Con la frase cerrada no hace falta esperar a la pausa.
+        if self.recogiendo, resultado.isFinal {
+          self.terminarLaFrase()
+          return
+        }
       }
       // Una tarea de reconocimiento se acaba sola cada cierto tiempo. Si esto
       // sigue encendido, se vuelve a empezar: lo contrario es una escucha que
       // deja de escuchar sin decirlo, que es la peor forma de fallar de algo
       // que existe para estar siempre.
       if error != nil || (resultado?.isFinal ?? false) {
+        // A media frase tras el nombre, lo que se acaba es la frase: se manda
+        // lo que haya y no se reinicia, o la llamada se quedaría sin abrir.
+        if self.recogiendo {
+          self.terminarLaFrase()
+          return
+        }
         if self.escuchando {
           self.reiniciar()
         }
@@ -273,18 +297,73 @@ final class NexusEscucha: NSObject {
     }
   }
 
+  /// 🔴 **Lo que dices justo después del nombre se perdía.** Esto paraba en el
+  /// primer parcial que traía «hestia», y el micro de la conversación no se
+  /// abre hasta que conecta —de 0,6 a 3,6 s medidos—: «Hestia, ¿qué reuniones
+  /// tengo?» llegaba como «Hestia» y la pregunta se iba al vacío.
+  ///
+  /// Ahora, al oír el nombre, avisa **al momento** (`teOyo`, para que el orbe
+  /// salga ya) y sigue escuchando hasta que haces una pausa. Lo que venga
+  /// detrás del nombre viaja con `teLlamaron`, y la conversación lo toma como
+  /// tu primer turno en vez de saludar.
   private func mirarSiLeLlamaron(_ dicho: String) {
+    if recogiendo {
+      loOido = dicho
+      if Date().timeIntervalSince(desdeElNombre) > Self.loMasQueSeEspera {
+        terminarLaFrase()
+      } else {
+        esperarLaPausa()
+      }
+      return
+    }
     let limpio = Self.normalizar(dicho)
     guard Self.leLlamaron(limpio, siendo: palabras) else { return }
     // Un segundo entre avisos: la transcripción llega creciendo y todas sus
     // versiones contienen la palabra.
     guard Date().timeIntervalSince(ultimoAviso) > 1 else { return }
     ultimoAviso = Date()
-    Self.log.info("te llamaron")
-    // Se para al oírlo: quien llamó va a abrir una conversación de voz, y el
-    // motor de verdad necesita el micrófono entero.
+    Self.log.info("te llamaron · se escucha el resto de la frase")
+    recogiendo = true
+    loOido = dicho
+    desdeElNombre = Date()
+    Self.canal?.invokeMethod("teOyo", arguments: nil)
+    esperarLaPausa()
+  }
+
+  private func esperarLaPausa() {
+    laPausa?.cancel()
+    let pausa = DispatchWorkItem { [weak self] in self?.terminarLaFrase() }
+    laPausa = pausa
+    DispatchQueue.main.asyncAfter(deadline: .now() + Self.pausaQueCierra, execute: pausa)
+  }
+
+  private func terminarLaFrase() {
+    guard recogiendo else { return }
+    recogiendo = false
+    laPausa?.cancel()
+    laPausa = nil
+    let resto = Self.loQueSigueAlNombre(loOido, siendo: palabras)
+    // Se para al acabar la frase: quien llamó va a abrir una conversación de
+    // voz, y el motor de verdad necesita el micrófono entero.
     parar()
-    Self.canal?.invokeMethod("teLlamaron", arguments: nil)
+    Self.canal?.invokeMethod("teLlamaron", arguments: ["resto": resto])
+  }
+
+  /// Lo que se dijo **después** del nombre, con sus acentos y tal como llegó:
+  /// es lo que va a leer el modelo. Si el nombre sale varias veces, cuenta la
+  /// última. Vacío si no se dijo nada más.
+  static func loQueSigueAlNombre(_ dicho: String, siendo palabras: [String]) -> String {
+    let sueltas = dicho.split(separator: " ").map(String.init)
+    let ultima = sueltas.lastIndex { suelta in
+      let limpia = normalizar(suelta).filter { $0.isLetter }
+      return palabras.contains { limpia == $0 || seParecen(limpia, $0) }
+    }
+    guard let ultima else { return "" }
+    return sueltas[(ultima + 1)...]
+      .joined(separator: " ")
+      // Solo lo que separa del nombre: los signos de la pregunta se quedan,
+      // que el modelo los lee.
+      .trimmingCharacters(in: CharacterSet(charactersIn: ",.;:").union(.whitespaces))
   }
 
   private func parar() {
@@ -295,6 +374,9 @@ final class NexusEscucha: NSObject {
   }
 
   private func limpiar() {
+    recogiendo = false
+    laPausa?.cancel()
+    laPausa = nil
     tarea?.cancel()
     tarea = nil
     peticion?.endAudio()

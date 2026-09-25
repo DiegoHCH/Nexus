@@ -1006,3 +1006,33 @@ final class PropositoDelMotorTests: XCTestCase {
     XCTAssertNil(PropositoDelMotor(rawValue: "solo_salida"))
   }
 }
+
+/// Lo que se dice después del nombre, que es lo que viaja como primer turno.
+///
+/// 🔴 Se perdía: la escucha paraba en el primer parcial que traía «hestia», y
+/// «Hestia, ¿qué reuniones tengo?» llegaba como «Hestia».
+final class LaFraseTrasElNombreTests: XCTestCase {
+  func testLoQueSigueAlNombreConSusAcentos() {
+    XCTAssertEqual(
+      NexusEscucha.loQueSigueAlNombre("Hestia, ¿qué reuniones tengo?", siendo: ["hestia"]),
+      "¿qué reuniones tengo?")
+  }
+
+  func testSoloElNombreNoDejaNada() {
+    XCTAssertEqual(NexusEscucha.loQueSigueAlNombre("Hestia", siendo: ["hestia"]), "")
+    XCTAssertEqual(NexusEscucha.loQueSigueAlNombre("Hestia.", siendo: ["hestia"]), "")
+  }
+
+  func testComoLaTranscribaElReconocedorTambien() {
+    // «Estia» es como el reconocedor escribe «Hestia» a menudo: una letra.
+    XCTAssertEqual(
+      NexusEscucha.loQueSigueAlNombre("oye Estia corre los tests", siendo: ["hestia"]),
+      "corre los tests")
+  }
+
+  func testSiSaleDosVecesCuentaLaUltima() {
+    XCTAssertEqual(
+      NexusEscucha.loQueSigueAlNombre("Hestia, no, Hestia, abre el repo", siendo: ["hestia"]),
+      "abre el repo")
+  }
+}

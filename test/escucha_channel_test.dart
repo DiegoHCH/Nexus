@@ -25,25 +25,49 @@ void main() {
 
   tearDown(() => EscuchaChannel.cuandoTeLlamen(null));
 
+  Future<void> comoSiLlamaran(String resto) => TestDefaultBinaryMessengerBinding
+      .instance
+      .defaultBinaryMessenger
+      .handlePlatformMessage(
+        canal.name,
+        canal.codec.encodeMethodCall(
+          MethodCall('teLlamaron', {'resto': resto}),
+        ),
+        (_) {},
+      );
+
   test(
-    '«teLlamaron» abre, y «seCallo» solo avisa de que ya no escucha',
+    '«teOyo» saca el orbe, «teLlamaron» abre, «seCallo» solo avisa',
     () async {
       final oido = <String>[];
       EscuchaChannel.cuandoTeLlamen(
-        () => oido.add('llamada'),
+        (resto) => oido.add('llamada:$resto'),
+        alOirTuNombre: () => oido.add('nombre'),
         siSeCalla: () => oido.add('calla'),
       );
 
+      await comoSiDijera('teOyo');
       await comoSiDijera('teLlamaron');
       await comoSiDijera('seCallo');
 
-      expect(oido, ['llamada', 'calla']);
+      expect(oido, ['nombre', 'llamada:', 'calla']);
     },
   );
 
+  // 🔴 Lo que dices después del nombre se perdía: «Hestia, ¿qué reuniones
+  // tengo?» llegaba como «Hestia». Ahora viaja con el aviso.
+  test('lo dicho después del nombre llega con la llamada', () async {
+    String? recibido;
+    EscuchaChannel.cuandoTeLlamen((resto) => recibido = resto);
+
+    await comoSiLlamaran(' ¿qué reuniones tengo? ');
+
+    expect(recibido, '¿qué reuniones tengo?');
+  });
+
   test('sin quien escuche el silencio, «seCallo» no revienta', () async {
     final oido = <String>[];
-    EscuchaChannel.cuandoTeLlamen(() => oido.add('llamada'));
+    EscuchaChannel.cuandoTeLlamen((_) => oido.add('llamada'));
 
     await comoSiDijera('seCallo');
 

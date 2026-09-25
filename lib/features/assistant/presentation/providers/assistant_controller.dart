@@ -54,6 +54,7 @@ import 'package:nexus/features/history/presentation/providers/archive_providers.
 import 'package:nexus/features/history/presentation/providers/el_archivo_de_la_conversacion.dart';
 import 'package:nexus/features/history/presentation/providers/el_parte_desde_la_voz.dart';
 import 'package:nexus/features/memoria/presentation/providers/lo_que_recuerda_de_ti.dart';
+import 'package:nexus/features/opinion/presentation/providers/lo_que_veo.dart';
 import 'package:nexus/features/run/domain/usecases/decision_de_recarga.dart';
 import 'package:nexus/features/run/presentation/providers/corridas_providers.dart';
 import 'package:nexus/features/run/presentation/providers/run_providers.dart';
@@ -145,6 +146,21 @@ class AssistantController extends Notifier<AssistantHudState> {
     unawaited(_loadMemory());
     unawaited(_recuperarLoDicho());
     unawaited(_siYaSeHabiaIdoSola());
+    // 🔴 **Y cuando se sepa la carpeta, no antes.** Al arrancar la app las
+    // conversaciones se leen del disco en asíncrono, así que en el primer
+    // fotograma esto todavía no sabe dónde trabaja. Se intenta ya —para la
+    // conversación que se abre con la app en marcha, que sí lo sabe— y se
+    // vuelve a intentar en cuanto aparezca.
+    //
+    // Escuchando y no esperando un segundo, que es lo primero que escribí: un
+    // temporizador suelto en el arranque se queda pendiente en cada prueba de
+    // pantalla, y eso lo pescaron tres de golpe.
+    unawaited(_loQueVeoDeEstaCarpeta());
+    ref.listen(conversationFolderProvider(conversationId), (antes, ahora) {
+      if (antes == null && ahora != null) {
+        unawaited(_loQueVeoDeEstaCarpeta());
+      }
+    });
     _cuandoAcabeElTrabajo();
 
     // Perder el foco cierra el micrófono: solo la conversación en foco puede
@@ -1899,6 +1915,31 @@ class AssistantController extends Notifier<AssistantHudState> {
     if (donde == -1) return;
     mensajes[donde] = mensajes[donde].copyWith(porUnAvisoDeFondo: true);
     state = state.copyWith(messages: mensajes);
+  }
+
+  /// Lo que se ve de esta carpeta nada más abrirla, si hay algo que ver.
+  ///
+  /// 🔴 **Va al aviso flotante y no al chat.** Una opinión no es un turno: si
+  /// se dijera como mensaje quedaría archivada con la conversación, se mezclaría
+  /// con lo que le pediste a Claude y al releer el historial mañana parecería
+  /// que alguien dijo eso en medio de una tarea. En la franja se lee al llegar
+  /// y se va con el primer encargo, que es exactamente lo que dura una
+  /// observación.
+  ///
+  /// Y **no interrumpe hablando**: los avisos de voz son para lo que termina
+  /// —un hecho que pasó mientras no mirabas— y esto es lo contrario, algo que
+  /// lleva ahí parado y que te vas a encontrar al llegar.
+  Future<void> _loQueVeoDeEstaCarpeta() async {
+    final folder = _folder;
+    if (folder == null) return;
+    final visto = await ref
+        .read(loQueVeoDeLaCarpetaProvider)
+        .deLaCarpeta(folder);
+    if (visto == null || !_vive) return;
+    // Sin pisar lo que ya hubiera: un aviso puesto —«continué donde quedé»— es
+    // de esta conversación y esto es de la carpeta, así que el primero manda.
+    if (state.notice != null) return;
+    state = state.copyWith(notice: visto);
   }
 
   /// ¿Sigue existiendo esta conversación?

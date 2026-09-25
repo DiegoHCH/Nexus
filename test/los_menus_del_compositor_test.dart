@@ -79,7 +79,9 @@ void main() {
 
       await tester.tap(find.text('abrir'));
       await tester.pumpAndSettle();
-      expect(find.text('Permiso en nexus'), findsOne);
+      // En mayúsculas, como todo rótulo del instrumento: la cabecera se
+      // escribe en frase y se pinta como el nombre del menú.
+      expect(find.text('PERMISO EN NEXUS'), findsOne);
       expect(find.text('Lo que implica'), findsOne);
 
       await tester.tap(find.text('Lo que implica'));
@@ -124,6 +126,104 @@ void main() {
       expect(muelle, contains('cabenAbiertas(Conversations.max'));
       expect(menus, contains('strings.modeloComoEnLaConsola'));
       expect(menus, contains('strings.esfuerzoComoEnLaConsola'));
+    });
+  });
+
+  group('la forma del mockup', () {
+    testWidgets('una opción devuelve su valor y la elegida lleva su ✓', (
+      tester,
+    ) async {
+      String? elegido;
+      await _pump(
+        tester,
+        MenuDelCompositor<String>(
+          ancho: 300,
+          onSelected: (valor) => elegido = valor,
+          itemBuilder: (context) => [
+            cabeceraDelMenu(context, 'Esfuerzo'),
+            const OpcionDelMenu(
+              value: 'low',
+              titulo: 'low',
+              alLado: 'Más rápido',
+            ),
+            const OpcionDelMenu(value: 'high', titulo: 'high', elegida: true),
+          ],
+          child: const Text('abrir'),
+        ),
+      );
+
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+      // Un solo «✓», y en la fila de la elegida: lo elegido se dice con el
+      // signo y el peso, no con un fondo.
+      expect(find.text('✓'), findsOne);
+      expect(
+        tester.getCenter(find.text('✓')).dy,
+        closeTo(tester.getCenter(find.text('high')).dy, 2),
+      );
+
+      await tester.tap(find.text('low'));
+      await tester.pumpAndSettle();
+      expect(elegido, 'low');
+    });
+
+    testWidgets('el medidor del cupo va en una fila: nombre y cifra', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        const Gauge(label: 'Semanal', percent: 61, warnAt: cupoEnAmbarDesde),
+      );
+
+      expect(
+        tester.getCenter(find.text('61 %')).dy,
+        closeTo(tester.getCenter(find.text('Semanal')).dy, 3),
+        reason: 'como la «medida» del mockup, sin gastar una línea por cifra',
+      );
+      expect(
+        tester.getTopLeft(find.text('61 %')).dx,
+        greaterThan(tester.getTopRight(find.text('Semanal')).dx),
+      );
+    });
+  });
+
+  group('cuándo vuelve el cupo', () {
+    // Un viernes a media mañana, como el día del mockup.
+    final viernes = DateTime(2026, 9, 25, 11, 5);
+
+    test('lo lejano, con su día; lo cercano, contado', () {
+      expect(
+        es.elDiaALas(DateTime(2026, 9, 28, 9), viernes),
+        'el lunes a las 09:00',
+      );
+      expect(
+        es.elDiaALas(DateTime(2026, 9, 26, 9), viernes),
+        'mañana a las 09:00',
+      );
+      expect(
+        en.elDiaALas(DateTime(2026, 9, 28, 9), viernes),
+        'on Monday at 09:00',
+      );
+      expect(es.dentroDe(2, 10), 'en 2 h 10 min');
+      expect(es.dentroDe(0, 7), 'en 7 min');
+    });
+
+    test('una sola frase al pie, con lo que se sepa', () {
+      expect(
+        es.seRenuevan(semanal: 'el lunes a las 09:00'),
+        'Se renueva el lunes a las 09:00.',
+      );
+      expect(
+        es.seRenuevan(cincoHoras: 'en 2 h', semanal: 'el lunes'),
+        contains('5 horas'),
+      );
+      expect(es.seRenuevan(), isEmpty);
+    });
+
+    test('«Nueva» solo dice qué hacer cuando ya no cabe otra', () {
+      expect(es.cabenAbiertas(6, 1), isNot(contains('cierra')));
+      expect(es.cabenAbiertas(6, 6), contains('cierra'));
+      expect(en.cabenAbiertas(6, 6), contains('close'));
     });
   });
 }

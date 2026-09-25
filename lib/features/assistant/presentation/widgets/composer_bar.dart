@@ -552,14 +552,12 @@ class MenuDelPermiso extends ConsumerWidget {
     // Con el tope cerrado, dar permiso aquí no haría escribir: se dice en el
     // propio menú y elegirlo lo sube también.
     final subeElTope = !ElPermisoQueVale.elTopeLoPermite(workspace);
-    return PopupMenuButton<FilePermission>(
-      color: colors.deep,
-      tooltip: '',
+    return MenuDelCompositor<FilePermission>(
+      ancho: 330,
       // **Sin carpeta emparejada no hay permiso que dar.** Es el caso de la
       // carpeta de documentos: no se escribe ahí por este camino, y un menú
       // que se abre para no poder elegir nada engaña.
       enabled: carpeta != null,
-      initialValue: canWrite ? FilePermission.canEdit : FilePermission.readOnly,
       onSelected: (opcion) => ref
           .read(workspaceControllerProvider.notifier)
           .setPermisoDeCarpeta(carpeta!.path, opcion.canWrite),
@@ -570,34 +568,24 @@ class MenuDelPermiso extends ConsumerWidget {
         // tiene permiso de puede editar»—. Arriba lo dice una vez y las
         // opciones quedan con su nombre corto.
         cabeceraDelMenu(context, strings.permisoEn(carpeta?.name)),
+        // Cada opción en su caja, con **lo que implica, y lo que no**, debajo.
+        // «Ejecutar sigue pidiendo permiso» evita creer que editar lo abre
+        // todo; el texto de antes decía justo eso —«corre comandos sin
+        // preguntar»— y no era verdad desde que hay quien conteste.
+        //
+        // La elegida se dice con su filo: ámbar si escribe, que es lo que hay
+        // que tener presente mientras trabaja.
         for (final option in FilePermission.values)
-          PopupMenuItem<FilePermission>(
+          OpcionDelMenu<FilePermission>(
             value: option,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  option.canWrite ? strings.canEdit : strings.readOnly,
-                  style: NexusTypography.control.copyWith(
-                    // La elegida, con su color: ámbar si escribe, que es
-                    // lo que hay que tener presente mientras trabaja.
-                    color: option.canWrite != canWrite
-                        ? colors.ink
-                        : (canWrite ? colors.warn : colors.accent),
-                  ),
-                ),
-                // **Lo que implica, y lo que no.** «Ejecutar sigue pidiendo
-                // permiso» evita creer que editar lo abre todo; el texto de
-                // antes decía justo eso —«corre comandos sin preguntar»— y
-                // no era verdad desde que hay quien conteste.
-                Text(
-                  option.canWrite
-                      ? strings.permisoEditarImplica(carpeta?.name)
-                      : strings.permisoSoloLeerImplica,
-                  style: NexusTypography.nota.copyWith(color: colors.mute),
-                ),
-              ],
-            ),
+            titulo: option.canWrite
+                ? strings.permisoOpcionPuedeEditar
+                : strings.permisoOpcionSoloLeer,
+            elegida: option.canWrite == canWrite,
+            tono: option.canWrite ? colors.warn : null,
+            explicacion: option.canWrite
+                ? strings.permisoEditarImplica(carpeta?.name)
+                : strings.permisoSoloLeerImplica,
           ),
         // Lo que además va a pasar, dicho **antes** de elegir: para eso
         // este control es un menú con explicaciones y no un conmutador.

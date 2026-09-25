@@ -124,13 +124,23 @@ mixin DocumentosStrings {
   String get effortFaster;
   String get effortSmarter;
   String get contextWindow;
-  String get usageLimits;
+
+  /// La cabecera del cupo: «Tu cupo · cuenta work». La cuenta solo cuando
+  /// hay más de una en el Mac; con una, decirla no distingue nada.
+  String tuCupo(String? cuenta);
   String get usageFiveHour;
   String get usageWeekly;
 
   /// Lo que dice cada menú del compositor encima y debajo de sus opciones:
   /// qué implica elegir, para no descubrirlo después.
   String permisoEn(String? carpeta);
+
+  /// Las dos opciones del permiso **dentro del menú**, en frase: «Solo leer».
+  /// Las de [readOnly] y [canEdit] van en mayúsculas porque son el rótulo del
+  /// chip del compositor; en el menú son opciones con nombre y se leen como
+  /// tales, igual que en el mockup.
+  String get permisoOpcionSoloLeer;
+  String get permisoOpcionPuedeEditar;
   String get permisoSoloLeerImplica;
   String permisoEditarImplica(String? carpeta);
   String modeloDelPerfil(String? perfil);
@@ -157,7 +167,17 @@ mixin DocumentosStrings {
   /// la sesión de la cuenta en el medidor de la ventana de contexto, donde
   /// lo único cierto es que todavía no ha habido turno.
   String get noReadingYet;
-  String resetsIn(String when);
+
+  /// Cuándo vuelven los cupos, en una frase al pie: «Se renueva el lunes a
+  /// las 09:00». Una sola frase y no una nota bajo cada barra, como en el
+  /// mockup; con las dos fechas cuando se saben las dos.
+  String seRenuevan({String? cincoHoras, String? semanal});
+
+  /// Un plazo corto, contado: «en 2 h 10 min».
+  String dentroDe(int horas, int minutos);
+
+  /// Un plazo largo, con su día: «el lunes a las 09:00», «mañana a las 09:00».
+  String elDiaALas(DateTime cuando, DateTime ahora);
   String get sayStopToInterrupt;
   String get stopWithShortcut;
   String get workingCancelHint;
@@ -344,7 +364,8 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   @override
   String get contextWindow => 'Ventana de contexto';
   @override
-  String get usageLimits => 'Tu cupo de la suscripción';
+  String tuCupo(String? cuenta) =>
+      cuenta == null ? 'Tu cupo' : 'Tu cupo · cuenta $cuenta';
   @override
   String get usageFiveHour => 'Límite de 5 horas';
   @override
@@ -352,6 +373,10 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   @override
   String permisoEn(String? carpeta) =>
       carpeta == null ? 'Permiso' : 'Permiso en $carpeta';
+  @override
+  String get permisoOpcionSoloLeer => 'Solo leer';
+  @override
+  String get permisoOpcionPuedeEditar => 'Puede editar';
   @override
   String get permisoSoloLeerImplica => 'Lee y responde; no escribe nada aquí.';
   @override
@@ -375,9 +400,9 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   @override
   String get nuevaConversacionTitulo => 'Nueva conversación';
   @override
-  String cabenAbiertas(int caben, int abiertas) =>
-      'Caben $caben abiertas a la vez; llevas $abiertas. Con $caben, cierra '
-      'una para abrir otra.';
+  String cabenAbiertas(int caben, int abiertas) => abiertas < caben
+      ? 'Caben $caben abiertas a la vez; llevas $abiertas.'
+      : 'Caben $caben abiertas a la vez: cierra una para abrir otra.';
   @override
   String get usageUnavailable =>
       'Sin dato: esa cuenta no tiene sesión abierta.';
@@ -390,7 +415,42 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   @override
   String get noReadingYet => 'Sin dato';
   @override
-  String resetsIn(String when) => 'Se renueva $when';
+  String seRenuevan({String? cincoHoras, String? semanal}) =>
+      switch ((cincoHoras, semanal)) {
+        (final c?, final s?) => 'El de 5 horas se renueva $c; el semanal, $s.',
+        (null, final s?) => 'Se renueva $s.',
+        (final c?, null) => 'El de 5 horas se renueva $c.',
+        (null, null) => '',
+      };
+  @override
+  String dentroDe(int horas, int minutos) =>
+      horas > 0 ? 'en $horas h $minutos min' : 'en $minutos min';
+  @override
+  String elDiaALas(DateTime cuando, DateTime ahora) {
+    final hora =
+        '${cuando.hour.toString().padLeft(2, '0')}:'
+        '${cuando.minute.toString().padLeft(2, '0')}';
+    final dias = DateTime(
+      cuando.year,
+      cuando.month,
+      cuando.day,
+    ).difference(DateTime(ahora.year, ahora.month, ahora.day)).inDays;
+    const semana = [
+      'lunes',
+      'martes',
+      'miércoles',
+      'jueves',
+      'viernes',
+      'sábado',
+      'domingo',
+    ];
+    return switch (dias) {
+      0 => 'hoy a las $hora',
+      1 => 'mañana a las $hora',
+      _ => 'el ${semana[cuando.weekday - 1]} a las $hora',
+    };
+  }
+
   @override
   String get sayStopToInterrupt => 'Di «para» para interrumpir';
   @override
@@ -584,7 +644,8 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   @override
   String get contextWindow => 'Context window';
   @override
-  String get usageLimits => 'Your subscription limits';
+  String tuCupo(String? cuenta) =>
+      cuenta == null ? 'Your limits' : 'Your limits · $cuenta account';
   @override
   String get usageFiveHour => '5-hour limit';
   @override
@@ -592,6 +653,10 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   @override
   String permisoEn(String? carpeta) =>
       carpeta == null ? 'Permission' : 'Permission in $carpeta';
+  @override
+  String get permisoOpcionSoloLeer => 'Read only';
+  @override
+  String get permisoOpcionPuedeEditar => 'Can edit';
   @override
   String get permisoSoloLeerImplica =>
       'Reads and answers; writes nothing here.';
@@ -616,9 +681,9 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   @override
   String get nuevaConversacionTitulo => 'New conversation';
   @override
-  String cabenAbiertas(int caben, int abiertas) =>
-      '$caben can be open at once; you have $abiertas. At $caben, close one to '
-      'open another.';
+  String cabenAbiertas(int caben, int abiertas) => abiertas < caben
+      ? '$caben can be open at once; you have $abiertas.'
+      : '$caben can be open at once: close one to open another.';
   @override
   String get usageUnavailable =>
       'No reading: that account has no session open.';
@@ -632,7 +697,42 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   @override
   String get noReadingYet => 'No reading';
   @override
-  String resetsIn(String when) => 'Resets $when';
+  String seRenuevan({String? cincoHoras, String? semanal}) =>
+      switch ((cincoHoras, semanal)) {
+        (final c?, final s?) => 'The 5-hour one resets $c; the weekly one, $s.',
+        (null, final s?) => 'Resets $s.',
+        (final c?, null) => 'The 5-hour one resets $c.',
+        (null, null) => '',
+      };
+  @override
+  String dentroDe(int horas, int minutos) =>
+      horas > 0 ? 'in $horas h $minutos min' : 'in $minutos min';
+  @override
+  String elDiaALas(DateTime cuando, DateTime ahora) {
+    final hora =
+        '${cuando.hour.toString().padLeft(2, '0')}:'
+        '${cuando.minute.toString().padLeft(2, '0')}';
+    final dias = DateTime(
+      cuando.year,
+      cuando.month,
+      cuando.day,
+    ).difference(DateTime(ahora.year, ahora.month, ahora.day)).inDays;
+    const semana = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    return switch (dias) {
+      0 => 'today at $hora',
+      1 => 'tomorrow at $hora',
+      _ => 'on ${semana[cuando.weekday - 1]} at $hora',
+    };
+  }
+
   @override
   String get sayStopToInterrupt => 'Say “stop” to interrupt';
   @override

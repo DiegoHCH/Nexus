@@ -10,6 +10,7 @@ import 'package:nexus/features/assistant/presentation/providers/assistant_contro
 import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
+import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
 /// Las conversaciones abiertas, apiladas en vertical: una esfera por cada una,
@@ -353,50 +354,38 @@ class AbrirOtraConversacion extends ConsumerWidget {
       return nombre.substring('.claude-'.length);
     }
 
-    return PopupMenuButton<String>(
+    // El nombre de la carpeta y no su ruta, como en el mockup: en un globo de
+    // 210 px «~/front-mobile-b2c» se lee peor que «front-mobile-b2c», y la
+    // ruta no dice nada que el nombre no diga. **Salvo que dos se llamen
+    // igual**: entonces el nombre ya no distingue y vuelve la ruta.
+    final nombres = [for (final folder in folders) folder.name];
+    String rotulo(PairedFolder folder) =>
+        nombres.where((n) => n == folder.name).length > 1
+        ? folder.displayPath(home)
+        : folder.name;
+    // En peso medio la de la conversación que tienes delante, como el modelo
+    // en uso lleva el suyo: es «dónde estás», y abrir otra ahí es legítimo.
+    final activa = ref.watch(workspaceControllerProvider).activePath;
+
+    return MenuDelCompositor<String>(
       tooltip: context.strings.openAnotherConversation,
+      ancho: 240,
       onSelected: (path) => ref.read(conversationsProvider.notifier).open(path),
       itemBuilder: (context) => [
         cabeceraDelMenu(context, context.strings.nuevaConversacionTitulo),
         for (final folder in folders)
-          PopupMenuItem(
+          OpcionDelMenu<String>(
             value: folder.path,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    folder.displayPath(home),
-                    style: NexusTypography.control.copyWith(color: colors.ink),
-                  ),
-                ),
-                if (cuentaDe(folder.claudeProfile) case final cuenta?)
-                  Padding(
-                    padding: const EdgeInsets.only(left: NexusSpacing.s5),
-                    child: Text(
-                      cuenta,
-                      style: NexusTypography.data.copyWith(color: colors.faint),
-                    ),
-                  ),
-              ],
-            ),
+            titulo: rotulo(folder),
+            alLado: cuentaDe(folder.claudeProfile),
+            // Negrita sin «✓»: no es una elección hecha, es dónde estás.
+            elegida: false,
+            destacada: folder.path == activa,
           ),
         if (documentos != null)
-          PopupMenuItem(
+          OpcionDelMenu<String>(
             value: documentos,
-            child: Row(
-              children: [
-                Icon(
-                  Icons.auto_awesome_outlined,
-                  size: 14,
-                  color: colors.faint,
-                ),
-                const SizedBox(width: NexusSpacing.s3),
-                Text(
-                  context.strings.noProject,
-                  style: NexusTypography.control.copyWith(color: colors.mute),
-                ),
-              ],
-            ),
+            titulo: context.strings.noProject,
           ),
         pieDelMenu(
           context,

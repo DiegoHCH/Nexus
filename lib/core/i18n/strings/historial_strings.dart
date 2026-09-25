@@ -44,6 +44,41 @@ mixin HistorialStrings {
   /// haría parecer de este.
   String historialDia(DateTime dia, {required bool conElAno});
   String startFromScratchIn(String folder);
+
+  /// La caja de buscar del historial y lo que dice cuando no encuentra nada.
+  ///
+  /// Sin resultados se dice **qué se buscó** y por dónde probar: una lista vacía
+  /// a secas se lee como «no hay historial», y lo hay.
+  String get historialBuscar;
+  String historialNadaDe(String busqueda);
+  String get historialNadaConEsosFiltros;
+
+  /// El filtro que quita los demás: todas las carpetas.
+  String get historialTodas;
+
+  /// Un filtro de cuenta con cuántas conversaciones tiene: «work · 23».
+  String historialCuenta(String cuenta, int cuantas);
+
+  /// Cuántos turnos tiene una conversación, al final de su fila.
+  String historialTurnos(int cuantos);
+
+  /// Los bloques de la vista previa: lo último que se pidió, lo último que
+  /// contestó y los documentos que salieron de ahí.
+  String get historialLoQuePediste;
+  String get historialLoQueDijo;
+  String historialDocumentosDeAqui(int cuantos);
+
+  /// Cuando la conversación ya no se puede leer: se borró la nota o el archivo.
+  String get historialNoSePudoLeer;
+
+  String get historialRetomar;
+  String get historialBorrar;
+
+  /// Lo que hace cada botón de la vista, dicho debajo. Hay dos porque el de
+  /// olvidar solo aparece en la conversación de la carpeta que se tiene abierta,
+  /// y explicar un botón que no está confunde más que no explicarlo.
+  String get historialNotaRetomar;
+  String get historialNotaRetomarYOlvidar;
   String get conversationForgotten;
 
   /// Que esta conversación continúa la sesión de su carpeta, aunque la pantalla
@@ -150,10 +185,13 @@ mixin HistorialStringsEs implements HistorialStrings {
   String parteFallo(String motivo) => 'No se pudo enviar: $motivo';
   @override
   String get history => 'HISTORIAL';
+  // 🔴 **Decía «De esta carpeta», y enseñaba todas.** La lista siempre fue la
+  // de todos los proyectos —por eso el filtro por carpeta—, así que el texto
+  // prometía una cosa y la pantalla hacía otra.
   @override
   String get historyExplainer =>
-      'De esta carpeta, y se conserva entre arranques. Claude retoma la '
-      'conversación anterior, así que sabe lo que ya hicisteis.';
+      'Todas tus conversaciones, de todos los proyectos, y se conservan entre '
+      'arranques. Al retomar una, Claude sabe lo que ya hicisteis.';
   @override
   String get nothingAskedYet => 'Todavía no le has pedido nada.';
   @override
@@ -182,9 +220,48 @@ mixin HistorialStringsEs implements HistorialStrings {
         : '${dia.day} de $mes';
   }
 
+  // En minúscula de frase: ahora es un botón de la vista previa, y un botón se
+  // lee como una orden, no como un rótulo.
   @override
   String startFromScratchIn(String folder) =>
-      'QUE CLAUDE OLVIDE LO HABLADO EN $folder';
+      'Que Claude olvide lo hablado en $folder';
+  @override
+  String get historialBuscar => 'Buscar en lo que se habló';
+  @override
+  String historialNadaDe(String busqueda) =>
+      'Nada de «$busqueda» en lo que se habló. Busca por lo que pediste o por '
+      'el nombre del proyecto.';
+  @override
+  String get historialNadaConEsosFiltros =>
+      'Ninguna conversación con esos filtros.';
+  @override
+  String get historialTodas => 'Todas';
+  @override
+  String historialCuenta(String cuenta, int cuantas) => '$cuenta · $cuantas';
+  @override
+  String historialTurnos(int cuantos) =>
+      cuantos == 1 ? '1 turno' : '$cuantos turnos';
+  @override
+  String get historialLoQuePediste => 'Lo último que pediste';
+  @override
+  String get historialLoQueDijo => 'Lo último que dijo';
+  @override
+  String historialDocumentosDeAqui(int cuantos) =>
+      'Documentos que salieron de aquí · $cuantos';
+  @override
+  String get historialNoSePudoLeer =>
+      'Esta conversación ya no se puede leer: puede que se borrara su nota.';
+  @override
+  String get historialRetomar => 'Retomar';
+  @override
+  String get historialBorrar => 'Borrar';
+  @override
+  String get historialNotaRetomar =>
+      'Retomar la abre donde la dejaste: Claude sabe lo que ya hicisteis.';
+  @override
+  String get historialNotaRetomarYOlvidar =>
+      'Retomar la abre donde la dejaste: Claude sabe lo que ya hicisteis. '
+      'Olvidar no la borra de aquí; solo hace que la próxima empiece de cero.';
   @override
   String get conversationForgotten =>
       'Conversación olvidada: la próxima empieza de cero.';
@@ -341,8 +418,8 @@ mixin HistorialStringsEn implements HistorialStrings {
   String get history => 'HISTORY';
   @override
   String get historyExplainer =>
-      'From this folder, and it survives restarts. Claude resumes the previous '
-      'conversation, so it knows what you already did together.';
+      'All your conversations, from every project, kept across restarts. '
+      'Resume one and Claude knows what you already did together.';
   @override
   String get nothingAskedYet => 'You have not asked for anything yet.';
   @override
@@ -371,7 +448,47 @@ mixin HistorialStringsEn implements HistorialStrings {
 
   @override
   String startFromScratchIn(String folder) =>
-      'MAKE CLAUDE FORGET WHAT WAS SAID IN $folder';
+      'Make Claude forget what was said in $folder';
+  @override
+  String get historialBuscar => 'Search what was said';
+  @override
+  String historialNadaDe(String busqueda) =>
+      'Nothing about “$busqueda” in what was said. Search for what you asked '
+      'or for the project name.';
+  @override
+  String get historialNadaConEsosFiltros =>
+      'No conversations match those filters.';
+  @override
+  String get historialTodas => 'All';
+  @override
+  String historialCuenta(String cuenta, int cuantas) => '$cuenta · $cuantas';
+  @override
+  String historialTurnos(int cuantos) =>
+      cuantos == 1 ? '1 turn' : '$cuantos turns';
+  @override
+  String get historialLoQuePediste => 'What you last asked';
+  @override
+  String get historialLoQueDijo => 'What it last said';
+  @override
+  String historialDocumentosDeAqui(int cuantos) =>
+      'Documents that came out of it · $cuantos';
+  @override
+  String get historialNoSePudoLeer =>
+      'This conversation can no longer be read: its note may have been '
+      'deleted.';
+  @override
+  String get historialRetomar => 'Resume';
+  @override
+  String get historialBorrar => 'Delete';
+  @override
+  String get historialNotaRetomar =>
+      'Resuming opens it where you left off: Claude knows what you already '
+      'did together.';
+  @override
+  String get historialNotaRetomarYOlvidar =>
+      'Resuming opens it where you left off: Claude knows what you already '
+      'did together. Forgetting does not delete it from here; it only makes '
+      'the next one start from scratch.';
   @override
   String get conversationForgotten =>
       'Conversation forgotten: the next one starts from scratch.';

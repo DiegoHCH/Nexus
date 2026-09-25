@@ -65,6 +65,34 @@ abstract final class LaPuertaQueSaluda {
     return FranjaDelDia.manana;
   }
 
+  /// Cuántas carpetas se ofrecen para tocar debajo del orbe. Las del mockup
+  /// son tres más «Sin proyecto»; cinco es lo que cabe en una fila a 1024 de
+  /// ancho con nombres de repo normales, y más ya no es una sugerencia sino
+  /// una lista.
+  static const cuantasSeSugieren = 5;
+
+  /// Las carpetas que se ponen a la vista para tocar en vez de decir.
+  ///
+  /// 🔴 **Solo las emparejadas**, y no porque no se pudiera buscar más: son las
+  /// únicas que ya elegiste tú, y la puerta no es sitio para descubrir
+  /// carpetas —una que no está emparejada abriría una conversación sin cuenta,
+  /// sin permisos y sin nada colgando—. Tampoco se mira el disco: sería leer
+  /// tus carpetas para ofrecerte las que ya tienes.
+  ///
+  /// La última en la que trabajaste va primero —es la respuesta más probable a
+  /// «¿en dónde vamos a trabajar hoy?»— y las demás en su orden de siempre,
+  /// para que cada una esté donde estaba ayer.
+  static List<PairedFolder> sugerencias(
+    List<PairedFolder> carpetas, {
+    String? laUltima,
+  }) {
+    final primero = [
+      ...carpetas.where((c) => c.path == laUltima),
+      ...carpetas.where((c) => c.path != laUltima),
+    ];
+    return primero.take(cuantasSeSugieren).toList();
+  }
+
   /// Qué se sacó en claro de lo que contestaste.
   ///
   /// Se le pasan **todas** las carpetas emparejadas, también las de solo texto:

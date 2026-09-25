@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:nexus/core/i18n/strings/ajustes_strings.dart';
 import 'package:nexus/core/i18n/strings/arranque_strings.dart';
 import 'package:nexus/core/i18n/strings/documentos_strings.dart';
 import 'package:nexus/core/i18n/strings/escenario_strings.dart';
@@ -49,7 +50,8 @@ abstract class NexusStrings
         EjecucionStrings,
         ArranqueStrings,
         EscenarioStrings,
-        MovilStrings {
+        MovilStrings,
+        AjustesStrings {
   const NexusStrings();
 
   static const supported = [Locale('es'), Locale('en')];
@@ -70,7 +72,8 @@ class NexusStringsEs extends NexusStrings
         EjecucionStringsEs,
         ArranqueStringsEs,
         EscenarioStringsEs,
-        MovilStringsEs {
+        MovilStringsEs,
+        AjustesStringsEs {
   const NexusStringsEs();
 }
 
@@ -85,6 +88,7 @@ class NexusStringsEn extends NexusStrings
         EjecucionStringsEn,
         ArranqueStringsEn,
         EscenarioStringsEn,
-        MovilStringsEn {
+        MovilStringsEn,
+        AjustesStringsEn {
   const NexusStringsEn();
 }

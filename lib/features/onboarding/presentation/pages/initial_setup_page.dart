@@ -243,7 +243,7 @@ class _InitialSetupPageState extends ConsumerState<InitialSetupPage>
                               Text(
                                 context.strings.changeLaterHint,
                                 textAlign: TextAlign.center,
-                                style: NexusTypography.mono.copyWith(
+                                style: NexusTypography.nota.copyWith(
                                   color: colors.faint,
                                 ),
                               ),
@@ -345,7 +345,7 @@ class _MicrophoneField extends StatelessWidget {
             const SizedBox(width: NexusSpacing.s4),
             Text(
               dataText,
-              style: NexusTypography.data.copyWith(color: colors.faint),
+              style: NexusTypography.label.copyWith(color: colors.faint),
             ),
           ],
         ),
@@ -371,7 +371,7 @@ class _MicrophoneField extends StatelessWidget {
             ),
           ),
         const SizedBox(height: NexusSpacing.s2),
-        Text(hint, style: NexusTypography.mono.copyWith(color: colors.faint)),
+        Text(hint, style: NexusTypography.nota.copyWith(color: colors.faint)),
       ],
     );
   }
@@ -512,7 +512,7 @@ class _WorkFolderField extends ConsumerWidget {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           context.strings.workFolderExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
       ],
     );
@@ -548,7 +548,7 @@ class _GeminiKeyField extends StatelessWidget {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           context.strings.geminiKeyExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s2),
         OutlinedButton(

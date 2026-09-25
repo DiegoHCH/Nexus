@@ -60,7 +60,7 @@ class SettingsChooser<T> extends StatelessWidget {
           focusColor: Colors.transparent,
           borderRadius: BorderRadius.circular(NexusRadius.sm),
           icon: Icon(Icons.expand_more, size: 16, color: colors.faint),
-          style: NexusTypography.data.copyWith(color: colors.ink),
+          style: NexusTypography.control.copyWith(color: colors.ink),
           onChanged: (option) {
             if (option != null) onSelected(option);
           },
@@ -84,7 +84,9 @@ class SettingsChooser<T> extends StatelessWidget {
                         label(option),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: NexusTypography.data.copyWith(color: colors.ink),
+                        style: NexusTypography.control.copyWith(
+                          color: colors.ink,
+                        ),
                       ),
                     ),
                     if (detail case final describe?) ...[
@@ -94,7 +96,7 @@ class SettingsChooser<T> extends StatelessWidget {
                           describe(option),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: NexusTypography.mono.copyWith(
+                          style: NexusTypography.nota.copyWith(
                             color: colors.faint,
                           ),
                         ),

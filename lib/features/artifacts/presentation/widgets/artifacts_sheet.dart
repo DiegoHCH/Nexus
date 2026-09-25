@@ -62,21 +62,26 @@ class ArtifactsSheet extends ConsumerWidget {
                 folder ?? strings.artifactsExplainer,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: NexusTypography.mono.copyWith(color: colors.faint),
+                // La ruta es un dato; la explicación que la sustituye, no.
+                style:
+                    (folder == null
+                            ? NexusTypography.nota
+                            : NexusTypography.mono)
+                        .copyWith(color: colors.faint),
               ),
               const SizedBox(height: NexusSpacing.s5),
               Flexible(
                 child: folder == null
                     ? Text(
                         strings.artifactsNoFolder,
-                        style: NexusTypography.mono.copyWith(
+                        style: NexusTypography.nota.copyWith(
                           color: colors.faint,
                         ),
                       )
                     : artifacts.isEmpty
                     ? Text(
                         strings.artifactsEmpty,
-                        style: NexusTypography.mono.copyWith(
+                        style: NexusTypography.nota.copyWith(
                           color: colors.faint,
                         ),
                       )
@@ -294,7 +299,7 @@ class _MarkdownSheet extends StatelessWidget {
                     if (estado.hasError) {
                       return Text(
                         'No se pudo leer.',
-                        style: NexusTypography.data.copyWith(
+                        style: NexusTypography.nota.copyWith(
                           color: colors.mute,
                         ),
                       );

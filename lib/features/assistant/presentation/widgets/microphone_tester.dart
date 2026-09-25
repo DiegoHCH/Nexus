@@ -93,7 +93,7 @@ class _MicrophoneTesterState extends ConsumerState<MicrophoneTester> {
           granted == false
               ? strings.micDeniedExplainer
               : strings.micGrantedExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s4),
         if (granted == true)

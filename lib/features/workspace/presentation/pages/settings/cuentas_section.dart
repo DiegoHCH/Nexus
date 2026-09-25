@@ -38,7 +38,7 @@ class CuentasSection extends ConsumerWidget {
       children: [
         Text(
           strings.e2eAccountsWhere,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s4),
 

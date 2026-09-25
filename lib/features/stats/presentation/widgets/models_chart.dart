@@ -22,7 +22,7 @@ class ModelsChart extends StatelessWidget {
     if (stats.models.isEmpty) {
       return Text(
         strings.statsNothingYet,
-        style: NexusTypography.mono.copyWith(color: colors.faint),
+        style: NexusTypography.nota.copyWith(color: colors.faint),
       );
     }
 

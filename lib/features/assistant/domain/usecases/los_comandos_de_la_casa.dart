@@ -48,6 +48,16 @@ enum ElComandoDeLaCasa {
   /// donde se crean —contestando a una propuesta—, así que es donde se buscan.
   programadas(['/programadas', '/tareas'], conTexto: false),
 
+  /// Lo que Nexus sabe de ti: verlo escrito solo, y apuntar más con
+  /// `/recuerda algo`.
+  ///
+  /// 🔴 **Es el único con las dos formas**, y no por capricho: escribirlo sin
+  /// nada es la pregunta que uno se hace al pensar en una memoria —«¿qué sabe
+  /// de mí?»— y esconder esa respuesta en Ajustes sería pedirle a alguien que
+  /// cruce la pantalla para saber qué se está mandando en su nombre en cada
+  /// encargo. Ver [LoQueSeSabeDeTi].
+  recuerda(['/recuerda', '/recuerdas', '/memoria'], conTexto: false),
+
   /// Dibujar desde cero. Vive en [LoQueSePideDibujar] —lo reconoce él— y aquí
   /// solo está para que la ayuda lo cuente.
   imagen(['/imagen', '/img'], conTexto: true),
@@ -111,6 +121,7 @@ enum ElComandoDeLaCasa {
     agenda,
     mcp,
     programadas,
+    recuerda,
     olvida,
     ayuda,
   ];

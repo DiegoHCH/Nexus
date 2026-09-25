@@ -21,6 +21,8 @@ import 'package:nexus/features/workspace/domain/usecases/repo_from_instruction.d
 import 'package:nexus/features/e2e/presentation/providers/raiz_de_los_flows_provider.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/domain/usecases/el_permiso_que_vale.dart';
+import 'package:nexus/features/memoria/domain/entities/lo_que_se_sabe_de_ti.dart';
+import 'package:nexus/features/memoria/presentation/providers/lo_que_recuerda_de_ti.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
 final claudeCliDataSourceProvider = Provider<ClaudeCliDataSource>(
@@ -127,6 +129,11 @@ final askClaudeProvider = Provider.family<AskClaude, String>((
         // hablando. Ver [QuienEsNexus].
         identidad: QuienEsNexus.comoSePresenta(
           ref.read(losNombresProvider).agente,
+        ),
+        // Lo que le pediste que recordara de ti. Global como los nombres, y por
+        // el mismo motivo elevado a regla: lo tuyo no cambia según el repo.
+        loQueSeSabeDeTi: LoQueSeSabeDeTi.paraElPrompt(
+          ref.read(loQueRecuerdaDeTiProvider),
         ),
         model: paired?.claudeModel,
         effort: paired?.claudeEffort,

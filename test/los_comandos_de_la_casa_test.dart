@@ -100,6 +100,7 @@ void main() {
         ElComandoDeLaCasa.agenda => textos.ayudaAgenda,
         ElComandoDeLaCasa.mcp => textos.ayudaMcp,
         ElComandoDeLaCasa.programadas => textos.ayudaProgramadas,
+        ElComandoDeLaCasa.recuerda => textos.ayudaRecuerda,
         ElComandoDeLaCasa.olvida => textos.ayudaOlvida,
         ElComandoDeLaCasa.ayuda => textos.ayudaAyuda,
       },

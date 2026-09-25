@@ -34,6 +34,7 @@ class GeminiVoiceGateway implements VoiceGateway {
     this._readLanguage,
     this._readNames,
     this._readAgentName,
+    this._readMemoria,
     this._ajustesYaLeidos,
   );
 
@@ -60,6 +61,11 @@ class GeminiVoiceGateway implements VoiceGateway {
   /// llamarte. Se reportó hablándole por su nombre y viendo que contestaba sin
   /// usar el de quien preguntaba.
   final String? Function() _readNames;
+
+  /// Lo que la persona pidió que se recordara de ella, ya compuesto para el
+  /// prompt. Se consulta al conectar, como la voz y el idioma: una memoria
+  /// nueva vale desde la siguiente sesión sin reconstruir nada.
+  final String? Function() _readMemoria;
 
   /// Cómo se llama quien contesta, o `null` para el de la app.
   ///
@@ -170,6 +176,13 @@ class GeminiVoiceGateway implements VoiceGateway {
     required String? agente,
     required String idioma,
     required String nombres,
+
+    /// Lo que la persona pidió que se recordara de ella, ya compuesto.
+    ///
+    /// Va aquí **y** en el prompt de los encargos porque es una sola memoria:
+    /// contarle algo escribiendo y que hablando no lo sepa sería tener dos
+    /// asistentes con el mismo nombre. Ver [LoQueSeSabeDeTi].
+    String? loQueSeSabeDeTi,
   }) =>
       // 🔴 **La identidad va aquí y sale de un solo sitio.** Antes esto era
       // «Eres <nombre>, un asistente de voz» y nada más: al preguntarle quién
@@ -178,6 +191,7 @@ class GeminiVoiceGateway implements VoiceGateway {
       '${QuienEsNexus.comoSePresenta(agente)}\n'
       '${enQueIdioma(idioma)}'
       '$nombres'
+      '${loQueSeSabeDeTi == null || loQueSeSabeDeTi.isEmpty ? '' : '$loQueSeSabeDeTi\n'}'
       'REGLA PRINCIPAL: absolutamente todo lo que te pidan —cualquier '
       'pregunta, consulta, tarea o encargo, sea de código o no— se lo pasas a '
       'Claude llamando a pedir_a_claude, y después cuentas lo que devolvió. '
@@ -315,6 +329,7 @@ class GeminiVoiceGateway implements VoiceGateway {
               agente: _readAgentName(),
               idioma: _readLanguage(),
               nombres: _losNombres(),
+              loQueSeSabeDeTi: _readMemoria(),
             ),
             ComoLaPuerta() => laPuerta(perfil),
             ComoUnAviso(:final frase) => elAviso(

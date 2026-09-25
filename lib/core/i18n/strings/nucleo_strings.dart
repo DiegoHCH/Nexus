@@ -145,6 +145,15 @@ mixin NucleoStrings {
   String stepsProgress(int done, int total);
   String stepsTaken(int steps);
 
+  /// «Paso 3 de 4» en la ventana de actividad: la misma cuenta que el reactor
+  /// del orbe, para que lo que se ve de lejos y de cerca coincida.
+  String pasoDeTotal(int paso, int total);
+
+  /// Las tres palabras de cada paso: el que corre y el que espera. El hecho
+  /// usa [ranLabel].
+  String get pasoAhora;
+  String get pasoEspera;
+
   /// La espera cuando quien tiene el turno es **algo tuyo que sigue en
   /// marcha**: el encargo anterior de esta misma conversación, un reintento,
   /// una compresión ya encolada.
@@ -591,6 +600,12 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get restoreWindow => 'Restaurar';
   @override
   String stepsProgress(int done, int total) => '$done de $total';
+  @override
+  String pasoDeTotal(int paso, int total) => 'paso $paso de $total';
+  @override
+  String get pasoAhora => 'AHORA';
+  @override
+  String get pasoEspera => 'ESPERA';
   @override
   String stepsTaken(int steps) =>
       steps == 1 ? 'VER EL PASO QUE DIO' : 'VER LOS $steps PASOS QUE DIO';
@@ -1190,6 +1205,12 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get restoreWindow => 'Restore';
   @override
   String stepsProgress(int done, int total) => '$done of $total';
+  @override
+  String pasoDeTotal(int paso, int total) => 'step $paso of $total';
+  @override
+  String get pasoAhora => 'NOW';
+  @override
+  String get pasoEspera => 'WAITING';
   @override
   String stepsTaken(int steps) =>
       steps == 1 ? 'SEE THE STEP IT TOOK' : 'SEE THE $steps STEPS IT TOOK';

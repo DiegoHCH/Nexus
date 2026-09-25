@@ -69,3 +69,17 @@ List<ActivityRow> layoutActivity(List<ActivityItem> items) {
 
   return rows;
 }
+
+/// Cuántos pasos lleva el turno y cuántos terminó, contando **solo los de
+/// Claude**: lo que hace un subagente es parte del paso que lo mandó.
+///
+/// Es la cuenta del reactor del orbe, y vive aquí para que la ventana de
+/// actividad diga lo mismo: si el orbe enseña tres tramos encendidos de cuatro,
+/// la ventana no puede decir «7 de 12» porque cuenta también los hijos.
+({int pasos, int hechos}) laCuentaDelTurno(Iterable<ActivityItem> items) {
+  final propios = items.where((item) => item.parentId == null);
+  return (
+    pasos: propios.length,
+    hechos: propios.where((item) => item.done).length,
+  );
+}

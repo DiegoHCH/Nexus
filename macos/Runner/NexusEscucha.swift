@@ -53,6 +53,10 @@ final class NexusEscucha: NSObject {
   private var palabras: [String] = []
   private var escuchando = false
 
+  /// Qué arranque es el vigente. Cada `arrancar` lo sube, y la tarea de
+  /// reconocimiento solo actúa si sigue siendo la suya —ver `arrancar`—.
+  private var generacion = 0
+
   /// Cuándo se avisó por última vez, para no disparar dos veces con la misma
   /// frase: la transcripción llega creciendo —«hes», «hestia», «hestia abre»—
   /// y todas contienen la palabra.
@@ -163,9 +167,28 @@ final class NexusEscucha: NSObject {
 
     let entrada = engine.inputNode
     let formato = entrada.outputFormat(forBus: 0)
-    entrada.removeTap(onBus: 0)
-    entrada.installTap(onBus: 0, bufferSize: 2048, format: formato) { buffer, _ in
-      peticion.append(buffer)
+    // 🔴 **Sin micrófono el formato sale a 0 Hz**, y `installTap` con eso no
+    // devuelve un error: levanta una `NSException` y la app muere. Pasa con un
+    // Mac mini sin nada enchufado o al desconectar el único micro. Se mira
+    // antes, y aun así el tap va dentro de `NexusSinReventar`, porque AVFAudio
+    // tiene más precondiciones que esta y adivinar la siguiente es el error
+    // que ya costó tres cierres en el motor de audio.
+    guard formato.sampleRate > 0, formato.channelCount > 0 else {
+      Self.log.notice("no hay micrófono de entrada · no se escucha")
+      limpiar()
+      return false
+    }
+    do {
+      try NexusSinReventar.correr {
+        entrada.removeTap(onBus: 0)
+        entrada.installTap(onBus: 0, bufferSize: 2048, format: formato) { buffer, _ in
+          peticion.append(buffer)
+        }
+      }
+    } catch {
+      Self.log.error("AVFAudio rechazó el tap de escucha · \(error.localizedDescription, privacy: .public)")
+      limpiar()
+      return false
     }
 
     do {
@@ -177,8 +200,15 @@ final class NexusEscucha: NSObject {
       return false
     }
 
+    generacion += 1
+    let esta = generacion
     tarea = reconocedor.recognitionTask(with: peticion) { [weak self] resultado, error in
-      guard let self else { return }
+      // 🔴 **Solo la tarea vigente decide.** Cancelar una tarea no la calla al
+      // momento: su último aviso —un error de «cancelada»— llega después, cuando
+      // ya corre la siguiente. Sin esta comprobación ese aviso tardío reiniciaba
+      // la nueva, esa cancelación reiniciaba otra, y la escucha se quedaba
+      // reiniciándose en bucle.
+      guard let self, self.generacion == esta else { return }
       if let resultado {
         self.mirarSiLeLlamaron(resultado.bestTranscription.formattedString)
       }
@@ -234,7 +264,13 @@ final class NexusEscucha: NSObject {
     let palabras = self.palabras
     parar()
     self.palabras = palabras
-    _ = arrancar()
+    guard arrancar() else {
+      // 🔴 **Y si no vuelve, se dice.** Antes se apagaba aquí sin avisar, y la
+      // app seguía creyendo que escuchaba: el ajuste encendido y nadie oyendo.
+      Self.log.notice("la escucha no pudo volver a empezar · se avisa a la app")
+      Self.canal?.invokeMethod("seCallo", arguments: nil)
+      return
+    }
   }
 
   private func mirarSiLeLlamaron(_ dicho: String) {

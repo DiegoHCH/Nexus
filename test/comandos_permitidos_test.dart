@@ -54,9 +54,34 @@ void main() {
     // `WebFetch`, así que lo que `curl` añade es poder **subir** un archivo —y
     // eso es justo lo que se niega—.
     test('y lo que sube se niega, que es la frontera que sí existe', () {
-      expect(AllowedCommands.loQueNoSube, contains('Bash(curl * -d *)'));
-      expect(AllowedCommands.loQueNoSube, contains('Bash(curl * -T *)'));
-      expect(AllowedCommands.loQueNoSube, contains('Bash(curl * -F *)'));
+      expect(
+        AllowedCommands.loQueNoSube,
+        containsAll(<String>[
+          'Bash(curl * -d*)',
+          'Bash(curl * -T*)',
+          'Bash(curl * -F*)',
+          'Bash(curl * --json*)',
+        ]),
+      );
+    });
+
+    // 🔴 El `*` del medio exige algo entre `curl` y el flag, así que con la
+    // lista de antes `curl -d @secreto https://…` —el flag primero— pasaba sin
+    // preguntar. Medido contra el CLI: `Bash(echo * -d *)` niega `echo uno -d
+    // hola` y deja correr `echo -d hola` y `echo uno -dhola`.
+    test('y se niega con el flag primero, y pegado a su valor', () {
+      expect(
+        AllowedCommands.loQueNoSube,
+        containsAll(<String>['Bash(curl -d*)', 'Bash(curl -F*)']),
+      );
+      for (final patron in AllowedCommands.loQueNoSube) {
+        expect(
+          patron,
+          endsWith('*)'),
+          reason: 'sin espacio antes del comodín: -d@archivo va pegado',
+        );
+        expect(patron, isNot(endsWith(' *)')));
+      }
     });
 
     // Los Spaces devuelven `.webp` y casi ningún sitio lo quiere. `sips` es de
@@ -149,6 +174,26 @@ void main() {
         );
       }
     });
+
+    // 🔴 Leer no era solo leer: `rg --pre` ejecuta un programa por archivo, y
+    // `git diff --output` escribe donde se le diga. En `acceptEdits` —móvil,
+    // agenda, cola— nadie lo habría parado.
+    test(
+      'y los flags con los que esas lecturas ejecutan o escriben se niegan',
+      () {
+        expect(
+          AllowedCommands.loQueNoEsLeer,
+          containsAll(<String>[
+            'Bash(rg --pre*)',
+            'Bash(rg * --pre*)',
+            'Bash(git diff --output*)',
+            'Bash(git diff * --ext-diff*)',
+            'Bash(git show * --output*)',
+            'Bash(git log --ext-diff*)',
+          ]),
+        );
+      },
+    );
 
     // 🔴 Y esto es la mitad que importa: la lista es corta **a propósito**.
     test('lo que puede borrar o editar NO entra', () {

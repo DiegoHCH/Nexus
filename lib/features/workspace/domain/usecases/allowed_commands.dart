@@ -112,14 +112,56 @@ abstract final class AllowedCommands {
   /// recorta el permiso ancho de arriba en vez de discutir con él.
   ///
   /// Son las formas que mandan un archivo hacia fuera: `-d`, `--data…`, `-T`,
-  /// `--upload-file`, `-F`. Descargar sigue funcionando escriba Claude los
-  /// flags donde los escriba, que es lo que hacía falta.
-  static const loQueNoSube = [
-    'Bash(curl * -d *)',
-    'Bash(curl * --data*)',
-    'Bash(curl * -T *)',
-    'Bash(curl * --upload-file*)',
-    'Bash(curl * -F *)',
+  /// `--upload-file`, `-F`, `--form`, `--json`, y `-K`/`--config`, que leen
+  /// esas mismas opciones de un archivo. Descargar sigue funcionando escriba
+  /// Claude los flags donde los escriba, que es lo que hacía falta.
+  ///
+  /// 🔴 **Y en las dos posiciones, que era el agujero.** La lista era
+  /// `Bash(curl * -d *)`, y el `*` del medio exige algo entre `curl` y el flag:
+  /// `curl -d @secreto https://…` —el flag primero— **pasaba sin preguntar**, y
+  /// `curl url -d@secreto`, pegado, también. Medido contra el CLI. Ver
+  /// [_enCualquierSitio].
+  static final loQueNoSube = _enCualquierSitio('curl', const [
+    '-d',
+    '--data',
+    '-T',
+    '--upload-file',
+    '-F',
+    '--form',
+    '--json',
+    '-K',
+    '--config',
+  ]);
+
+  /// Lo que se niega de lo que [paraLeer] da por lectura: **los flags con los
+  /// que esos comandos ejecutan o escriben**.
+  ///
+  /// - `rg --pre <programa>` corre ese programa sobre cada archivo: con eso,
+  ///   «buscar» es ejecutar cualquier cosa.
+  /// - `git diff`, `git show` y `git log` con `--output` escriben un archivo
+  ///   donde se les diga, y con `--ext-diff` corren el programa de diff que
+  ///   haya configurado.
+  ///
+  /// Importa sobre todo sin nadie delante —el móvil, la agenda, la cola—, que
+  /// van en `acceptEdits`: ahí nadie aprobaría ni negaría nada, así que lo que
+  /// esta lista no niegue corre.
+  static final loQueNoEsLeer = [
+    ..._enCualquierSitio('rg', const ['--pre']),
+    for (final git in const ['git diff', 'git show', 'git log'])
+      ..._enCualquierSitio(git, const ['--output', '--ext-diff']),
+  ];
+
+  /// Un flag negado **esté donde esté**: justo detrás del comando, o después de
+  /// otros argumentos. Y sin espacio detrás, para que `-d@archivo` pegado caiga
+  /// igual que `-d @archivo`.
+  ///
+  /// Hacen falta los dos patrones porque el `*` de `Bash(curl * -d*)` exige un
+  /// espacio a cada lado: no cubre el flag cuando va el primero.
+  static List<String> _enCualquierSitio(String comando, List<String> flags) => [
+    for (final flag in flags) ...[
+      'Bash($comando $flag*)',
+      'Bash($comando * $flag*)',
+    ],
   ];
 
   /// Lo que se le cuenta a Claude sobre lo que puede correr aquí.
@@ -136,7 +178,9 @@ abstract final class AllowedCommands {
         '`curl` y convertir imágenes con `sips` (por ejemplo `sips -s format '
         'png entrada.webp --out salida.png`), sin pedir permiso. Lo que no puedes es **subir** '
         'archivos: las formas de `curl` que mandan un archivo hacia fuera '
-        '—`-d`, `-T`, `-F`— están negadas, y no hay que buscarles la vuelta. '
+        '—`-d`, `-T`, `-F`, `--json`— están negadas, y no hay que buscarles la '
+        'vuelta. Tampoco `rg --pre` ni `--output` o `--ext-diff` en git: esos '
+        'flags ejecutan o escriben, y aquí solo se mira. '
         'Si te piden una imagen y el modelo la devuelve en `.webp`, conviértela '
         'a `.png` antes de darla por hecha.';
     return loBloqueado == null ? puede : '$loBloqueado\n\n$puede';

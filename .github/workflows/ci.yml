@@ -35,6 +35,16 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# 🔴 **Dos pasos no podían poner esto en rojo.** Sin `shell` explícito, un `run`
+# va con `bash -e`, **sin `pipefail`**: en una tubería manda el código del último
+# comando. `xcodebuild test … | tail -40` salía con el de `tail`, así que las
+# pruebas nativas pasaban aunque fallaran; y `cobertura.sh | tee` hacía lo mismo
+# con el suelo de `domain`. Con `shell: bash` GitHub añade `-o pipefail` a todos
+# los pasos, y ninguno nuevo puede volver a caer en esto.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   # El grueso, y en Linux a propósito: las pruebas de Dart no necesitan un Mac y
   # los minutos de macOS cuestan diez veces más.

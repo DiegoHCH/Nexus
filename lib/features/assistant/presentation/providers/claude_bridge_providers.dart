@@ -103,6 +103,9 @@ final askClaudeProvider = Provider.family<AskClaude, String>((
           // archivo. Van siempre, también en solo lectura, porque ahí no
           // estorban: negar de más no rompe nada.
           ...AllowedCommands.loQueNoSube,
+          // Y lo que convierte una lectura en ejecutar o escribir:
+          // `rg --pre`, `git diff --output`… Ver [AllowedCommands.loQueNoEsLeer].
+          ...AllowedCommands.loQueNoEsLeer,
         ],
         // **Descargar viene de serie**, y el resto lo pone la carpeta. Sin la
         // descarga, generar una imagen o traerse un archivo no sirve de nada:

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/i18n/nexus_strings.dart';
+import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
 import 'package:nexus/features/remote/data/channel_link.dart';
 import 'package:nexus/features/remote/presentation/providers/pairing_providers.dart';
@@ -19,7 +21,7 @@ class LinkBadge extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final estado = ref.watch(linkStateProvider).value ?? LinkState.sinConexion;
-    final (texto, color) = _decir(estado, colors);
+    final (texto, color) = _decir(context.strings, estado, colors);
 
     return Row(
       key: const ValueKey('estado-del-enlace'),
@@ -50,21 +52,22 @@ class LinkBadge extends ConsumerWidget {
   /// hay nada que tocar, y en la segunda toca mirar si el Mac está encendido. Un solo
   /// mensaje para las dos manda a comprobar cosas mientras se arreglaba solo.
   (String, Color) _decir(
+    NexusStrings strings,
     LinkState estado,
     NexusColors colors,
   ) => switch (estado) {
-    LinkState.conectado => ('conectado', colors.ok),
-    LinkState.conectando => ('conectando', colors.mute),
-    LinkState.reconectando => ('reconectando', colors.warn),
-    LinkState.resincronizando => ('poniéndose al día', colors.warn),
-    LinkState.sinConexion => ('sin conexión', colors.err),
+    LinkState.conectado => (strings.mobileBadgeConnected, colors.ok),
+    LinkState.conectando => (strings.mobileBadgeConnecting, colors.mute),
+    LinkState.reconectando => (strings.mobileBadgeReconnecting, colors.warn),
+    LinkState.resincronizando => (strings.mobileBadgeResyncing, colors.warn),
+    LinkState.sinConexion => (strings.mobileBadgeOffline, colors.err),
     // Los dos que antes se veían como «reconectando» y pedían cosas distintas: uno es
     // instalar Tailscale y el otro volver a emparejar. Se descubrió con un teléfono
     // real dando vueltas en «reconectando» sin poder decir cuál de los dos era.
-    LinkState.noSeLlega => ('no llego al Mac · ¿Tailscale?', colors.err),
-    LinkState.rechazado => ('el Mac no acepta el token', colors.err),
+    LinkState.noSeLlega => (strings.mobileBadgeUnreachable, colors.err),
+    LinkState.rechazado => (strings.mobileBadgeRejected, colors.err),
     // Terminal: reintentar no lo arregla, así que el mensaje no puede sonar a
     // «espera un momento».
-    LinkState.hayQueActualizar => ('hay que actualizar', colors.err),
+    LinkState.hayQueActualizar => (strings.mobileBadgeMustUpdate, colors.err),
   };
 }

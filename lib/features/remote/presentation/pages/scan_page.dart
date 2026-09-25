@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:nexus/core/i18n/nexus_strings.dart';
+import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
 import 'package:nexus/core/design_system/nexus_spacing.dart';
 import 'package:nexus/core/design_system/nexus_typography.dart';
@@ -83,6 +85,7 @@ class _ScanPageState extends ConsumerState<ScanPage> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final strings = context.strings;
     final tailscale = ref.watch(tailscaleDelTelefonoProvider);
 
     return Scaffold(
@@ -99,12 +102,12 @@ class _ScanPageState extends ConsumerState<ScanPage> {
               // Un rótulo y no un titular: el mockup pone el nombre de la pantalla en
               // mono, mayúsculas y con tracking — la frase de debajo es la que habla.
               Text(
-                'EMPAREJAR CON TU MAC',
+                strings.mobilePairTitle,
                 style: NexusTypography.label.copyWith(color: colors.mute),
               ),
               const SizedBox(height: NexusSpacing.s5),
               Text(
-                'Apunta al código que aparece en la pantalla de tu Mac.',
+                strings.mobilePointAtCode,
                 textAlign: TextAlign.center,
                 style: NexusTypography.subtitleMobile.copyWith(
                   color: colors.ink,
@@ -142,7 +145,7 @@ class _ScanPageState extends ConsumerState<ScanPage> {
               if (_problema != null) ...[
                 const SizedBox(height: NexusSpacing.s4),
                 Text(
-                  _decir(_problema!),
+                  _decir(strings, _problema!),
                   key: const ValueKey('problema-del-codigo'),
                   textAlign: TextAlign.center,
                   style: NexusTypography.mono.copyWith(color: colors.warn),
@@ -153,14 +156,14 @@ class _ScanPageState extends ConsumerState<ScanPage> {
               // enlace de socorro escondido.
               _BotonAncho(
                 key: const ValueKey('a-mano'),
-                texto: 'Escribir el código a mano',
+                texto: strings.mobileTypeCodeByHand,
                 alTocar: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(builder: (_) => const PairingPage()),
                 ),
               ),
               const SizedBox(height: NexusSpacing.s4),
               Text(
-                'El teléfono no ejecuta nada:\ntodo corre en el Mac y se muestra aquí.',
+                strings.mobilePhoneRunsNothing,
                 textAlign: TextAlign.center,
                 style: NexusTypography.mono.copyWith(color: colors.faint),
               ),
@@ -171,14 +174,17 @@ class _ScanPageState extends ConsumerState<ScanPage> {
     );
   }
 
-  String _decir(PairingProblem problema) => switch (problema) {
+  String _decir(
+    NexusStrings strings,
+    PairingProblem problema,
+  ) => switch (problema) {
     // El caso frecuente, y por eso el mensaje no culpa a nadie: la cámara vio otro
     // código antes que el bueno.
-    PairingProblem.noEsDeNexus => 'Ese código no es de Nexus. Sigue apuntando.',
-    PairingProblem.tokenCorto => 'El código llegó incompleto. Prueba otra vez.',
+    PairingProblem.noEsDeNexus => strings.mobileScanNotNexus,
+    PairingProblem.tokenCorto => strings.mobileScanIncomplete,
     PairingProblem.urlIlegible ||
     PairingProblem.esquemaEquivocado ||
-    PairingProblem.faltaElPuerto => 'Ese código de Nexus no se entiende.',
+    PairingProblem.faltaElPuerto => strings.mobileScanUnreadable,
   };
 }
 
@@ -191,22 +197,27 @@ class _Tailscale extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final strings = context.strings;
 
     final (texto, dato, vivo) = switch (estado) {
-      AsyncData(value: final String dir) => ('TAILSCALE ACTIVO', dir, true),
+      AsyncData(value: final String dir) => (
+        strings.mobileTailscaleActive,
+        dir,
+        true,
+      ),
       // **Sin Tailscale no va a conectar**, y decirlo aquí es lo que evita el
       // «reconectando» sin explicación que costó una tarde de depuración.
       AsyncData() => (
-        'SIN TAILSCALE EN ESTE TELÉFONO',
-        'instálalo y entra con tu cuenta',
+        strings.mobileNoTailscale,
+        strings.mobileNoTailscaleHint,
         false,
       ),
       AsyncError() => (
-        'NO PUDE COMPROBAR TAILSCALE',
-        'se verá al conectar',
+        strings.mobileTailscaleUnknown,
+        strings.mobileTailscaleUnknownHint,
         false,
       ),
-      _ => ('COMPROBANDO TAILSCALE', '', false),
+      _ => (strings.mobileCheckingTailscale, '', false),
     };
 
     return Column(
@@ -285,6 +296,7 @@ class _SinCamara extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final strings = context.strings;
 
     return ColoredBox(
       color: colors.deep,
@@ -294,15 +306,15 @@ class _SinCamara extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'NO PUEDO USAR LA CÁMARA',
+              strings.mobileNoCamera,
               key: const ValueKey('sin-camara'),
               style: NexusTypography.label.copyWith(color: colors.warn),
             ),
             const SizedBox(height: NexusSpacing.s3),
             Text(
               error.errorCode == MobileScannerErrorCode.permissionDenied
-                  ? 'No le has dado permiso, así que escribe el código a mano.'
-                  : 'Este teléfono no me deja abrirla. Escríbelo a mano.',
+                  ? strings.mobileCameraDenied
+                  : strings.mobileCameraUnavailable,
               textAlign: TextAlign.center,
               style: NexusTypography.mono.copyWith(color: colors.mute),
             ),

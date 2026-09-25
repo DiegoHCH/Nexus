@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
 import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
@@ -125,6 +126,7 @@ class _Vacio extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final strings = context.strings;
     // Una lista vacía **no es un error**: es un Mac sin conversaciones abiertas, y
     // eso pasa a diario. Se dibuja como un estado y no como un fallo.
     //
@@ -184,8 +186,8 @@ class _Vacio extends StatelessWidget {
                 const SizedBox(height: NexusSpacing.s5),
                 Text(
                   preguntado
-                      ? 'Nada abierto en el Mac'
-                      : 'No pude preguntarle al Mac',
+                      ? strings.mobileNothingOpen
+                      : strings.mobileCouldNotAsk,
                   key: const ValueKey('titulo-del-vacio'),
                   style: NexusTypography.subtitleMobile.copyWith(
                     color: colors.ink,
@@ -197,10 +199,8 @@ class _Vacio extends StatelessWidget {
                       // Se dice **sobre qué** se abre, que es la parte que no es
                       // obvia: una conversación no nace de la nada, nace sobre una
                       // carpeta que el Mac ya tenía emparejada.
-                      ? 'Una conversación empieza sobre una de las carpetas que el '
-                            'Mac ya tiene emparejadas.'
-                      : 'El Mac no contestó a la última petición. Puede estar '
-                            'dormido, o fuera de Tailscale.',
+                      ? strings.mobileNothingOpenBody
+                      : strings.mobileCouldNotAskBody,
                   style: NexusTypography.body.copyWith(color: colors.mute),
                 ),
                 const SizedBox(height: NexusSpacing.s6),
@@ -209,7 +209,7 @@ class _Vacio extends StatelessWidget {
                 if (preguntado)
                   WideAction(
                     key: const ValueKey('empezar-desde-el-vacio'),
-                    texto: 'Conversación nueva',
+                    texto: strings.mobileNewConversation,
                     principal: true,
                     alTocar: alEmpezar,
                   )
@@ -218,7 +218,7 @@ class _Vacio extends StatelessWidget {
                   // fallaría igual—: es volver a preguntar.
                   WideAction(
                     key: const ValueKey('reintentar-desde-el-vacio'),
-                    texto: 'Volver a preguntar',
+                    texto: strings.mobileAskAgain,
                     principal: true,
                     alTocar: alReintentar,
                   ),
@@ -239,10 +239,11 @@ class _Tarjeta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final strings = context.strings;
     // **Una fila con hairline, no una tarjeta.** Una `Card` trae elevación, esquinas
     // de 12 y su propio color de superficie: tres cosas que este sistema no usa en
     // ninguna otra parte, y que hacían que esta pantalla se leyera como otra app. Las
-    // demás listas del teléfono —el archivo, los artifacts, el menú— ya son filas
+    // demás listas del teléfono —el historial, los documentos, el menú— ya son filas
     // separadas por una línea de un píxel.
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -279,7 +280,7 @@ class _Tarjeta extends StatelessWidget {
                       // texto un glifo de Material es la única forma redonda de la
                       // pantalla, y encima hay que saber qué significa.
                       child: Text(
-                        'ESCUCHA',
+                        strings.mobileListening,
                         style: NexusTypography.label.copyWith(
                           color: colors.accent,
                         ),
@@ -314,7 +315,7 @@ class _Tarjeta extends StatelessWidget {
                     Expanded(
                       child: Text(
                         conversacion.steps.isEmpty
-                            ? 'trabajando'
+                            ? strings.mobileWorking
                             : conversacion.steps.last.text,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,

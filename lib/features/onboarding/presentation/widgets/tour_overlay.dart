@@ -324,18 +324,29 @@ class _Card extends StatelessWidget {
                 style: NexusTypography.lead.copyWith(color: colors.ink),
               ),
               const SizedBox(height: NexusSpacing.s3),
+              // Lo que acompaña al texto —la tira de orbes de la primera
+              // parada— va **dentro** de la parte que cede: con el orbe grande
+              // del escenario le queda menos alto a la tarjeta, y fuera del
+              // scroll la desbordaba 41 px.
               Flexible(
                 child: SingleChildScrollView(
-                  child: Text(
-                    body,
-                    style: NexusTypography.body.copyWith(color: colors.mute),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        body,
+                        style: NexusTypography.body.copyWith(
+                          color: colors.mute,
+                        ),
+                      ),
+                      if (extra != null) ...[
+                        const SizedBox(height: NexusSpacing.s4),
+                        extra,
+                      ],
+                    ],
                   ),
                 ),
               ),
-              if (extra != null) ...[
-                const SizedBox(height: NexusSpacing.s4),
-                extra,
-              ],
               const SizedBox(height: NexusSpacing.s5),
               // `Expanded` en el de saltar y no `spaceBetween` a secas: con los dos
               // a su tamaño natural la fila **desbordaba 48 px**, y en inglés o con

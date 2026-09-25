@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:nexus/features/assistant/presentation/widgets/el_escenario.dart';
@@ -1044,135 +1045,162 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
                   ),
                 ),
                 Expanded(
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        // Opaco, como el de la pantalla con conversación: el
-                        // orbe es dibujo sobre un fondo casi vacío, y sin esto
-                        // solo respondería donde hay pintado un punto.
-                        child: TourAnchor(
-                          stop: TourStop.orb,
-                          child: Semantics(
-                            button: true,
-                            label: context.strings.orbLabel,
-                            hint: context.strings.orbHint,
-                            value: context.strings.asleep,
-                            child: GestureDetector(
-                              onTap: _talk,
-                              behavior: HitTestBehavior.opaque,
-                              // Con la puerta abierta el orbe **escucha**, que es
-                              // lo que está haciendo: dormido decía lo contrario
-                              // de lo que pasaba.
-                              // El orbe cuenta lo mismo que el rótulo: hablando
-                              // late con la voz, escuchando abre su malla. Con
-                              // los dos en «escuchando» durante el saludo, la
-                              // pantalla enseñaba una cosa y se oía otra.
-                              child: ValueListenableBuilder<bool>(
-                                valueListenable: _hablandoLaPuerta,
-                                builder: (context, hablando, _) => NexusOrb(
-                                  state: switch ((_puertaAbierta, hablando)) {
-                                    (true, true) => NexusOrbState.speak,
-                                    (true, false) => NexusOrbState.listen,
-                                    (false, _) => NexusOrbState.sleep,
-                                  },
-                                  nivelVivo: !_puertaAbierta
-                                      ? null
-                                      : hablando
-                                      ? ElNivelDeLaVoz.altavoz
-                                      : ElNivelDeLaVoz.microfono,
+                  child: LayoutBuilder(
+                    builder: (context, area) {
+                      final puerta = _LaPuertaEnPantalla(area.biggest);
+                      return Stack(
+                        children: [
+                          // 🔴 **Con la puerta abierta, el orbe se recoge a su
+                          // sitio del mockup**: 420 px centrado arriba, con el
+                          // subtítulo y las carpetas debajo. Llenando el cuerpo
+                          // entero, hablando se abría hasta tocar el subtítulo y
+                          // las carpetas quedaban pegadas al borde de abajo, como
+                          // una nota al pie de un orbe. Se anima porque la puerta
+                          // se abre con la pantalla ya pintada: de golpe se leía
+                          // como un salto.
+                          //
+                          // 🔴 **Y solo se anima al abrirse la puerta.**
+                          // Cerrada, el cuerpo cambia de alto al aparecer la
+                          // caja de texto, y animado el orbe tardaba 420 ms en
+                          // llegar a su sitio: el tour, que lo mide en su
+                          // primer fotograma, lo señalaba a medio camino.
+                          AnimatedPositioned.fromRect(
+                            duration: _puertaAbierta
+                                ? const Duration(milliseconds: 420)
+                                : Duration.zero,
+                            curve: Curves.easeInOutCubic,
+                            rect: _puertaAbierta
+                                ? puerta.orbe
+                                : Offset.zero & area.biggest,
+                            // Opaco, como el de la pantalla con conversación: el
+                            // orbe es dibujo sobre un fondo casi vacío, y sin esto
+                            // solo respondería donde hay pintado un punto.
+                            child: TourAnchor(
+                              stop: TourStop.orb,
+                              child: Semantics(
+                                button: true,
+                                label: context.strings.orbLabel,
+                                hint: context.strings.orbHint,
+                                value: context.strings.asleep,
+                                child: GestureDetector(
+                                  onTap: _talk,
+                                  behavior: HitTestBehavior.opaque,
+                                  // Con la puerta abierta el orbe **escucha**, que es
+                                  // lo que está haciendo: dormido decía lo contrario
+                                  // de lo que pasaba.
+                                  // El orbe cuenta lo mismo que el rótulo: hablando
+                                  // late con la voz, escuchando abre su malla. Con
+                                  // los dos en «escuchando» durante el saludo, la
+                                  // pantalla enseñaba una cosa y se oía otra.
+                                  child: ValueListenableBuilder<bool>(
+                                    valueListenable: _hablandoLaPuerta,
+                                    builder: (context, hablando, _) => NexusOrb(
+                                      state: switch ((
+                                        _puertaAbierta,
+                                        hablando,
+                                      )) {
+                                        (true, true) => NexusOrbState.speak,
+                                        (true, false) => NexusOrbState.listen,
+                                        (false, _) => NexusOrbState.sleep,
+                                      },
+                                      nivelVivo: !_puertaAbierta
+                                          ? null
+                                          : hablando
+                                          ? ElNivelDeLaVoz.altavoz
+                                          : ElNivelDeLaVoz.microfono,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                      // El muelle se aparta mientras la puerta pregunta: ahí la
-                      // entrada es contestar, y «nueva» al lado ofrece otra cosa
-                      // en el único momento en que solo hay que decir dónde. Vuelve
-                      // en cuanto la puerta se cierra o no puede abrirse.
-                      if (_estado == _Puerta.cerrada)
-                        const Positioned(
-                          left: NexusSpacing.s6,
-                          bottom: ConversationDock.alDelSuelo,
-                          child: TourAnchor(
-                            stop: TourStop.dock,
-                            child: ConversationDock(),
-                          ),
-                        ),
-                      // Debajo del orbe, como los subtítulos de una conversación:
-                      // lo que la puerta va diciendo, para quien no pueda oírlo.
-                      if (_puertaAbierta)
-                        Positioned(
-                          left: NexusSpacing.s8,
-                          right: NexusSpacing.s8,
-                          bottom: ConversationDock.alDelSuelo + 64,
-                          // 🔴 **Sin comerse las pulsaciones.** Se pinta después
-                          // del muelle, así que queda por encima: sin esto, el
-                          // borde superior de «nueva» dejaba de responder — y un
-                          // subtítulo que roba toques es de los fallos que se
-                          // buscan en el sitio equivocado.
-                          child: IgnorePointer(
-                            // Sin cuadro: es un subtítulo, no un panel. Lo que
-                            // hace falta es leerlo, y un marco alrededor del orbe
-                            // convierte una frase en un trozo de interfaz.
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxHeight: 140),
-                              // 🔴 **En su propia capa.** El subtítulo cambia
-                              // mientras suena el audio, y sin esta frontera cada
-                              // cambio repinta también el orbe —que es un
-                              // `CustomPaint` animado— en la misma pasada. Se
-                              // notó de oído antes que en ningún perfil: con el
-                              // texto quieto la voz no se entrecortaba, y con él
-                              // moviéndose sí.
-                              child: RepaintBoundary(
-                                child: ValueListenableBuilder<String>(
-                                  valueListenable: _dicho,
-                                  builder: (context, dicho, _) =>
-                                      SingleChildScrollView(
-                                        reverse: true,
-                                        child: _ConLaPreguntaTenue(dicho),
-                                      ),
+                          // El muelle se aparta mientras la puerta pregunta: ahí la
+                          // entrada es contestar, y «nueva» al lado ofrece otra cosa
+                          // en el único momento en que solo hay que decir dónde. Vuelve
+                          // en cuanto la puerta se cierra o no puede abrirse.
+                          if (_estado == _Puerta.cerrada)
+                            const Positioned(
+                              left: NexusSpacing.s6,
+                              bottom: ConversationDock.alDelSuelo,
+                              child: TourAnchor(
+                                stop: TourStop.dock,
+                                child: ConversationDock(),
+                              ),
+                            ),
+                          // Debajo del orbe, como los subtítulos de una conversación:
+                          // lo que la puerta va diciendo, para quien no pueda oírlo.
+                          if (_puertaAbierta)
+                            Positioned.fromRect(
+                              rect: puerta.subtitulo,
+                              // 🔴 **Sin comerse las pulsaciones.** Se pinta después
+                              // del muelle, así que queda por encima: sin esto, el
+                              // borde superior de «nueva» dejaba de responder — y un
+                              // subtítulo que roba toques es de los fallos que se
+                              // buscan en el sitio equivocado.
+                              child: IgnorePointer(
+                                // Sin cuadro: es un subtítulo, no un panel. Lo que
+                                // hace falta es leerlo, y un marco alrededor del orbe
+                                // convierte una frase en un trozo de interfaz.
+                                child: Align(
+                                  alignment: Alignment.topCenter,
+                                  // 🔴 **En su propia capa.** El subtítulo cambia
+                                  // mientras suena el audio, y sin esta frontera cada
+                                  // cambio repinta también el orbe —que es un
+                                  // `CustomPaint` animado— en la misma pasada. Se
+                                  // notó de oído antes que en ningún perfil: con el
+                                  // texto quieto la voz no se entrecortaba, y con él
+                                  // moviéndose sí.
+                                  child: RepaintBoundary(
+                                    child: ValueListenableBuilder<String>(
+                                      valueListenable: _dicho,
+                                      builder: (context, dicho, _) =>
+                                          SingleChildScrollView(
+                                            reverse: true,
+                                            child: _ConLaPreguntaTenue(dicho),
+                                          ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                      // Las carpetas, para tocar en vez de repetir. Debajo del
-                      // subtítulo y a la altura del muelle, que con la puerta
-                      // abierta no está.
-                      if (_puertaAbierta)
-                        Positioned(
-                          left: NexusSpacing.s8,
-                          right: NexusSpacing.s8,
-                          bottom: ConversationDock.alDelSuelo,
-                          child: _LasSugerencias(
-                            carpetas: folders,
-                            dudaEntre: _dudaEntre,
-                            alElegir: _elegirTocando,
-                          ),
-                        ),
-                      if (folders.isEmpty &&
-                          ref.watch(artifactsFolderProvider) == null)
-                        Positioned(
-                          top: NexusSpacing.s5,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: TextButton(
-                              onPressed: () => SettingsPage.open(
-                                context,
-                                en: SeccionDeAjustes.permissions,
+                          // Las carpetas, para tocar en vez de repetir. Debajo del
+                          // subtítulo, donde las pone el mockup; el muelle, que
+                          // con la puerta abierta no está, no les disputa sitio.
+                          if (_puertaAbierta)
+                            Positioned(
+                              left: NexusSpacing.s8,
+                              right: NexusSpacing.s8,
+                              top: puerta.sugerencias,
+                              child: _LasSugerencias(
+                                carpetas: folders,
+                                dudaEntre: _dudaEntre,
+                                alElegir: _elegirTocando,
                               ),
-                              child: Text(
-                                context.strings.pairAFolderToStart,
-                                style: NexusTypography.label.copyWith(
-                                  color: colors.accent,
+                            ),
+                          if (folders.isEmpty &&
+                              ref.watch(artifactsFolderProvider) == null)
+                            Positioned(
+                              top: NexusSpacing.s5,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: TextButton(
+                                  onPressed: () => SettingsPage.open(
+                                    context,
+                                    en: SeccionDeAjustes.permissions,
+                                  ),
+                                  child: Text(
+                                    context.strings.pairAFolderToStart,
+                                    style: NexusTypography.label.copyWith(
+                                      color: colors.accent,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                    ],
+                        ],
+                      );
+                    },
                   ),
                 ),
               ],
@@ -1217,7 +1245,16 @@ class _ConLaPreguntaTenue extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final (dicho, pregunta) = ElAdelantoDeLaPuerta.laPreguntaAparte(texto);
-    final estilo = NexusTypography.nota.copyWith(color: colors.ink);
+    // 🔴 **Un subtítulo, no una nota**: el `.subt-d` del mockup, Instrument
+    // Sans 300 a 30 px. A 13 px la frase de la puerta se leía como la ayuda de
+    // un campo, cuando es lo único que hay que leer en la pantalla —la voz
+    // pregunta, y esto es lo mismo escrito para quien no pueda oírla—.
+    final estilo = NexusTypography.subtitle.copyWith(
+      color: colors.ink,
+      fontSize: 30,
+      letterSpacing: -0.6,
+      height: 1.3,
+    );
     return Text.rich(
       TextSpan(
         text: dicho,
@@ -1233,6 +1270,46 @@ class _ConLaPreguntaTenue extends StatelessWidget {
       style: estilo,
     );
   }
+}
+
+/// Dónde va cada pieza de la puerta abierta, sacado del mockup.
+///
+/// Las medidas son las del cuadro 3 del arranque —una pantalla de 1280 × 800
+/// con la barra de 52—: el orbe de 420 a 38 px de la barra, el subtítulo a
+/// 488 y las carpetas a 598. Se escalan con el alto del cuerpo y no se fijan:
+/// en una ventana más alta el conjunto baja con ella en vez de quedarse
+/// pegado arriba, y en la mínima (768) sigue cabiendo entero.
+@immutable
+class _LaPuertaEnPantalla {
+  factory _LaPuertaEnPantalla(Size area) {
+    final k = area.height / _altoDelMockup;
+    final lado = math.min(420 * k, area.width);
+    return _LaPuertaEnPantalla._(
+      orbe: Rect.fromLTWH((area.width - lado) / 2, 38 * k, lado, lado),
+      // El 10 % de margen a cada lado del mockup, y hasta las carpetas: lo que
+      // no quepa ahí se desplaza dentro, que es lo que ya hacía.
+      subtitulo: Rect.fromLTRB(
+        area.width * 0.1,
+        488 * k,
+        area.width * 0.9,
+        588 * k,
+      ),
+      sugerencias: 598 * k,
+    );
+  }
+
+  const _LaPuertaEnPantalla._({
+    required this.orbe,
+    required this.subtitulo,
+    required this.sugerencias,
+  });
+
+  /// El cuerpo del mockup bajo la barra: 800 − 52.
+  static const _altoDelMockup = 748.0;
+
+  final Rect orbe;
+  final Rect subtitulo;
+  final double sugerencias;
 }
 
 /// Las sugerencias de la puerta con lo que hace falta para pintarlas: cuáles

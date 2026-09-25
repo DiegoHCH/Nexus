@@ -60,14 +60,36 @@ class ElOidoQueEspera {
   Future<void> cuadrar() async {
     final debe = await _debeEscuchar();
     if (!_ref.mounted) return;
-    if (debe == _puesto) return;
+    // 🔴 **Decir por qué no escucha, que era el agujero.** Cuando decidía que
+    // no, salía por aquí en silencio: el registro no distinguía «apagado» de
+    // «encendido y no pudo», y con el micrófono de por medio esa es justo la
+    // pregunta que hay que poder contestar sin adivinar.
+    if (debe == _puesto) {
+      if (!debe) debugPrint('escucha · no toca escuchar ahora');
+      return;
+    }
     if (!debe) {
       _puesto = false;
       await EscuchaChannel.parar();
       return;
     }
+    // 🔴 **Esperar a los nombres antes de decidir cuál se escucha.** Nacen
+    // vacíos y el disco se lee después —ver `LosNombresController.leidos`—, y
+    // esto se cuadra en el arranque: sin esperar, la palabra salía «nexus»
+    // aunque la hubieras llamado Hestia, y se quedaba así toda la sesión.
+    await _ref.read(losNombresProvider.notifier).leidos;
+    if (!_ref.mounted) return;
     _puesto = await EscuchaChannel.empezar(_lasPalabras());
     debugPrint('escucha · ${_puesto ? 'puesta' : 'no se pudo poner'}');
+  }
+
+  /// Le cambiaste el nombre: si estaba escuchando, vuelve a empezar con el
+  /// nuevo. Sin esto seguiría abriendo con el de antes hasta reiniciar la app.
+  Future<void> renombrar() async {
+    if (!_puesto) return;
+    _puesto = false;
+    await EscuchaChannel.parar();
+    await cuadrar();
   }
 
   Future<bool> _debeEscuchar() async {
@@ -147,6 +169,12 @@ final elOidoQueEsperaProvider = Provider<ElOidoQueEspera>((ref) {
   final oido = ElOidoQueEspera(ref);
   unawaited(oido.cuadrar());
   ref.listen(conversationsProvider, (_, _) => unawaited(oido.cuadrar()));
+  ref.listen(losNombresProvider.select((nombres) => nombres.agente), (
+    antes,
+    ahora,
+  ) {
+    if (antes != ahora) unawaited(oido.renombrar());
+  });
   return oido;
 });
 

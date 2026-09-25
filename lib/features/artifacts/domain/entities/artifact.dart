@@ -1,3 +1,6 @@
+import 'package:nexus/features/artifacts/domain/entities/origen_del_documento.dart';
+import 'package:nexus/features/artifacts/domain/entities/tipo_de_documento.dart';
+
 /// Un documento que ha salido de una conversación: un mockup, un informe, una
 /// hoja de cálculo.
 class Artifact {
@@ -6,10 +9,38 @@ class Artifact {
     required this.name,
     required this.at,
     this.account,
+    this.bytes,
+    this.origen,
   });
 
   final String path;
   final String name;
+
+  /// Cuánto ocupa, cuando se sabe. Sale de la misma consulta al disco que da la
+  /// fecha, así que saberlo no cuesta nada más; sirve para decidir si abrir algo
+  /// antes de abrirlo.
+  final int? bytes;
+
+  /// De qué conversación salió, o `null` si no consta.
+  ///
+  /// `null` no es un error: son los documentos escritos a mano en la carpeta,
+  /// los de una conversación que ya se borró y los que ninguna conversación
+  /// llegó a colgar de un turno. La lista los junta en un grupo aparte, «Sin
+  /// conversación», en vez de esconderlos.
+  final OrigenDelDocumento? origen;
+
+  /// Qué es, con nombre de persona. Ver [TipoDeDocumento].
+  TipoDeDocumento get tipo => TipoDeDocumento.de(path);
+
+  /// El mismo documento, colgado de [origen].
+  Artifact conOrigen(OrigenDelDocumento? origen) => Artifact(
+    path: path,
+    name: name,
+    at: at,
+    account: account,
+    bytes: bytes,
+    origen: origen,
+  );
 
   /// De qué cuenta salió —`work`, `private`— cuando la carpeta está dividida por
   /// perfil, que es como acaba estando en cuanto se trabaja con dos.

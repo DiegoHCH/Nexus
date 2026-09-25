@@ -930,6 +930,29 @@ class HoldVoiceConversation {
     /// se filtra nada — la sesión la abriste tú. Ver [ElAudioAjeno].
     var estabaHablando = false;
 
+    /// Si ella ya estaba hablando **cuando empezó** la frase que se está
+    /// oyendo. Es lo que el filtro del audio ajeno pregunta de verdad.
+    ///
+    /// 🔴 **No vale mirar [estabaHablando] al cerrar el turno**, que es lo que
+    /// se hacía. El `turnComplete` del servicio llega *después* del audio de la
+    /// respuesta, así que al cerrar cualquier turno contestado ella «estaba
+    /// hablando»: contestándote a ti. Medido con la sesión delante: la frase
+    /// llegó con ella callada (`t+4600`), la respuesta empezó a sonar seis
+    /// milisegundos después y el turno cerró a los `t+12151` — y «¿Cómo
+    /// estás?» se tiró como ajena. Peor: el `tirandoLaRespuesta` que dejaba
+    /// puesto silenció entera la respuesta **siguiente**, que solo salió
+    /// escrita. Por eso se fija con el primer pedazo de la frase y no después.
+    var hablabaAlEmpezar = false;
+
+    /// Hasta cuándo sigue sonando en el altavoz lo que ya contestó, en el reloj
+    /// de la sesión.
+    ///
+    /// El servicio entrega la respuesta más rápido que en tiempo real, así que
+    /// el turno puede darse por cerrado con frases enteras todavía por sonar —y
+    /// quien habla encima de eso le está hablando encima, aunque el socket ya
+    /// esté callado—.
+    var sigueSonandoHasta = 0;
+
     /// Si la respuesta que venga se tira: es la contestación a algo que no iba
     /// dirigido a ella.
     ///
@@ -993,7 +1016,12 @@ class HoldVoiceConversation {
             case VoiceUserTranscript(:final text):
               // El primer pedazo de una frase es el que estrena turno: los
               // siguientes son la misma frase llegando a trozos.
-              if (asked.isEmpty) turn++;
+              if (asked.isEmpty) {
+                turn++;
+                hablabaAlEmpezar =
+                    estabaHablando ||
+                    clock.elapsedMilliseconds < sigueSonandoHasta;
+              }
               asked.write(text);
               // 🔴 **El corte lo hacemos nosotros.** El servicio ya no
               // interrumpe —`NO_INTERRUPTION`, para que la conversación de la
@@ -1002,7 +1030,7 @@ class HoldVoiceConversation {
               // su nombre o una palabra de control, se tira lo que quedaba por
               // sonar. Y con eso este turno deja de ser «ajeno»: interrumpió, o
               // sea que iba con ella.
-              if (estabaHablando &&
+              if ((estabaHablando || hablabaAlEmpezar) &&
                   ElAudioAjeno.interrumpe(
                     asked.toString(),
                     agente: _comoSeLlama(),
@@ -1020,14 +1048,25 @@ class HoldVoiceConversation {
               // otra.
               final utterance = asked.toString().trim();
               asked.clear();
+              final empezoHablandoElla = hablabaAlEmpezar;
+              hablabaAlEmpezar = false;
+              // Lo que quede por sonar de este turno: quien hable mientras
+              // tanto le está hablando encima. Ver [sigueSonandoHasta].
+              unawaited(
+                _output.pending().then((queda) {
+                  sigueSonandoHasta =
+                      clock.elapsedMilliseconds + queda.inMilliseconds;
+                }),
+              );
               // 🔴 **Lo que se oyó mientras hablaba y no iba con ella se tira
               // entero.** Pasó con la transcripción delante: conversación de la
               // habitación contestada por el modelo, y el servicio tomándola
               // por una interrupción que cortaba la frase a medias. Ver
-              // [ElAudioAjeno], que es quien decide.
+              // [ElAudioAjeno], que es quien decide — y [hablabaAlEmpezar],
+              // que es lo que se le pregunta.
               if (ElAudioAjeno.seIgnora(
                 utterance,
-                estabaHablando: estabaHablando,
+                estabaHablando: empezoHablandoElla,
                 agente: _comoSeLlama(),
               )) {
                 ajenos++;

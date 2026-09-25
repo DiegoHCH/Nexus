@@ -9,6 +9,7 @@ import 'package:nexus/core/design_system/accent_preference.dart';
 import 'package:nexus/core/design_system/accent_wheel.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
 import 'package:nexus/core/design_system/nexus_theme.dart';
+import 'package:nexus/core/design_system/orbe_preference.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
@@ -211,15 +212,23 @@ void main() {
   ) async {
     // La prueba de verdad: píxeles. Que el token llegue al tema no demuestra que
     // el orbe lo use.
-    Future<(int, int, int)> masVivo(Color elegido) async {
+    Future<(int, int, int)> masVivo(
+      Color elegido, {
+      FormaDelOrbe forma = FormaDelOrbe.puntos,
+    }) async {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
             theme: NexusTheme.dark(
               accent: Accent(elegido).forBrightness(Brightness.dark),
             ),
-            builder: (context, child) =>
-                StringsScope(strings: const NexusStringsEs(), child: child!),
+            builder: (context, child) => OrbeEstiloScope(
+              estilo: OrbeEstilo(forma: forma),
+              child: StringsScope(
+                strings: const NexusStringsEs(),
+                child: child!,
+              ),
+            ),
             home: const RepaintBoundary(
               key: ValueKey('orbe'),
               child: SizedBox(
@@ -279,5 +288,29 @@ void main() {
     // resulte parecido al violeta.
     const ambar = Color(0xFFF5C451);
     expect(distancia(await masVivo(ambar), ambar), lessThan(60));
+
+    // 🔴 **El plasma no da el acento puro, y no debe**: mezcla luz blanca en las
+    // hebras y el núcleo quema en blanco, así que el píxel más vivo con el
+    // violeta sale (139, 125, 168) — violeta más claro. Lo que se exige es el
+    // **matiz**: que el color sea el elegido y no el cian de siempre. Si el
+    // shader no carga en este entorno pinta puntos, y el matiz también cuadra.
+    double matiz((int, int, int) p) =>
+        HSVColor.fromColor(Color.fromARGB(255, p.$1, p.$2, p.$3)).hue;
+    double lejos(double a, double b) {
+      final d = (a - b).abs() % 360;
+      return d > 180 ? 360 - d : d;
+    }
+
+    final plasmaVioleta = matiz(
+      await masVivo(violeta, forma: FormaDelOrbe.plasma),
+    );
+    final hVioleta = HSVColor.fromColor(violeta).hue;
+    final hCian = HSVColor.fromColor(const Color(0xFF56E1EA)).hue;
+    expect(
+      lejos(plasmaVioleta, hVioleta),
+      lessThan(25),
+      reason: 'el plasma no se tiñe con el acento elegido',
+    );
+    expect(lejos(plasmaVioleta, hCian), greaterThan(40));
   });
 }

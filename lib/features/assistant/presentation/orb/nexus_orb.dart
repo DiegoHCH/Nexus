@@ -3,16 +3,26 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:nexus/core/design_system/design_system.dart';
+import 'package:nexus/core/design_system/orbe_preference.dart';
 import 'package:nexus/features/assistant/presentation/orb/nexus_orb_painter.dart';
+import 'package:nexus/features/assistant/presentation/orb/nexus_orb_plasma_painter.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 
-/// El orbe animado de Nexus, con su horizonte. Ocupa todo el espacio que le
-/// den; el painter decide la posición y el radio en función de ese tamaño.
+/// El orbe animado de Nexus. Ocupa todo el espacio que le den; el painter
+/// decide la posición y el radio en función de ese tamaño.
+///
+/// De plasma o de puntos según [OrbeEstiloScope]: lo elige quien lo usa en
+/// Ajustes › Apariencia. Si el shader no carga, puntos.
+///
+/// 🔴 **Sin horizonte por defecto**, que es lo que se decidió en el mockup del
+/// escenario: en ningún estado, con ninguna forma. La línea competía con lo que
+/// cada estado pone debajo del orbe —la hora, la transcripción, el
+/// subtítulo—. Se deja el parámetro para quien lo quiera a propósito.
 class NexusOrb extends StatefulWidget {
   const NexusOrb({
     super.key,
     required this.state,
-    this.showHorizon = true,
+    this.showHorizon = false,
     this.fillsBox = false,
   });
 
@@ -33,6 +43,9 @@ class _NexusOrbState extends State<NexusOrb>
   late final double _phaseOffset;
   final ValueNotifier<double> _time = ValueNotifier(0);
   bool _reducedMotion = false;
+  final _plasma = PlasmaVivo();
+  OrbeEstilo _estilo = OrbeEstilo.fabrica;
+  Duration _anterior = Duration.zero;
 
   @override
   void initState() {
@@ -41,11 +54,17 @@ class _NexusOrbState extends State<NexusOrb>
     // (p.ej. escritorio + preview móvil), no respiran sincronizados.
     _phaseOffset = math.Random().nextDouble() * 100;
     _ticker = createTicker(_onTick);
+    if (PlasmaDelOrbe.programa == null) {
+      PlasmaDelOrbe.cargar().then((_) {
+        if (mounted) setState(() {});
+      });
+    }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _estilo = OrbeEstiloScope.of(context);
     _reducedMotion = MediaQuery.of(context).disableAnimations;
     if (_reducedMotion) {
       _ticker.stop();
@@ -71,6 +90,9 @@ class _NexusOrbState extends State<NexusOrb>
   }
 
   void _onTick(Duration elapsed) {
+    final dt = (elapsed - _anterior).inMicroseconds / 1e6;
+    _anterior = elapsed;
+    _plasma.avanzar(dt.clamp(0, 0.1), widget.state, _estilo);
     _time.value = _phaseOffset + elapsed.inMicroseconds / 1e6;
   }
 
@@ -87,6 +109,25 @@ class _NexusOrbState extends State<NexusOrb>
     // El orbe no sabe sobre qué se pinta, y las opacidades sí dependen de eso:
     // sobre oscuro la tinta añade luz, sobre claro hay que quitarla.
     final onLight = Theme.of(context).brightness == Brightness.light;
+    final programa = PlasmaDelOrbe.programa;
+    if (_estilo.forma == FormaDelOrbe.plasma && programa != null) {
+      return ValueListenableBuilder<double>(
+        valueListenable: _time,
+        builder: (context, t, _) => CustomPaint(
+          size: Size.infinite,
+          painter: NexusOrbPlasmaPainter(
+            programa: programa,
+            estado: widget.state,
+            estilo: _estilo,
+            vivo: _plasma,
+            t: t,
+            accent: accent,
+            onLight: onLight,
+            fillsBox: widget.fillsBox,
+          ),
+        ),
+      );
+    }
     return ValueListenableBuilder<double>(
       valueListenable: _time,
       builder: (context, t, _) => CustomPaint(

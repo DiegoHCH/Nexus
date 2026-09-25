@@ -60,6 +60,10 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  # El orbe de plasma. Ver `NexusOrbPlasmaPainter`.
+  shaders:
+    - shaders/orbe_plasma.frag
+
   fonts:
     - family: Instrument Sans
       fonts:

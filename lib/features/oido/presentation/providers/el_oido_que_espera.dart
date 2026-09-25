@@ -27,7 +27,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Mientras escucha, el indicador naranja del micrófono de macOS está
 /// encendido. Eso es el sistema contando la verdad —hay una app con la entrada
 /// abierta— y encender eso por defecto sería tomar por alguien una decisión que
-/// es suya. Se enciende en Ajustes › Voz, con lo que cuesta dicho al lado.
+/// es suya. Se enciende en Ajustes › Oído, con lo que cuesta dicho al lado.
 ///
 /// ## Se calla cuando hay conversación
 ///
@@ -75,6 +75,20 @@ class ElOidoQueEspera {
   /// se quedó callada.
   var _llamando = false;
   Timer? _siNoLlegaAAbrirse;
+
+  /// El ajuste, cambiado desde Ajustes › Oído.
+  ///
+  /// Aquí y no en la pantalla porque son tres pasos que van juntos —guardarlo,
+  /// avisar a quien lo pinta y cuadrarse ya— y la pantalla solo tiene que
+  /// decir cuál eligió. Cuadrarse en el acto importa: una opción que no hace
+  /// nada hasta reiniciar la app es una opción que no se cree nadie.
+  Future<void> cambiar({required bool aEncendido}) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(encendido, aEncendido);
+    if (!_ref.mounted) return;
+    _ref.invalidate(elOidoEstaEncendidoProvider);
+    await cuadrar();
+  }
 
   /// Enciende o apaga según el ajuste y según si hay voz abierta.
   Future<void> cuadrar() async {

@@ -18,6 +18,10 @@ import 'package:nexus/features/workspace/presentation/providers/workspace_provid
 ///
 /// Se prueba **con la ventana baja y con varias cuentas**, que es donde ocurre.
 /// Con una sola cuenta cabe, y por eso no se vio al escribirla.
+///
+/// Las llaves se fueron a «Llaves» y la sección ya no crece con las cuentas,
+/// pero la prueba se queda: con varias cuentas y la ventana baja es donde
+/// volvería a desbordar si alguien le devuelve algo por cuenta.
 class _SinLlaves implements GeminiImageKeyStore {
   const _SinLlaves();
   @override

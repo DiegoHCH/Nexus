@@ -70,6 +70,7 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
       publicar: ${{ steps.puerta.outputs.publicar }}
+      canal: ${{ steps.canal.outputs.canal }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -90,6 +91,27 @@ jobs:
           fi
           echo "version=$V" >> "$GITHUB_OUTPUT"
           echo "versión: $V"
+
+      # 🔴 **Una versión puede salir sin llegar a nadie.** Con varias releases
+      # seguidas en un mismo día —un plan que se va cerrando por pasos— cada una
+      # llegaba a todos los Mac con la actualización automática, aunque solo
+      # importara la última. Ahora, si el commit que se publica lleva la línea
+      # `Canal: interna`, la versión sale en GitHub como **prerelease**: con su
+      # etiqueta, su DMG y su appcast, pero fuera de `releases/latest`, que es
+      # de donde la app lee si hay algo nuevo (`SUFeedURL`). Nadie se actualiza
+      # solo, y quien quiera probarla la baja a mano.
+      #
+      # Sin esa línea todo sigue como antes: pública. La excepción es la que se
+      # escribe, no la costumbre, así que olvidarla no esconde una versión.
+      - name: ¿pública o interna?
+        id: canal
+        run: |
+          if git log -1 --format=%B HEAD | grep -qiE '^canal: *interna *$'; then
+            echo "canal=interna" >> "$GITHUB_OUTPUT"
+            echo "::notice::versión interna: sale como prerelease y no llega a nadie"
+          else
+            echo "canal=publica" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: ¿ya está publicada?
         id: puerta
@@ -355,7 +377,14 @@ jobs:
           # Tres hacia atrás: cubre a quien se saltó un par de versiones sin
           # pagar una descarga de 25 MB por cada una en cada release. Quien
           # venga de más atrás baja el completo, que sigue estando.
-          ANTERIORES="$(git tag --sort=-v:refname | grep '^v' | grep -vx "v$V" | head -3)"
+          #
+          # **Y de las públicas, no de las etiquetas.** Las internas no las
+          # tiene nadie instalada: un parche desde ellas no lo aplicaría ningún
+          # Mac, y ocuparía el sitio del que sí hace falta —el de la última que
+          # llegó a todos—.
+          ANTERIORES="$(gh release list --exclude-pre-releases --exclude-drafts --limit 30 \
+            --json tagName -q '.[].tagName' | grep '^v' | grep -vx "v$V" \
+            | sort -rV | head -3)"
           echo "parches contra: $(echo $ANTERIORES)"
 
           for TAG in $ANTERIORES; do
@@ -492,6 +521,10 @@ jobs:
           done
           if gh release view "v$V" >/dev/null 2>&1; then
             gh release upload "v$V" "${ASSETS[@]}" --clobber
+          elif [[ "${{ needs.decidir.outputs.canal }}" == "interna" ]]; then
+            # Ver «¿pública o interna?»: prerelease y nunca «latest».
+            gh release create "v$V" "${ASSETS[@]}" --title "Nexus $V (interna)" \
+              --generate-notes --prerelease --latest=false
           else
             gh release create "v$V" "${ASSETS[@]}" --title "Nexus $V" --generate-notes
           fi

@@ -103,6 +103,37 @@ mixin EjecucionStrings {
   /// El asa de la botonera flotante. Es su único rótulo, así que dice lo que la
   /// barra es —lo que está corriendo— y no «arrastrar», que se ve solo.
   String get runToolbarDrag;
+
+  /// El panel de correr, con las opciones a la vista: sus dos rótulos, lo que
+  /// distingue a cada dispositivo y por qué «Correr» todavía no se enciende.
+  String get runConfiguracion;
+  String get runDispositivo;
+  String get runEmulador;
+  String get runSimulador;
+  String get runEnchufado;
+  String get runApagado;
+  String runArrancando(String nombre);
+  String get runEligeConfig;
+  String get runEsTuyaCorto;
+
+  /// Los nombres cortos de las acciones de la botonera, que ahora van
+  /// escritas. El largo se queda en el tooltip.
+  String get runAutoCorto;
+  String get runSystemLogCorto;
+  String get runConsoleCorto;
+  String get runPasoEntrarCorto;
+  String get runPasoSalirCorto;
+
+  /// La segunda línea de una corrida con errores: el número **es** el estado.
+  String runErroresDesdeLaRecarga(int cuantos);
+
+  /// El estado de un emulador apagado, dicho y no solo pintado de gris.
+  String get emulatorsOff;
+  String get emulatorsSiguenVivos;
+
+  /// Lo que se puede hacer con un registro desde su ventana.
+  String get runCopiar;
+  String get runRegistroVacio;
 }
 
 mixin EjecucionStringsEs implements EjecucionStrings {
@@ -223,6 +254,48 @@ mixin EjecucionStringsEs implements EjecucionStrings {
   String get runToolbarDrag => 'Corriendo';
   @override
   String get runConsole => 'Consola de la app';
+  @override
+  String get runConfiguracion => 'Configuración';
+  @override
+  String get runDispositivo => 'Dispositivo';
+  @override
+  String get runEmulador => 'emulador';
+  @override
+  String get runSimulador => 'simulador';
+  @override
+  String get runEnchufado => 'enchufado';
+  @override
+  String get runApagado => 'apagado · elegirlo lo arranca';
+  @override
+  String runArrancando(String nombre) =>
+      'Arrancando $nombre… se elige solo cuando esté arriba.';
+  @override
+  String get runEligeConfig => 'Elige una configuración';
+  @override
+  String get runEsTuyaCorto => 'tuya · vive en Nexus';
+  @override
+  String get runAutoCorto => 'Recargar sola al terminar';
+  @override
+  String get runSystemLogCorto => 'Del sistema';
+  @override
+  String get runConsoleCorto => 'Consola';
+  @override
+  String get runPasoEntrarCorto => 'Entrar';
+  @override
+  String get runPasoSalirCorto => 'Salir';
+  @override
+  String runErroresDesdeLaRecarga(int cuantos) => cuantos == 1
+      ? '1 error desde la última recarga'
+      : '$cuantos errores desde la última recarga';
+  @override
+  String get emulatorsOff => 'apagado';
+  @override
+  String get emulatorsSiguenVivos => 'Siguen vivos aunque cierres Nexus.';
+  @override
+  String get runCopiar => 'Copiar';
+  @override
+  String get runRegistroVacio =>
+      'Todavía no ha escrito nada. Aparece aquí en cuanto la app hable.';
 }
 
 mixin EjecucionStringsEn implements EjecucionStrings {
@@ -344,4 +417,46 @@ mixin EjecucionStringsEn implements EjecucionStrings {
   String get runToolbarDrag => 'Running';
   @override
   String get runConsole => 'App debug console';
+  @override
+  String get runConfiguracion => 'Configuration';
+  @override
+  String get runDispositivo => 'Device';
+  @override
+  String get runEmulador => 'emulator';
+  @override
+  String get runSimulador => 'simulator';
+  @override
+  String get runEnchufado => 'plugged in';
+  @override
+  String get runApagado => 'off · picking it boots it';
+  @override
+  String runArrancando(String nombre) =>
+      'Booting $nombre… it gets picked once it is up.';
+  @override
+  String get runEligeConfig => 'Pick a configuration';
+  @override
+  String get runEsTuyaCorto => 'yours · lives in Nexus';
+  @override
+  String get runAutoCorto => 'Reload when done';
+  @override
+  String get runSystemLogCorto => 'System';
+  @override
+  String get runConsoleCorto => 'Console';
+  @override
+  String get runPasoEntrarCorto => 'Step in';
+  @override
+  String get runPasoSalirCorto => 'Step out';
+  @override
+  String runErroresDesdeLaRecarga(int cuantos) => cuantos == 1
+      ? '1 error since the last reload'
+      : '$cuantos errors since the last reload';
+  @override
+  String get emulatorsOff => 'off';
+  @override
+  String get emulatorsSiguenVivos => 'They stay up even if you quit Nexus.';
+  @override
+  String get runCopiar => 'Copy';
+  @override
+  String get runRegistroVacio =>
+      'Nothing written yet. It shows up here as soon as the app speaks.';
 }

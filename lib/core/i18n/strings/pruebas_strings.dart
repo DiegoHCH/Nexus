@@ -109,12 +109,35 @@ mixin PruebasStrings {
   String get e2eNumeroLimite;
   String e2eMissingVars(String claves);
   String e2eVarsLoaded(int cuantas);
+
+  /// La hoja en tres columnas, una por pregunta: qué lanzo, qué hay en el
+  /// repo y cómo han ido.
+  String get e2eLanzar;
+  String get e2eHistorial;
+
+  /// El motivo de que una prueba no pueda correr, en su fila y antes del botón.
+  String e2eFaltaEnEnv(String claves);
+
+  /// La fila de la prueba que está corriendo, con por dónde va.
+  String e2eCorriendoPasos(int hechos, int total);
+
+  /// Las tres cifras del historial, cada una con lo que mide debajo.
+  String get e2eCifraPasadas;
+  String get e2eCifraContra;
+  String get e2eCifraSinComparar;
+  String get e2eCifraResultado;
+
+  /// El separador decimal del idioma: «×1,8» en español, «×1.8» en inglés.
+  String get e2eComaDecimal;
   String get e2eEnvInGit;
   String get e2eDriverBlocked;
   String get e2eNoTapPermission;
   String get e2eAppMissing;
   String get e2eSearchingDevices;
   String get verLaPantalla;
+
+  /// El mismo verbo, corto, para el botón escrito de la fila.
+  String get verLaPantallaCorto;
   String get verLaPantallaSinTocar;
   String get verElIphoneDuplicado;
   String get verElIphoneQuickTime;
@@ -419,6 +442,27 @@ mixin PruebasStringsEs implements PruebasStrings {
       ? '1 variable de .env.local'
       : '$cuantas variables de .env.local';
   @override
+  String get e2eLanzar => 'Lanzar';
+  @override
+  String get e2eHistorial => 'Historial';
+  @override
+  String e2eFaltaEnEnv(String claves) => claves.contains(',')
+      ? 'faltan $claves en .env.local'
+      : 'falta $claves en .env.local';
+  @override
+  String e2eCorriendoPasos(int hechos, int total) =>
+      'corriendo · $hechos de $total';
+  @override
+  String get e2eCifraPasadas => 'pasadas · 30 días';
+  @override
+  String get e2eCifraContra => 'frente al mes pasado';
+  @override
+  String get e2eCifraSinComparar => 'sin mes anterior';
+  @override
+  String get e2eCifraResultado => 'bien · mal';
+  @override
+  String get e2eComaDecimal => ',';
+  @override
   String get e2eEnvInGit =>
       '.env.local está en git. Sácalo: lleva credenciales.';
   @override
@@ -438,6 +482,8 @@ mixin PruebasStringsEs implements PruebasStrings {
   String get e2eSearchingDevices => 'Buscando dispositivos…';
   @override
   String get verLaPantalla => 'Ver la pantalla del móvil';
+  @override
+  String get verLaPantallaCorto => 'Ver la pantalla';
   @override
   String get verLaPantallaSinTocar =>
       'Ver la pantalla, sin control: hay una prueba corriendo';
@@ -860,6 +906,25 @@ mixin PruebasStringsEn implements PruebasStrings {
       ? '1 variable from .env.local'
       : '$cuantas variables from .env.local';
   @override
+  String get e2eLanzar => 'Launch';
+  @override
+  String get e2eHistorial => 'History';
+  @override
+  String e2eFaltaEnEnv(String claves) => '$claves missing from .env.local';
+  @override
+  String e2eCorriendoPasos(int hechos, int total) =>
+      'running · $hechos of $total';
+  @override
+  String get e2eCifraPasadas => 'runs · 30 days';
+  @override
+  String get e2eCifraContra => 'against last month';
+  @override
+  String get e2eCifraSinComparar => 'no previous month';
+  @override
+  String get e2eCifraResultado => 'passed · failed';
+  @override
+  String get e2eComaDecimal => '.';
+  @override
   String get e2eEnvInGit =>
       '.env.local is in git. Take it out: it holds credentials.';
   @override
@@ -879,6 +944,8 @@ mixin PruebasStringsEn implements PruebasStrings {
   String get e2eSearchingDevices => 'Looking for devices…';
   @override
   String get verLaPantalla => "See the phone's screen";
+  @override
+  String get verLaPantallaCorto => 'See the screen';
   @override
   String get verLaPantallaSinTocar =>
       'See the screen, no control: a test is running';

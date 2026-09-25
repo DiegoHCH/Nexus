@@ -8,6 +8,8 @@ import 'package:nexus/features/run/domain/entities/corrida.dart';
 import 'package:nexus/features/run/domain/usecases/la_consola_de_la_app.dart';
 import 'package:nexus/features/run/presentation/providers/corridas_providers.dart';
 import 'package:nexus/features/run/presentation/providers/la_consola_que_se_abre.dart';
+import 'package:nexus/core/i18n/language_preference.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// La consola de depuración que la app se levanta a sí misma.
 ///
@@ -16,6 +18,11 @@ import 'package:nexus/features/run/presentation/providers/la_consola_que_se_abre
 /// `9777` es de *ese* repositorio: cablearlo sería acertar hoy y fallar el día
 /// que alguien lo cambie, con un fallo que no diría por qué.
 void main() {
+  // El título de la ventana sale de los textos del idioma elegido, que se leen
+  // de las preferencias: sin esto no hay canal al que preguntar.
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   group('si la configuración la enciende', () {
     test('con el flag en true, sí', () {
       expect(
@@ -88,11 +95,13 @@ void main() {
 
     late _Tunel tunel;
     late List<String> abiertas;
+    late List<String?> titulos;
     late ProviderContainer contenedor;
 
     setUp(() {
       tunel = _Tunel();
       abiertas = [];
+      titulos = [];
       contenedor = ProviderContainer(
         overrides: [
           tunelDataSourceProvider.overrideWithValue(tunel),
@@ -101,6 +110,7 @@ void main() {
             titulo,
           }) async {
             abiertas.add(url);
+            titulos.add(titulo);
             return true;
           }),
           corridasProvider.overrideWith(_Corridas.new),
@@ -118,6 +128,12 @@ void main() {
 
       expect(tunel.abiertos, ['$deviceId:9777']);
       expect(abiertas, ['http://localhost:9777']);
+      // «Consola · ci · Pixel», como el mockup: la barra dice qué es antes que
+      // de dónde.
+      expect(
+        titulos.single,
+        startsWith('${contenedor.read(stringsProvider).runConsoleCorto} · '),
+      );
       expect(contenedor.read(corridasProvider)[deviceId]?.consola, 9777);
       // Y queda escrito: la ventana se puede cerrar, y la dirección tiene que
       // seguir en algún sitio.

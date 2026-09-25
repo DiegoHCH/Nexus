@@ -66,6 +66,16 @@ abstract final class VentanaDelVisor {
         'path': ruta,
         'width': ancho,
         'height': alto,
+        // 🔴 **Una página nuestra no es un documento de Claude.** El visor le
+        // ponía a todas la casilla de «Permitir scripts y red» y su aviso de
+        // «Este documento lo escribió Claude», y en el registro de una corrida
+        // eso es falso y no hay nada que permitir: lo escribe Nexus y no lleva
+        // una línea de JavaScript. Con esto la ventana se queda sin la casilla.
+        'propia': true,
+        // Y el título lo pone la página —«Registro · ci · POCO F6»— y no el
+        // nombre del archivo, que es `registro-emulator-5554.html`: una ruta
+        // de trabajo, no un nombre para una persona.
+        'tituloDeLaPagina': true,
       });
     } on PlatformException {
       // Sin canal nativo el archivo ya está escrito: se pierde la ventana, no

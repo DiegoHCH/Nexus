@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nexus/core/design_system/nexus_colors.dart';
-import 'package:nexus/core/design_system/nexus_theme.dart';
+import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/emulators/data/datasources/emuladores_data_source.dart';
@@ -104,5 +103,29 @@ void main() {
     // En compacto no cabe la frase larga; el título corto sí.
     expect(find.text(strings.emulatorsExplainer), findsNothing);
     expect(find.text(strings.sectionEmulators), findsOneWidget);
+  });
+
+  // Lo del mockup: el estado se dice también apagado —no solo con el punto
+  // gris—, «Arrancar» va primero y como principal, y en el compacto queda la
+  // frase que hace falta para atreverse a cerrar Nexus con uno arriba.
+  testWidgets('el apagado lo dice, y arrancar va primero', (tester) async {
+    await _montar(tester, const _Falsa([_android]));
+
+    await tester.tap(find.byType(DispositivosMenu));
+    await tester.pumpAndSettle();
+
+    expect(find.text('android · ${strings.emulatorsOff}'), findsOneWidget);
+    final arrancar = tester.getTopLeft(find.text(strings.emulatorsLaunch));
+    final enFrio = tester.getTopLeft(find.text(strings.emulatorsColdBoot));
+    expect(arrancar.dx, lessThan(enFrio.dx));
+    expect(
+      tester
+          .widget<BotonDeFila>(
+            find.widgetWithText(BotonDeFila, strings.emulatorsLaunch),
+          )
+          .tono,
+      TonoDeBoton.principal,
+    );
+    expect(find.text(strings.emulatorsSiguenVivos), findsOneWidget);
   });
 }

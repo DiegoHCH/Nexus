@@ -10,6 +10,9 @@ import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/platform/lo_que_pide_la_pagina.dart';
+import 'package:nexus/features/assistant/domain/repositories/el_despacho_de_carpeta.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_hilo_que_viaja.dart';
+import 'package:nexus/features/assistant/presentation/providers/el_despacho_de_carpeta_impl.dart';
 import 'package:nexus/features/emulators/data/datasources/emuladores_data_source.dart';
 import 'package:nexus/features/emulators/data/datasources/registros_data_source.dart';
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
@@ -93,6 +96,34 @@ class _Pintor {
   String get ultima => paginas.last.html;
 }
 
+/// Un despacho que apunta lo que se le manda, sin abrir conversaciones.
+class _Despacho implements ElDespachoDeCarpeta {
+  final llevados = <String>[];
+
+  @override
+  Future<LoQueQuedaPorHacer> aEstaCarpeta(
+    String carpeta, {
+    required String tarea,
+    required String loQueSeVe,
+    bool allowWrites = true,
+    bool elFocoSigue = true,
+  }) async {
+    llevados.add(carpeta);
+    return YaSeFue(carpeta.split('/').last);
+  }
+
+  @override
+  Future<LoQueQuedaPorHacer> despachar(
+    String frase, {
+    required String? carpetaDeAqui,
+    required String loQueSeVe,
+    required bool allowWrites,
+    required List<String> attachments,
+    bool elFocoSigue = true,
+    List<TurnoDicho> hilo = const [],
+  }) async => AtiendeloTu(frase);
+}
+
 late Directory _propias;
 
 void main() {
@@ -103,11 +134,15 @@ void main() {
   late StreamController<LineaDeRegistro> dice;
   late _Pintor pintor;
   late ProviderContainer contenedor;
+  late List<String> copiado;
+  late _Despacho despacho;
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     dice = StreamController<LineaDeRegistro>.broadcast();
     pintor = _Pintor();
+    copiado = [];
+    despacho = _Despacho();
   });
   tearDown(() {
     LoQuePideLaPagina.olvidarTodo();
@@ -136,7 +171,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> abrirElRegistro(WidgetTester tester) async {
+  Future<void> abrirElRegistro(WidgetTester tester, {int errores = 0}) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -147,9 +182,11 @@ void main() {
           emuladoresDataSourceProvider.overrideWithValue(const _SinMaquinas()),
           registrosDataSourceProvider.overrideWithValue(_Dispositivo(dice)),
           elPintorDeVentanasProvider.overrideWithValue(pintor.pinta),
+          elPortapapelesProvider.overrideWithValue((t) async => copiado.add(t)),
+          elDespachoDeCarpetaProvider.overrideWithValue(despacho),
           corridasProvider.overrideWith(
             () => _Corridas({
-              _deviceId: const Corrida(
+              _deviceId: Corrida(
                 deviceId: _deviceId,
                 dispositivo: 'Medium Phone API 36.1',
                 proyecto: '/casa/tienda',
@@ -157,6 +194,7 @@ void main() {
                 plataforma: PlataformaEmulador.android,
                 estado: EstadoDeCorrida.corriendo,
                 appId: 'abc',
+                errores: errores,
               ),
             }),
           ),
@@ -280,9 +318,103 @@ void main() {
     expect(pintor.ultima, contains('FATAL EXCEPTION'));
     expect(
       pintor.ultima,
-      contains(deLaPagina().nivelDesdeAvisos),
-      reason: 'el chip dice en qué nivel está, o subirlo es a ciegas',
+      contains('class="op on" href="nexus://registro/nivel/aviso"'),
+      reason: 'la opción dice en qué nivel está, o subirlo es a ciegas',
     );
+  });
+
+  // 🔴 **Las cuatro a la vista y no un ciclo**: era un único chip que cambiaba
+  // de texto, y para llegar a «solo errores» había que adivinar cuántas veces
+  // pulsarlo. Ahora se pulsa el que se quiere y es ése.
+  testWidgets('elegir un nivel desde la página lo pone de una vez', (
+    tester,
+  ) async {
+    await abrirElRegistro(tester);
+    for (final nivel in [
+      deLaPagina().nivelTodo,
+      deLaPagina().nivelDesdeAvisos,
+      deLaPagina().nivelSoloErrores,
+      deLaPagina().nivelSoloFatales,
+    ]) {
+      expect(pintor.ultima, contains('>$nivel</a>'));
+    }
+
+    await comoSiPidieran(ElRegistroComoHtml.que, ruta: '/nivel/error');
+    await tester.pumpAndSettle();
+
+    expect(
+      contenedor.read(filtroDelRegistroProvider).minimo,
+      NivelDeRegistro.error,
+    );
+    expect(
+      pintor.ultima,
+      contains('class="op on" href="nexus://registro/nivel/error"'),
+    );
+  });
+
+  // «Copiar», como en el mockup: lo que se ve, tal cual, con su etiqueta.
+  testWidgets('copiar deja en el portapapeles lo que se ve', (tester) async {
+    await abrirElRegistro(tester);
+    dice.add(
+      const LineaDeRegistro(
+        nivel: NivelDeRegistro.error,
+        etiqueta: 'libc',
+        texto: 'Fatal signal 11',
+      ),
+    );
+    await alRitmo(tester);
+    expect(
+      pintor.ultima,
+      contains('nexus://registro/copiar/sistema-emulator-5554'),
+    );
+
+    await comoSiPidieran(
+      ElRegistroComoHtml.que,
+      ruta: '/copiar/sistema-emulator-5554',
+    );
+    await tester.pumpAndSettle();
+
+    expect(copiado, ['libc Fatal signal 11']);
+  });
+
+  // «Pasarle el error a Claude» también en la ventana, donde se lee el error;
+  // y solo cuando la corrida cuenta alguno, que sin error no hay nada que
+  // pasar.
+  testWidgets('con errores, la página ofrece pasárselo a Claude, primero', (
+    tester,
+  ) async {
+    await abrirElRegistro(tester, errores: 1);
+    contenedor
+        .read(registrosProvider.notifier)
+        .anota(
+          _deviceId,
+          '[ERROR:flutter/runtime/dart_vm_initializer.cc(40)] Unhandled '
+          'Exception: Bad state: algo\n'
+          '#0      Algo.build (package:app/algo.dart:10:5)',
+        );
+    dice.add(
+      const LineaDeRegistro(
+        nivel: NivelDeRegistro.error,
+        etiqueta: 'flutter',
+        texto: 'Bad state: algo',
+      ),
+    );
+    await alRitmo(tester);
+
+    final html = pintor.ultima;
+    final pasar = html.indexOf('nexus://registro/pasar/emulator-5554');
+    expect(pasar, greaterThan(-1));
+    expect(pasar, lessThan(html.indexOf('nexus://registro/copiar/')));
+
+    await comoSiPidieran(ElRegistroComoHtml.que, ruta: '/pasar/emulator-5554');
+    await tester.pumpAndSettle();
+
+    expect(despacho.llevados, ['/casa/tienda']);
+  });
+
+  testWidgets('sin errores no se ofrece pasar nada', (tester) async {
+    await abrirElRegistro(tester);
+    expect(pintor.ultima, isNot(contains('nexus://registro/pasar/')));
   });
 
   // 🔴 **Se podía encender y no apagar.** El `logcat` seguía vivo el resto de la

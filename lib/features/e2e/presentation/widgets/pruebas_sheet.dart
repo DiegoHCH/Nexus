@@ -12,6 +12,7 @@ import 'package:nexus/features/e2e/domain/usecases/las_variables_del_proyecto.da
 import 'package:nexus/features/e2e/domain/usecases/pasos_de_una_prueba.dart';
 import 'package:nexus/features/e2e/domain/usecases/por_que_se_cayo.dart';
 import 'package:nexus/features/e2e/presentation/providers/e2e_providers.dart';
+import 'package:nexus/features/e2e/presentation/providers/lo_que_le_falta_a_una_prueba.dart';
 import 'package:nexus/features/e2e/presentation/widgets/publicar_prueba_dialogo.dart';
 import 'package:nexus/features/e2e/presentation/widgets/repo_de_pruebas_seccion.dart';
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
@@ -25,10 +26,28 @@ import 'package:nexus/features/workspace/presentation/providers/workspace_provid
 /// esto trae algo que acabas de pedir —una prueba que corre ahora— y por eso
 /// interrumpe. Un emulador se consulta antes de trabajar; una prueba se mira
 /// mientras pasa.
+///
+/// 🔴 **Tres columnas, tres preguntas**: «qué lanzo», «qué hay en el repo» y
+/// «cómo han ido». Era una hoja larga que se leía de arriba abajo, con el
+/// historial a setenta filas de distancia en cuanto el repo traía sus flows.
+/// Ver el mockup, sección «pruebas».
+///
+/// En una ventana estrecha las tres no caben con sus botones —cada fila lleva
+/// dos o tres— y se apilan en el mismo orden: es la misma hoja, leída hacia
+/// abajo en vez de hacia el lado.
 class PruebasSheet extends ConsumerWidget {
   const PruebasSheet({super.key, required this.proyecto});
 
   final String? proyecto;
+
+  /// Desde qué ancho caben las tres columnas sin que una fila parta sus
+  /// botones. Por debajo, se apilan.
+  static const anchoParaTres = 900.0;
+
+  /// Las tres columnas, para poder comprobar que están y en qué orden.
+  static const laDeLanzar = ValueKey('pruebas-lanzar');
+  static const laDelRepo = ValueKey('pruebas-repo');
+  static const laDelHistorial = ValueKey('pruebas-historial');
 
   /// Se abre así, como el de documentos.
   static Future<void> open(BuildContext context, {String? proyecto}) =>
@@ -47,70 +66,180 @@ class PruebasSheet extends ConsumerWidget {
     final hayLocales =
         proyecto != null &&
         (ref.watch(pruebasProvider(proyecto!)).value ?? const []).isNotEmpty;
+    final altoMaximo = MediaQuery.of(context).size.height * 0.8;
 
     return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.8,
-      ),
+      constraints: BoxConstraints(maxHeight: altoMaximo),
       decoration: BoxDecoration(
         color: colors.deep,
         border: Border(top: BorderSide(color: colors.rule)),
       ),
       padding: const EdgeInsets.all(NexusSpacing.s5),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            strings.e2eTitle,
-            style: NexusTypography.label.copyWith(color: colors.faint),
-          ),
-          const SizedBox(height: NexusSpacing.s4),
+      child: LayoutBuilder(
+        builder: (context, caja) {
+          final tres = caja.maxWidth >= anchoParaTres;
 
-          // **Lo que corre no se pinta aquí, se avisa.** La vista de una prueba
-          // en marcha es su propia pantalla —ver [PruebaEnMarchaPage]— porque se
-          // mira mientras avanza y compartir sitio con una lista que no cambia la
-          // dejaba en un rincón. Aquí solo queda la puerta.
-          // **Solo mientras corre.** Al acabar, la pasada ya está en el
-          // historial de abajo con sus dos botones, y tenerla arriba además era
-          // enseñar lo mismo dos veces con acciones distintas en cada sitio.
-          if (enMarcha != null && enMarcha.viva) ...[
-            _AvisoDeQueCorre(prueba: enMarcha),
-            const SizedBox(height: NexusSpacing.s4),
-          ],
-
-          Flexible(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
                 children: [
-                  // 🔴 **Una carpeta sin pruebas no se enseña vacía.** La
-                  // lanzadera pintaba su cabecera, su selector y un «este
-                  // proyecto no tiene pruebas»: tres filas para decir que no hay
-                  // nada, justo encima de lo que sí hay. Si no hay, no ocupa.
-                  if (proyecto case final p? when hayLocales) ...[
-                    _Lanzadera(proyecto: p),
-                    const SizedBox(height: NexusSpacing.s5),
-                  ],
-                  // Los del repo compartido van entre las del proyecto y el
-                  // historial: son pruebas que se lanzan, así que pertenecen
-                  // arriba con lo que se lanza y no abajo con lo que ya pasó.
+                  Expanded(
+                    child: Text(
+                      strings.e2eTitle,
+                      style: NexusTypography.label.copyWith(
+                        color: colors.accent,
+                      ),
+                    ),
+                  ),
+                  // **Lo que corre no se pinta aquí, se avisa.** La vista de
+                  // una prueba en marcha es su propia ventana —ver
+                  // [PruebaEnMarchaPage]— porque se mira mientras avanza. Aquí
+                  // solo queda la puerta, arriba y a la derecha como en el
+                  // mockup: se ve desde cualquiera de las tres columnas.
                   //
-                  // Sin proyecto emparejado no se enseña: sus cuentas cuelgan de
-                  // uno, así que sin él no habría con qué correr ninguna.
-                  if (proyecto case final p?) ...[
-                    RepoDePruebasSeccion(proyecto: p),
-                    const SizedBox(height: NexusSpacing.s5),
-                  ],
-                  const _Historial(),
+                  // **Solo mientras corre.** Al acabar, la pasada ya está en el
+                  // historial con sus botones, y tenerla arriba además era
+                  // enseñar lo mismo dos veces con acciones distintas.
+                  if (enMarcha != null && enMarcha.viva)
+                    _AvisoDeQueCorre(prueba: enMarcha),
                 ],
               ),
-            ),
-          ),
-        ],
+              const SizedBox(height: NexusSpacing.s4),
+              if (tres)
+                // Alto fijo y no el del contenido: las tres columnas se
+                // desplazan cada una por su cuenta, y para eso necesitan saber
+                // hasta dónde llegan. Con el alto del contenido, la más larga
+                // —el repo, con sus 75 flows— empujaría a las otras dos.
+                SizedBox(
+                  height: (altoMaximo - 2 * NexusSpacing.s5 - 48).clamp(
+                    240.0,
+                    760.0,
+                  ),
+                  child: _TresColumnas(proyecto: proyecto),
+                )
+              else
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 🔴 **Una carpeta sin pruebas no se enseña vacía**
+                        // cuando se apila: tres filas para decir que no hay
+                        // nada, justo encima de lo que sí hay. En columnas sí,
+                        // porque la columna está igual y vacía no dice nada.
+                        if (proyecto case final p? when hayLocales) ...[
+                          _Lanzadera(key: laDeLanzar, proyecto: p),
+                          const SizedBox(height: NexusSpacing.s5),
+                        ],
+                        // Sin proyecto emparejado no se enseña: sus cuentas
+                        // cuelgan de uno, así que sin él no habría con qué
+                        // correr ninguna.
+                        if (proyecto case final p?) ...[
+                          RepoDePruebasSeccion(key: laDelRepo, proyecto: p),
+                          const SizedBox(height: NexusSpacing.s5),
+                        ],
+                        const _Historial(key: laDelHistorial),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
+}
+
+/// Las tres columnas, cada una con su línea a la izquierda y su propio
+/// desplazamiento.
+///
+/// **La línea de 1 px y no una tarjeta por columna**, por la tabla de formas
+/// del mockup: la línea dice «esto es un límite», y una tarjeta diría «un
+/// objeto que se puede coger», que esto no es.
+class _TresColumnas extends StatelessWidget {
+  const _TresColumnas({required this.proyecto});
+
+  final String? proyecto;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final strings = context.strings;
+
+    Widget columna(Widget hijo, {required bool primera}) => Expanded(
+      child: Container(
+        decoration: primera
+            ? null
+            : BoxDecoration(
+                border: Border(left: BorderSide(color: colors.rule)),
+              ),
+        padding: EdgeInsets.only(
+          left: primera ? 0 : NexusSpacing.s4,
+          right: NexusSpacing.s4,
+        ),
+        child: SingleChildScrollView(child: hijo),
+      ),
+    );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        columna(switch (proyecto) {
+          final p? => _Lanzadera(key: PruebasSheet.laDeLanzar, proyecto: p),
+          null => _Seccion(
+            key: PruebasSheet.laDeLanzar,
+            titulo: strings.e2eLanzar,
+            child: Text(
+              strings.runNoProject,
+              style: NexusTypography.nota.copyWith(color: colors.mute),
+            ),
+          ),
+        }, primera: true),
+        columna(switch (proyecto) {
+          final p? => RepoDePruebasSeccion(
+            key: PruebasSheet.laDelRepo,
+            proyecto: p,
+          ),
+          null => _Seccion(
+            key: PruebasSheet.laDelRepo,
+            titulo: strings.e2eRepoTitle,
+            child: Text(
+              strings.runNoProject,
+              style: NexusTypography.nota.copyWith(color: colors.mute),
+            ),
+          ),
+        }, primera: false),
+        columna(
+          const _Historial(key: PruebasSheet.laDelHistorial),
+          primera: false,
+        ),
+      ],
+    );
+  }
+}
+
+/// Una de las tres partes, con su pregunta arriba en el color de acento.
+class _Seccion extends StatelessWidget {
+  const _Seccion({super.key, required this.titulo, required this.child});
+
+  final String titulo;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        titulo,
+        style: NexusTypography.label.copyWith(color: context.colors.accent),
+      ),
+      const SizedBox(height: NexusSpacing.s3),
+      child,
+    ],
+  );
 }
 
 /// Que hay una corriendo, y por dónde va.
@@ -130,47 +259,29 @@ class _AvisoDeQueCorre extends ConsumerWidget {
     final colors = context.colors;
     final strings = context.strings;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: NexusSpacing.s4,
-        vertical: NexusSpacing.s3,
-      ),
-      decoration: BoxDecoration(
-        color: colors.void_.withValues(alpha: 0.5),
-        border: Border.all(color: prueba.viva ? colors.accent : colors.rule),
-        borderRadius: BorderRadius.circular(NexusRadius.sm),
-      ),
-      child: Row(
-        children: [
-          if (prueba.viva)
-            SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(
-                strokeWidth: 1.5,
-                color: colors.accent,
-              ),
-            )
-          else
-            Icon(
-              prueba.fallo ? Icons.close : Icons.check,
-              size: 14,
-              color: prueba.fallo ? colors.err : colors.ok,
-            ),
-          const SizedBox(width: NexusSpacing.s3),
-          Expanded(
-            child: Text(
-              '${prueba.flow} · ${prueba.terminados}/${prueba.pasos.length}',
-              style: NexusTypography.data.copyWith(color: colors.ink),
-            ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 12,
+          height: 12,
+          child: CircularProgressIndicator(
+            strokeWidth: 1.5,
+            color: colors.accent,
           ),
-          TextButton(
-            style: _apretado,
-            onPressed: ref.read(pruebaEnMarchaProvider.notifier).traeLaVentana,
-            child: Text(strings.e2eSee),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(width: NexusSpacing.s2),
+        Text(
+          '${prueba.flow} · ${prueba.terminados}/${prueba.pasos.length}',
+          style: NexusTypography.data.copyWith(color: colors.accent),
+        ),
+        const SizedBox(width: NexusSpacing.s2),
+        BotonDeFila(
+          texto: strings.e2eSee,
+          tono: TonoDeBoton.principal,
+          onPulsar: ref.read(pruebaEnMarchaProvider.notifier).traeLaVentana,
+        ),
+      ],
     );
   }
 }
@@ -253,7 +364,7 @@ String _tamano(int bytes) {
 
 /// Elegir una prueba de este proyecto y lanzarla.
 class _Lanzadera extends ConsumerStatefulWidget {
-  const _Lanzadera({required this.proyecto});
+  const _Lanzadera({super.key, required this.proyecto});
 
   final String proyecto;
 
@@ -406,9 +517,11 @@ class _LanzaderaState extends ConsumerState<_Lanzadera> {
     final colors = context.colors;
     final strings = context.strings;
     final pruebas = ref.watch(pruebasProvider(_proyecto)).value ?? const [];
-    final corriendo = ref.watch(pruebaEnMarchaProvider)?.viva ?? false;
+    final enMarcha = ref.watch(pruebaEnMarchaProvider);
+    final corriendo = enMarcha?.viva ?? false;
     final dispositivos = _dispositivos;
     final buscando = ref.watch(buscandoDispositivosProvider);
+    final elegido = ref.watch(elDispositivoProvider);
 
     // **Un botón no ofrece lo que no puede pasar.** Antes Correr estaba siempre
     // activo y el «hace falta un dispositivo encendido» llegaba **después** de
@@ -433,88 +546,93 @@ class _LanzaderaState extends ConsumerState<_Lanzadera> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // **De qué proyecto son estas pruebas.** El historial ya lo decía y la
-        // lista no, así que se leía como si fueran de nadie: las pruebas son de su
-        // repo y de ninguno más.
+        // **De qué proyecto son estas pruebas**, en la pregunta misma: «Lanzar ·
+        // tienda». El historial ya lo decía y la lista no, así que se leía como
+        // si fueran de nadie.
         //
         // Con un solo proyecto es un rótulo, y con varios un desplegable: enseñar un
         // selector de una sola opción es pedir una decisión que no existe. Misma regla
         // que las pestañas de cuenta, que solo salen si hay más de una.
         if (_proyectos.length <= 1)
           Text(
-            _proyecto.split('/').last,
-            style: NexusTypography.label.copyWith(color: colors.faint),
+            '${strings.e2eLanzar} · ${_proyecto.split('/').last}',
+            style: NexusTypography.label.copyWith(color: colors.accent),
           )
         else
-          Padding(
-            padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
-            child: SelectorCompacto(
-              key: const ValueKey('de-que-proyecto'),
-              valor: _proyecto,
-              opciones: _proyectos,
-              pista: strings.e2eWhichProject,
-              etiqueta: (ruta) => ruta.split('/').last,
-              // Solo cambia lo que se mira. La conversación sigue donde estaba, y por
-              // eso lo que se lance desde aquí corre en el repo elegido y no en el de
-              // la conversación — que es lo que uno espera al elegirlo.
-              onElegir: (ruta) => setState(() => _elegido = ruta),
-            ),
+          Row(
+            children: [
+              Text(
+                '${strings.e2eLanzar} ·',
+                style: NexusTypography.label.copyWith(color: colors.accent),
+              ),
+              const SizedBox(width: NexusSpacing.s2),
+              Expanded(
+                child: SelectorCompacto(
+                  key: const ValueKey('de-que-proyecto'),
+                  valor: _proyecto,
+                  opciones: _proyectos,
+                  pista: strings.e2eWhichProject,
+                  etiqueta: (ruta) => ruta.split('/').last,
+                  // Solo cambia lo que se mira. La conversación sigue donde
+                  // estaba, y por eso lo que se lance desde aquí corre en el repo
+                  // elegido y no en el de la conversación — que es lo que uno
+                  // espera al elegirlo.
+                  onElegir: (ruta) => setState(() => _elegido = ruta),
+                ),
+              ),
+            ],
           ),
+        const SizedBox(height: NexusSpacing.s3),
+
         // **Cuántas credenciales hay cargadas, sin enseñar ninguna.** Es la
         // diferencia entre saber que el `.env.local` se leyó y suponerlo: si no se
         // dice, un archivo mal puesto se descubre en el fallo de la prueba.
         if (ref.watch(credencialesProvider(_proyecto)).value
             case final credenciales? when credenciales.claves.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          Text(
-            strings.e2eVarsLoaded(credenciales.claves.length),
-            style: NexusTypography.nota.copyWith(color: colors.faint),
+          EstadoConPunto(
+            color: colors.ok,
+            texto: strings.e2eVarsLoaded(credenciales.claves.length),
           ),
           if (credenciales.enGit == true)
-            Text(
-              strings.e2eEnvInGit,
-              style: NexusTypography.nota.copyWith(color: colors.warn),
-            ),
+            EstadoConPunto(color: colors.warn, texto: strings.e2eEnvInGit),
         ],
-        const SizedBox(height: NexusSpacing.s2),
 
-        if (pruebas.isEmpty)
-          Text(
-            strings.e2eNone,
-            style: NexusTypography.nota.copyWith(color: colors.faint),
+        // **Buscando no es lo mismo que no haber.** Mientras se busca no se
+        // ofrece arrancar un emulador: con uno ya encendido, ese botón es una
+        // pregunta absurda que además desaparece medio segundo después.
+        if (buscando)
+          Padding(
+            padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    color: colors.accent,
+                  ),
+                ),
+                const SizedBox(width: NexusSpacing.s3),
+                Text(
+                  strings.e2eSearchingDevices,
+                  style: NexusTypography.nota.copyWith(color: colors.mute),
+                ),
+              ],
+            ),
           )
         else ...[
-          // **Buscando no es lo mismo que no haber.** Mientras se busca no se
-          // ofrece arrancar un emulador: con uno ya encendido, ese botón es una
-          // pregunta absurda que además desaparece medio segundo después.
-          if (ref.watch(buscandoDispositivosProvider))
-            Padding(
-              padding: const EdgeInsets.only(bottom: NexusSpacing.s3),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 12,
-                    height: 12,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.5,
-                      color: colors.accent,
-                    ),
-                  ),
-                  const SizedBox(width: NexusSpacing.s3),
-                  Text(
-                    strings.e2eSearchingDevices,
-                    style: NexusTypography.nota.copyWith(color: colors.faint),
-                  ),
-                ],
-              ),
-            )
+          // Sin dónde correr se dice arriba, una vez, y no en cada fila: es un
+          // motivo de toda la lista, no de una prueba.
+          if (dispositivos.isEmpty)
+            EstadoConPunto(color: colors.warn, texto: strings.e2eNoDevice),
           // **Se ofrece siempre que haya un emulador apagado**, no solo cuando no
           // hay ningún dispositivo. Esa condición parecía razonable y escondía el
           // botón justo cuando más falta hacía: basta un iPhone emparejado por wifi
-          // —que aparece solo, sin cable— para que Nexus crea que ya hay dónde correr
-          // y no te deje encender el emulador, que además es el único de los dos donde
-          // Maestro funciona de verdad.
-          else if (_apagados.isNotEmpty)
+          // —que aparece solo, sin cable— para que Nexus crea que ya hay dónde
+          // correr y no te deje encender el emulador, que además es el único de
+          // los dos donde Maestro funciona de verdad.
+          if (_apagados.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: NexusSpacing.s3),
               child: _arrancando
@@ -532,7 +650,7 @@ class _LanzaderaState extends ConsumerState<_Lanzadera> {
                         Text(
                           strings.e2eStarting,
                           style: NexusTypography.nota.copyWith(
-                            color: colors.faint,
+                            color: colors.mute,
                           ),
                         ),
                       ],
@@ -541,184 +659,107 @@ class _LanzaderaState extends ConsumerState<_Lanzadera> {
                       spacing: NexusSpacing.s2,
                       runSpacing: NexusSpacing.s2,
                       children: [
-                        // Uno por emulador, con su nombre. Antes arrancaba «el primero
-                        // apagado» sin decir cuál: con dos definidos, la mitad de las
-                        // veces encendía el que no era.
+                        // Uno por emulador, con su nombre. Antes arrancaba «el
+                        // primero apagado» sin decir cuál: con dos definidos, la
+                        // mitad de las veces encendía el que no era.
                         for (final cual in _apagados)
-                          OutlinedButton(
+                          BotonDeFila(
                             key: ValueKey('arrancar-${cual.id}'),
-                            onPressed: () => _arrancar(cual),
-                            child: Text(
-                              _apagados.length == 1
-                                  ? strings.e2eStartDevice
-                                  : cual.nombre,
-                            ),
+                            onPulsar: () => _arrancar(cual),
+                            texto: _apagados.length == 1
+                                ? strings.e2eStartDevice
+                                : cual.nombre,
                           ),
                       ],
                     ),
             ),
-          // **Ver la pantalla del móvil**, cuando el elegido es uno físico de
-          // Android y scrcpy está instalado. Aquí va **sin control**: si hay una
-          // pasada viva y tocas la pantalla, Maestro y tú estáis inyectando
-          // eventos en el mismo dispositivo y el fallo que salga no será real.
-          //
-          // Y encima de todo, que es lo que hace ahora cualquier espejo: nace
-          // detrás de Nexus y sin esto no se ve. Ver [ElEspejoDelMovil].
-          if (ref.watch(elDispositivoProvider) case final donde?
-              when ref.watch(sePuedeVerLaPantallaProvider(donde)))
-            Padding(
-              padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.smartphone_outlined,
-                    size: 13,
-                    color: colors.faint,
-                  ),
-                  const SizedBox(width: NexusSpacing.s3),
-                  TextButton(
-                    style: _apretado,
-                    onPressed: () => ref
-                        .read(emuladoresDataSourceProvider)
-                        .verLaPantalla(
-                          deviceId: donde,
-                          titulo: _comoSeLlama(donde),
-                          conControl: !corriendo,
-                        ),
-                    child: Text(
-                      corriendo
-                          ? strings.verLaPantallaSinTocar
-                          : strings.verLaPantalla,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          // El dispositivo, y solo cuando hay más de uno que elegir.
-          if (dispositivos.length > 1) ...[
-            SelectorCompacto(
-              valor: ref.watch(elDispositivoProvider),
-              opciones: [for (final d in dispositivos) d.id],
-              etiqueta: _comoSeLlama,
-              pista: strings.e2eDevice,
-              onElegir: (v) =>
-                  ref.read(dispositivoElegidoProvider.notifier).elige(v),
-            ),
-            const SizedBox(height: NexusSpacing.s3),
-          ],
-
-          for (final prueba in pruebas)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.description_outlined,
-                    size: 13,
-                    color: colors.faint,
-                  ),
-                  const SizedBox(width: NexusSpacing.s3),
-                  Expanded(
-                    child: Text(
-                      prueba.nombre,
-                      style: NexusTypography.data.copyWith(color: colors.ink),
-                    ),
-                  ),
-                  // Mandarla al repo del equipo. **Icono y no palabra**, por lo
-                  // mismo que el de borrar: la fila no da para dos verbos. Y
-                  // abre un diálogo en vez de publicar al toque, porque esto sale
-                  // de tu máquina y lo va a ver alguien.
-                  IconButton(
-                    onPressed: () =>
-                        PublicarPruebaDialogo.abrir(context, prueba),
-                    tooltip: strings.e2ePublish,
-                    icon: Icon(
-                      Icons.upload_outlined,
-                      size: 14,
-                      color: colors.faint,
-                    ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 26,
-                      minHeight: 26,
-                    ),
-                  ),
-                  // **Un icono y no dos palabras**, con la advertencia en su
-                  // tooltip. Con «Borrar la prueba» escrito y la frase del aviso
-                  // al lado, la fila desbordaba 235 px y el botón se salía de la
-                  // hoja: el toque no llegaba a ningún sitio. Lo destapó una
-                  // prueba de widget, porque a ojo el botón simplemente no estaba.
-                  //
-                  // Al pedir confirmación se pone rojo y cambia el tooltip: el
-                  // mismo botón dice qué va a hacer sin ocupar una línea.
-                  IconButton(
-                    onPressed: () => _borrar(prueba),
-                    // **El aviso lo decide git, no una suposición.** Antes
-                    // prometía «se recupera con git» siempre, y con un flow
-                    // recién escrito y sin commitear eso es falso justo cuando
-                    // más importa.
-                    //
-                    // Mientras se comprueba, y cuando no se puede saber —sin git,
-                    // o fuera de un repositorio—, el aviso no promete nada en
-                    // ninguna dirección: los dos casos llegan aquí como `null` y
-                    // eso está bien, porque de los dos la respuesta honesta es la
-                    // misma.
-                    tooltip: _confirmandoBorrado == prueba.ruta
-                        ? switch (enGit[prueba.ruta]) {
-                            true => strings.e2eDeleteTestAsk,
-                            false => strings.e2eDeleteTestAskLost,
-                            // Mientras se comprueba, y cuando no se puede saber
-                            // —sin git, o fuera de un repositorio—, no se promete
-                            // nada en ninguna dirección: de los dos casos la
-                            // respuesta honesta es la misma.
-                            null => strings.e2eDeleteTestAskPlain,
-                          }
-                        : strings.e2eDeleteTest,
-                    iconSize: 14,
-                    splashRadius: 14,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    constraints: const BoxConstraints(),
-                    visualDensity: VisualDensity.compact,
-                    color: _confirmandoBorrado == prueba.ruta
-                        ? colors.err
-                        : colors.faint,
-                    icon: const Icon(Icons.delete_outline),
-                  ),
-                  // **El botón dice por qué no se puede.** Apagarlo sin más
-                  // cambia un problema por otro: un botón muerto y sin motivo
-                  // deja al usuario mirándolo. Mientras se busca lleva el
-                  // indicador girando en el sitio de la palabra —está ocupado,
-                  // no roto— y cuando ya se sabe que no hay ninguno, el motivo
-                  // va en su tooltip.
-                  //
-                  // El `Tooltip` envuelve al botón y no es una propiedad suya
-                  // porque un `TextButton` apagado no atiende punteros: el
-                  // tooltip tiene que estar fuera para que se vea justo cuando
-                  // más falta hace.
-                  Tooltip(
-                    message: buscando
-                        ? strings.e2eSearchingDevices
-                        : (dispositivos.isEmpty ? strings.e2eNoDevice : ''),
-                    child: TextButton(
-                      style: _apretado,
-                      onPressed: sePuedeCorrer ? () => _lanzar(prueba) : null,
-                      child: buscando
-                          ? SizedBox(
-                              width: 12,
-                              height: 12,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
-                                color: colors.faint,
-                              ),
-                            )
-                          : Text(strings.e2eRun),
-                    ),
-                  ),
-                ],
-              ),
-            ),
         ],
+
+        // 🔴 **Dónde correrla, a la vista.** Era un desplegable que solo salía con
+        // dos o más, y con uno no se decía dónde iba a correr. Ahora son las
+        // opciones con su nombre y su id, y la elegida marcada: se ve dónde va a
+        // ir antes de pulsar nada.
+        if (dispositivos.isNotEmpty) ...[
+          Text(
+            strings.e2eDevice,
+            style: NexusTypography.label.copyWith(color: colors.faint),
+          ),
+          const SizedBox(height: NexusSpacing.s2),
+          Wrap(
+            spacing: NexusSpacing.s2,
+            runSpacing: NexusSpacing.s2,
+            children: [
+              for (final d in dispositivos)
+                Opcion(
+                  key: ValueKey('donde-${d.id}'),
+                  // **Un id no sirve para elegir**: `36c56d94` no dice cuál es.
+                  // El nombre delante y el id detrás, que sigue siendo lo que
+                  // pide `--device` y a veces hay dos con el mismo nombre.
+                  titulo: d.nombre,
+                  detalle: d.nombre == d.id ? null : d.id,
+                  elegida: d.id == elegido,
+                  onPulsar: () =>
+                      ref.read(dispositivoElegidoProvider.notifier).elige(d.id),
+                ),
+            ],
+          ),
+          const SizedBox(height: NexusSpacing.s2),
+        ],
+
+        // **Ver la pantalla del móvil**, cuando el elegido es uno físico de
+        // Android y scrcpy está instalado. Aquí va **sin control**: si hay una
+        // pasada viva y tocas la pantalla, Maestro y tú estáis inyectando
+        // eventos en el mismo dispositivo y el fallo que salga no será real.
+        //
+        // Y encima de todo, que es lo que hace ahora cualquier espejo: nace
+        // detrás de Nexus y sin esto no se ve. Ver [ElEspejoDelMovil].
+        if (elegido case final donde?
+            when ref.watch(sePuedeVerLaPantallaProvider(donde)))
+          Padding(
+            padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
+            child: BotonDeFila(
+              onPulsar: () => ref
+                  .read(emuladoresDataSourceProvider)
+                  .verLaPantalla(
+                    deviceId: donde,
+                    titulo: _comoSeLlama(donde),
+                    conControl: !corriendo,
+                  ),
+              texto: corriendo
+                  ? strings.verLaPantallaSinTocar
+                  : strings.verLaPantalla,
+            ),
+          ),
+
+        if (pruebas.isEmpty)
+          Text(
+            strings.e2eNone,
+            style: NexusTypography.nota.copyWith(color: colors.mute),
+          )
+        else
+          for (final (i, prueba) in pruebas.indexed)
+            _FilaDePrueba(
+              prueba: prueba,
+              proyecto: _proyecto,
+              primera: i == 0,
+              // La que corre se reconoce por el nombre: es lo único que la
+              // pasada en marcha sabe de su prueba.
+              enMarcha:
+                  enMarcha != null &&
+                      enMarcha.viva &&
+                      enMarcha.flow == prueba.nombre
+                  ? enMarcha
+                  : null,
+              sePuedeCorrer: sePuedeCorrer,
+              porQueNo: buscando
+                  ? strings.e2eSearchingDevices
+                  : (dispositivos.isEmpty ? strings.e2eNoDevice : null),
+              buscando: buscando,
+              confirmando: _confirmandoBorrado == prueba.ruta,
+              enGit: enGit[prueba.ruta],
+              onCorrer: () => _lanzar(prueba),
+              onBorrar: () => _borrar(prueba),
+            ),
 
         if (_error case final mensaje?) ...[
           const SizedBox(height: NexusSpacing.s2),
@@ -732,13 +773,205 @@ class _LanzaderaState extends ConsumerState<_Lanzadera> {
   }
 }
 
+/// Una prueba del proyecto: su nombre, **por qué no puede correr si no puede**,
+/// y sus botones.
+///
+/// 🔴 **El motivo, antes que el botón.** Faltaba una variable y «Correr» se
+/// veía encendido: se pulsaba, y el «Faltan en .env.local» salía debajo de la
+/// lista, lejos de la prueba. Ahora va en su propia fila —«falta PIN_1 en
+/// .env.local»— y el botón queda apagado. Ver [loQueLeFaltaAUnaPruebaProvider].
+class _FilaDePrueba extends ConsumerWidget {
+  const _FilaDePrueba({
+    required this.prueba,
+    required this.proyecto,
+    required this.primera,
+    required this.enMarcha,
+    required this.sePuedeCorrer,
+    required this.porQueNo,
+    required this.buscando,
+    required this.confirmando,
+    required this.enGit,
+    required this.onCorrer,
+    required this.onBorrar,
+  });
+
+  final Prueba prueba;
+  final String proyecto;
+  final bool primera;
+
+  /// La pasada viva, si es de esta prueba.
+  final PruebaEnMarcha? enMarcha;
+
+  final bool sePuedeCorrer;
+
+  /// Lo que impide correr cualquiera —sin dispositivo, buscando—, para el
+  /// tooltip del botón apagado.
+  final String? porQueNo;
+  final bool buscando;
+  final bool confirmando;
+  final bool? enGit;
+  final VoidCallback onCorrer;
+  final VoidCallback onBorrar;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final strings = context.strings;
+    final faltan =
+        ref
+            .watch(
+              loQueLeFaltaAUnaPruebaProvider((
+                proyecto: proyecto,
+                ruta: prueba.ruta,
+              )),
+            )
+            .value ??
+        const <String>[];
+
+    // De qué carpeta sale, como dato: `.maestro/` o `e2e/flows/`. Con la ruta
+    // entera la fila no cabe, y el nombre del proyecto ya está arriba.
+    final carpeta = () {
+      final relativa = prueba.ruta.startsWith('$proyecto/')
+          ? prueba.ruta.substring(proyecto.length + 1)
+          : prueba.ruta;
+      final corte = relativa.lastIndexOf('/');
+      return corte < 0 ? '' : '${relativa.substring(0, corte)}/';
+    }();
+
+    final (punto, detalle, deAviso) = switch (enMarcha) {
+      final viva? => (
+        colors.accent,
+        strings.e2eCorriendoPasos(viva.terminados, viva.pasos.length),
+        false,
+      ),
+      null when faltan.isNotEmpty => (
+        colors.warn,
+        strings.e2eFaltaEnEnv(faltan.join(', ')),
+        true,
+      ),
+      null => (colors.faint, carpeta, false),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s2),
+      decoration: primera
+          ? null
+          : BoxDecoration(
+              border: Border(top: BorderSide(color: colors.rule)),
+            ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 5, right: NexusSpacing.s3),
+            child: PuntoDeEstado(color: punto),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  prueba.nombre,
+                  style: NexusTypography.data.copyWith(color: colors.ink),
+                ),
+                if (detalle.isNotEmpty)
+                  Text(
+                    detalle,
+                    key: deAviso ? const ValueKey('por-que-no-corre') : null,
+                    // El motivo es una frase y se lee en sans; la carpeta y el
+                    // avance son datos y van en mono.
+                    style: deAviso
+                        ? NexusTypography.nota.copyWith(
+                            color: colors.warn,
+                            fontSize: 12,
+                          )
+                        : NexusTypography.data.copyWith(color: colors.mute),
+                  ),
+              ],
+            ),
+          ),
+          // Mandarla al repo del equipo. **Icono y no palabra**, por lo mismo que
+          // el de borrar: la fila no da para tres verbos. Y abre un diálogo en vez
+          // de publicar al toque, porque esto sale de tu máquina y lo va a ver
+          // alguien.
+          IconButton(
+            onPressed: () => PublicarPruebaDialogo.abrir(context, prueba),
+            tooltip: strings.e2ePublish,
+            icon: Icon(Icons.upload_outlined, size: 14, color: colors.faint),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+          ),
+          // **Un icono y no dos palabras**, con la advertencia en su tooltip. Con
+          // «Borrar la prueba» escrito y la frase del aviso al lado, la fila
+          // desbordaba 235 px y el botón se salía de la hoja.
+          //
+          // Al pedir confirmación se pone rojo y cambia el tooltip: el mismo botón
+          // dice qué va a hacer sin ocupar una línea. **El aviso lo decide git**:
+          // con un flow recién escrito y sin commitear, prometer «se recupera con
+          // git» es falso justo cuando más importa.
+          IconButton(
+            onPressed: onBorrar,
+            tooltip: confirmando
+                ? switch (enGit) {
+                    true => strings.e2eDeleteTestAsk,
+                    false => strings.e2eDeleteTestAskLost,
+                    // Mientras se comprueba, y cuando no se puede saber —sin
+                    // git, o fuera de un repositorio—, no se promete nada en
+                    // ninguna dirección.
+                    null => strings.e2eDeleteTestAskPlain,
+                  }
+                : strings.e2eDeleteTest,
+            iconSize: 14,
+            splashRadius: 14,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            constraints: const BoxConstraints(),
+            visualDensity: VisualDensity.compact,
+            color: confirmando ? colors.err : colors.faint,
+            icon: const Icon(Icons.delete_outline),
+          ),
+          const SizedBox(width: NexusSpacing.s1),
+          // La que corre no ofrece correr: su puerta es «Ver», arriba. Y
+          // mientras se busca, el indicador gira en el sitio del botón —está
+          // ocupado, no roto—.
+          if (enMarcha == null)
+            if (buscando)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, left: 6, right: 6),
+                child: Tooltip(
+                  message: strings.e2eSearchingDevices,
+                  child: SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: colors.faint,
+                    ),
+                  ),
+                ),
+              )
+            else
+              BotonDeFila(
+                texto: strings.e2eRun,
+                tono: TonoDeBoton.principal,
+                // El motivo de la fila ya está escrito al lado; el de toda la
+                // lista —sin dispositivo— va en el tooltip, que es donde se
+                // busca cuando el botón no responde.
+                tooltip: faltan.isEmpty ? (porQueNo ?? '') : null,
+                onPulsar: sePuedeCorrer && faltan.isEmpty ? onCorrer : null,
+              ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Lo que ya corrió, agrupado por proyecto.
 ///
 /// Las que no se pudieron atribuir van en su propio grupo y **no se esconden**:
 /// no saber de qué proyecto salió una pasada es un problema nuestro, y taparla
 /// se lo pasaría al usuario en forma de historial incompleto.
 class _Historial extends ConsumerStatefulWidget {
-  const _Historial();
+  const _Historial({super.key});
 
   @override
   ConsumerState<_Historial> createState() => _HistorialState();
@@ -773,16 +1006,15 @@ class _HistorialState extends ConsumerState<_Historial> {
     final pasadas = ref.watch(pasadasDePruebaProvider);
 
     final lista = pasadas.value;
-    if (lista == null) {
-      return Text(
-        strings.e2eTitle,
-        style: NexusTypography.nota.copyWith(color: colors.faint),
-      );
-    }
-    if (lista.isEmpty) {
-      return Text(
-        strings.e2eNoRuns,
-        style: NexusTypography.nota.copyWith(color: colors.faint),
+    if (lista == null || lista.isEmpty) {
+      return _Seccion(
+        titulo: strings.e2eHistorial,
+        child: Text(
+          // Mientras se lee, la pregunta sin respuesta todavía; vacío, la
+          // frase que dice que no hay y no un hueco.
+          lista == null ? strings.e2eTitle : strings.e2eNoRuns,
+          style: NexusTypography.nota.copyWith(color: colors.mute),
+        ),
       );
     }
 
@@ -798,71 +1030,91 @@ class _HistorialState extends ConsumerState<_Historial> {
     // y hacerlo dentro de `build` era leerlo entero en cada repintado.
     final tamanos = ref.watch(tamanoPorProyectoProvider).value ?? const {};
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _ElNumero(pasadas: lista),
-        for (final clave in claves) ...[
+    return _Seccion(
+      titulo: strings.e2eHistorial,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ElNumero(pasadas: lista),
+          for (final clave in claves) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: NexusSpacing.s4, bottom: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      clave.isEmpty
+                          ? strings.e2eUnattributed
+                          : clave.split('/').last,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: NexusTypography.label.copyWith(
+                        color: colors.faint,
+                      ),
+                    ),
+                  ),
+                  // **Cuántas y cuánto ocupan**, que es lo que hace falta para
+                  // decidir si borrarlas. Un grupo de 40 pasadas con capturas
+                  // son decenas de megas y nada lo decía.
+                  Text(
+                    strings.e2eRunsSize(
+                      porProyecto[clave]!.length,
+                      _tamano(tamanos[clave] ?? 0),
+                    ),
+                    style: NexusTypography.data.copyWith(color: colors.faint),
+                  ),
+                  IconButton(
+                    onPressed: () =>
+                        _borrarElProyecto(clave, porProyecto[clave]!),
+                    tooltip: _confirmando == clave
+                        ? strings.e2eDeleteProjectAsk
+                        : strings.e2eDeleteProject,
+                    iconSize: 14,
+                    splashRadius: 14,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    constraints: const BoxConstraints(),
+                    visualDensity: VisualDensity.compact,
+                    color: _confirmando == clave ? colors.err : colors.faint,
+                    icon: const Icon(Icons.delete_sweep_outlined),
+                  ),
+                ],
+              ),
+            ),
+            for (final pasada in porProyecto[clave]!)
+              _FilaDePasada(pasada: pasada),
+          ],
+          // **El número, honesto**, y abajo del todo: «es lo que ve esta
+          // máquina» evita leer más de lo que el dato dice. La frase de hoy se
+          // queda, como pide el mockup.
           Padding(
-            padding: const EdgeInsets.only(top: NexusSpacing.s4, bottom: 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    clave.isEmpty
-                        ? strings.e2eUnattributed
-                        : clave.split('/').last,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: NexusTypography.label.copyWith(color: colors.faint),
-                  ),
-                ),
-                // **Cuántas y cuánto ocupan**, que es lo que hace falta para
-                // decidir si borrarlas. Un grupo de 40 pasadas con capturas son
-                // decenas de megas y nada lo decía.
-                Text(
-                  strings.e2eRunsSize(
-                    porProyecto[clave]!.length,
-                    _tamano(tamanos[clave] ?? 0),
-                  ),
-                  style: NexusTypography.mono.copyWith(color: colors.faint),
-                ),
-                IconButton(
-                  onPressed: () =>
-                      _borrarElProyecto(clave, porProyecto[clave]!),
-                  tooltip: _confirmando == clave
-                      ? strings.e2eDeleteProjectAsk
-                      : strings.e2eDeleteProject,
-                  iconSize: 14,
-                  splashRadius: 14,
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  constraints: const BoxConstraints(),
-                  visualDensity: VisualDensity.compact,
-                  color: _confirmando == clave ? colors.err : colors.faint,
-                  icon: const Icon(Icons.delete_sweep_outlined),
-                ),
-              ],
+            padding: const EdgeInsets.only(top: NexusSpacing.s4),
+            child: Text(
+              strings.e2eNumeroLimite,
+              style: NexusTypography.nota.copyWith(
+                color: colors.mute,
+                fontSize: 12,
+              ),
             ),
           ),
-          for (final pasada in porProyecto[clave]!)
-            _FilaDePasada(pasada: pasada),
         ],
-      ],
+      ),
     );
   }
 }
 
-/// Lo que suman las pasadas, encima de la lista.
+/// Lo que suman las pasadas, encima de la lista: **tres cifras, cada una con
+/// lo que mide debajo**.
 ///
 /// Existe por el encargo de la propuesta de valor —«un número antes de la
 /// reunión»— y por lo que ese encargo obligaba a decidir: **la frase que se
 /// quería llevar era «lo corre cualquiera a diario», y la mitad de eso no se
 /// puede medir desde aquí**. Nexus ve las pasadas de esta máquina. Cuántas
-/// veces, sí; cuánta gente, no.
+/// veces, sí; cuánta gente, no. Por eso el límite va escrito al pie.
 ///
-/// Así que el límite se escribe debajo del número, con el mismo tamaño que el
-/// número. Una pantalla de adopción que se pasa de lista es la que primero
-/// pierde la reunión.
+/// 🔴 Eran un número grande y un párrafo en mono con cinco frases seguidas, que
+/// se leía como un log. El mockup lo parte en tres casillas —cuántas, frente a
+/// cuándo, cómo acabaron— y el resto de frases se quedan en el tooltip de cada
+/// una: siguen ahí para quien las busque, sin empujar la lista hacia abajo.
 class _ElNumero extends StatelessWidget {
   const _ElNumero({required this.pasadas});
 
@@ -874,53 +1126,91 @@ class _ElNumero extends StatelessWidget {
     final strings = context.strings;
     final numero = ElNumeroDeLasPruebas.de(pasadas, ahora: DateTime.now());
 
-    final lineas = <String>[
-      strings.e2eNumeroPasadas(numero.ultimos30, numero.dias),
-      if (numero.veces case final veces?)
-        strings.e2eNumeroContra(veces.toStringAsFixed(1), numero.previos30)
-      else
-        strings.e2eNumeroSinComparar,
-      if (numero.bien + numero.mal > 0)
-        strings.e2eNumeroResultado(numero.bien, numero.mal),
-      if (numero.proyectos > 0) strings.e2eNumeroProyectos(numero.proyectos),
-      if (numero.desde case final desde?)
-        strings.e2eNumeroDesde('${desde.day}/${desde.month}/${desde.year}'),
-    ];
+    Widget cifra(
+      String valor,
+      String rotulo, {
+      required String explica,
+      required bool primera,
+    }) => Expanded(
+      child: Tooltip(
+        message: explica,
+        child: Container(
+          padding: const EdgeInsets.all(NexusSpacing.s2),
+          decoration: primera
+              ? null
+              : BoxDecoration(
+                  border: Border(left: BorderSide(color: colors.rule)),
+                ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                valor,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: NexusTypography.title.copyWith(color: colors.ink),
+              ),
+              Text(
+                rotulo,
+                style: NexusTypography.label.copyWith(
+                  color: colors.mute,
+                  fontSize: 9.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // El número grande y el resto al lado, no debajo: esto va encima de
-          // una lista que es lo que la gente viene a mirar, y un bloque alto la
-          // empuja fuera de la pantalla — que es justo lo que hizo la primera
-          // versión, y lo dijeron las pruebas del panel.
-          Text(
-            numero.ultimos30.toString(),
-            style: NexusTypography.title.copyWith(color: colors.ink),
-          ),
-          const SizedBox(width: NexusSpacing.s3),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  strings.e2eNumeroTitle,
-                  style: NexusTypography.label.copyWith(color: colors.faint),
-                ),
-                Text(
-                  lineas.join(' '),
-                  style: NexusTypography.mono.copyWith(color: colors.mute),
-                ),
-                Text(
-                  strings.e2eNumeroLimite,
-                  style: NexusTypography.nota.copyWith(color: colors.faint),
-                ),
-              ],
+    return Container(
+      key: const ValueKey('el-numero'),
+      decoration: BoxDecoration(border: Border.all(color: colors.rule)),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            cifra(
+              numero.ultimos30.toString(),
+              strings.e2eCifraPasadas,
+              explica: [
+                strings.e2eNumeroPasadas(numero.ultimos30, numero.dias),
+                if (numero.proyectos > 0)
+                  strings.e2eNumeroProyectos(numero.proyectos),
+                if (numero.desde case final desde?)
+                  strings.e2eNumeroDesde(
+                    '${desde.day}/${desde.month}/${desde.year}',
+                  ),
+              ].join(' '),
+              primera: true,
             ),
-          ),
-        ],
+            cifra(
+              switch (numero.veces) {
+                // La coma del idioma, no el punto de `toStringAsFixed`.
+                final veces? =>
+                  '×${veces.toStringAsFixed(1).replaceAll('.', strings.e2eComaDecimal)}',
+                null => '—',
+              },
+              numero.veces == null
+                  ? strings.e2eCifraSinComparar
+                  : strings.e2eCifraContra,
+              explica: switch (numero.veces) {
+                final veces? => strings.e2eNumeroContra(
+                  veces.toStringAsFixed(1),
+                  numero.previos30,
+                ),
+                null => strings.e2eNumeroSinComparar,
+              },
+              primera: false,
+            ),
+            cifra(
+              '${numero.bien} · ${numero.mal}',
+              strings.e2eCifraResultado,
+              explica: strings.e2eNumeroResultado(numero.bien, numero.mal),
+              primera: false,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1024,30 +1314,31 @@ class _FilaDePasadaState extends ConsumerState<_FilaDePasada> {
         !ref.watch(buscandoDispositivosProvider) &&
         ref.watch(dondeCorrerProvider).isNotEmpty;
 
-    final (icono, color, etiqueta) = switch (pasada.comoAcabo) {
-      ComoAcabo.bien => (Icons.check, colors.ok, strings.e2ePassed),
-      ComoAcabo.mal => (Icons.close, colors.err, strings.e2eFailed),
-      ComoAcabo.enMarcha => (
-        Icons.autorenew,
-        colors.accent,
-        strings.e2eRunningNow,
-      ),
-      ComoAcabo.vayaUstedASaber => (
-        Icons.help_outline,
-        colors.warn,
-        strings.e2eUnknown,
-      ),
+    final (color, etiqueta) = switch (pasada.comoAcabo) {
+      ComoAcabo.bien => (colors.ok, strings.e2ePassed),
+      ComoAcabo.mal => (colors.err, strings.e2eFailed),
+      ComoAcabo.enMarcha => (colors.accent, strings.e2eRunningNow),
+      ComoAcabo.vayaUstedASaber => (colors.warn, strings.e2eUnknown),
     };
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s2),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: colors.rule)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icono, size: 12, color: color),
-              const SizedBox(width: NexusSpacing.s3),
+              // **El punto, con su palabra al lado**: «falló», «pasó». Antes era
+              // un icono de color, que decía el estado solo con la forma y el
+              // tono; el punto es la gramática de toda la app.
+              Padding(
+                padding: const EdgeInsets.only(top: 5, right: NexusSpacing.s3),
+                child: PuntoDeEstado(color: color),
+              ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1059,25 +1350,31 @@ class _FilaDePasadaState extends ConsumerState<_FilaDePasada> {
                       style: NexusTypography.data.copyWith(color: colors.ink),
                     ),
                     Text(
-                      // Cuándo, cómo acabó y cuántos pasos llegaron: «2 de 8» dice
+                      // Cuándo, cómo acabó y cuántos pasos llegaron: «2/8» dice
                       // dónde se rompió sin abrir nada.
                       '${_cuando(pasada.cuando)} · $etiqueta · '
                       '${pasada.pasosBien}/${pasada.pasos}',
-                      style: NexusTypography.mono.copyWith(color: colors.faint),
+                      style: NexusTypography.data.copyWith(color: colors.mute),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: NexusSpacing.s2),
               // **Repetir solo donde se puede.** Sin proyecto atribuido no se sabe
               // en qué repo vive el flow, y ofrecer un botón que solo puede
               // contestar «no sé de dónde salió esto» es peor que no ofrecerlo.
               //
-              // Un icono y no una palabra: con «Ver» y «Borrar» escritos, una
-              // tercera palabra en esta fila es exactamente cómo desbordó antes.
+              // **Y escrito, y primero si cayó**: es lo que toca después de un
+              // fallo, como dice el mockup. En una que pasó sigue estando, pero
+              // sin acento: ahí lo normal es mirarla, no repetirla.
               if (pasada.atribuida)
                 _repitiendo
                     ? Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        padding: const EdgeInsets.only(
+                          top: 4,
+                          left: 6,
+                          right: 6,
+                        ),
                         child: SizedBox(
                           width: 12,
                           height: 12,
@@ -1087,29 +1384,27 @@ class _FilaDePasadaState extends ConsumerState<_FilaDePasada> {
                           ),
                         ),
                       )
-                    : IconButton(
-                        onPressed: sePuedeCorrer ? _repetir : null,
-                        // Un icono apagado dice todavía menos que un botón
-                        // apagado, así que su tooltip lleva el motivo.
+                    : BotonDeFila(
+                        key: const ValueKey('repetir'),
+                        texto: strings.e2eRepeat,
+                        tono: pasada.comoAcabo == ComoAcabo.mal
+                            ? TonoDeBoton.principal
+                            : TonoDeBoton.neutro,
+                        onPulsar: sePuedeCorrer ? _repetir : null,
+                        // Un botón apagado sin motivo deja mirándolo.
                         tooltip: sePuedeCorrer
-                            ? strings.e2eRepeat
+                            ? null
                             : (ref.watch(buscandoDispositivosProvider)
                                   ? strings.e2eSearchingDevices
                                   : strings.e2eNoDevice),
-                        iconSize: 14,
-                        splashRadius: 14,
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        constraints: const BoxConstraints(),
-                        visualDensity: VisualDensity.compact,
-                        color: colors.faint,
-                        icon: const Icon(Icons.replay),
                       ),
+              const SizedBox(width: 5),
               // **Ver y borrar.** Ver abre su informe en la misma ventana aparte
               // que usa una pasada en marcha: la de una que ya acabó es la misma
               // cosa quieta, y no había motivo para dos formas de mirar lo mismo.
-              TextButton(
-                style: _apretado,
-                onPressed: () => ref
+              BotonDeFila(
+                texto: strings.e2eSee,
+                onPulsar: () => ref
                     .read(e2eDataSourceProvider)
                     .abreElInforme(
                       pasada.carpeta,
@@ -1121,7 +1416,6 @@ class _FilaDePasadaState extends ConsumerState<_FilaDePasada> {
                         PorQueSeCayo.appNoInstalada => strings.e2eAppMissing,
                       },
                     ),
-                child: Text(strings.e2eSee),
               ),
               TextButton(
                 style: _apretado,
@@ -1129,7 +1423,10 @@ class _FilaDePasadaState extends ConsumerState<_FilaDePasada> {
                   await ref.read(e2eDataSourceProvider).borrar(pasada.carpeta);
                   ref.invalidate(pasadasDePruebaProvider);
                 },
-                child: Text(strings.e2eDelete),
+                child: Text(
+                  strings.e2eDelete,
+                  style: NexusTypography.control.copyWith(color: colors.faint),
+                ),
               ),
             ],
           ),

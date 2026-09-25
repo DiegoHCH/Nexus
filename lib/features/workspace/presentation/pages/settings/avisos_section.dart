@@ -6,15 +6,20 @@ import 'package:nexus/features/agenda/presentation/providers/el_vigilante_de_la_
 import 'package:nexus/features/avisos/presentation/providers/el_que_habla_primero.dart';
 import 'package:nexus/features/prs/presentation/providers/el_vigilante_de_los_pr.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
+import 'package:nexus/features/workspace/presentation/pages/settings/apagado_o_encendido.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/settings_chooser.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Los avisos de agenda: lo único de Nexus que ocurre sin que se lo pidas.
 ///
-/// Nace apagado y el interruptor es lo primero de la sección, no lo último:
+/// Nace apagado y la elección es lo primero de la sección, no lo último:
 /// toda la app está construida sobre que el trabajo lo disparas tú, así que
 /// esto es la excepción y se enseña como tal.
+///
+/// Cada cosa que habla sola se elige con «Apagado · Encendido» y lo que cuesta
+/// al lado, no con un interruptor: un interruptor no dice qué es el otro
+/// estado, y aquí el otro estado es justo lo que se está decidiendo.
 class AvisosSection extends ConsumerWidget {
   const AvisosSection({super.key});
 
@@ -35,78 +40,79 @@ class AvisosSection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _Rotulo(strings.avisosOn),
           Text(
             strings.avisosExplainer,
-            style: NexusTypography.nota.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.mute),
           ),
-          const SizedBox(height: NexusSpacing.s5),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: avisos.encendidos,
-            onChanged: (on) => vigilante.cambiar(encendidos: on),
-            title: Text(
-              strings.avisosOn,
-              style: NexusTypography.body.copyWith(color: colors.ink),
+          const SizedBox(height: NexusSpacing.s3),
+          ApagadoOEncendido(
+            llave: 'avisos-reuniones',
+            encendido: avisos.encendidos,
+            costeApagado: strings.avisosCosteApagado,
+            costeEncendido: strings.avisosCosteEncendido(
+              minutos.contains(avisos.minutos) ? avisos.minutos : 5,
             ),
+            onCambiar: (on) => vigilante.cambiar(encendidos: on),
           ),
           const SizedBox(height: NexusSpacing.s5),
           // Los PR mezclados: el otro aviso que ocurre sin que lo pidas, y por
           // eso va aquí y no en una sección propia — quien viene a esta pantalla
           // viene a decidir de qué quiere enterarse solo.
+          _Rotulo(strings.avisosPrOn),
           Text(
             strings.avisosPrExplainer,
-            style: NexusTypography.nota.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.mute),
           ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: ref.watch(losAvisosDePrProvider).value ?? false,
-            onChanged: (on) async {
+          const SizedBox(height: NexusSpacing.s3),
+          ApagadoOEncendido(
+            llave: 'avisos-pr',
+            encendido: ref.watch(losAvisosDePrProvider).value ?? false,
+            costeApagado: strings.avisosPrCosteApagado,
+            costeEncendido: strings.avisosPrCosteEncendido,
+            onCambiar: (on) async {
               await ElVigilanteDeLosPr.cambiar(a: on);
               ref.invalidate(losAvisosDePrProvider);
             },
-            title: Text(
-              strings.avisosPrOn,
-              style: NexusTypography.body.copyWith(color: colors.ink),
-            ),
           ),
           const SizedBox(height: NexusSpacing.s5),
           // Que hable solo: el interruptor de lo único que Nexus hace **sin**
           // que se lo pidan y **con voz**. Va aquí por lo mismo que el de los
           // PR — quien viene a esta pantalla viene a decidir de qué quiere
           // enterarse solo— y va el último porque es el más ruidoso.
+          _Rotulo(strings.avisosEnVozAltaOn),
           Text(
             strings.avisosEnVozAltaExplainer,
-            style: NexusTypography.nota.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.mute),
           ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: ref.watch(losAvisosEnVozAltaProvider).value ?? true,
-            onChanged: (on) async {
+          const SizedBox(height: NexusSpacing.s3),
+          ApagadoOEncendido(
+            llave: 'avisos-en-voz-alta',
+            encendido: ref.watch(losAvisosEnVozAltaProvider).value ?? true,
+            costeApagado: strings.avisosEnVozAltaCosteApagado,
+            costeEncendido: strings.avisosEnVozAltaCosteEncendido,
+            onCambiar: (on) async {
               final prefs = await SharedPreferences.getInstance();
               await prefs.setBool(ElQueHablaPrimero.encendido, on);
               ref.invalidate(losAvisosEnVozAltaProvider);
             },
-            title: Text(
-              strings.avisosEnVozAltaOn,
-              style: NexusTypography.body.copyWith(color: colors.ink),
-            ),
           ),
           // Y si habla **también** con Nexus delante. Va debajo y no al lado
           // porque solo tiene sentido con lo de arriba encendido, y porque lo
           // que decide es algo que la app no puede saber: con tres pantallas,
           // tenerla delante y estar mirándola dejan de ser lo mismo.
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: ref.watch(losAvisosAunqueLaMiresProvider).value ?? true,
-            onChanged: (on) async {
+          const SizedBox(height: NexusSpacing.s4),
+          _Rotulo(strings.avisosAunqueLaMiresOn),
+          ApagadoOEncendido(
+            llave: 'avisos-aunque-la-mires',
+            encendido: ref.watch(losAvisosAunqueLaMiresProvider).value ?? true,
+            costeApagado: strings.avisosAunqueLaMiresCosteApagado,
+            costeEncendido: strings.avisosAunqueLaMiresCosteEncendido,
+            onCambiar: (on) async {
               final prefs = await SharedPreferences.getInstance();
               await prefs.setBool(ElQueHablaPrimero.aunqueLaMires, on);
               ref.invalidate(losAvisosAunqueLaMiresProvider);
             },
-            title: Text(
-              strings.avisosAunqueLaMiresOn,
-              style: NexusTypography.body.copyWith(color: colors.ink),
-            ),
           ),
           const SizedBox(height: NexusSpacing.s5),
           Text(
@@ -142,7 +148,14 @@ class AvisosSection extends ConsumerWidget {
           // media mañana no está en lo que se leyó al arrancar. Ver a qué hora
           // se leyó es lo que convierte eso en algo que puedes corregir, en vez
           // de en una ausencia de la que nadie se entera.
-          Row(
+          //
+          // En un `Wrap` y no en una fila: en la columna de la hoja los dos
+          // botones y la hora no caben en una línea —117 px de más, medidos— y
+          // la hora es lo que se caería, que es justo lo que no puede faltar.
+          Wrap(
+            spacing: NexusSpacing.s3,
+            runSpacing: NexusSpacing.s2,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               OutlinedButton(
                 onPressed: avisos.listos
@@ -152,7 +165,6 @@ class AvisosSection extends ConsumerWidget {
                     : null,
                 child: Text(strings.avisosReleer),
               ),
-              const SizedBox(width: NexusSpacing.s3),
               // Oírlo cuando quieras, y no cuando te toque una reunión.
               //
               // Sin esto, la única forma de saber si funciona —o a qué volumen
@@ -166,7 +178,6 @@ class AvisosSection extends ConsumerWidget {
                     ref.read(elVigilanteDeLaAgendaProvider.notifier).probar(),
                 child: Text(strings.avisosProbar),
               ),
-              const SizedBox(width: NexusSpacing.s3),
               Text(switch (avisos.ultimaLectura) {
                 final cuando? => strings.avisosLeidoA(_laHora(cuando)),
                 null => strings.avisosSinLeer,
@@ -176,7 +187,7 @@ class AvisosSection extends ConsumerWidget {
           const SizedBox(height: NexusSpacing.s5),
           Text(
             strings.avisosNota,
-            style: NexusTypography.nota.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.mute),
           ),
         ],
       ),
@@ -192,4 +203,21 @@ class AvisosSection extends ConsumerWidget {
 
   static String _elegida(String? guardada, List<PairedFolder> carpetas) =>
       carpetas.any((c) => c.path == guardada) ? guardada! : '';
+}
+
+/// El nombre de cada aviso, encima de su explicación: sin el interruptor, que
+/// lo llevaba de título, la elección necesita decir de qué es.
+class _Rotulo extends StatelessWidget {
+  const _Rotulo(this.texto);
+
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
+    child: Text(
+      texto.toUpperCase(),
+      style: NexusTypography.label.copyWith(color: context.colors.faint),
+    ),
+  );
 }

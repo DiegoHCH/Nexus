@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:nexus/core/audio/el_nivel_de_la_voz.dart';
 import 'package:nexus/features/assistant/data/datasources/native_audio_data_source.dart';
 import 'package:nexus/features/assistant/domain/repositories/audio_output.dart';
 
@@ -46,6 +47,7 @@ class AudioOutputImpl implements AudioOutput {
   );
 
   final NativeAudioDataSource _audio;
+  final _compas = AlCompasDelAltavoz();
   bool _started = false;
   int _chunks = 0;
 
@@ -59,6 +61,8 @@ class AudioOutputImpl implements AudioOutput {
   @override
   void enqueue(Uint8List pcm) {
     if (!_started || pcm.isEmpty) return;
+    // Lo que el orbe va a latir, al ritmo en que va a sonar.
+    _compas.encolado(pcm);
     // Camino normal: el trozo va al altavoz en cuanto llega.
     if (_stallMs <= 0) {
       _audio.play(pcm);
@@ -82,6 +86,7 @@ class AudioOutputImpl implements AudioOutput {
   @override
   Future<void> discard() async {
     if (!_started) return;
+    _compas.callado();
     await _audio.clearPlayback();
   }
 
@@ -95,6 +100,7 @@ class AudioOutputImpl implements AudioOutput {
   Future<void> stop() async {
     if (!_started) return;
     _started = false;
+    _compas.callado();
     await _audio.clearPlayback();
     await _audio.release(para: para);
   }

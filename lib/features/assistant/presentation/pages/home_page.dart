@@ -1,5 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
+import 'package:nexus/features/oido/presentation/providers/el_oido_que_espera.dart';
+import 'package:nexus/core/audio/el_nivel_de_la_voz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,6 +39,7 @@ import 'package:nexus/features/onboarding/presentation/widgets/tour_overlay.dart
 import 'package:nexus/features/assistant/presentation/widgets/conversation_dock.dart';
 import 'package:nexus/features/history/presentation/widgets/conversation_history_sheet.dart';
 import 'package:nexus/features/assistant/presentation/widgets/composer_bar.dart';
+import 'package:nexus/features/workspace/presentation/pages/settings/secciones_de_ajustes.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings_page.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:nexus/features/run/presentation/widgets/la_botonera_de_corridas.dart';
@@ -111,6 +116,26 @@ class _HomePageState extends ConsumerState<HomePage> {
   void dispose() {
     hotKeyManager.unregister(HomePage._talkHotKey);
     super.dispose();
+  }
+
+  /// Qué voz mueve al orbe en cada estado: la tuya mientras te escucha, la
+  /// suya mientras habla. En los demás no hay voz que seguir, y el orbe usa su
+  /// propio movimiento.
+  static ValueListenable<double>? _elNivelPara(NexusOrbState estado) =>
+      switch (estado) {
+        NexusOrbState.listen => ElNivelDeLaVoz.microfono,
+        NexusOrbState.speak => ElNivelDeLaVoz.altavoz,
+        _ => null,
+      };
+
+  /// Los pasos del turno para el reactor: los de primer nivel de la
+  /// actividad, y cuántos acabaron. Los de un subagente van dentro de su paso y
+  /// no cuentan aparte, o el reactor se llenaría de segmentos que no son del
+  /// turno. Sin pasos, `null`, y el reactor usa su progreso de espera.
+  static (int?, int?) _pasos(AssistantHudState hud) {
+    final propios = hud.activity.where((a) => a.parentId == null);
+    if (propios.isEmpty) return (null, null);
+    return (propios.length, propios.where((a) => a.done).length);
   }
 
   @override
@@ -306,6 +331,18 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   child: NexusOrb(
                                     state: hud.orbState,
                                     fillsBox: true,
+                                    // Las señales de verdad, que son el
+                                    // paso 03 del plan: tu voz al escuchar,
+                                    // la de ella al hablar, y los pasos de
+                                    // Claude en el reactor.
+                                    nivelVivo: _elNivelPara(hud.orbState),
+                                    pasos: _pasos(hud).$1,
+                                    hechos: _pasos(hud).$2,
+                                    oido:
+                                        ref
+                                            .watch(elOidoEstaEncendidoProvider)
+                                            .value ??
+                                        false,
                                   ),
                                 ),
                               ),
@@ -849,7 +886,9 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
       // Ni carpeta emparejada ni carpeta de documentos: no hay dónde trabajar,
       // así que se lleva a elegir en vez de crear una conversación que no
       // podría hacer nada.
-      if (mounted) await SettingsPage.open(context);
+      if (mounted) {
+        await SettingsPage.open(context, en: SeccionDeAjustes.permissions);
+      }
       return;
     }
     final id = await ref.read(conversationsProvider.notifier).open(where);
@@ -869,7 +908,9 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
   Future<void> _talk() async {
     final where = whereToStart(ref);
     if (where == null) {
-      if (mounted) await SettingsPage.open(context);
+      if (mounted) {
+        await SettingsPage.open(context, en: SeccionDeAjustes.permissions);
+      }
       return;
     }
     final id = await ref.read(conversationsProvider.notifier).open(where);
@@ -947,6 +988,11 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
                                     (true, false) => NexusOrbState.listen,
                                     (false, _) => NexusOrbState.sleep,
                                   },
+                                  nivelVivo: !_puertaAbierta
+                                      ? null
+                                      : hablando
+                                      ? ElNivelDeLaVoz.altavoz
+                                      : ElNivelDeLaVoz.microfono,
                                 ),
                               ),
                             ),
@@ -1026,7 +1072,10 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
                           right: 0,
                           child: Center(
                             child: TextButton(
-                              onPressed: () => SettingsPage.open(context),
+                              onPressed: () => SettingsPage.open(
+                                context,
+                                en: SeccionDeAjustes.permissions,
+                              ),
                               child: Text(
                                 context.strings.pairAFolderToStart,
                                 style: NexusTypography.label.copyWith(

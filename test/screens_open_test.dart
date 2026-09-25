@@ -170,7 +170,9 @@ void main() {
 
     expect(find.text(strings.historialHoy.toUpperCase()), findsOneWidget);
     expect(find.text(strings.historialAyer.toUpperCase()), findsOneWidget);
-    expect(find.text('la de esta mañana'), findsOneWidget);
+    // La más reciente sale dos veces: en su fila y como título de la vista
+    // previa, que se abre con ella elegida para no enseñar un panel en blanco.
+    expect(find.text('la de esta mañana'), findsNWidgets(2));
     expect(find.text('la de ayer'), findsOneWidget);
     // Y la fila enseña la hora, no la fecha entera: el día ya lo dice su
     // cabecera.

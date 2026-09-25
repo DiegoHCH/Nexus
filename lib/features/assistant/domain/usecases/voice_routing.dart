@@ -38,6 +38,32 @@ abstract final class VoiceRouting {
     caseSensitive: false,
   );
 
+  /// Si con esto te despides: se cierra la conversación al acabar de sonar su
+  /// respuesta, sin esperar al plazo de inactividad.
+  ///
+  /// Más estrecho que la charla a propósito: «gracias» o «vale» no despiden
+  /// —se dicen a mitad de conversación—; «adiós», «hasta luego», «eso es
+  /// todo» y «nada más» sí. La frase entera tiene que ser despedida, relleno o
+  /// cortesía, y al menos un trozo, despedida.
+  static bool esDespedida(String utterance, {String? agente}) {
+    final clean = _sinSuNombre(_limpia(utterance), agente);
+    if (clean.isEmpty || clean.split(' ').length > _maxSmallTalkWords) {
+      return false;
+    }
+    return _despedida.hasMatch(clean);
+  }
+
+  static final _despedida = RegExp(
+    '^(?:(?:$_relleno|$_cortesia) )*(?:$_adios)(?: (?:$_relleno|$_cortesia))*\$',
+    caseSensitive: false,
+  );
+
+  static const _adios =
+      r'adi[oó]s|hasta luego|hasta ma[nñ]ana|hasta pronto|hasta la pr[oó]xima|'
+      r'chao|chau|nos vemos|buenas noches|eso es todo|eso era todo|es todo|'
+      r'nada m[aá]s|en nada|bye|goodbye|see you|good night|'
+      r"that.?s all|that.?s it";
+
   /// Lo que se dice alrededor de una cortesía sin pedir nada.
   static const _relleno =
       r'en nada|nada|no|bueno|pues|y|ok|vale|listo|de acuerdo|muy bien|'

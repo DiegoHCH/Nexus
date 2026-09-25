@@ -124,6 +124,44 @@ void main() {
     });
   });
 
+  // Despedirse cierra la conversación sin esperar el plazo de inactividad.
+  group('despedirse', () {
+    const despedidas = [
+      'Adiós',
+      'En nada, adiós',
+      'Bueno, hasta luego',
+      'Gracias, hasta mañana',
+      'No, eso es todo',
+      'Nada más, gracias',
+      "That's all, thanks",
+      'Bye',
+    ];
+    for (final frase in despedidas) {
+      test('«$frase» despide', () {
+        expect(VoiceRouting.esDespedida(frase), isTrue);
+      });
+    }
+
+    test('con su nombre también', () {
+      expect(
+        VoiceRouting.esDespedida('Adiós, Hestia', agente: 'Hestia'),
+        isTrue,
+      );
+    });
+
+    // A mitad de conversación se dicen sin irse.
+    const noDespiden = ['Gracias', 'Vale', 'Perfecto', 'Hola', 'Espera'];
+    for (final frase in noDespiden) {
+      test('«$frase» no despide', () {
+        expect(VoiceRouting.esDespedida(frase), isFalse);
+      });
+    }
+
+    test('un encargo con un adiós dentro no despide', () {
+      expect(VoiceRouting.esDespedida('Corre los tests y adiós'), isFalse);
+    });
+  });
+
   test('la corrección lleva la respuesta entera y no regaña', () {
     final texto = VoiceRouting.correction('Son las cuatro y veinte.');
     expect(texto, contains('Son las cuatro y veinte.'));

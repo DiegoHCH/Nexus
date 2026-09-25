@@ -162,11 +162,17 @@ class _Altavoz extends _Speaker {
   var sonaron = 0;
   var descartes = 0;
 
+  /// Lo que dice que le queda por sonar. Cero salvo que la prueba lo ponga.
+  var queda = Duration.zero;
+
   @override
   void enqueue(Uint8List pcm) => sonaron++;
 
   @override
   Future<void> discard() async => descartes++;
+
+  @override
+  Future<Duration> pending() async => queda;
 }
 
 /// Anota el encargo que le llega. Es el testigo de la prueba: lo que Claude
@@ -1617,6 +1623,11 @@ void _elAudioAjeno() {
           'sí, porque el otro muchacho fue el que hizo el servicio en el día',
         ),
       );
+      // 🔴 **Y con su respuesta sonando antes del cierre**, que es el orden
+      // real: el `turnComplete` llega después del audio. Sin esta línea la
+      // prueba pasaba con el filtro roto —miraba si hablaba al cerrar el
+      // turno, y a esas alturas siempre está hablando: contestándote—.
+      session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
       session.emit(const VoiceTurnCompleted());
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
@@ -1625,5 +1636,73 @@ void _elAudioAjeno() {
 
       await subscription.cancel();
     });
+
+    // 🔴 Lo que pasó en la sesión de prueba: «¿Cómo estás?» contestó con voz,
+    // se marcó como ajena al cerrar el turno, y la respuesta a la pregunta
+    // siguiente salió solo escrita.
+    test('una conversación normal no se calla a la segunda', () async {
+      final session = _Session();
+      final bridge = _Bridge();
+      final altavoz = _Altavoz();
+      final conversation = _conversation(session, bridge, altavoz: altavoz);
+
+      final vistos = <VoiceEvent>[];
+      final subscription = conversation().listen(vistos.add);
+      await Future<void>.delayed(Duration.zero);
+
+      for (final pregunta in ['¿Cómo estás?', 'No, no tengo nada. Adiós.']) {
+        session.emit(VoiceUserTranscript(pregunta));
+        session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
+        session.emit(VoiceReplyAudio(Uint8List.fromList([2])));
+        session.emit(const VoiceTurnCompleted());
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+
+      expect(vistos.whereType<VoiceIgnorado>(), isEmpty);
+      expect(altavoz.sonaron, 4, reason: 'las dos respuestas suenan enteras');
+
+      await subscription.cancel();
+    });
+
+    // El otro lado del mismo arreglo: lo que se dice mientras aún suena su
+    // respuesta **sí** es hablarle encima, aunque el turno ya esté cerrado.
+    test(
+      'con su respuesta aún sonando, lo de la habitación se ignora',
+      () async {
+        final session = _Session();
+        final bridge = _Bridge();
+        final altavoz = _Altavoz()..queda = const Duration(seconds: 5);
+        final conversation = _conversation(session, bridge, altavoz: altavoz);
+
+        final vistos = <VoiceEvent>[];
+        final subscription = conversation().listen(vistos.add);
+        await Future<void>.delayed(Duration.zero);
+
+        session.emit(const VoiceUserTranscript('mira el historial de git'));
+        session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
+        session.emit(const VoiceTurnCompleted());
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        expect(vistos.whereType<VoiceIgnorado>(), isEmpty);
+
+        // El socket ya cerró el turno, pero el altavoz tiene cinco segundos más.
+        session.emit(
+          const VoiceUserTranscript(
+            'sí, porque el otro muchacho fue el que hizo el servicio en el día',
+          ),
+        );
+        session.emit(VoiceReplyAudio(Uint8List.fromList([2])));
+        session.emit(const VoiceTurnCompleted());
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+
+        expect(vistos.whereType<VoiceIgnorado>(), hasLength(1));
+        expect(
+          bridge.asked.single,
+          contains('historial de git'),
+          reason: 'solo lo primero fue a Claude',
+        );
+
+        await subscription.cancel();
+      },
+    );
   });
 }

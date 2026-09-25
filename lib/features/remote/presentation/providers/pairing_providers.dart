@@ -86,12 +86,21 @@ final linkStateProvider = StreamProvider<LinkState>((ref) {
   final enlace = ref.watch(channelLinkProvider);
   // Con el valor de ahora delante: un `Stream` empieza vacío, y la pantalla
   // arrancaría sin saber nada durante un fotograma.
-  return enlace.estado.transform(
-    StreamTransformer.fromBind((fuente) async* {
-      yield enlace.ahora;
-      yield* fuente;
-    }),
-  );
+  //
+  // 🔴 **Y suscrito en el mismo instante**, no después del primer valor. Con un
+  // `async*` la escucha del estado empezaba una vuelta más tarde, y un fallo que
+  // llegara en ese hueco —no llegar al Mac sin Tailscale es inmediato— se perdía:
+  // el canal es de difusión y no guarda nada. La pantalla se quedaba en «buscando»
+  // con el enlace ya rendido.
+  return Stream<LinkState>.multi((salida) {
+    salida.add(enlace.ahora);
+    final escucha = enlace.estado.listen(
+      salida.add,
+      onError: salida.addError,
+      onDone: salida.close,
+    );
+    salida.onCancel = escucha.cancel;
+  });
 });
 
 /// Acorta la espera del enlace cuando la app vuelve del fondo.

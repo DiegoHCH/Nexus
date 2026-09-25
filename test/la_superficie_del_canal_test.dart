@@ -201,6 +201,40 @@ void main() {
 
     // La ficha estaba en la lista y detrás no hay nada: para el teléfono es lo
     // mismo que pedir una que no existe.
+    // El teléfono agrupa los documentos como el Mac: por la conversación que los
+    // pidió. El origen sale de la misma cuenta que usa la lista del escritorio.
+    test('cada documento dice de qué conversación salió', () async {
+      final ruta = escribe('informe-ci.html', 10);
+      escribe('suelto.md', 10);
+      await const LocalConversationStore().save(
+        ConversationRecord(
+          id: 'c-ci',
+          folderPath: '/Users/alguien/proyecto',
+          startedAt: DateTime(2026, 9, 25, 10),
+          messages: [
+            const ChatMessage(author: ChatAuthor.user, text: 'revisa el CI'),
+            ChatMessage(
+              author: ChatAuthor.nexus,
+              text: 'hecho',
+              documento: ruta,
+            ),
+          ],
+        ),
+      );
+
+      final lista = await montar().artifacts();
+      final informe = lista.singleWhere((a) => a.name == 'informe-ci.html');
+      final suelto = lista.singleWhere((a) => a.name == 'suelto.md');
+
+      expect(informe.conversation, 'c-ci');
+      expect(informe.conversationTitle, 'revisa el CI');
+      expect(informe.toJson()['conversationTitle'], 'revisa el CI');
+      // El que no se sabe de dónde vino va sin origen, y el teléfono lo pone en
+      // «Sin conversación».
+      expect(suelto.conversation, isNull);
+      expect(suelto.toJson().containsKey('conversation'), isFalse);
+    });
+
     test('retomar algo que ya no está se dice, no se calla', () async {
       await expectLater(
         montar().resumeConversation('no-existe'),

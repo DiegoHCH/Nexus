@@ -621,6 +621,10 @@ class E2eDataSource {
         'path': pagina,
         'width': 440.0,
         'height': 900.0,
+        // La escribe Nexus, no Claude: sin la casilla de permitir scripts, que
+        // aquí no tiene nada que permitir. El título sí sigue siendo el del
+        // archivo, que es el que lleva la fecha de la pasada.
+        'propia': true,
       });
     } on PlatformException {
       return;

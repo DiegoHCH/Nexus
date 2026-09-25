@@ -250,6 +250,17 @@ class ChannelLink {
   LinkState _ahora = LinkState.sinConexion;
   LinkState get ahora => _ahora;
 
+  /// Cuántas veces se ha intentado llegar desde la última vez que se llegó.
+  ///
+  /// Para el reactor de «buscando tu Mac»: el mockup pide que sus segmentos
+  /// **cuenten los intentos**, y es lo único honesto que puede contar esa pantalla —no
+  /// hay pasos de Claude, hay una escalera de reintentos—. Vuelve a cero al conectar.
+  ///
+  /// Un `ValueListenable` y no otro stream: quien lo mira quiere el número de ahora,
+  /// no la historia de cómo llegó a él.
+  ValueListenable<int> get intentos => _intentos;
+  final _intentos = ValueNotifier<int>(0);
+
   /// El último evento visto. De aquí sale el `Resume` al reconectar.
   int _ultimoSeq = 0;
   int get ultimoSeq => _ultimoSeq;
@@ -441,6 +452,7 @@ class ChannelLink {
     _intentando = true;
     var intento = 0;
     while (_quiereEstarConectado && !_cerrado) {
+      _intentos.value++;
       _pasarA(
         desdeCero && intento == 0
             ? LinkState.conectando
@@ -732,6 +744,7 @@ class ChannelLink {
 
   void _pasarA(LinkState nuevo) {
     if (_ahora == nuevo || _estado.isClosed) return;
+    if (nuevo == LinkState.conectado) _intentos.value = 0;
     _ahora = nuevo;
     _estado.add(nuevo);
   }

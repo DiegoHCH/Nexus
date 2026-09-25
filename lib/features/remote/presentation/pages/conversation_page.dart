@@ -1,8 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
+import 'package:nexus/features/remote/domain/el_compas_de_la_respuesta.dart';
+import 'package:nexus/features/remote/domain/el_subtitulo_de_la_voz.dart';
 import 'package:nexus/features/remote/domain/remote_mirror.dart';
+import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/remote/presentation/providers/mirror_providers.dart';
 import 'package:nexus/features/remote/presentation/providers/outbox_providers.dart';
 import 'package:nexus/features/remote/presentation/widgets/link_badge.dart';
@@ -177,6 +181,49 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       );
     }
 
+    final orbe = ref.watch(orbeProvider(widget.conversationId));
+    final paso = ElPasoDeAhora.de(conv.steps);
+    final vacia = _vacia(conv);
+    // **Hablando, el orbe vuelve a ser el contenido**, con el subtítulo debajo: es lo
+    // que dibuja el mockup. Mientras ella habla lo que se lee es lo que dice, y la
+    // lista de turnos debajo competiría con la frase que está sonando.
+    final hablando =
+        orbe == NexusOrbState.speak && conv.reply.trim().isNotEmpty;
+    // Trabajando con pasos, el orbe baja a una banda con el reactor y el paso al
+    // lado: los segmentos y el «paso 3 de 4» cuentan lo mismo, uno en dibujo y otro
+    // en palabras.
+    final trabajando = !vacia && orbe == NexusOrbState.think && paso != null;
+
+    // La voz de verdad, cuando la tiene el teléfono. Si la respuesta suena aquí, el
+    // orbe late con lo que sale del altavoz; si hablas aquí, con lo que entra por el
+    // micrófono. Si la voz está en el Mac, `null`: el teléfono no la oye, y latir con
+    // un silencio que no es tal dejaría el orbe quieto mientras ella habla allí.
+    final suenaAqui = ref.watch(reproduccionProvider) == Reproduccion.sonando;
+    final hablasAqui = ref.watch(vozProvider) == Voz.hablando;
+    final compas = ref.watch(compasProvider);
+    final nivelVivo = switch (orbe) {
+      NexusOrbState.speak when suenaAqui => compas.nivel,
+      NexusOrbState.listen when hablasAqui => ref.watch(
+        nivelDelMicrofonoProvider,
+      ),
+      _ => null,
+    };
+
+    final elOrbe = IgnorePointer(
+      child: NexusOrb(
+        // Con la regla puesta: sin enlace no gira, diga lo que diga el último
+        // estado que llegó del Mac.
+        state: orbe,
+        showHorizon: false,
+        nivelVivo: nivelVivo,
+        pasos: paso?.total,
+        hechos: paso?.hechos,
+        // El anillo del oído, si es la conversación que el Mac escucha.
+        oido: conv.focused,
+      ),
+    );
+    final alto = MediaQuery.of(context).size.height;
+
     return Scaffold(
       backgroundColor: colors.void_,
       appBar: AppBar(
@@ -221,101 +268,106 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
             // leer. Aquí no hace ninguna de las dos: los mensajes se desplazan por
             // debajo de él y el orbe se queda, que es lo que corresponde a la
             // presencia del asistente — no es contenido, es quien te atiende.
-            //
-            // Vacía se lleva media pantalla, porque no hay nada que leer y es lo único
-            // que hay que ver. Con turnos, una banda corta: lo justo para saber en qué
-            // anda el Mac sin quitarle sitio a lo que se lee.
-            SizedBox(
-              height: _vacia(conv)
-                  ? MediaQuery.of(context).size.height * 0.46
-                  : 132,
-              child: IgnorePointer(
-                child: NexusOrb(
-                  // Con la regla puesta: sin enlace no gira, diga lo que diga el
-                  // último estado que llegó del Mac.
-                  state: ref.watch(orbeProvider(widget.conversationId)),
-                  showHorizon: false,
+            if (hablando) ...[
+              SizedBox(height: alto * 0.40, child: elOrbe),
+              Expanded(
+                child: _Subtitulo(
+                  texto: conv.reply,
+                  // Por dónde va, solo si suena aquí: con la voz en el Mac no se
+                  // sabe, y entonces se enseña entera.
+                  avance: suenaAqui ? compas.avance : null,
                 ),
               ),
-            ),
-            Expanded(
-              child: ListView(
-                controller: _scroll,
-                padding: const EdgeInsets.all(20),
-                children: [
-                  // Más arriba lo más viejo: se lee hacia abajo, como una
-                  // conversación.
-                  if (conv.masHistorial != null)
-                    Center(
-                      child: TextButton(
-                        key: const ValueKey('mas-historial'),
-                        onPressed: () => ref
-                            .read(mirrorProvider.notifier)
-                            .masHistorial(widget.conversationId),
-                        child: Text(strings.mobileSeeEarlier),
+            ] else ...[
+              if (trabajando)
+                _BandaTrabajando(orbe: elOrbe, paso: paso)
+              else
+                SizedBox(
+                  // Vacía se lleva media pantalla, porque no hay nada que leer y es
+                  // lo único que hay que ver. Con turnos, una banda corta: lo justo
+                  // para saber en qué anda el Mac sin quitarle sitio a lo que se lee.
+                  height: vacia ? alto * 0.46 : 132,
+                  child: elOrbe,
+                ),
+              Expanded(
+                child: ListView(
+                  controller: _scroll,
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    // Más arriba lo más viejo: se lee hacia abajo, como una
+                    // conversación.
+                    if (conv.masHistorial != null)
+                      Center(
+                        child: TextButton(
+                          key: const ValueKey('mas-historial'),
+                          onPressed: () => ref
+                              .read(mirrorProvider.notifier)
+                              .masHistorial(widget.conversationId),
+                          child: Text(strings.mobileSeeEarlier),
+                        ),
                       ),
-                    ),
-                  for (final mensaje in conv.history)
-                    _Mensaje(mensaje: mensaje),
-                  if (conv.history.isNotEmpty) const SizedBox(height: 8),
-                  // **Lo que dijo el usuario, cuando lo dijo hablando.** Escribiendo
-                  // el teléfono ya lo tiene; hablando, la voz se transcribe en el Mac
-                  // y sin esto llegaba la respuesta a una pregunta que nunca se pintó
-                  // — una conversación contestando sola.
-                  //
-                  // Va **antes** de los pasos y de la respuesta porque es lo que las
-                  // provoca, y con la misma cautela que la respuesta: solo si no está
-                  // ya abajo en el historial, o se vería dos veces al cerrarse el turno.
-                  if (conv.ask.isNotEmpty && !conv.preguntaYaEnHistorial)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: TurnBlock(
-                        key: const ValueKey('pregunta'),
-                        mine: true,
-                        text: conv.ask,
+                    for (final mensaje in conv.history)
+                      _Mensaje(mensaje: mensaje),
+                    if (conv.history.isNotEmpty) const SizedBox(height: 8),
+                    // **Lo que dijo el usuario, cuando lo dijo hablando.** Escribiendo
+                    // el teléfono ya lo tiene; hablando, la voz se transcribe en el Mac
+                    // y sin esto llegaba la respuesta a una pregunta que nunca se pintó
+                    // — una conversación contestando sola.
+                    //
+                    // Va **antes** de los pasos y de la respuesta porque es lo que las
+                    // provoca, y con la misma cautela que la respuesta: solo si no está
+                    // ya abajo en el historial, o se vería dos veces al cerrarse el turno.
+                    if (conv.ask.isNotEmpty && !conv.preguntaYaEnHistorial)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: TurnBlock(
+                          key: const ValueKey('pregunta'),
+                          mine: true,
+                          text: conv.ask,
+                        ),
                       ),
-                    ),
-                  if (conv.steps.isNotEmpty) _Pasos(pasos: conv.steps),
-                  // La respuesta en curso, **y solo si no está ya abajo en el
-                  // historial**: al terminar el turno el mismo texto salía por los
-                  // dos sitios y con dos estilos distintos, que se lee como si el
-                  // asistente hubiera contestado dos veces.
-                  if (conv.reply.isNotEmpty && !conv.respuestaYaEnHistorial)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: TurnBlock(
-                        key: const ValueKey('respuesta'),
-                        mine: false,
-                        text: conv.reply,
+                    if (conv.steps.isNotEmpty) _Pasos(pasos: conv.steps),
+                    // La respuesta en curso, **y solo si no está ya abajo en el
+                    // historial**: al terminar el turno el mismo texto salía por los
+                    // dos sitios y con dos estilos distintos, que se lee como si el
+                    // asistente hubiera contestado dos veces.
+                    if (conv.reply.isNotEmpty && !conv.respuestaYaEnHistorial)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: TurnBlock(
+                          key: const ValueKey('respuesta'),
+                          mine: false,
+                          text: conv.reply,
+                        ),
                       ),
-                    ),
-                  if (conv.error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: Text(
-                        conv.error!,
-                        style: TextStyle(color: colors.err),
+                    if (conv.error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Text(
+                          conv.error!,
+                          style: TextStyle(color: colors.err),
+                        ),
                       ),
-                    ),
-                  // El aviso, en ámbar y debajo del error. Los dos pueden
-                  // coincidir —un encargo puede fallar justo el día que
-                  // cambiaron las reglas— y en rojo se leería como que algo se
-                  // rompió, cuando lo que pasa es que algo cambió.
-                  if (conv.notice != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: Text(
-                        conv.notice!,
-                        style: TextStyle(color: colors.warn),
+                    // El aviso, en ámbar y debajo del error. Los dos pueden
+                    // coincidir —un encargo puede fallar justo el día que
+                    // cambiaron las reglas— y en rojo se leería como que algo se
+                    // rompió, cuando lo que pasa es que algo cambió.
+                    if (conv.notice != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Text(
+                          conv.notice!,
+                          style: TextStyle(color: colors.warn),
+                        ),
                       ),
-                    ),
-                  // Lo que está esperando salir. Se enseña **aquí y no en un cajón
-                  // aparte**: un encargo escrito sin cobertura que no se ve por
-                  // ninguna parte se da por perdido y se vuelve a escribir.
-                  _Esperando(conversationId: widget.conversationId),
-                ],
+                    // Lo que está esperando salir. Se enseña **aquí y no en un cajón
+                    // aparte**: un encargo escrito sin cobertura que no se ve por
+                    // ninguna parte se da por perdido y se vuelve a escribir.
+                    _Esperando(conversationId: widget.conversationId),
+                  ],
+                ),
               ),
-            ),
+            ],
             _Compositor(
               campo: _campo,
               conversacion: conv,
@@ -327,6 +379,101 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Lo que dice mientras habla, debajo del orbe: **lo dicho en blanco, lo que falta en
+/// gris**.
+///
+/// Sans ligera y grande, que es la forma de «esto es lo que se dice» en este sistema, y
+/// sin cuadro: es un subtítulo, no un panel.
+class _Subtitulo extends StatelessWidget {
+  const _Subtitulo({required this.texto, this.avance});
+
+  final String texto;
+
+  /// Por dónde va la voz, cuando suena aquí. Ver [ElCompasDeLaRespuesta].
+  final ValueListenable<double>? avance;
+
+  @override
+  Widget build(BuildContext context) {
+    // 🔴 **En su propia capa**, por lo mismo que en el escritorio: el subtítulo cambia
+    // mientras suena el audio, y sin esta frontera cada cambio repinta también el
+    // orbe —un `CustomPaint` animado— en la misma pasada.
+    final avance = this.avance;
+    return RepaintBoundary(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: NexusSpacing.s5),
+        child: avance == null
+            ? _pinta(context, SubtituloDeLaVoz.de(texto))
+            : ValueListenableBuilder<double>(
+                valueListenable: avance,
+                builder: (context, va, _) =>
+                    _pinta(context, SubtituloDeLaVoz.de(texto, avance: va)),
+              ),
+      ),
+    );
+  }
+
+  Widget _pinta(BuildContext context, SubtituloDeLaVoz sub) {
+    final colors = context.colors;
+    return Text.rich(
+      key: const ValueKey('subtitulo'),
+      TextSpan(
+        children: [
+          TextSpan(text: sub.ya),
+          TextSpan(
+            text: sub.falta,
+            style: TextStyle(color: colors.faint),
+          ),
+        ],
+      ),
+      textAlign: TextAlign.center,
+      style: NexusTypography.subtitleMobile.copyWith(color: colors.ink),
+    );
+  }
+}
+
+/// La banda de trabajando: el orbe con su reactor, y a su lado el paso en que va.
+class _BandaTrabajando extends StatelessWidget {
+  const _BandaTrabajando({required this.orbe, required this.paso});
+
+  final Widget orbe;
+  final ElPasoDeAhora paso;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: NexusSpacing.s5),
+      child: Row(
+        key: const ValueKey('banda-trabajando'),
+        children: [
+          SizedBox(width: 120, height: 120, child: orbe),
+          const SizedBox(width: NexusSpacing.s3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.strings
+                      .mobileStepOf(paso.paso, paso.total)
+                      .toUpperCase(),
+                  style: NexusTypography.label.copyWith(color: colors.mute),
+                ),
+                const SizedBox(height: NexusSpacing.s1),
+                Text(
+                  paso.texto,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: NexusTypography.lead.copyWith(color: colors.ink),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -889,12 +1036,13 @@ class _HojaDeAccionesState extends State<_HojaDeAcciones> {
               // Lo que hace falta saber **antes** de tocar: cerrar suena a borrar y no
               // lo es.
               strings.mobileCloseExplainer,
-              style: NexusTypography.mono.copyWith(color: colors.faint),
+              style: NexusTypography.nota.copyWith(color: colors.mute),
             ),
             const SizedBox(height: NexusSpacing.s3),
             WideAction(
               key: const ValueKey('cerrar-la-conversacion'),
               texto: strings.mobileCloseConversation,
+              peligrosa: true,
               alTocar: widget.alCerrar,
             ),
           ],

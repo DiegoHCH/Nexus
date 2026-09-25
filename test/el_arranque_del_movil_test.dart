@@ -78,7 +78,11 @@ void main() {
     //
     // Los tokens no llevan el tamaño en el nombre, así que `subtitle` suena a algo
     // pequeño y no lo es. Esto ata el nombre al sitio donde vale.
-    const soloEscritorio = ['subtitle', 'title', 'hero'];
+    //
+    // `title` salió de la lista el 25 sep: pasó a ser Oxanium a 22, que es justo el
+    // `.grande` de los estados del teléfono en el mockup. Lo que sigue prohibido es lo
+    // que de verdad no cabe en una fila: 34 y 46 px.
+    const soloEscritorio = ['subtitle', 'hero'];
     final delMovil = Directory('lib/features/remote/presentation')
         .listSync(recursive: true)
         .whereType<File>()
@@ -104,8 +108,8 @@ void main() {
       culpables,
       isEmpty,
       reason:
-          'en un teléfono se usan label(10) · data(11) · mono(13) · body(15) · '
-          'lead(17) · subtitleMobile(20)',
+          'en un teléfono se usan label(10) · control(12) · nota(13) · data(11) · '
+          'mono(13) · body(15) · lead(17) · subtitleMobile(20) · title(22)',
     );
   });
 

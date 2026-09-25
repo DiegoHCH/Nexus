@@ -142,14 +142,14 @@ class _DispositivosPanelState extends ConsumerState<DispositivosPanel> {
                 ),
               )
             else
-              OutlinedButton(
-                onPressed: _ocupado != null
+              BotonDeFila(
+                texto: strings.emulatorsRefresh,
+                onPulsar: _ocupado != null
                     ? null
                     : () {
                         ref.invalidate(emuladoresProvider);
                         ref.invalidate(dispositivosProvider);
                       },
-                child: Text(strings.emulatorsRefresh),
               ),
           ],
         ),
@@ -237,34 +237,26 @@ class _DispositivosPanelState extends ConsumerState<DispositivosPanel> {
             style: NexusTypography.mono.copyWith(color: colors.err),
           ),
         ],
+
+        // En el compacto no cabe la explicación entera, pero esto sí hace
+        // falta decirlo: sin ello, cerrar Nexus parece que se lleva el
+        // emulador por delante y nadie se atreve a cerrarlo con uno arriba.
+        if (widget.compacto &&
+            valor != null &&
+            valor.emuladores.isNotEmpty) ...[
+          const SizedBox(height: NexusSpacing.s3),
+          Text(
+            strings.emulatorsSiguenVivos,
+            style: NexusTypography.nota.copyWith(
+              color: colors.mute,
+              fontSize: 12,
+            ),
+          ),
+        ],
       ],
     );
   }
 }
-
-/// Los botones de una fila, apretados.
-///
-/// **Un `TextButton` de fábrica no cabe aquí.** Con el relleno por defecto de
-/// Material —16 px a cada lado y 64 de ancho mínimo— dos botones en la misma fila
-/// desbordaban el panel del compositor por 9 px, y eso lo destapó una prueba de
-/// widget y no la vista: en Ajustes hay sitio de sobra y no se veía.
-///
-/// Nota sobre ese número, porque el diagnóstico de entonces era incompleto: los
-/// 9 px eran contra **280**, no contra los 360 que el panel creía tener. Material
-/// recorta cualquier menú a `_kMenuMaxWidth` si no se le pasan `constraints`, y
-/// hasta que se descubrió, el panel medía 280 dijera lo que dijera su `SizedBox`.
-/// Con el ancho de verdad ya cabrían las palabras; se quedan apretados igual
-/// porque en un HUD donde un punto de estado mide 7 px, el área de un botón de
-/// formulario web se ve enorme.
-///
-/// Apretarlos no es solo para que caber: en un HUD con tipografía mono y filas de
-/// 7 px de punto, el área de toque de un botón de formulario web se ve enorme.
-final _botonApretado = TextButton.styleFrom(
-  padding: const EdgeInsets.symmetric(horizontal: NexusSpacing.s2),
-  minimumSize: Size.zero,
-  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-  visualDensity: VisualDensity.compact,
-);
 
 /// Un teléfono enchufado.
 ///
@@ -288,11 +280,9 @@ class _FilaDeDispositivo extends ConsumerWidget {
         children: [
           // El punto va siempre encendido: si está en la lista, está enchufado.
           // No hay estado intermedio que enseñar.
-          Container(
-            width: 7,
-            height: 7,
-            margin: const EdgeInsets.only(right: NexusSpacing.s3),
-            decoration: BoxDecoration(shape: BoxShape.circle, color: colors.ok),
+          Padding(
+            padding: const EdgeInsets.only(right: NexusSpacing.s3),
+            child: PuntoDeEstado(color: colors.ok),
           ),
           Expanded(
             child: Column(
@@ -312,9 +302,15 @@ class _FilaDeDispositivo extends ConsumerWidget {
               ],
             ),
           ),
+          // **Escrito y como acción principal**, que es lo que dice el
+          // mockup: es lo único que se puede hacer con un teléfono enchufado, y
+          // un icono de móvil al lado de un móvil no decía que se podía mirar.
           if (ref.watch(sePuedeVerLaPantallaProvider(dispositivo.id)))
-            IconButton(
-              onPressed: () => ref
+            BotonDeFila(
+              texto: strings.verLaPantallaCorto,
+              tooltip: strings.verLaPantalla,
+              tono: TonoDeBoton.principal,
+              onPulsar: () => ref
                   .read(emuladoresDataSourceProvider)
                   .verLaPantalla(
                     deviceId: dispositivo.id,
@@ -324,14 +320,6 @@ class _FilaDeDispositivo extends ConsumerWidget {
                     // una corrida viva.
                     conControl: true,
                   ),
-              tooltip: strings.verLaPantalla,
-              iconSize: 15,
-              splashRadius: 15,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              constraints: const BoxConstraints(),
-              visualDensity: VisualDensity.compact,
-              color: colors.faint,
-              icon: const Icon(Icons.smartphone_outlined),
             ),
           // **Un iPhone físico se mira con lo que trae macOS**, y con las dos
           // formas porque se complementan: Duplicado da control pero exige Apple
@@ -394,13 +382,10 @@ class _FilaDeEmulador extends StatelessWidget {
         children: [
           // El punto de estado antes del nombre: se lee de un barrido, sin
           // tener que llegar al botón para saber cuál está vivo.
-          Container(
-            width: 7,
-            height: 7,
-            margin: const EdgeInsets.only(right: NexusSpacing.s3),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: emulador.corriendo ? colors.ok : colors.rule,
+          Padding(
+            padding: const EdgeInsets.only(right: NexusSpacing.s3),
+            child: PuntoDeEstado(
+              color: emulador.corriendo ? colors.ok : colors.faint,
             ),
           ),
           Expanded(
@@ -413,11 +398,13 @@ class _FilaDeEmulador extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: NexusTypography.data.copyWith(color: colors.ink),
                 ),
+                // **El estado se dice también apagado**: «android · apagado».
+                // Antes solo se escribía «arriba», y el apagado quedaba en un
+                // punto gris, que es decir el estado solo con el color.
                 Text(
-                  emulador.corriendo
-                      ? '${emulador.plataforma.name} · ${strings.emulatorsRunning}'
-                      : emulador.plataforma.name,
-                  style: NexusTypography.mono.copyWith(color: colors.faint),
+                  '${emulador.plataforma.name} · '
+                  '${emulador.corriendo ? strings.emulatorsRunning : strings.emulatorsOff}',
+                  style: NexusTypography.data.copyWith(color: colors.mute),
                 ),
               ],
             ),
@@ -435,28 +422,27 @@ class _FilaDeEmulador extends StatelessWidget {
               ),
             )
           else if (emulador.corriendo)
-            TextButton(
-              style: _botonApretado,
-              onPressed: puede ? onCerrar : null,
-              child: Text(strings.emulatorsClose),
+            BotonDeFila(
+              texto: strings.emulatorsClose,
+              onPulsar: puede ? onCerrar : null,
             )
           else ...[
+            // **Arrancar primero y como principal**, que es a lo que se viene;
+            // el arranque en frío es el plan B de cuando el normal se atasca.
+            BotonDeFila(
+              texto: strings.emulatorsLaunch,
+              tono: TonoDeBoton.principal,
+              onPulsar: puede ? onLanzar : null,
+            ),
             // El arranque en frío solo existe en Android; en iOS no se ofrece
             // para no poner un botón que no hace nada distinto.
-            if (emulador.plataforma == PlataformaEmulador.android)
-              TextButton(
-                style: _botonApretado,
-                onPressed: puede ? onLanzarEnFrio : null,
-                child: Text(
-                  strings.emulatorsColdBoot,
-                  style: NexusTypography.control.copyWith(color: colors.faint),
-                ),
+            if (emulador.plataforma == PlataformaEmulador.android) ...[
+              const SizedBox(width: 5),
+              BotonDeFila(
+                texto: strings.emulatorsColdBoot,
+                onPulsar: puede ? onLanzarEnFrio : null,
               ),
-            TextButton(
-              style: _botonApretado,
-              onPressed: puede ? onLanzar : null,
-              child: Text(strings.emulatorsLaunch),
-            ),
+            ],
           ],
         ],
       ),

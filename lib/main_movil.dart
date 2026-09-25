@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +12,7 @@ import 'package:nexus/features/remote/data/channel_link.dart';
 import 'package:nexus/features/remote/presentation/pages/connecting_page.dart';
 import 'package:nexus/features/remote/presentation/pages/conversations_page.dart';
 import 'package:nexus/features/remote/presentation/pages/scan_page.dart';
+import 'package:nexus/features/remote/presentation/pages/sin_mac_page.dart';
 import 'package:nexus/features/remote/presentation/providers/pairing_providers.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
@@ -115,11 +118,46 @@ class _Arranque extends ConsumerWidget {
 }
 
 /// Emparejado: se conecta y se enseña la lista.
-class _Conectado extends ConsumerWidget {
+class _Conectado extends ConsumerStatefulWidget {
   const _Conectado();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_Conectado> createState() => _ConectadoState();
+}
+
+class _ConectadoState extends ConsumerState<_Conectado> {
+  /// Qué se está enseñando mientras no hay Mac. Se recuerda entre estados porque un
+  /// fallo tiene que **quedarse** mientras se reintenta: ver [sinMacPara].
+  var _sinMac = SinMac.buscando;
+
+  /// Quien mira eligió ver lo guardado aunque no se llegue. Dura hasta que se llega:
+  /// la próxima vez que se pierda el Mac, se vuelve a decir.
+  var _verLoGuardado = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Desde lo que el enlace ya sabe: si esta pantalla se construye con el fallo ya
+    // ocurrido, esperar al siguiente cambio dejaría el reactor girando sobre él.
+    _sinMac = sinMacPara(ref.read(channelLinkProvider).ahora, _sinMac);
+  }
+
+  void _reintentar() {
+    final enlace = ref.read(channelLinkProvider);
+    // Con el reactor otra vez: es lo que el toque pide ver, y si vuelve a fallar el
+    // fallo vuelve solo.
+    setState(() => _sinMac = SinMac.buscando);
+    enlace.reintentarYa();
+    // «Hay que actualizar» es terminal: el enlace dejó de intentarlo y no hay espera
+    // que acortar. Aquí se vuelve a empezar, que es lo que se hace después de
+    // actualizar el otro lado.
+    if (enlace.ahora == LinkState.hayQueActualizar) {
+      unawaited(enlace.conectar());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Leerlo es lo que dispara conectar, y vive en un provider porque conectar
     // sobrevive a navegar: morir al entrar en una conversación desconectaría justo
     // al abrirla.
@@ -133,17 +171,35 @@ class _Conectado extends ConsumerWidget {
     // veía «reconectando» clavado.
     ref.watch(alVolverDelFondoProvider);
 
+    ref.listen(linkStateProvider, (_, siguiente) {
+      final ahora = siguiente.value;
+      if (ahora == null) return;
+      setState(() {
+        _sinMac = sinMacPara(ahora, _sinMac);
+        if (ahora == LinkState.conectado) _verLoGuardado = false;
+      });
+    });
+
     final estado = ref.watch(linkStateProvider).value;
-    // Mientras no esté conectado se enseña «buscando tu Mac», y con un mínimo en
-    // pantalla: en la misma red el handshake tarda menos que un fotograma, así que sin
-    // el mínimo esa pantalla parpadeaba y quedaba un salto raro.
-    return MinimoEnPantalla(
-      mostrar: estado != LinkState.conectado,
-      despues: const ConversationsPage(),
-      child: ConnectingPage(
+    final sinMac = switch (_sinMac) {
+      SinMac.buscando => ConnectingPage(
         alCancelar: () =>
             ref.read(pairingControllerProvider.notifier).olvidar(),
       ),
+      final fallo => SinMacPage(
+        cual: fallo,
+        alReintentar: _reintentar,
+        alVerLoGuardado: () => setState(() => _verLoGuardado = true),
+      ),
+    };
+
+    // Mientras no esté conectado se enseña «buscando tu Mac» —o por qué no se llega—,
+    // y con un mínimo en pantalla: en la misma red el handshake tarda menos que un
+    // fotograma, así que sin el mínimo esa pantalla parpadeaba y quedaba un salto raro.
+    return MinimoEnPantalla(
+      mostrar: estado != LinkState.conectado && !_verLoGuardado,
+      despues: const ConversationsPage(),
+      child: _verLoGuardado ? const ConversationsPage() : sinMac,
     );
   }
 }

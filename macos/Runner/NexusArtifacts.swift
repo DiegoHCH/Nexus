@@ -29,7 +29,7 @@ final class NexusArtifacts: NSObject {
   /// de que se abra ninguna ventana.
   static var etiquetaPermiso = "Permitir scripts y red"
   static var ayudaPermiso =
-    "Este documento lo escribió Claude. Sin esto no ejecuta scripts ni carga nada de internet."
+    "Este documento lo escribió Claude. Sin permiso no ejecuta sus scripts ni carga nada de internet. Se recarga solo si cambia."
 
   /// El canal, guardado para poder hablar **hacia** Flutter.
   ///
@@ -87,7 +87,9 @@ final class NexusArtifacts: NSObject {
         show(
           path: path,
           width: args?["width"] as? Double,
-          height: args?["height"] as? Double
+          height: args?["height"] as? Double,
+          propia: args?["propia"] as? Bool ?? false,
+          tituloDeLaPagina: args?["tituloDeLaPagina"] as? Bool ?? false
         )
         result(true)
       case "reveal":
@@ -126,13 +128,25 @@ final class NexusArtifacts: NSObject {
     channel?.invokeMethod("desdeLaPagina", arguments: ["que": que, "ruta": ruta])
   }
 
-  private static func show(path: String, width: Double? = nil, height: Double? = nil) {
+  private static func show(
+    path: String,
+    width: Double? = nil,
+    height: Double? = nil,
+    propia: Bool = false,
+    tituloDeLaPagina: Bool = false
+  ) {
     if let already = open[path], already.window.isVisible {
       already.window.makeKeyAndOrderFront(nil)
       NSApp.activate(ignoringOtherApps: true)
       return
     }
-    let viewer = Viewer(path: path, width: width, height: height) {
+    let viewer = Viewer(
+      path: path,
+      width: width,
+      height: height,
+      propia: propia,
+      tituloDeLaPagina: tituloDeLaPagina
+    ) {
       open.removeValue(forKey: path)
     }
     open[path] = viewer
@@ -169,6 +183,20 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
   /// permiso cambie desde otro sitio.
   private var casilla: NSButton?
 
+  /// Que la página la escribió Nexus y no Claude: el registro de una corrida,
+  /// una prueba en marcha, la actividad de un encargo.
+  ///
+  /// 🔴 **A esas no se les pone la casilla**, y es corregir una mentira: les
+  /// salía «Permitir scripts y red» con su «Este documento lo escribió Claude»,
+  /// y ni lo escribió Claude ni lleva una línea de JavaScript que permitir. El
+  /// bloqueo de red sigue puesto igual: lo que se quita es la pregunta.
+  let propia: Bool
+
+  /// Que el título de la ventana lo ponga la página —su `<title>`— y no el
+  /// nombre del archivo. «Registro · ci · POCO F6» y no
+  /// `registro-emulator-5554.html`, que es una ruta de trabajo.
+  let tituloDeLaPagina: Bool
+
   /// Dónde estaba el scroll, para devolverlo tras recargar. Sin esto cada
   /// cambio te sube al principio, y en un documento largo eso es peor que no
   /// recargar.
@@ -178,10 +206,14 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
     path: String,
     width: Double? = nil,
     height: Double? = nil,
+    propia: Bool = false,
+    tituloDeLaPagina: Bool = false,
     onClose: @escaping () -> Void
   ) {
     self.url = URL(fileURLWithPath: path)
     self.onClose = onClose
+    self.propia = propia
+    self.tituloDeLaPagina = tituloDeLaPagina
     window = NSWindow(
       // Los mil por setecientos ochenta de siempre cuando nadie dice otra cosa:
       // es la medida de un documento y no hay motivo para cambiarla.
@@ -213,18 +245,25 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
     window.contentView = web
     window.delegate = self
     web.navigationDelegate = self
-    ponerLaCasilla()
+    if !propia { ponerLaCasilla() }
     load()
     watch()
   }
 
   // MARK: - El permiso, y dónde se pide
 
-  /// La casilla en la barra de título.
+  /// La casilla, **con el porqué escrito al lado**, en una franja bajo la
+  /// barra de título.
   ///
   /// Ahí y no en un menú porque tiene que verse sin buscarla: es la diferencia
   /// entre un documento que solo se mira y uno que puede hablar con internet, y
   /// eso no puede vivir detrás de dos clics.
+  ///
+  /// 🔴 **El motivo iba solo en el tooltip**, y una casilla apagada sin decir
+  /// por qué se lee como una avería: el documento sale sin su gráfica y nada
+  /// explica que es a propósito. El mockup lo pide a la vista —«el visor dice
+  /// por qué está cerrado»— y aquí va, en la misma franja que la casilla: se
+  /// entiende el apagado antes de encenderlo.
   private func ponerLaCasilla() {
     let boton = NSButton(
       checkboxWithTitle: NexusArtifacts.etiquetaPermiso,
@@ -233,20 +272,26 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
     )
     boton.state = .off
     boton.toolTip = NexusArtifacts.ayudaPermiso
-    boton.sizeToFit()
+    boton.setContentCompressionResistancePriority(.required, for: .horizontal)
 
-    let caja = NSView(
-      frame: NSRect(x: 0, y: 0, width: boton.frame.width + 16, height: 28)
-    )
-    boton.frame = NSRect(
-      x: 8, y: (28 - boton.frame.height) / 2,
-      width: boton.frame.width, height: boton.frame.height
-    )
-    caja.addSubview(boton)
+    // Una línea, cortada al final si no cabe: el texto entero sigue en el
+    // tooltip de la casilla para quien lo busque.
+    let porque = NSTextField(labelWithString: NexusArtifacts.ayudaPermiso)
+    porque.font = .systemFont(ofSize: 11.5)
+    porque.textColor = .secondaryLabelColor
+    porque.lineBreakMode = .byTruncatingTail
+    porque.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+    let fila = NSStackView(views: [boton, porque])
+    fila.orientation = .horizontal
+    fila.alignment = .centerY
+    fila.spacing = 12
+    fila.edgeInsets = NSEdgeInsets(top: 0, left: 14, bottom: 0, right: 14)
+    fila.frame = NSRect(x: 0, y: 0, width: window.frame.width, height: 30)
 
     let accesorio = NSTitlebarAccessoryViewController()
-    accesorio.layoutAttribute = .right
-    accesorio.view = caja
+    accesorio.layoutAttribute = .bottom
+    accesorio.view = fila
     window.addTitlebarAccessoryViewController(accesorio)
     casilla = boton
   }
@@ -430,6 +475,9 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
 
   func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
     if Viewer.isImage(url.path) { frameImage(webView) }
+    if tituloDeLaPagina, let titulo = webView.title, !titulo.isEmpty {
+      window.title = titulo
+    }
     guard scrollY > 0 else { return }
     webView.evaluateJavaScript("window.scrollTo(0, \(scrollY))")
   }

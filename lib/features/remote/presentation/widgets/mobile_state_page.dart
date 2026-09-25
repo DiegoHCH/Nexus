@@ -5,6 +5,7 @@ import 'package:nexus/core/design_system/nexus_typography.dart';
 import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/remote/presentation/widgets/mobile_chrome.dart';
+import 'package:nexus/features/remote/presentation/widgets/orbe_apagado.dart';
 
 /// El molde de las pantallas de estado del teléfono.
 ///
@@ -18,21 +19,25 @@ import 'package:nexus/features/remote/presentation/widgets/mobile_chrome.dart';
 /// sin acciones tiene que decidirlo quien lo escribe, no aparecer por descuido.
 ///
 /// El orbe va con su estado y no como ilustración: es el único elemento vivo del
-/// sistema, y en un estado de error tiene que estar dormido — un orbe girando mientras
-/// la pantalla dice «se perdió el enlace» promete trabajo que no está pasando.
+/// sistema. Dormido cuando el Mac está pero no hay nada que enseñar —«ya no está
+/// abierta»—, y **apagado** cuando no hay Mac: sin color, quieto y sin el anillo del
+/// oído, porque ahí no hay nadie oyendo (ver `OrbeApagado`). Un orbe girando mientras
+/// la pantalla dice «no llego a tu Mac» promete trabajo que no está pasando.
 ///
-/// Y va **en el flujo**, con el mismo reparto que `ConnectingPage`: orbe centrado entre
-/// dos espaciadores y el texto abajo. Estaba como capa de fondo fijada al 46 % del alto,
-/// y el resultado era que el orbe quedaba pegado arriba y el texto centrado, con el
-/// tercio inferior de la pantalla vacío — se veía **de otra app** al lado de las demás.
-/// El reparto no es un detalle estético aquí: estas pantallas y las de conexión se ven
-/// una detrás de otra, y un salto de composición entre ellas se lee como un fallo.
+/// Y va **en el flujo**, con el mismo reparto que `ConnectingPage`: el orbe y su texto
+/// como un solo bloque centrado entre dos espaciadores. Estuvo como capa de fondo
+/// fijada al 46 % del alto, con el orbe pegado arriba y el texto aparte — se veía **de
+/// otra app** al lado de las demás. Estas pantallas y la de conectar se ven una detrás
+/// de otra —buscar, no llegar, volver a buscar—, y un salto de composición entre ellas
+/// se lee como un fallo.
 class MobileStatePage extends StatelessWidget {
   const MobileStatePage({
     super.key,
     required this.titulo,
     required this.cuerpo,
     this.orbe = NexusOrbState.sleep,
+    this.apagado = false,
+    this.alMenu,
     this.detalle,
     this.pieDeAyuda,
     this.acciones = const [],
@@ -47,6 +52,12 @@ class MobileStatePage extends StatelessWidget {
 
   final NexusOrbState orbe;
 
+  /// Sin nadie al otro lado: el orbe apagado en vez de [orbe].
+  final bool apagado;
+
+  /// El menú, en los estados desde los que se puede ir a otra parte.
+  final VoidCallback? alMenu;
+
   /// Un dato en mono: la dirección, el modelo, la ruta. Lo que hace que el mensaje
   /// sea de **este** caso y no genérico.
   final Widget? detalle;
@@ -54,6 +65,8 @@ class MobileStatePage extends StatelessWidget {
   /// La línea de abajo, más apagada: lo que conviene comprobar.
   final String? pieDeAyuda;
 
+  /// Una debajo de otra y a todo el ancho, como el mockup: la primera es la que la
+  /// pantalla propone y las demás, salidas.
   final List<Widget> acciones;
 
   /// Lo que va pegado al fondo, como el control de permiso.
@@ -74,56 +87,69 @@ class MobileStatePage extends StatelessWidget {
             NexusSpacing.s5,
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const MobileChrome(),
+              MobileChrome(alMenu: alMenu),
               const Spacer(),
-              // Sin horizonte, al contrario que en la de conectar: el horizonte es lo
-              // que dice «trabajando», y aquí no se está trabajando.
-              const SizedBox(
-                height: 260,
-                child: IgnorePointer(
-                  child: NexusOrb(
-                    state: NexusOrbState.sleep,
-                    showHorizon: false,
-                  ),
+              // Sin horizonte: el horizonte es lo que decía «trabajando», y aquí no
+              // se está trabajando.
+              //
+              // `Flexible` alrededor de un alto fijo: 260 donde cabe y **menos donde
+              // no**. Con dos botones y un porqué largo, en un teléfono pequeño o con
+              // la letra del sistema en grande, el alto fijo desbordaba la columna —
+              // y lo que se cortaba era justo el botón de abajo—. Encoge el orbe, que
+              // es lo único que puede encoger sin perder nada.
+              Flexible(
+                flex: 4,
+                child: SizedBox(
+                  height: 260,
+                  child: apagado
+                      ? const OrbeApagado()
+                      : IgnorePointer(
+                          child: NexusOrb(state: orbe, showHorizon: false),
+                        ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(height: NexusSpacing.s2),
+              // El título del mockup —`.grande`— es la letra del instrumento a 22,
+              // que es `title`: dice qué pasó como el panel de un aparato, no como
+              // un párrafo.
               Text(
                 titulo,
                 key: const ValueKey('titulo-del-estado'),
-                style: NexusTypography.subtitleMobile.copyWith(
-                  color: colors.ink,
-                ),
+                textAlign: TextAlign.center,
+                style: NexusTypography.title.copyWith(color: colors.ink),
               ),
               const SizedBox(height: NexusSpacing.s3),
+              // Y el porqué en sans, que es lo que se lee de corrido: en mono tenue
+              // no pasaba AA y se leía como un log.
               Text(
                 cuerpo,
-                style: NexusTypography.body.copyWith(color: colors.mute),
+                textAlign: TextAlign.center,
+                style: NexusTypography.nota.copyWith(color: colors.mute),
               ),
               if (detalle != null) ...[
-                const SizedBox(height: NexusSpacing.s4),
+                const SizedBox(height: NexusSpacing.s3),
                 detalle!,
               ],
               if (acciones.isNotEmpty) ...[
                 const SizedBox(height: NexusSpacing.s6),
-                Wrap(
-                  spacing: NexusSpacing.s3,
-                  runSpacing: NexusSpacing.s2,
-                  children: acciones,
-                ),
+                for (final (i, accion) in acciones.indexed) ...[
+                  if (i > 0) const SizedBox(height: NexusSpacing.s3),
+                  accion,
+                ],
               ],
               if (pieDeAyuda != null) ...[
-                const SizedBox(height: NexusSpacing.s5),
+                const SizedBox(height: NexusSpacing.s3),
                 Text(
                   pieDeAyuda!,
-                  style: NexusTypography.mono.copyWith(color: colors.faint),
+                  textAlign: TextAlign.center,
+                  style: NexusTypography.nota.copyWith(
+                    color: colors.mute,
+                    fontSize: 12,
+                  ),
                 ),
               ],
-              // Sin espaciador aquí: el bloque de texto queda **abajo**, como en la de
-              // conectar. Con uno, el texto se centraba y el tercio inferior quedaba
-              // vacío — que es justo lo que se veía mal.
+              const Spacer(),
               ?abajo,
             ],
           ),
@@ -170,9 +196,10 @@ class MobileAction extends StatelessWidget {
                 : colors.rule2,
           ),
         ),
+        // `control`, el papel de los botones: ver `WideAction`.
         child: Text(
-          texto.toUpperCase(),
-          style: NexusTypography.label.copyWith(color: color),
+          texto,
+          style: NexusTypography.control.copyWith(color: color),
         ),
       ),
     );
@@ -191,6 +218,7 @@ class MobileDetail extends StatelessWidget {
     final colors = context.colors;
     return Text(
       partes.join('  ·  '),
+      textAlign: TextAlign.center,
       style: NexusTypography.data.copyWith(color: colors.mute),
     );
   }

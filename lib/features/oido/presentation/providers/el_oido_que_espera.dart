@@ -52,6 +52,7 @@ class ElOidoQueEspera {
       EscuchaChannel.cuandoTeLlamen(null);
       unawaited(EscuchaChannel.parar());
       _mirando?.close();
+      _siNoLlegaAAbrirse?.cancel();
       unawaited(OrbeChannel.ocultar());
     });
   }
@@ -61,6 +62,18 @@ class ElOidoQueEspera {
   static const encendido = 'oido_encendido';
 
   var _puesto = false;
+
+  /// Hay una llamada abriéndose: desde que te oyó hasta que la voz se cierra.
+  ///
+  /// 🔴 **Sin esto una llamada se cerraba sola.** Abrir la voz tarda un par de
+  /// segundos, y en ese rato cualquier cambio en las conversaciones vuelve a
+  /// cuadrar el oído: todavía no hay voz abierta, así que la escucha se
+  /// encendía otra vez, oía el mismo «Hestia», y la segunda llamada **apagaba**
+  /// la primera —`toggleVoice` es un interruptor—. Medido el 25 sep: la sesión
+  /// con el saludo cerrada antes de estar lista y otra abierta sin saludo, que
+  /// se quedó callada.
+  var _llamando = false;
+  Timer? _siNoLlegaAAbrirse;
 
   /// Enciende o apaga según el ajuste y según si hay voz abierta.
   Future<void> cuadrar() async {
@@ -99,6 +112,7 @@ class ElOidoQueEspera {
   }
 
   Future<bool> _debeEscuchar() async {
+    if (_llamando) return false;
     try {
       final prefs = await SharedPreferences.getInstance();
       if (prefs.getBool(encendido) != true) return false;
@@ -151,6 +165,14 @@ class ElOidoQueEspera {
   void _teLlamaron(String resto) {
     _puesto = false;
     final cual = _ref.read(conversationsProvider).focused?.id;
+    // Una llamada con la voz ya abierta no la cierra: `toggleVoice` es un
+    // interruptor, y oír el nombre otra vez no es pedir que cuelgue.
+    if (_llamando ||
+        (cual != null &&
+            _ref.read(assistantControllerProvider(cual)).voiceActive)) {
+      debugPrint('escucha · te llamaron con la voz ya abierta: se ignora');
+      return;
+    }
     if (cual == null) {
       // 🔴 **Antes no pasaba nada**: un `debugPrint` y a seguir esperando. La
       // llamabas desde el otro lado de la habitación y el silencio no decía si
@@ -166,6 +188,18 @@ class ElOidoQueEspera {
     // contestar y mientras tanto no da señales es indistinguible de uno que no
     // te oyó.
     unawaited(OrbeChannel.mostrar(NexusOrbState.listen.name, _elAcento()));
+    _llamando = true;
+    // Si la voz no llega a abrirse —una carpeta de solo texto, sin llave—, el
+    // oído no se queda apagado para siempre esperándola.
+    _siNoLlegaAAbrirse?.cancel();
+    _siNoLlegaAAbrirse = Timer(const Duration(seconds: 15), () {
+      if (!_llamando) return;
+      _llamando = false;
+      _mirando?.close();
+      _mirando = null;
+      unawaited(OrbeChannel.ocultar());
+      if (_ref.mounted) unawaited(cuadrar());
+    });
     _seguirLaConversacion(cual);
     unawaited(
       _ref
@@ -216,6 +250,7 @@ class ElOidoQueEspera {
     _mirando = _ref.listen(assistantControllerProvider(cual), (antes, ahora) {
       if (ahora.voiceActive) {
         llegoAAbrirse = true;
+        _siNoLlegaAAbrirse?.cancel();
         unawaited(OrbeChannel.estado(ahora.orbState.name, _elAcento()));
         return;
       }
@@ -224,6 +259,7 @@ class ElOidoQueEspera {
       if (!llegoAAbrirse) return;
       _mirando?.close();
       _mirando = null;
+      _llamando = false;
       unawaited(OrbeChannel.ocultar());
       unawaited(cuadrar());
     });

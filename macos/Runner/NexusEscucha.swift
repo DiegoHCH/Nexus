@@ -348,6 +348,9 @@ final class NexusEscucha: NSObject {
     laPausa?.cancel()
     laPausa = nil
     let resto = Self.loQueSigueAlNombre(loOido, siendo: palabras)
+    // El margen contra avisos repetidos cuenta desde aquí y no desde el
+    // nombre: con la pausa de por medio, desde el nombre ya habría pasado.
+    ultimoAviso = Date()
     // Se para al acabar la frase: quien llamó va a abrir una conversación de
     // voz, y el motor de verdad necesita el micrófono entero.
     parar()

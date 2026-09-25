@@ -205,7 +205,12 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.byType(Switch), findsNothing);
-      expect(find.byType(ApagadoOEncendido), findsNWidgets(4));
+      // Tres «Apagado · Encendido» —reuniones, PR y con ella delante— y la
+      // voz alta como dos maneras de enterarse con nombre, como el mockup:
+      // «En voz alta · Solo notificación».
+      expect(find.byType(ApagadoOEncendido), findsNWidgets(3));
+      expect(find.byKey(const ValueKey('avisos-en-voz-alta-0')), findsOne);
+      expect(find.byKey(const ValueKey('avisos-en-voz-alta-1')), findsOne);
     });
   });
 

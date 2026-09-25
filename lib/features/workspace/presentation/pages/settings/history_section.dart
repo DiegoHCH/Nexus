@@ -15,12 +15,17 @@ import 'package:nexus/features/workspace/presentation/providers/workspace_provid
 /// Los tres destinos son del usuario, no del programa, y por eso el estado de
 /// partida es «en ningún sitio»: sacar lo que hablas de esta máquina es una
 /// decisión suya, no algo que pase por omisión.
+///
+/// 🔴 **Los destinos a la vista, con su estado debajo.** Eran cuatro radios
+/// con su explicación cada uno, y lo que importaba —si de verdad se está
+/// guardando, y dónde— venía al final, debajo del parte a Slack: la carpeta se
+/// elegía en el bloque de otra cosa. Ahora el estado va justo debajo del
+/// destino, en verde si se guarda y en ámbar si falta algo, como el mockup.
 class HistorySection extends ConsumerWidget {
   const HistorySection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final strings = context.strings;
     final settings = ref.watch(archiveControllerProvider);
     final controller = ref.read(archiveControllerProvider.notifier);
@@ -31,128 +36,77 @@ class HistorySection extends ConsumerWidget {
       ArchiveDestination.obsidian => strings.archiveObsidian,
       ArchiveDestination.notion => strings.archiveNotion,
     };
-    String hint(ArchiveDestination option) => switch (option) {
-      ArchiveDestination.none => strings.archiveNoneHint,
-      ArchiveDestination.folder => strings.archiveFolderHint,
-      ArchiveDestination.obsidian => strings.archiveObsidianHint,
-      ArchiveDestination.notion => strings.archiveNotionHint,
-    };
 
-    // Con su propio scroll, como Ayuda y Voz y por lo mismo: el cuerpo de una
-    // sección no lo trae, y esta pasó de «a dónde archivo» a llevar además el
-    // parte del día con su token y su destino. Lo último se salía por abajo —
-    // lo dijeron las pruebas que abren todas las secciones.
-    return ListView(
-      children: [
-        Text(
-          strings.archiveTitle,
-          style: NexusTypography.label.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s2),
-        Text(
-          strings.archiveExplainer,
-          style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s5),
-        for (final option in ArchiveDestination.values)
-          InkWell(
-            onTap: () => controller.selectDestination(option),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s3),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    option == settings.destination
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_unchecked,
-                    size: 15,
-                    color: option == settings.destination
-                        ? colors.accent
-                        : colors.faint,
-                  ),
-                  const SizedBox(width: NexusSpacing.s3),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          label(option),
-                          style: NexusTypography.control.copyWith(
-                            color: option == settings.destination
-                                ? colors.ink
-                                : colors.mute,
-                          ),
-                        ),
-                        Text(
-                          hint(option),
-                          style: NexusTypography.nota.copyWith(
-                            color: colors.faint,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+    return BloquesDeAjustes(
+      bloques: [
+        BloqueDeAjustes(
+          rotulo: strings.archiveTitle,
+          hijos: [
+            TextoDeAjustes(strings.archiveExplainer),
+            ElegirDeAjustes<ArchiveDestination>(
+              llave: 'archivo',
+              opciones: ArchiveDestination.values,
+              elegida: settings.destination,
+              nombre: label,
+              onElegir: controller.selectDestination,
             ),
-          ),
-        if (settings.destination == ArchiveDestination.notion) ...[
-          const SizedBox(height: NexusSpacing.s5),
-          _NotionFields(settings: settings, controller: controller),
-        ],
+            ...switch (settings.destination) {
+              ArchiveDestination.none => [
+                EstadoDeAjustes(
+                  tono: TonoDeAjustes.apagado,
+                  texto: strings.archiveNoneHint,
+                ),
+              ],
+              ArchiveDestination.notion => [
+                _NotionFields(settings: settings, controller: controller),
+              ],
+              ArchiveDestination.folder || ArchiveDestination.obsidian => [
+                EstadoDeAjustes(
+                  tono: settings.isReady
+                      ? TonoDeAjustes.bien
+                      : TonoDeAjustes.atencion,
+                  texto: settings.isReady
+                      ? strings.archiveLayout(settings.folderPath!)
+                      : strings.archiveNoFolderYet,
+                ),
+                AccionesDeAjustes(
+                  botones: [
+                    BotonDeAjustes(
+                      texto: strings.archiveChooseFolder,
+                      tono: settings.isReady
+                          ? TonoDeBoton.neutro
+                          : TonoDeBoton.principal,
+                      onPulsar: () async {
+                        final chosen = await getDirectoryPath();
+                        if (chosen != null) {
+                          await controller.selectFolder(chosen);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            },
+          ],
+        ),
         // El parte del día, junto al destino de archivo: es la misma pregunta
         // —a dónde mando mi trabajo— y no merece una sección propia.
-        const SizedBox(height: NexusSpacing.s7),
-        Divider(color: colors.rule, height: 1),
-        const SizedBox(height: NexusSpacing.s6),
         const _ParteAlSlack(),
-        if (settings.destination.needsFolder) ...[
-          const SizedBox(height: NexusSpacing.s5),
-          Row(
-            children: [
-              OutlinedButton(
-                onPressed: () async {
-                  final chosen = await getDirectoryPath();
-                  if (chosen != null) await controller.selectFolder(chosen);
-                },
-                child: Text(strings.archiveChooseFolder),
-              ),
-              const SizedBox(width: NexusSpacing.s4),
-              Expanded(
-                child: Text(
-                  settings.folderPath ?? '',
-                  style: NexusTypography.mono.copyWith(color: colors.mute),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: NexusSpacing.s3),
-          Text(
-            settings.isReady
-                ? strings.archiveLayout(settings.folderPath!)
-                : strings.archiveNoFolderYet,
-            style: NexusTypography.nota.copyWith(
-              color: settings.isReady ? colors.faint : colors.warn,
-            ),
-          ),
-        ],
       ],
     );
   }
 }
 
-/// El token y la página de Notion.
-///
-/// Se pide aquí y no en la configuración inicial porque no es un requisito para
-/// usar Nexus: es una decisión de dónde quieres tus conversaciones. El token
-/// viaja al llavero, como la llave de Gemini — no a las preferencias en claro.
 /// A dónde va el parte del día, y con qué permiso.
 ///
 /// **El token se escribe y no se vuelve a ver**: al guardarlo el campo se
 /// vacía, y lo único que queda en pantalla es si hay uno. Enseñar un secreto
 /// recortado no sirve para compararlo y sí para que aparezca en la captura de
 /// pantalla de alguien enseñando la app.
+///
+/// Con todo puesto se ve como en el mockup —el estado en una línea y
+/// «Mandar una de prueba»— y los campos se abren con «Cambiar»: una vez
+/// configurado, lo que se mira es si funciona, no el formulario.
 class _ParteAlSlack extends ConsumerStatefulWidget {
   const _ParteAlSlack();
 
@@ -167,6 +121,10 @@ class _ParteAlSlackState extends ConsumerState<_ParteAlSlack> {
   );
   String? _resultado;
   bool _probando = false;
+
+  /// Los campos abiertos con todo puesto. Sin nada puesto se abren solos:
+  /// sin ellos no hay forma de empezar.
+  bool _cambiando = false;
 
   @override
   void dispose() {
@@ -192,129 +150,116 @@ class _ParteAlSlackState extends ConsumerState<_ParteAlSlack> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final strings = context.strings;
     final slack = ref.watch(slackControllerProvider);
+    final abiertos = !slack.listo || _cambiando;
+    final proyecto = slack.proyecto;
+    final destino = slack.destino?.trim();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          strings.slackTitle,
-          style: NexusTypography.label.copyWith(color: colors.accent),
+    // Lo que hay, dicho en una línea: token, a quién y de qué proyecto.
+    final estado = [
+      if (slack.hayToken) strings.slackConToken else strings.slackSinToken,
+      if (slack.hayToken && destino != null && destino.isNotEmpty)
+        strings.salidaA(destino),
+      if (slack.hayToken)
+        proyecto == null
+            ? strings.slackDeTodos
+            : strings.slackDeUno(proyecto.split('/').last),
+    ].join(' · ');
+
+    return BloqueDeAjustes(
+      rotulo: strings.slackTitle,
+      hijos: [
+        TextoDeAjustes(strings.slackExplainer),
+        EstadoDeAjustes(
+          tono: slack.listo ? TonoDeAjustes.bien : TonoDeAjustes.atencion,
+          texto: estado,
         ),
-        const SizedBox(height: NexusSpacing.s2),
-        Text(
-          strings.slackExplainer,
-          style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s4),
-        Text(
-          slack.hayToken ? strings.slackConToken : strings.slackSinToken,
-          style: NexusTypography.nota.copyWith(
-            color: slack.hayToken ? colors.ok : colors.warn,
-          ),
-        ),
-        const SizedBox(height: NexusSpacing.s3),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _token,
-                obscureText: true,
-                style: NexusTypography.mono.copyWith(color: colors.ink),
-                decoration: InputDecoration(hintText: strings.slackTokenHint),
+        if (abiertos) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _token,
+                  obscureText: true,
+                  style: estiloDeCampoDeAjustes(context),
+                  decoration: decoracionDeCampoDeAjustes(
+                    context,
+                    hint: strings.slackTokenHint,
+                  ),
+                ),
               ),
+              const SizedBox(width: 10),
+              BotonDeAjustes(
+                texto: strings.geminiKeySave,
+                tono: slack.hayToken
+                    ? TonoDeBoton.neutro
+                    : TonoDeBoton.principal,
+                onPulsar: () async {
+                  await ref
+                      .read(slackControllerProvider.notifier)
+                      .guardarToken(_token.text);
+                  _token.clear();
+                },
+              ),
+            ],
+          ),
+          RotuloDeAjustes(strings.slackDestino),
+          TextField(
+            controller: _destino,
+            style: estiloDeCampoDeAjustes(context),
+            decoration: decoracionDeCampoDeAjustes(
+              context,
+              hint: strings.slackDestinoHint,
             ),
-            const SizedBox(width: NexusSpacing.s3),
-            OutlinedButton(
-              onPressed: () async {
-                await ref
-                    .read(slackControllerProvider.notifier)
-                    .guardarToken(_token.text);
-                _token.clear();
-              },
-              child: Text(strings.geminiKeySave),
-            ),
-          ],
-        ),
-        const SizedBox(height: NexusSpacing.s4),
-        Text(
-          strings.slackDestino,
-          style: NexusTypography.label.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s2),
-        TextField(
-          controller: _destino,
-          style: NexusTypography.mono.copyWith(color: colors.ink),
-          decoration: InputDecoration(hintText: strings.slackDestinoHint),
-          onChanged: (valor) =>
-              ref.read(slackControllerProvider.notifier).guardarDestino(valor),
-        ),
-        const SizedBox(height: NexusSpacing.s2),
-        Text(
-          strings.slackDestinoExplainer,
-          style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s4),
-        // De qué proyecto se cuenta el trabajo. **Sin esto el parte mezclaría**
-        // lo personal con lo del trabajo en el canal de un equipo, y eso no se
-        // arregla acordándose cada mañana.
-        Text(
-          strings.slackProyecto,
-          style: NexusTypography.label.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s2),
-        Wrap(
-          spacing: NexusSpacing.s2,
-          runSpacing: NexusSpacing.s2,
-          children: [
-            for (final carpeta in [
+            onChanged: (valor) => ref
+                .read(slackControllerProvider.notifier)
+                .guardarDestino(valor),
+          ),
+          TextoDeAjustes(strings.slackDestinoExplainer, tamano: 12.5),
+          // De qué proyecto se cuenta el trabajo. **Sin esto el parte
+          // mezclaría** lo personal con lo del trabajo en el canal de un
+          // equipo, y eso no se arregla acordándose cada mañana.
+          RotuloDeAjustes(strings.slackProyecto),
+          ElegirDeAjustes<String?>(
+            llave: 'slack-proyecto',
+            opciones: [
               null,
               ...ref
                   .watch(workspaceControllerProvider)
                   .folders
                   .map((f) => f.path),
-            ])
-              OutlinedButton(
-                onPressed: () => ref
-                    .read(slackControllerProvider.notifier)
-                    .guardarProyecto(carpeta),
-                child: Text(
-                  carpeta == null
-                      ? strings.slackTodos
-                      : carpeta.split('/').last,
-                  style: NexusTypography.control.copyWith(
-                    color: carpeta == slack.proyecto
-                        ? colors.accent
-                        : colors.mute,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: NexusSpacing.s4),
-        Row(
-          children: [
-            OutlinedButton(
-              onPressed: slack.listo && !_probando ? _probar : null,
-              child: Text(
-                _probando ? strings.slackProbando : strings.slackProbar,
-              ),
-            ),
-            if (_resultado case final dicho?) ...[
-              const SizedBox(width: NexusSpacing.s3),
-              Expanded(
-                child: Text(
-                  dicho,
-                  style: NexusTypography.nota.copyWith(
-                    color: dicho == strings.slackLlego ? colors.ok : colors.err,
-                  ),
-                ),
-              ),
             ],
+            elegida: proyecto,
+            nombre: (carpeta) =>
+                carpeta == null ? strings.slackTodos : carpeta.split('/').last,
+            onElegir: ref
+                .read(slackControllerProvider.notifier)
+                .guardarProyecto,
+          ),
+        ],
+        AccionesDeAjustes(
+          botones: [
+            BotonDeAjustes(
+              texto: _probando ? strings.slackProbando : strings.slackProbar,
+              tono: TonoDeBoton.principal,
+              onPulsar: slack.listo && !_probando ? _probar : null,
+            ),
+            if (slack.listo)
+              BotonDeAjustes(
+                texto: _cambiando ? strings.slackListo : strings.keyChange,
+                onPulsar: () => setState(() => _cambiando = !_cambiando),
+              ),
           ],
         ),
+        if (_resultado case final dicho?)
+          EstadoDeAjustes(
+            tono: dicho == strings.slackLlego
+                ? TonoDeAjustes.bien
+                : TonoDeAjustes.fallo,
+            texto: dicho,
+          ),
       ],
     );
   }
@@ -343,56 +288,46 @@ class _NotionFieldsState extends State<_NotionFields> {
     super.dispose();
   }
 
+  /// El token y la página de Notion, con la línea de los campos de Ajustes.
+  ///
+  /// Se piden aquí y no en la configuración inicial porque no son un requisito
+  /// para usar Nexus: es una decisión de dónde quieres tus conversaciones. El
+  /// token viaja al llavero, como la llave de Gemini — no a las preferencias
+  /// en claro.
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final strings = context.strings;
     final settings = widget.settings;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          strings.notionToken,
-          style: NexusTypography.label.copyWith(color: colors.faint),
+    return BloqueDeAjustes(
+      hijos: [
+        EstadoDeAjustes(
+          tono: settings.isReady ? TonoDeAjustes.bien : TonoDeAjustes.atencion,
+          texto: settings.isReady ? strings.notionReady : strings.notionMissing,
         ),
-        const SizedBox(height: NexusSpacing.s2),
+        RotuloDeAjustes(strings.notionToken),
         TextField(
           controller: _token,
           obscureText: true,
-          style: NexusTypography.mono.copyWith(color: colors.ink),
-          decoration: InputDecoration(hintText: strings.notionTokenHint),
+          style: estiloDeCampoDeAjustes(context),
+          decoration: decoracionDeCampoDeAjustes(
+            context,
+            hint: strings.notionTokenHint,
+          ),
           onChanged: widget.controller.saveNotionToken,
         ),
-        const SizedBox(height: NexusSpacing.s2),
-        Text(
-          strings.notionTokenExplainer,
-          style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s5),
-        Text(
-          strings.notionPage,
-          style: NexusTypography.label.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s2),
+        TextoDeAjustes(strings.notionTokenExplainer, tamano: 12.5),
+        RotuloDeAjustes(strings.notionPage),
         TextField(
           controller: _page,
-          style: NexusTypography.mono.copyWith(color: colors.ink),
-          decoration: InputDecoration(hintText: strings.notionPageHint),
+          style: estiloDeCampoDeAjustes(context),
+          decoration: decoracionDeCampoDeAjustes(
+            context,
+            hint: strings.notionPageHint,
+          ),
           onChanged: widget.controller.saveNotionPage,
         ),
-        const SizedBox(height: NexusSpacing.s2),
-        Text(
-          strings.notionPageExplainer,
-          style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s4),
-        Text(
-          settings.isReady ? strings.notionReady : strings.notionMissing,
-          style: NexusTypography.nota.copyWith(
-            color: settings.isReady ? colors.ok : colors.warn,
-          ),
-        ),
+        TextoDeAjustes(strings.notionPageExplainer, tamano: 12.5),
       ],
     );
   }

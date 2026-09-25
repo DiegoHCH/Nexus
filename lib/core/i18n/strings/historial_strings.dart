@@ -146,10 +146,9 @@ mixin HistorialStringsEs implements HistorialStrings {
   String get slackTitle => 'EL PARTE DEL DÍA, A SLACK';
   @override
   String get slackExplainer =>
-      'Claude escribe el parte de tu último día de trabajo y lo puedes mandar a '
-      'Slack. Nunca sale solo: se lee aquí antes y sale si le das.';
+      'Claude escribe el parte de tu último día. Nunca sale solo: lo mandas tú.';
   @override
-  String get slackConToken => 'Hay un token guardado.';
+  String get slackConToken => 'Hay un token guardado';
   @override
   String get slackSinToken =>
       'No hay token. Se crea una app en tu espacio de Slack con el permiso '
@@ -167,7 +166,7 @@ mixin HistorialStringsEs implements HistorialStrings {
   @override
   String get slackProyecto => 'DE QUÉ PROYECTO';
   @override
-  String get slackTodos => 'todos';
+  String get slackTodos => 'Todos';
   @override
   String get slackProbar => 'Mandar una de prueba';
   @override
@@ -294,8 +293,7 @@ mixin HistorialStringsEs implements HistorialStrings {
   String get archiveTitle => 'DÓNDE SE GUARDAN LAS CONVERSACIONES';
   @override
   String get archiveExplainer =>
-      'Cada conversación se guarda al terminar cada turno, agrupada por '
-      'proyecto: las de una carpeta van juntas y las de otra, aparte.';
+      'Se guardan al terminar cada turno, agrupadas por proyecto.';
   @override
   String get archiveNone => 'En ningún sitio';
   @override
@@ -335,8 +333,7 @@ mixin HistorialStringsEs implements HistorialStrings {
       'sitio donde dejar tus conversaciones.';
   @override
   String archiveLayout(String folder) =>
-      'Se guardan en $folder/Nexus/<proyecto>/, con una nota por proyecto que '
-      'enlaza sus conversaciones.';
+      'Se guardan en $folder/Nexus/<proyecto>/';
   @override
   String get notionToken => 'TOKEN DE INTEGRACIÓN';
   @override
@@ -379,10 +376,10 @@ mixin HistorialStringsEn implements HistorialStrings {
   String get slackTitle => 'THE DAY’S REPORT, TO SLACK';
   @override
   String get slackExplainer =>
-      'Claude writes the report of your last working day and you can send it to '
-      'Slack. It never goes on its own: you read it here first.';
+      'Claude writes the report of your last day. It never goes on its own: '
+      'you send it.';
   @override
-  String get slackConToken => 'There is a token saved.';
+  String get slackConToken => 'There is a token saved';
   @override
   String get slackSinToken =>
       'No token. Create an app in your Slack workspace with the chat:write '
@@ -400,7 +397,7 @@ mixin HistorialStringsEn implements HistorialStrings {
   @override
   String get slackProyecto => 'WHICH PROJECT';
   @override
-  String get slackTodos => 'all';
+  String get slackTodos => 'All';
   @override
   String get slackProbar => 'Send a test one';
   @override
@@ -522,8 +519,7 @@ mixin HistorialStringsEn implements HistorialStrings {
   String get archiveTitle => 'WHERE CONVERSATIONS ARE KEPT';
   @override
   String get archiveExplainer =>
-      'Each conversation is saved as every turn ends, grouped by project: the '
-      'ones from a folder stay together, and another folder\'s stay apart.';
+      'They are saved as every turn ends, grouped by project.';
   @override
   String get archiveNone => 'Nowhere';
   @override
@@ -561,9 +557,7 @@ mixin HistorialStringsEn implements HistorialStrings {
       'A folder is still missing: without one nothing is saved — no place to '
       'leave your conversations gets invented for you.';
   @override
-  String archiveLayout(String folder) =>
-      'Kept in $folder/Nexus/<project>/, with one note per project linking its '
-      'conversations.';
+  String archiveLayout(String folder) => 'Kept in $folder/Nexus/<project>/';
   @override
   String get notionToken => 'INTEGRATION TOKEN';
   @override

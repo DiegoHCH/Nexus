@@ -831,16 +831,14 @@ mixin NucleoStringsEs implements NucleoStrings {
       '${vocativo}tienes tres: la primera a las nueve.';
   @override
   String get avisosExplainer =>
-      'Nexus te dice en voz alta que tienes una reunión, unos minutos antes. Es '
-      'lo único que hace sin que se lo pidas, así que nace apagado.\n\nMira el '
-      'calendario de la cuenta de Claude de la carpeta que elijas, y solo avisa '
-      'de lo que tiene invitados: los bloques tuyos no suenan.';
+      'Te dice en voz alta que tienes una reunión, unos minutos antes. Solo de '
+      'lo que tiene invitados.';
   @override
-  String get avisosOn => 'Avisarme de las reuniones';
+  String get avisosOn => 'Reuniones';
   @override
-  String get avisosPrOn => 'Avisarme cuando mezclen un PR mío';
+  String get avisosPrOn => 'Tus PR';
   @override
-  String get avisosEnVozAltaOn => 'Que me lo diga en voz alta';
+  String get avisosEnVozAltaOn => 'Cuando algo termina';
   @override
   String get avisosEnVozAltaExplainer =>
       'Cuando algo termina te lo dice hablando, además de dejarlo escrito. '
@@ -871,15 +869,13 @@ mixin NucleoStringsEs implements NucleoStrings {
       'comparten. Toca para que esta siga por su cuenta.';
   @override
   String get avisosPrExplainer =>
-      'Mira cada dos minutos si alguno de tus PR pasó a mezclado, en cualquier '
-      'repositorio. Al encenderlo no avisa de los de antes: empieza a contar '
-      'desde ahora.';
+      'Mira cada dos minutos si alguno de tus PR pasó a mezclado.';
   @override
   String get avisosCuanto => 'CUÁNTO ANTES';
   @override
   String get avisosCarpeta => 'DE QUÉ CUENTA MIRA EL CALENDARIO';
   @override
-  String get avisosSinCarpeta => 'Elige una carpeta';
+  String get avisosSinCarpeta => 'Ninguna';
   @override
   String get avisosReleer => 'ACTUALIZAR EL CALENDARIO';
   @override
@@ -897,9 +893,9 @@ mixin NucleoStringsEs implements NucleoStrings {
       ? 'Hoy tienes una reunión:'
       : 'Hoy tienes $cuantas reuniones:';
   @override
-  String get avisosSinLeer => 'todavía sin leer';
+  String get avisosSinLeer => 'El calendario todavía no se ha leído';
   @override
-  String avisosLeidoA(String hora) => 'leído a las $hora';
+  String avisosLeidoA(String hora) => 'Calendario leído a las $hora';
   @override
   String get avisosNota =>
       'Suena con la voz que elegiste en Voz, y también en el teléfono si está '
@@ -1421,16 +1417,14 @@ mixin NucleoStringsEn implements NucleoStrings {
       '${vocativo}you have three: the first at nine.';
   @override
   String get avisosExplainer =>
-      'Nexus tells you out loud that you have a meeting, a few minutes before. '
-      'It is the only thing it does without being asked, so it starts off.\n\nIt '
-      'looks at the calendar of the Claude account of the folder you pick, and '
-      'only announces what has guests: your own blocks stay quiet.';
+      'She tells you out loud that you have a meeting, a few minutes before. '
+      'Only for events with guests.';
   @override
-  String get avisosOn => 'Tell me about meetings';
+  String get avisosOn => 'Meetings';
   @override
-  String get avisosPrOn => 'Tell me when a PR of mine is merged';
+  String get avisosPrOn => 'Your PRs';
   @override
-  String get avisosEnVozAltaOn => 'Say it out loud';
+  String get avisosEnVozAltaOn => 'When something finishes';
   @override
   String get avisosEnVozAltaExplainer =>
       'When something finishes it says so out loud, as well as leaving it '
@@ -1462,15 +1456,13 @@ mixin NucleoStringsEn implements NucleoStrings {
       'Tap to put this one on its own.';
   @override
   String get avisosPrExplainer =>
-      'Checks every two minutes whether any of your PRs got merged, in any '
-      'repository. Turning it on says nothing about the earlier ones: it starts '
-      'counting from now.';
+      'Checks every two minutes whether any of your PRs got merged.';
   @override
   String get avisosCuanto => 'HOW LONG BEFORE';
   @override
   String get avisosCarpeta => 'WHOSE CALENDAR IT LOOKS AT';
   @override
-  String get avisosSinCarpeta => 'Pick a folder';
+  String get avisosSinCarpeta => 'None';
   @override
   String get avisosReleer => 'REFRESH THE CALENDAR';
   @override
@@ -1488,9 +1480,9 @@ mixin NucleoStringsEn implements NucleoStrings {
       ? 'You have one meeting today:'
       : 'You have $cuantas meetings today:';
   @override
-  String get avisosSinLeer => 'not read yet';
+  String get avisosSinLeer => 'The calendar has not been read yet';
   @override
-  String avisosLeidoA(String hora) => 'read at $hora';
+  String avisosLeidoA(String hora) => 'Calendar read at $hora';
   @override
   String get avisosNota =>
       'It speaks with the voice you picked under Voice, and on the phone too if '

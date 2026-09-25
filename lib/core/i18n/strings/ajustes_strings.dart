@@ -75,6 +75,13 @@ mixin AjustesStrings {
   String get mcpAnadirAMano;
   String get mcpVerElCatalogo;
   String get figmaUsoContar;
+  // Avisos: las dos maneras de enterarse cuando algo termina.
+  String get avisosEnVozAlta;
+  String get avisosSoloNotificacion;
+  // El parte a Slack, dicho en una línea.
+  String get slackDeTodos;
+  String slackDeUno(String proyecto);
+  String get slackListo;
 }
 
 mixin AjustesStringsEs implements AjustesStrings {
@@ -103,7 +110,7 @@ mixin AjustesStringsEs implements AjustesStrings {
   @override
   String get avisosCosteApagado => 'ninguna reunión suena';
   @override
-  String avisosCosteEncendido(int minutos) => 'habla $minutos min antes';
+  String avisosCosteEncendido(int minutos) => '$minutos min antes';
   @override
   String get avisosPrCosteApagado => 'no mira GitHub';
   @override
@@ -188,6 +195,16 @@ mixin AjustesStringsEs implements AjustesStrings {
   String get mcpVerElCatalogo => 'Ver el catálogo';
   @override
   String get figmaUsoContar => 'Contarlas';
+  @override
+  String get avisosEnVozAlta => 'En voz alta';
+  @override
+  String get avisosSoloNotificacion => 'Solo notificación';
+  @override
+  String get slackDeTodos => 'de todos los proyectos';
+  @override
+  String slackDeUno(String proyecto) => 'de $proyecto';
+  @override
+  String get slackListo => 'Listo';
 }
 
 mixin AjustesStringsEn implements AjustesStrings {
@@ -216,7 +233,7 @@ mixin AjustesStringsEn implements AjustesStrings {
   @override
   String get avisosCosteApagado => 'no meeting speaks up';
   @override
-  String avisosCosteEncendido(int minutos) => 'speaks $minutos min before';
+  String avisosCosteEncendido(int minutos) => '$minutos min before';
   @override
   String get avisosPrCosteApagado => 'does not check GitHub';
   @override
@@ -303,4 +320,14 @@ mixin AjustesStringsEn implements AjustesStrings {
   String get mcpVerElCatalogo => 'See the catalogue';
   @override
   String get figmaUsoContar => 'Count them';
+  @override
+  String get avisosEnVozAlta => 'Out loud';
+  @override
+  String get avisosSoloNotificacion => 'Notification only';
+  @override
+  String get slackDeTodos => 'from every project';
+  @override
+  String slackDeUno(String proyecto) => 'from $proyecto';
+  @override
+  String get slackListo => 'Done';
 }

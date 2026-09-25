@@ -41,7 +41,15 @@ class LocalConversationStore {
 
   /// Sube cuando cambie lo que se guarda de cada ficha. Un índice de otra
   /// versión no se intenta interpretar: se rehace.
-  static const _indexVersion = 1;
+  ///
+  /// **2** trae lo último que se pidió, lo último que contestó y los documentos
+  /// que salieron de cada conversación. Subirla **es la migración**: el índice
+  /// de la versión 1 se rehace una sola vez leyendo los JSON, y como cada turno
+  /// ya guardaba su `documento`, los documentos de antes recuperan su origen sin
+  /// que haya que escribir nada más. Los que no salen en ninguna conversación
+  /// —escritos a mano, o de una conversación borrada— se quedan sin origen, y la
+  /// lista los junta aparte.
+  static const _indexVersion = 2;
 
   /// JSON y una carpeta por proyecto: se puede abrir con cualquier editor si
   /// algún día hace falta rescatar algo a mano, y ver de un vistazo qué
@@ -297,6 +305,12 @@ class LocalConversationStore {
             profileName: cruda['perfil'] as String?,
             model: cruda['modelo'] as String?,
             contextTokens: (cruda['contexto'] as num?)?.toInt(),
+            loUltimoQuePediste: cruda['pedido'] as String?,
+            loUltimoQueDijo: cruda['dijo'] as String?,
+            documentos: [
+              for (final ruta in cruda['documentos'] as List? ?? const [])
+                if (ruta is String) ruta,
+            ],
           ),
         );
       }
@@ -327,6 +341,9 @@ class LocalConversationStore {
               if (ficha.profileName != null) 'perfil': ficha.profileName,
               if (ficha.model != null) 'modelo': ficha.model,
               if (ficha.contextTokens != null) 'contexto': ficha.contextTokens,
+              'pedido': ?ficha.loUltimoQuePediste,
+              'dijo': ?ficha.loUltimoQueDijo,
+              if (ficha.documentos.isNotEmpty) 'documentos': ficha.documentos,
             },
         ],
       }),

@@ -98,5 +98,37 @@ class ConversationRecord {
     sourcePath: sourcePath,
     model: model,
     contextTokens: contextTokens,
+    loUltimoQuePediste: _loUltimoDe(ChatAuthor.user),
+    loUltimoQueDijo: _loUltimoDe(ChatAuthor.nexus),
+    documentos: documentos,
   );
+
+  /// Lo que cabe en la ficha de lo que se dijo: lo bastante para reconocer la
+  /// conversación y buscar en ella, y no tanto como para que el índice acabe
+  /// siendo una copia de todas las conversaciones.
+  static const extractoMaximo = 280;
+
+  /// El último turno con texto de [autor], aplanado y recortado a
+  /// [extractoMaximo]. `null` si no dijo nada.
+  String? _loUltimoDe(ChatAuthor autor) {
+    final texto = messages.reversed
+        .where((message) => message.author == autor)
+        .map((message) => message.text.trim())
+        .where((text) => text.isNotEmpty)
+        .firstOrNull;
+    if (texto == null) return null;
+    final plano = texto.replaceAll(RegExp(r'\s+'), ' ');
+    return plano.length <= extractoMaximo
+        ? plano
+        : '${plano.substring(0, extractoMaximo)}…';
+  }
+
+  /// Los documentos que dejó cada turno, sin repetir y en el orden en que
+  /// salieron. Un mismo documento reescrito en dos turnos sigue siendo uno.
+  List<String> get documentos => [
+    ...{
+      for (final message in messages)
+        if (message.documento case final ruta? when ruta.isNotEmpty) ruta,
+    },
+  ];
 }

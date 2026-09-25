@@ -49,18 +49,26 @@ class ArtifactsDataSource {
           if (entry is File)
             if (!entry.path.split('/').last.startsWith('.') &&
                 Artifact.isListable(entry.path))
-              Artifact(
-                path: entry.path,
-                name: entry.path.split('/').last,
-                at: (await entry.stat()).modified,
-                account: cuenta,
-              ),
+              // Un solo `stat()` para la fecha y el peso: el segundo dato sale
+              // de la misma consulta y no cuesta otra ida al disco.
+              await _elDocumento(entry, cuenta),
       ];
     } on FileSystemException {
       // Una carpeta que no se puede leer no invalida las otras: se enseña lo que
       // haya. Devolver vacío entero por un permiso suelto esconde todo lo demás.
       return const [];
     }
+  }
+
+  static Future<Artifact> _elDocumento(File entry, String? cuenta) async {
+    final stat = await entry.stat();
+    return Artifact(
+      path: entry.path,
+      name: entry.path.split('/').last,
+      at: stat.modified,
+      account: cuenta,
+      bytes: stat.size,
+    );
   }
 
   /// Abre el documento en su propia ventana. Si ya estaba abierto, la trae al

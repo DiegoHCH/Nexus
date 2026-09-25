@@ -31,10 +31,20 @@ abstract final class EscuchaChannel {
     }
   }
 
-  /// Qué hacer cuando te oiga. `null` lo desengancha.
-  static void cuandoTeLlamen(void Function()? alOir) {
+  /// Qué hacer cuando te oiga, y cuando deje de escuchar sin que nadie lo
+  /// pidiera: la tarea de reconocimiento se renueva sola y, si no pudo volver
+  /// a empezar, lo avisa en vez de apagarse en silencio. `null` lo desengancha.
+  static void cuandoTeLlamen(
+    void Function()? alOir, {
+    void Function()? siSeCalla,
+  }) {
     _canal.setMethodCallHandler((llamada) async {
-      if (llamada.method == 'teLlamaron') alOir?.call();
+      switch (llamada.method) {
+        case 'teLlamaron':
+          alOir?.call();
+        case 'seCallo':
+          siSeCalla?.call();
+      }
       return null;
     });
   }

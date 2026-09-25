@@ -155,7 +155,12 @@ final class NexusEscucha: NSObject {
   }
 
   private func arrancar() -> Bool {
-    if Self.laEntradaEstaOcupada() {
+    // Si quien tiene la entrada somos nosotros —el motor de voz, caliente tras
+    // colgar—, se le pide que la suelte en vez de rendirse. Ver
+    // `NexusAudioEngine.soltarElMicroSiSoloEstaCaliente`.
+    if Self.laEntradaEstaOcupada(),
+      NexusAudioEngine.principal?.soltarElMicroSiSoloEstaCaliente() != true
+    {
       Self.log.notice("el micrófono ya lo usa otra app · no se escucha")
       return false
     }

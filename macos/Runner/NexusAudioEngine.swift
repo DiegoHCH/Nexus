@@ -236,8 +236,13 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
     interleaved: true
   )!
 
+  /// El motor de la ventana principal, para que el oído pueda pedirle el
+  /// micrófono. Ver [soltarElMicroSiSoloEstaCaliente].
+  private(set) static weak var principal: NexusAudioEngine?
+
   static func register(with registrar: FlutterPluginRegistrar) {
     let instance = NexusAudioEngine()
+    principal = instance
     let methods = FlutterMethodChannel(
       name: "nexus/audio",
       binaryMessenger: registrar.messenger
@@ -887,6 +892,25 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
     let work = DispatchWorkItem { [weak self] in self?.teardown() }
     teardownWork = work
     DispatchQueue.main.asyncAfter(deadline: .now() + Self.warmSeconds, execute: work)
+  }
+
+  /// Suelta el micrófono **si lo tiene solo por la ventana caliente**: colgado,
+  /// esperando el minuto por si vuelves a hablarle. Devuelve si lo soltó.
+  ///
+  /// 🔴 **Lo pide el oído, y es la corrección de un choque entre dos
+  /// decisiones.** La ventana caliente abre la voz más rápido si vuelves a
+  /// pulsar el orbe; el oído necesita el micrófono libre para oír tu nombre.
+  /// Al colgar, el oído veía la entrada ocupada —por nosotros— y la tomaba por
+  /// otra app: «el micrófono ya lo usa otra app · no se escucha», y durante un
+  /// minuto **no se la podía volver a llamar**. Con el oído encendido la
+  /// ventana no compra nada, porque la forma de volver a abrirla es llamarla, y
+  /// eso pasa por el oído. Con una conversación abierta no se toca nada.
+  func soltarElMicroSiSoloEstaCaliente() -> Bool {
+    guard running, !sesionAbierta, teardownWork != nil else { return false }
+    teardownWork?.cancel()
+    Self.log.notice("el oído pide el micrófono · se desmonta la ventana caliente")
+    teardown()
+    return true
   }
 
   /// Desmontar de verdad. Ocurre al cumplirse el minuto sin que vuelvas a

@@ -60,6 +60,8 @@ final class VisorDeArtefactosTests: XCTestCase {
   /// Una `NSWindow` creada a mano llega con `isReleasedWhenClosed = true`, y el
   /// `Viewer` la guarda con una referencia fuerte. Al cerrar, la liberaban los
   /// dos.
+  func testRotaAPropositoParaVerElCIEnRojo() { XCTFail("a propósito: el CI tiene que ponerse en rojo") }
+
   func testLaVentanaNoLaLiberaAppKitAlCerrarla() throws {
     let visor = Viewer(path: try documento(), onClose: {})
     defer { visor.window.close() }

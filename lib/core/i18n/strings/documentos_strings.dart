@@ -63,6 +63,21 @@ mixin DocumentosStrings {
   String changedFiles(int count);
   String get changesTitle;
   String get newFile;
+
+  /// Los tres grupos del visor de cambios, y lo que dice cada archivo nuevo.
+  /// Ver `ElDiffComoHtml`.
+  String get cambiosEnEstaTarea;
+  String get cambiosConElArchivoEntero;
+  String get cambiosSinComitear;
+  String get cambiosSinComitearNota;
+  String get cambiosNinguno;
+  String get cambiosNingunoEnLaTarea;
+  String get cambiosImagen;
+  String get cambiosBinario;
+  String cambiosLineas(int lineas);
+  String cambiosRecortado(int vistas, int total);
+  String get cambiosBinarioExplica;
+  String get cambiosSinLeer;
   String blockedTitle(String folder);
   String get blockedExplainer;
   String get blockedHint;
@@ -219,6 +234,36 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   String get changesTitle => 'LO QUE CAMBIÓ EN ESTA TAREA';
   @override
   String get newFile => 'nuevo';
+  @override
+  String get cambiosEnEstaTarea => 'En esta tarea';
+  @override
+  String get cambiosConElArchivoEntero => 'Con el archivo entero';
+  @override
+  String get cambiosSinComitear => 'Todo lo no comiteado';
+  @override
+  String get cambiosSinComitearNota =>
+      'Incluye lo que ya había antes de esta tarea.';
+  @override
+  String get cambiosNinguno => 'Sin cambios';
+  @override
+  String get cambiosNingunoEnLaTarea => 'Esta tarea no dejó ningún cambio.';
+  @override
+  String get cambiosImagen => 'imagen';
+  @override
+  String get cambiosBinario => 'binario';
+  @override
+  String cambiosLineas(int lineas) =>
+      lineas == 1 ? '1 línea' : '$lineas líneas';
+  @override
+  String cambiosRecortado(int vistas, int total) =>
+      'Se enseñan las primeras $vistas de $total líneas: el resto sigue en '
+      'el archivo.';
+  @override
+  String get cambiosBinarioExplica =>
+      'Es un archivo nuevo que no es texto: no hay líneas que enseñar.';
+  @override
+  String get cambiosSinLeer =>
+      'Archivo nuevo. No se pudo leer desde aquí: puede que ya no esté.';
   @override
   String blockedTitle(String folder) => 'COMANDOS BLOQUEADOS EN $folder';
   @override
@@ -401,6 +446,35 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   String get changesTitle => 'WHAT THIS TASK CHANGED';
   @override
   String get newFile => 'new';
+  @override
+  String get cambiosEnEstaTarea => 'In this task';
+  @override
+  String get cambiosConElArchivoEntero => 'With the whole file';
+  @override
+  String get cambiosSinComitear => 'Everything uncommitted';
+  @override
+  String get cambiosSinComitearNota =>
+      'Includes what was already there before this task.';
+  @override
+  String get cambiosNinguno => 'No changes';
+  @override
+  String get cambiosNingunoEnLaTarea => 'This task left no changes.';
+  @override
+  String get cambiosImagen => 'image';
+  @override
+  String get cambiosBinario => 'binary';
+  @override
+  String cambiosLineas(int lineas) => lineas == 1 ? '1 line' : '$lineas lines';
+  @override
+  String cambiosRecortado(int vistas, int total) =>
+      'Showing the first $vistas of $total lines: the rest is still in the '
+      'file.';
+  @override
+  String get cambiosBinarioExplica =>
+      'It is a new file that is not text: there are no lines to show.';
+  @override
+  String get cambiosSinLeer =>
+      'New file. It could not be read from here: it may be gone.';
   @override
   String blockedTitle(String folder) => 'COMMANDS BLOCKED IN $folder';
   @override

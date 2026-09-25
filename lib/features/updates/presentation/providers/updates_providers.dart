@@ -28,10 +28,28 @@ final installabilityProvider = FutureProvider<Installability>(
   (ref) => UpdatesChannel.installability(),
 );
 
+/// Si Nexus está en mitad de algo —hablando, escuchando o trabajando— en
+/// alguna de sus conversaciones.
+///
+/// 🔴 **Declarado aquí y respondido desde fuera.** Reiniciar para actualizar
+/// tiene que esperar a que termine lo que está en marcha —el mockup lo pide:
+/// «Reiniciar» espera en vez de cortarla—, pero quien sabe si algo está en
+/// marcha es el asistente, y que esta feature lo importara sería colgar el
+/// actualizador de toda la conversación. Así que aquí se pregunta, con «no»
+/// por defecto, y la raíz de la app lo conecta con la respuesta de verdad
+/// (`main.dart`).
+final seEstaTrabajandoProvider = Provider<bool>((ref) => false);
+
 /// Lo que se sabe: si hay versión nueva, y por dónde va el proceso.
 @immutable
 class UpdatesState {
-  const UpdatesState({this.notice, this.stage = const UpdateIdle()});
+  const UpdatesState({
+    this.notice,
+    this.stage = const UpdateIdle(),
+    this.reiniciaAlTerminar = false,
+    this.enSegundoPlano = false,
+    this.esperaATerminar = false,
+  });
 
   /// Para la fila del menú de la barra y para Ajustes › Ayuda: qué corre y qué
   /// hay publicado. `null` mientras no se sabe ni lo uno.
@@ -40,8 +58,31 @@ class UpdatesState {
   /// Por dónde va la actualización, para la modal.
   final UpdateStage stage;
 
-  UpdatesState copyWith({ReleaseCheck? notice, UpdateStage? stage}) =>
-      UpdatesState(notice: notice ?? this.notice, stage: stage ?? this.stage);
+  /// Que se pidió «Reiniciar al terminar» mientras bajaba: al estar lista se
+  /// instala sin volver a preguntar.
+  final bool reiniciaAlTerminar;
+
+  /// Que se dijo «Más tarde» a una descarga en curso. **No la cancela**: se
+  /// quita el aviso de en medio y la descarga sigue; vuelve a salir cuando
+  /// está lista, que es cuando hay algo que decidir.
+  final bool enSegundoPlano;
+
+  /// Lista y pedida, pero esperando a que termine lo que está en marcha.
+  final bool esperaATerminar;
+
+  UpdatesState copyWith({
+    ReleaseCheck? notice,
+    UpdateStage? stage,
+    bool? reiniciaAlTerminar,
+    bool? enSegundoPlano,
+    bool? esperaATerminar,
+  }) => UpdatesState(
+    notice: notice ?? this.notice,
+    stage: stage ?? this.stage,
+    reiniciaAlTerminar: reiniciaAlTerminar ?? this.reiniciaAlTerminar,
+    enSegundoPlano: enSegundoPlano ?? this.enSegundoPlano,
+    esperaATerminar: esperaATerminar ?? this.esperaATerminar,
+  );
 }
 
 /// El actualizador, visto desde Dart.
@@ -99,6 +140,40 @@ class UpdatesController extends Notifier<UpdatesState> {
 
   Future<void> instalar() => UpdatesChannel.answer(UpdateChoice.install);
 
+  /// La espera de [reiniciarCuandoPueda], para poder soltarla.
+  ProviderSubscription<bool>? _esperando;
+
+  /// Reinicia para instalar, **pero no a media frase ni a media tarea**: si
+  /// algo está en marcha, espera a que termine y entonces reinicia.
+  ///
+  /// Es lo que hacen «Reiniciar» y «Reiniciar al terminar». Antes «Reiniciar»
+  /// cortaba lo que hubiera, y el aviso pedía que fueras tú quien esperara;
+  /// ahora espera la app, que es quien sabe cuándo ha terminado.
+  Future<void> reiniciarCuandoPueda() async {
+    if (!ref.read(seEstaTrabajandoProvider)) return instalar();
+    state = state.copyWith(esperaATerminar: true);
+    _esperando?.close();
+    _esperando = ref.listen<bool>(seEstaTrabajandoProvider, (_, trabajando) {
+      if (trabajando) return;
+      _esperando?.close();
+      _esperando = null;
+      state = state.copyWith(esperaATerminar: false);
+      unawaited(instalar());
+    });
+  }
+
+  /// «Reiniciar al terminar», pulsado mientras baja: se apunta, y al llegar
+  /// «lista» se reinicia sola —esperando, si hace falta—.
+  void reiniciarAlTerminar() {
+    state = state.copyWith(reiniciaAlTerminar: true);
+  }
+
+  /// «Más tarde» con la descarga en curso: el aviso se aparta y la descarga
+  /// sigue. Ver [UpdatesState.enSegundoPlano].
+  void apartar() {
+    state = state.copyWith(enSegundoPlano: true);
+  }
+
   /// Quitar el aviso de en medio: «más tarde» y la cruz son lo mismo, así que es
   /// un solo método. Dos nombres para la misma acción es de donde salen las dos
   /// que acaban divergiendo.
@@ -109,7 +184,9 @@ class UpdatesController extends Notifier<UpdatesState> {
   /// Y deja el aviso puesto: `notice` sigue diciendo que hay una versión nueva, y
   /// de eso vive el punto rojo. Descartar es «ahora no», no «no me lo digas».
   Future<void> descartar() async {
-    state = state.copyWith(stage: const UpdateIdle());
+    _esperando?.close();
+    _esperando = null;
+    state = UpdatesState(notice: state.notice);
     await UpdatesChannel.answer(UpdateChoice.later);
   }
 
@@ -190,7 +267,13 @@ class UpdatesController extends Notifier<UpdatesState> {
         );
 
       case 'ready':
-        state = state.copyWith(stage: const UpdateReady());
+        // Vuelve a la vista aunque se hubiera apartado: ahora sí hay algo que
+        // decidir. Y si ya se decidió —«Reiniciar al terminar»—, se cumple.
+        state = state.copyWith(
+          stage: const UpdateReady(),
+          enSegundoPlano: false,
+        );
+        if (state.reiniciaAlTerminar) unawaited(reiniciarCuandoPueda());
 
       case 'installing':
         state = state.copyWith(stage: const UpdateInstalling());

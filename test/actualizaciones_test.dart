@@ -305,4 +305,124 @@ void main() {
       },
     );
   });
+
+  // «Reiniciar» espera a que termine lo que está en marcha, como pide el
+  // mockup: antes cortaba la conversación y era el aviso quien pedía esperar.
+  group('reiniciar no corta lo que está en marcha', () {
+    late List<MethodCall> llamadas;
+
+    setUp(() {
+      llamadas = [];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(canal, (call) async {
+            llamadas.add(call);
+            return null;
+          });
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(canal, null);
+    });
+
+    int instalaciones() => llamadas
+        .where(
+          (c) =>
+              c.method == 'answer' &&
+              (c.arguments as Map)['choice'] == UpdateChoice.install.name,
+        )
+        .length;
+
+    (ProviderContainer, UpdatesController) montar({required bool trabajando}) {
+      final container = ProviderContainer(
+        overrides: [
+          currentVersionProvider.overrideWith((ref) async => '0.0.1'),
+          seEstaTrabajandoProvider.overrideWith(
+            (ref) => ref.watch(_trabajandoProvider),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(updatesControllerProvider, (_, _) {});
+      container.read(_trabajandoProvider.notifier).poner(trabajando);
+      return (container, container.read(updatesControllerProvider.notifier));
+    }
+
+    test('sin nada en marcha, reinicia en el acto', () async {
+      final (_, control) = montar(trabajando: false);
+      await control.reiniciarCuandoPueda();
+      expect(instalaciones(), 1);
+    });
+
+    test('con algo en marcha, espera a que acabe', () async {
+      final (container, control) = montar(trabajando: true);
+      control.aplicar(const UpdateEvent(name: 'ready', data: {}));
+
+      await control.reiniciarCuandoPueda();
+      await Future<void>.delayed(Duration.zero);
+      expect(instalaciones(), 0, reason: 'no se corta a media frase');
+      expect(control.state.esperaATerminar, isTrue);
+
+      container.read(_trabajandoProvider.notifier).poner(false);
+      await Future<void>.delayed(Duration.zero);
+      expect(instalaciones(), 1);
+      expect(control.state.esperaATerminar, isFalse);
+    });
+
+    test('«Reiniciar al terminar» se cumple al estar lista', () async {
+      final (_, control) = montar(trabajando: false);
+      control.aplicar(
+        const UpdateEvent(
+          name: 'downloading',
+          data: {'received': 10, 'total': 20},
+        ),
+      );
+      control.reiniciarAlTerminar();
+      expect(instalaciones(), 0);
+
+      control.aplicar(const UpdateEvent(name: 'ready', data: {}));
+      await Future<void>.delayed(Duration.zero);
+      expect(instalaciones(), 1);
+    });
+
+    test(
+      '«Más tarde» a media descarga aparta el aviso sin cancelarla',
+      () async {
+        final (_, control) = montar(trabajando: false);
+        control.aplicar(
+          const UpdateEvent(
+            name: 'downloading',
+            data: {'received': 10, 'total': 20},
+          ),
+        );
+
+        control.apartar();
+        control.aplicar(
+          const UpdateEvent(
+            name: 'downloading',
+            data: {'received': 15, 'total': 20},
+          ),
+        );
+        expect(control.state.enSegundoPlano, isTrue);
+        expect(llamadas.where((c) => c.method == 'cancel'), isEmpty);
+
+        // Y al estar lista vuelve a la vista: ahí sí hay algo que decidir.
+        control.aplicar(const UpdateEvent(name: 'ready', data: {}));
+        expect(control.state.enSegundoPlano, isFalse);
+      },
+    );
+  });
+}
+
+/// Un interruptor para «hay algo en marcha», que en la app responde el
+/// asistente.
+final _trabajandoProvider = NotifierProvider<_Interruptor, bool>(
+  _Interruptor.new,
+);
+
+class _Interruptor extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void poner(bool valor) => state = valor;
 }

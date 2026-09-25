@@ -223,18 +223,15 @@ mixin PruebasStringsEs implements PruebasStrings {
   @override
   String testsFolderResolved(String path) => 'Buscará en $path';
   @override
-  String get testsFolderPick => 'Elegir…';
+  String get testsFolderPick => 'Elegir';
   @override
   String get sectionPruebas => 'Pruebas';
   @override
   String get sectionCuentas => 'Cuentas de prueba';
   @override
   String get flowsRootExplainer =>
-      'Una carpeta para las pruebas de todos los proyectos, con una subcarpeta por cada '
-      'uno: «~/pruebas/nexus». Así están juntas y fuera de los repos —una prueba dentro '
-      'de un repo del trabajo es un archivo que alguien acaba commiteando— y aun así no '
-      'se mezclan, porque cada proyecto lista la suya. Vacío deja a cada uno con su '
-      '«.maestro/», que es la convención de Maestro.';
+      'Una carpeta para las pruebas de todos los proyectos. Vacío deja a cada '
+      'uno con su «.maestro/».';
   @override
   String get flowsRootHint => '~/pruebas';
   @override
@@ -316,7 +313,7 @@ mixin PruebasStringsEs implements PruebasStrings {
       'No hay ninguna cuenta. Sin una, ningún flow puede correr: Maestro necesita las credenciales una por una.';
   @override
   String get e2eAccountsWhere =>
-      'Se guardan en esta máquina y nunca dentro del repo, que es de donde se empuja.';
+      'Se guardan en esta máquina y nunca dentro del repo.';
   @override
   String get e2eAccountDefault => 'por defecto';
   @override
@@ -498,8 +495,7 @@ mixin PruebasStringsEs implements PruebasStrings {
   String get channelTitle => 'El canal del teléfono';
   @override
   String get channelExplainer =>
-      'Escucha solo por Tailscale, nunca en la red local. Con eso el cifrado y la '
-      'identidad ya los pone WireGuard, y no hacen falta certificados.';
+      'Escucha solo por Tailscale, nunca en la red local.';
   @override
   String get channelSwitch => 'Aceptar conexiones del teléfono';
   @override
@@ -509,7 +505,7 @@ mixin PruebasStringsEs implements PruebasStrings {
   @override
   String get channelToken => 'Token';
   @override
-  String get channelCopyToken => 'Copiar';
+  String get channelCopyToken => 'Copiar el token';
   @override
   String get channelRotateToken => 'Rotar';
   @override
@@ -529,8 +525,8 @@ mixin PruebasStringsEs implements PruebasStrings {
       'El canal no pudo abrirse. El motivo queda en el registro del sistema.';
   @override
   String get channelQrExplainer =>
-      'Escanéalo desde la app del teléfono. Lleva esta dirección y este token, así '
-      'que es lo mismo que teclearlos — solo que sin teclear 43 caracteres.';
+      'Escanéalo desde la app del teléfono. El token se copia o se rota: '
+      'rotarlo cierra lo que esté conectado.';
   @override
   String get channelNoPhoneYet =>
       'La app del teléfono ya existe: se instala desde el repositorio, se empareja '
@@ -682,18 +678,15 @@ mixin PruebasStringsEn implements PruebasStrings {
   @override
   String testsFolderResolved(String path) => 'Will look in $path';
   @override
-  String get testsFolderPick => 'Choose…';
+  String get testsFolderPick => 'Choose';
   @override
   String get sectionPruebas => 'Tests';
   @override
   String get sectionCuentas => 'Test accounts';
   @override
   String get flowsRootExplainer =>
-      'One folder for every project\'s tests, with a subfolder per project: '
-      '«~/tests/nexus». Together and outside the repos — a test inside a work repo is a '
-      'file somebody eventually commits — and still not mixed, because each project '
-      'lists its own. Empty leaves each one with its «.maestro/», which is Maestro\'s '
-      'convention.';
+      'One folder for every project\'s tests. Empty leaves each one with its '
+      '«.maestro/».';
   @override
   String get flowsRootHint => '~/tests';
   @override
@@ -775,7 +768,7 @@ mixin PruebasStringsEn implements PruebasStrings {
       'No accounts yet. Without one no flow can run: Maestro needs the credentials one by one.';
   @override
   String get e2eAccountsWhere =>
-      'Kept on this machine and never inside the repo, which is what gets pushed.';
+      'Kept on this machine and never inside the repo.';
   @override
   String get e2eAccountDefault => 'default';
   @override
@@ -955,9 +948,7 @@ mixin PruebasStringsEn implements PruebasStrings {
   String get channelTitle => 'The phone channel';
   @override
   String get channelExplainer =>
-      'It listens over Tailscale only, never on the local network. That way '
-      'WireGuard already provides the encryption and the identity, and no '
-      'certificates are needed.';
+      'It listens over Tailscale only, never on the local network.';
   @override
   String get channelSwitch => 'Accept connections from the phone';
   @override
@@ -967,7 +958,7 @@ mixin PruebasStringsEn implements PruebasStrings {
   @override
   String get channelToken => 'Token';
   @override
-  String get channelCopyToken => 'Copy';
+  String get channelCopyToken => 'Copy the token';
   @override
   String get channelRotateToken => 'Rotate';
   @override
@@ -987,8 +978,8 @@ mixin PruebasStringsEn implements PruebasStrings {
       'The channel could not open. The reason is in the system log.';
   @override
   String get channelQrExplainer =>
-      'Scan it from the phone app. It carries this address and this token, so it is '
-      'the same as typing them — only without typing 43 characters.';
+      'Scan it from the phone app. The token is copied or rotated: rotating it '
+      'closes whatever is connected.';
   @override
   String get channelNoPhoneYet =>
       'The phone app exists now: it installs from the repository, pairs by pasting '

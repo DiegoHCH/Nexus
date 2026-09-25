@@ -119,6 +119,15 @@ class _DispositivosPanelState extends ConsumerState<DispositivosPanel> {
     final valor = lista.value;
     final refrescando = lista.isLoading || fisicos.isLoading;
 
+    // En Ajustes, con la gramática de la hoja —como el mockup—: la frase, los
+    // de la máquina y los enchufados en **una sola lista de filas** con su
+    // punto y su acción, y «Comprobar» al pie. El menú del compositor sigue
+    // con su versión compacta; el estado y las acciones son los mismos, que
+    // es lo que importa de tener un solo widget.
+    if (!widget.compacto) {
+      return _enAjustes(context, valor: valor, refrescando: refrescando);
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -253,6 +262,81 @@ class _DispositivosPanelState extends ConsumerState<DispositivosPanel> {
             ),
           ),
         ],
+      ],
+    );
+  }
+
+  Widget _enAjustes(
+    BuildContext context, {
+    required ({List<Emulador> emuladores, String? error})? valor,
+    required bool refrescando,
+  }) {
+    final colors = context.colors;
+    final strings = context.strings;
+    final fisicos = ref.watch(dispositivosProvider).value ?? const [];
+
+    return BloquesDeAjustes(
+      bloques: [
+        BloqueDeAjustes(
+          hijos: [
+            TextoDeAjustes(strings.emulatorsExplainer),
+            if (valor == null)
+              // Solo la primera vez de la sesión: después siempre hay algo.
+              EstadoDeAjustes(
+                tono: TonoDeAjustes.apagado,
+                texto: strings.emulatorsChecking,
+              )
+            else if (valor.error case final mensaje?)
+              // El error de la herramienta va **literal**: «No se encontró
+              // Flutter…» dice qué hacer, y taparlo con un «no se pudo» obliga a
+              // abrir la terminal para averiguarlo.
+              Text(
+                mensaje,
+                style: NexusTypography.mono.copyWith(color: colors.err),
+              )
+            else if (valor.emuladores.isEmpty && fisicos.isEmpty)
+              TextoDeAjustes(strings.emulatorsEmpty)
+            else
+              FilasDeAjustes(
+                filas: [
+                  for (final emulador in valor.emuladores)
+                    _FilaDeAjustesDeEmulador(
+                      emulador: emulador,
+                      ocupado: _ocupado == emulador.id,
+                      apagado: _ocupado != null,
+                      onLanzar: () => _lanzar(emulador),
+                      onLanzarEnFrio: () => _lanzar(emulador, frio: true),
+                      onCerrar: () => _cerrar(emulador),
+                    ),
+                  // Los teléfonos de verdad, en la misma lista y con su verbo:
+                  // uno de estos ya está, así que su acción es mirarlo.
+                  for (final dispositivo in fisicos)
+                    _FilaDeAjustesDeDispositivo(dispositivo: dispositivo),
+                ],
+              ),
+            if (_error case final mensaje?)
+              Text(
+                mensaje,
+                style: NexusTypography.mono.copyWith(color: colors.err),
+              ),
+            AccionesDeAjustes(
+              botones: [
+                BotonDeAjustes(
+                  texto: refrescando
+                      ? strings.emulatorsChecking
+                      : strings.emulatorsRefresh,
+                  tono: TonoDeBoton.principal,
+                  onPulsar: _ocupado != null || refrescando
+                      ? null
+                      : () {
+                          ref.invalidate(emuladoresProvider);
+                          ref.invalidate(dispositivosProvider);
+                        },
+                ),
+              ],
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -446,6 +530,132 @@ class _FilaDeEmulador extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Un emulador, como fila de Ajustes: el que está arriba con el punto de
+/// acento —es lo que está pasando— y su verbo a la derecha.
+class _FilaDeAjustesDeEmulador extends StatelessWidget {
+  const _FilaDeAjustesDeEmulador({
+    required this.emulador,
+    required this.ocupado,
+    required this.apagado,
+    required this.onLanzar,
+    required this.onLanzarEnFrio,
+    required this.onCerrar,
+  });
+
+  final Emulador emulador;
+  final bool ocupado;
+  final bool apagado;
+  final VoidCallback onLanzar;
+  final VoidCallback onLanzarEnFrio;
+  final VoidCallback onCerrar;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final strings = context.strings;
+    final puede = !apagado;
+
+    return FilaDeAjustes(
+      tono: emulador.corriendo ? TonoDeAjustes.activo : TonoDeAjustes.apagado,
+      titulo: emulador.nombre,
+      // **El estado se dice también apagado**: «android · apagado». Decirlo
+      // solo con el punto sería decir el estado solo con el color.
+      dato:
+          '${emulador.plataforma.name} · '
+          '${emulador.corriendo ? strings.emulatorsRunning : strings.emulatorsOff}',
+      accion: ocupado
+          ? SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: colors.accent,
+              ),
+            )
+          // **El botón dice «cerrar» cuando ya está arriba**, en vez de ofrecer
+          // arrancar algo que corre.
+          : emulador.corriendo
+          ? BotonDeAjustes(
+              texto: strings.emulatorsClose,
+              onPulsar: puede ? onCerrar : null,
+            )
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // El arranque en frío es el plan B de cuando el normal se
+                // atasca, y solo existe en Android.
+                if (emulador.plataforma == PlataformaEmulador.android) ...[
+                  BotonDeAjustes(
+                    texto: strings.emulatorsColdBoot,
+                    onPulsar: puede ? onLanzarEnFrio : null,
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                BotonDeAjustes(
+                  texto: strings.emulatorsLaunch,
+                  onPulsar: puede ? onLanzar : null,
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+/// Un teléfono enchufado, como fila de Ajustes: siempre en verde —si está en
+/// la lista, está enchufado— y con la única acción que tiene, mirarlo.
+class _FilaDeAjustesDeDispositivo extends ConsumerWidget {
+  const _FilaDeAjustesDeDispositivo({required this.dispositivo});
+
+  final DispositivoConectado dispositivo;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = context.strings;
+    final comoIphone = ref.watch(comoVerElIphoneProvider(dispositivo.id));
+
+    return FilaDeAjustes(
+      tono: TonoDeAjustes.bien,
+      titulo: dispositivo.nombre,
+      // El id detrás porque es lo que hace falta para `-d`, y en Android el
+      // nombre es el código de modelo, que no dice nada por sí solo.
+      dato: '${dispositivo.plataforma.name} · ${dispositivo.id}',
+      accion: ref.watch(sePuedeVerLaPantallaProvider(dispositivo.id))
+          ? BotonDeAjustes(
+              texto: strings.verLaPantallaCorto,
+              tooltip: strings.verLaPantalla,
+              onPulsar: () => ref
+                  .read(emuladoresDataSourceProvider)
+                  .verLaPantalla(
+                    deviceId: dispositivo.id,
+                    titulo: dispositivo.nombre,
+                    conControl: true,
+                  ),
+            )
+          : comoIphone.isEmpty
+          ? null
+          // Un iPhone físico se mira con lo que trae macOS; cada forma solo
+          // si su app está en la máquina.
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final (i, como) in comoIphone.indexed) ...[
+                  if (i > 0) const SizedBox(width: 6),
+                  BotonDeAjustes(
+                    texto: switch (como) {
+                      ComoVerElIphone.duplicado => strings.verElIphoneDuplicado,
+                      ComoVerElIphone.quickTime => strings.verElIphoneQuickTime,
+                    },
+                    onPulsar: () => ref
+                        .read(emuladoresDataSourceProvider)
+                        .verElIphone(como),
+                  ),
+                ],
+              ],
+            ),
     );
   }
 }

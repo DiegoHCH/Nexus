@@ -57,7 +57,7 @@ void main() {
   testWidgets('sin frase lo dice, y no como si fuera un error', (tester) async {
     await abrir(tester, _Memoria());
     expect(find.text(es.phraseMissing), findsOne);
-    expect(find.text(es.phraseDefine), findsOne);
+    expect(find.text(es.phraseDefine.toUpperCase()), findsOne);
     // Y no ofrece quitar lo que no hay.
     expect(find.byKey(const ValueKey('quitar-la-frase')), findsNothing);
   });
@@ -68,7 +68,10 @@ void main() {
     await abrir(tester, _Memoria(const WritePhrase('la-frase-de-verdad')));
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text(es.phraseDefined), findsOne);
+    expect(
+      find.text(es.phraseDefinedFor(WriteGrant.duracion.inMinutes)),
+      findsOne,
+    );
     expect(find.byKey(const ValueKey('quitar-la-frase')), findsOne);
     // Lo que importa: ni el valor ni un trozo suyo aparecen en ningún sitio de la
     // pantalla. Al contrario que el token, aquí no hay ni huella — el token hay que

@@ -141,8 +141,8 @@ mixin EjecucionStringsEs implements EjecucionStrings {
   String get emulatorsTitle => 'Emuladores y simuladores';
   @override
   String get emulatorsExplainer =>
-      'Los de esta máquina, con cuáles están arriba. Se arrancan aquí y siguen '
-      'vivos aunque cierres Nexus: cerrar la app no te cuesta la sesión.';
+      'Los de esta máquina. Se arrancan aquí y siguen vivos aunque cierres '
+      'Nexus.';
   @override
   String get emulatorsLaunch => 'Arrancar';
   @override
@@ -303,9 +303,8 @@ mixin EjecucionStringsEn implements EjecucionStrings {
   String get emulatorsTitle => 'Emulators and simulators';
   @override
   String get emulatorsExplainer =>
-      "The ones on this machine, and which are up. Launch them here and they "
-      "stay alive after you quit Nexus: closing the app won't cost you your "
-      'session.';
+      'The ones on this machine. Launch them here and they stay alive after '
+      'you quit Nexus.';
   @override
   String get emulatorsLaunch => 'Launch';
   @override

@@ -82,6 +82,11 @@ mixin AjustesStrings {
   String get slackDeTodos;
   String slackDeUno(String proyecto);
   String get slackListo;
+  // Tus aparatos: la frase, los emuladores, las pruebas y las cuentas.
+  String phraseDefinedFor(int minutos);
+  String get emulatorsChecking;
+  String flowsEn(String ruta);
+  String e2eVariables(int cuantas);
 }
 
 mixin AjustesStringsEs implements AjustesStrings {
@@ -205,6 +210,16 @@ mixin AjustesStringsEs implements AjustesStrings {
   String slackDeUno(String proyecto) => 'de $proyecto';
   @override
   String get slackListo => 'Listo';
+  @override
+  String phraseDefinedFor(int minutos) =>
+      'Definida: el teléfono puede escribir $minutos min tras decirla.';
+  @override
+  String get emulatorsChecking => 'Comprobando…';
+  @override
+  String flowsEn(String ruta) => 'en $ruta';
+  @override
+  String e2eVariables(int cuantas) =>
+      cuantas == 1 ? '1 variable' : '$cuantas variables';
 }
 
 mixin AjustesStringsEn implements AjustesStrings {
@@ -330,4 +345,14 @@ mixin AjustesStringsEn implements AjustesStrings {
   String slackDeUno(String proyecto) => 'from $proyecto';
   @override
   String get slackListo => 'Done';
+  @override
+  String phraseDefinedFor(int minutos) =>
+      'Set: the phone can write for $minutos min after saying it.';
+  @override
+  String get emulatorsChecking => 'Checking…';
+  @override
+  String flowsEn(String ruta) => 'in $ruta';
+  @override
+  String e2eVariables(int cuantas) =>
+      cuantas == 1 ? '1 variable' : '$cuantas variables';
 }

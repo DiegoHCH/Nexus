@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/core/design_system/nexus_theme.dart';
+import 'package:nexus/core/i18n/nexus_strings.dart';
+import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/remote/data/channel_link.dart';
 import 'package:nexus/features/remote/domain/channel_token.dart';
 import 'package:nexus/features/remote/domain/pairing.dart';
@@ -248,7 +250,12 @@ void main() {
   group('la pantalla', () {
     Widget app(ProviderContainer c) => UncontrolledProviderScope(
       container: c,
-      child: MaterialApp(theme: NexusTheme.dark(), home: const PairingPage()),
+      child: MaterialApp(
+        theme: NexusTheme.dark(),
+        builder: (context, child) =>
+            StringsScope(strings: const NexusStringsEs(), child: child!),
+        home: const PairingPage(),
+      ),
     );
 
     ProviderContainer montar(_Memoria store) {
@@ -362,6 +369,8 @@ void main() {
           container: c,
           child: MaterialApp(
             theme: NexusTheme.dark(),
+            builder: (context, child) =>
+                StringsScope(strings: const NexusStringsEs(), child: child!),
             home: const Scaffold(
               body: MobileChrome(enVezDe: LinkState.conectando),
             ),
@@ -392,6 +401,8 @@ void main() {
           container: c,
           child: MaterialApp(
             theme: NexusTheme.dark(),
+            builder: (context, child) =>
+                StringsScope(strings: const NexusStringsEs(), child: child!),
             home: const Scaffold(
               body: MobileChrome(enVezDe: LinkState.conectando),
             ),
@@ -424,6 +435,8 @@ void main() {
             container: c,
             child: MaterialApp(
               theme: NexusTheme.dark(),
+              builder: (context, child) =>
+                  StringsScope(strings: const NexusStringsEs(), child: child!),
               home: const Scaffold(body: LinkBadge()),
             ),
           ),

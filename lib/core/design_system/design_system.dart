@@ -1,6 +1,7 @@
 export 'boton_mini.dart';
 export 'campo_de_busqueda.dart';
 export 'filtro.dart';
+export 'menu_con_explicacion.dart';
 export 'nexus_colors.dart';
 export 'nexus_radius.dart';
 export 'nexus_spacing.dart';

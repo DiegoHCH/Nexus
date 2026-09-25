@@ -308,8 +308,12 @@ class _DockOrbState extends ConsumerState<_DockOrb> {
 }
 
 /// El hueco de «Nueva», del mismo tamaño que una conversación y justo debajo:
-/// así se ve cuántas caben —hasta tres— sin tener que contarlas ni leer un
-/// aviso. Cuando no quedan carpetas libres o ya hay tres, desaparece.
+/// así se ve cuántas caben sin tener que contarlas. Cuando no quedan carpetas
+/// libres o ya están las [Conversations.max], desaparece.
+///
+/// **Y su menú dice el límite.** Antes se descubría al intentar abrir una de
+/// más: el botón se iba sin decir por qué. Dicho al pie, se sabe antes de
+/// llegar y qué hacer cuando se llega.
 class _OpenAnother extends ConsumerWidget {
   const _OpenAnother();
 
@@ -329,14 +333,46 @@ class _OpenAnother extends ConsumerWidget {
     final documentos = ref.watch(artifactsFolderProvider);
     if (folders.isEmpty && documentos == null) return const SizedBox.shrink();
 
+    final abiertas = ref.watch(conversationsProvider).items.length;
+    // La cuenta de cada carpeta, solo con más de una en el Mac: con una sola,
+    // decir cuál se usa es contestar una pregunta que nadie tiene. El mismo
+    // criterio que la ficha del compositor.
+    final variasCuentas =
+        (ref.watch(claudeProfilesProvider).value?.length ?? 0) > 1;
+    String? cuentaDe(String? perfil) {
+      final nombre = perfil?.split('/').last;
+      if (!variasCuentas || nombre == null || !nombre.startsWith('.claude-')) {
+        return null;
+      }
+      return nombre.substring('.claude-'.length);
+    }
+
     return PopupMenuButton<String>(
       tooltip: context.strings.openAnotherConversation,
       onSelected: (path) => ref.read(conversationsProvider.notifier).open(path),
       itemBuilder: (context) => [
+        cabeceraDelMenu(context, context.strings.nuevaConversacionTitulo),
         for (final folder in folders)
           PopupMenuItem(
             value: folder.path,
-            child: Text(folder.displayPath(home)),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    folder.displayPath(home),
+                    style: NexusTypography.control.copyWith(color: colors.ink),
+                  ),
+                ),
+                if (cuentaDe(folder.claudeProfile) case final cuenta?)
+                  Padding(
+                    padding: const EdgeInsets.only(left: NexusSpacing.s5),
+                    child: Text(
+                      cuenta,
+                      style: NexusTypography.data.copyWith(color: colors.faint),
+                    ),
+                  ),
+              ],
+            ),
           ),
         if (documentos != null)
           PopupMenuItem(
@@ -349,10 +385,17 @@ class _OpenAnother extends ConsumerWidget {
                   color: colors.faint,
                 ),
                 const SizedBox(width: NexusSpacing.s3),
-                Text(context.strings.noProject),
+                Text(
+                  context.strings.noProject,
+                  style: NexusTypography.control.copyWith(color: colors.mute),
+                ),
               ],
             ),
           ),
+        pieDelMenu(
+          context,
+          context.strings.cabenAbiertas(Conversations.max, abiertas),
+        ),
       ],
       child: Container(
         width: ConversationDock.tabWidth,

@@ -38,8 +38,6 @@ mixin NucleoStrings {
   String get textOnly;
   String get readOnly;
   String get canEdit;
-  String get canEditExplainer;
-  String get readOnlyExplainer;
   // El permiso que se pregunta
   String permisoPregunta(String herramienta);
   String get permisoEscribe;
@@ -440,11 +438,6 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get readOnly => 'SOLO LEER';
   @override
   String get canEdit => 'PUEDE EDITAR';
-  @override
-  String get canEditExplainer =>
-      'Edita y corre comandos sin preguntar. Los conectores sí preguntan';
-  @override
-  String get readOnlyExplainer => 'Lee y ejecuta, pero no escribe';
   @override
   String permisoPregunta(String herramienta) => '¿Le dejas usar $herramienta?';
   @override
@@ -1046,11 +1039,6 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get readOnly => 'READ ONLY';
   @override
   String get canEdit => 'CAN EDIT';
-  @override
-  String get canEditExplainer =>
-      'Edits and runs commands without asking. Connectors still ask';
-  @override
-  String get readOnlyExplainer => 'Reads and runs, but never writes';
   @override
   String permisoPregunta(String herramienta) => 'Let it use $herramienta?';
   @override

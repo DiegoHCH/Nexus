@@ -127,6 +127,19 @@ mixin DocumentosStrings {
   String get usageLimits;
   String get usageFiveHour;
   String get usageWeekly;
+
+  /// Lo que dice cada menú del compositor encima y debajo de sus opciones:
+  /// qué implica elegir, para no descubrirlo después.
+  String permisoEn(String? carpeta);
+  String permisoSoloLeerImplica(String? carpeta);
+  String permisoEditarImplica(String? carpeta);
+  String modeloDelPerfil(String? perfil);
+  String get modeloComoEnLaConsola;
+  String esfuerzoDelModelo(String? modelo);
+  String get esfuerzoComoEnLaConsola;
+  String get contextoYCupo;
+  String get nuevaConversacionTitulo;
+  String cabenAbiertas(int caben, int abiertas);
   String get usageUnavailable;
 
   /// Hay sesión: lo que caducó es el acceso, y lo renueva el CLI en cuanto
@@ -336,6 +349,36 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   String get usageFiveHour => 'Límite de 5 horas';
   @override
   String get usageWeekly => 'Semanal';
+  @override
+  String permisoEn(String? carpeta) =>
+      carpeta == null ? 'Permiso' : 'Permiso en $carpeta';
+  @override
+  String permisoSoloLeerImplica(String? carpeta) =>
+      'Lee y responde; no escribe nada aquí.';
+  @override
+  String permisoEditarImplica(String? carpeta) =>
+      'Escribe en ${carpeta ?? 'esta carpeta'}. Ejecutar sigue pidiendo '
+      'permiso.';
+  @override
+  String modeloDelPerfil(String? perfil) =>
+      perfil == null ? 'Modelo' : 'Modelo · perfil $perfil';
+  @override
+  String get modeloComoEnLaConsola =>
+      'Es el de tu perfil de Claude: cambiarlo aquí es /model en la consola.';
+  @override
+  String esfuerzoDelModelo(String? modelo) =>
+      modelo == null ? 'Esfuerzo' : 'Esfuerzo · $modelo';
+  @override
+  String get esfuerzoComoEnLaConsola =>
+      'Se guarda para este modelo, como /effort.';
+  @override
+  String get contextoYCupo => 'Contexto y cupo';
+  @override
+  String get nuevaConversacionTitulo => 'Nueva conversación';
+  @override
+  String cabenAbiertas(int caben, int abiertas) =>
+      'Caben $caben abiertas a la vez; llevas $abiertas. Con $caben, cierra '
+      'una para abrir otra.';
   @override
   String get usageUnavailable =>
       'Sin dato: esa cuenta no tiene sesión abierta.';
@@ -547,6 +590,36 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   String get usageFiveHour => '5-hour limit';
   @override
   String get usageWeekly => 'Weekly';
+  @override
+  String permisoEn(String? carpeta) =>
+      carpeta == null ? 'Permission' : 'Permission in $carpeta';
+  @override
+  String permisoSoloLeerImplica(String? carpeta) =>
+      'Reads and answers; writes nothing here.';
+  @override
+  String permisoEditarImplica(String? carpeta) =>
+      'Writes in ${carpeta ?? 'this folder'}. Running commands still asks '
+      'first.';
+  @override
+  String modeloDelPerfil(String? perfil) =>
+      perfil == null ? 'Model' : 'Model · $perfil profile';
+  @override
+  String get modeloComoEnLaConsola =>
+      "It is your Claude profile's model: changing it here is /model in the "
+      'console.';
+  @override
+  String esfuerzoDelModelo(String? modelo) =>
+      modelo == null ? 'Effort' : 'Effort · $modelo';
+  @override
+  String get esfuerzoComoEnLaConsola => 'Saved for this model, like /effort.';
+  @override
+  String get contextoYCupo => 'Context and limits';
+  @override
+  String get nuevaConversacionTitulo => 'New conversation';
+  @override
+  String cabenAbiertas(int caben, int abiertas) =>
+      '$caben can be open at once; you have $abiertas. At $caben, close one to '
+      'open another.';
   @override
   String get usageUnavailable =>
       'No reading: that account has no session open.';

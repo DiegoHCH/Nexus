@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/accent_preference.dart';
 import 'package:nexus/core/design_system/orbe_preference.dart';
+import 'package:nexus/core/design_system/theme_preference.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/core/platform/escucha_channel.dart';
 import 'package:nexus/core/platform/orbe_channel.dart';
@@ -186,6 +187,7 @@ class ElOidoQueEspera {
         NexusOrbState.listen.name,
         _elAcento(),
         estilo: _elEstilo(),
+        claro: _esClaro(),
       ),
     );
   }
@@ -223,6 +225,7 @@ class ElOidoQueEspera {
         NexusOrbState.listen.name,
         _elAcento(),
         estilo: _elEstilo(),
+        claro: _esClaro(),
       ),
     );
     _llamando = true;
@@ -279,6 +282,10 @@ class ElOidoQueEspera {
   /// que el de fuera sea el mismo que el de dentro.
   Map<String, Object> _elEstilo() => _ref.read(orbeEstiloProvider).toMap();
 
+  /// Y el tema, ya resuelto contra el sistema: el orbe de fuera sigue el claro
+  /// o el oscuro que se ve en la app, como pide el mockup.
+  bool _esClaro() => !_ref.read(isDarkProvider);
+
   ProviderSubscription<AssistantHudState>? _mirando;
 
   /// Mientras dure la sesión, el orbe de fuera dice lo mismo que el de dentro.
@@ -297,6 +304,7 @@ class ElOidoQueEspera {
             ahora.orbState.name,
             _elAcento(),
             estilo: _elEstilo(),
+            claro: _esClaro(),
           ),
         );
         return;

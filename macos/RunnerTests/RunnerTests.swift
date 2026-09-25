@@ -1036,3 +1036,27 @@ final class LaFraseTrasElNombreTests: XCTestCase {
       "abre el repo")
   }
 }
+
+/// El orbe de fuera, del tamaño y en el sitio del mockup.
+///
+/// En el mockup es un orbe de 210 a 28 del borde, abajo a la derecha, en una
+/// pantalla de 1280 dibujada a escala. Salía de 148 a 24, y a ese tamaño el
+/// anillo de barras y el reloj se quedaban en un borrón: se veía que había
+/// algo, no qué estaba haciendo.
+final class ElOrbeFlotanteTests: XCTestCase {
+  func testMideLoDelMockupYVaAbajoALaDerecha() {
+    let pantalla = NSRect(x: 0, y: 40, width: 1440, height: 860)
+    let marco = NexusOrbeFlotante.dondeVa(en: pantalla)
+
+    XCTAssertEqual(marco.width, 210)
+    XCTAssertEqual(marco.height, 210)
+    // AppKit cuenta desde abajo: `minY` es el borde de abajo de lo visible,
+    // que ya deja fuera el Dock.
+    XCTAssertEqual(marco.maxX, pantalla.maxX - 28)
+    XCTAssertEqual(marco.minY, pantalla.minY + 28)
+  }
+
+  func testSeFundeEnElMedioSegundoDelMockup() {
+    XCTAssertEqual(NexusOrbeFlotante.fundido, 0.5)
+  }
+}

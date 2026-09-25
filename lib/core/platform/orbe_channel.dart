@@ -13,30 +13,36 @@ abstract final class OrbeChannel {
     String estado,
     int acento, {
     Map<String, Object>? estilo,
-  }) => _decir('mostrar', estado, acento, estilo);
+    bool? claro,
+  }) => _decir('mostrar', estado, acento, estilo, claro);
 
   static Future<void> estado(
     String estado,
     int acento, {
     Map<String, Object>? estilo,
-  }) => _decir('estado', estado, acento, estilo);
+    bool? claro,
+  }) => _decir('estado', estado, acento, estilo, claro);
 
-  static Future<void> ocultar() => _decir('ocultar', null, null, null);
+  static Future<void> ocultar() => _decir('ocultar', null, null, null, null);
 
   /// El acento viaja con **cada** aviso y no una vez al abrir: los dos motores
   /// no comparten estado —son dos isolates— así que el de fuera no puede
-  /// enterarse solo de que cambiaste el color en Ajustes.
+  /// enterarse solo de que cambiaste el color en Ajustes. Lo mismo el tema:
+  /// [claro] es el que la app pinta ya resuelto, para que el de fuera sea el
+  /// mismo orbe que el de dentro también en claro.
   static Future<void> _decir(
     String que,
     String? estado,
     int? acento,
     Map<String, Object>? estilo,
+    bool? claro,
   ) async {
     try {
       await _canal.invokeMethod<void>(que, {
         'estado': ?estado,
         'acento': ?acento,
         'estilo': ?estilo,
+        'claro': ?claro,
       });
     } on Object catch (error) {
       debugPrint('orbe · no se pudo $que: $error');

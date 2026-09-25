@@ -116,3 +116,36 @@ class PuntoDeEstado extends StatelessWidget {
     decoration: BoxDecoration(shape: BoxShape.circle, color: color),
   );
 }
+
+/// Un estado dicho con su punto delante: «Al día · 64 flows», «7 variables de
+/// .env.local».
+///
+/// Vive aquí porque la hoja de pruebas lo usa en dos de sus tres columnas, y
+/// dos copias acaban con dos márgenes distintos en cuanto se toque una.
+class EstadoConPunto extends StatelessWidget {
+  const EstadoConPunto({super.key, required this.color, required this.texto});
+
+  final Color color;
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          // Centrado con la primera línea del texto, que es la que nombra.
+          padding: const EdgeInsets.only(top: 6, right: NexusSpacing.s2),
+          child: PuntoDeEstado(color: color),
+        ),
+        Expanded(
+          child: Text(
+            texto,
+            style: NexusTypography.nota.copyWith(color: context.colors.ink),
+          ),
+        ),
+      ],
+    ),
+  );
+}

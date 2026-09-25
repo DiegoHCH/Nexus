@@ -19,6 +19,36 @@ class GitInfo {
   final String? branch;
 }
 
+/// Cómo está un repositorio ahora mismo.
+///
+/// Lo justo para poder tener una opinión sobre él sin abrir nada. Ver
+/// [LoQueVeoDeTuTrabajo], que es quien decide si algo de esto merece decirse.
+@immutable
+class ComoEstaElRepo {
+  const ComoEstaElRepo({
+    this.rama,
+    this.sinSubir = 0,
+    this.sinBajar = 0,
+    this.sinCommitear = 0,
+    this.ultimoCommit,
+  });
+
+  /// La rama, o `null` con `HEAD` suelta.
+  final String? rama;
+
+  /// Commits que tienes de más respecto a su rama de origen.
+  final int sinSubir;
+
+  /// Y los que te faltan.
+  final int sinBajar;
+
+  /// Cuántos archivos hay tocados sin commitear, contando los sin seguir.
+  final int sinCommitear;
+
+  /// Cuándo fue el último commit de esta rama.
+  final DateTime? ultimoCommit;
+}
+
 /// Lo que una tarea dejó tocado.
 @immutable
 class GitChanges {
@@ -238,6 +268,60 @@ class GitDataSource {
 
     if (diff.isEmpty && nuevos.isEmpty) return null;
     return GitChanges(diff: diff, newFiles: nuevos);
+  }
+
+  /// Cómo está el repositorio ahora mismo: rama, lo que falta por subir o por
+  /// bajar, lo que hay sin commitear y cuándo fue el último commit.
+  ///
+  /// **Dos llamadas y no cinco.** `status --porcelain=v2 --branch` trae la
+  /// rama, el seguimiento y los archivos tocados de una vez; la fecha del
+  /// último commit es la única que no cabe ahí. Esto corre al abrir una
+  /// conversación, así que lo que cueste se nota.
+  ///
+  /// `null` si no es un repositorio: quien pregunta no puede romperse por eso.
+  Future<ComoEstaElRepo?> comoEsta(String folderPath) async {
+    final salida = await _run(folderPath, [
+      'status',
+      '--porcelain=v2',
+      '--branch',
+    ]);
+    if (salida == null) return null;
+
+    String? rama;
+    var sinSubir = 0;
+    var sinBajar = 0;
+    var sinCommitear = 0;
+    for (final linea in _lineas(salida)) {
+      if (linea.startsWith('# branch.head ')) {
+        final nombre = linea.substring('# branch.head '.length).trim();
+        // `(detached)` no es una rama, y decir que lo es sería mentir en la
+        // única frase que esto produce.
+        rama = nombre == '(detached)' ? null : nombre;
+      } else if (linea.startsWith('# branch.ab ')) {
+        // `+3 -0`: lo primero es lo que tienes de más, lo segundo lo que te
+        // falta. Sin upstream esta línea no viene, y entonces los dos son cero.
+        for (final trozo in linea.substring('# branch.ab '.length).split(' ')) {
+          final cuantos = int.tryParse(trozo.substring(1)) ?? 0;
+          if (trozo.startsWith('+')) sinSubir = cuantos;
+          if (trozo.startsWith('-')) sinBajar = cuantos;
+        }
+      } else if (!linea.startsWith('#')) {
+        sinCommitear++;
+      }
+    }
+
+    final cuando = await _run(folderPath, ['log', '-1', '--format=%ct']);
+    final segundos = int.tryParse((cuando ?? '').trim());
+
+    return ComoEstaElRepo(
+      rama: rama,
+      sinSubir: sinSubir,
+      sinBajar: sinBajar,
+      sinCommitear: sinCommitear,
+      ultimoCommit: segundos == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(segundos * 1000),
+    );
   }
 
   /// Si esa rama sigue existiendo en ese repositorio.

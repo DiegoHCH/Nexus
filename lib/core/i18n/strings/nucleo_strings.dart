@@ -208,6 +208,12 @@ mixin NucleoStrings {
   String get memoriaOlvidar;
   String memoriaNota(int cuantas);
 
+  /// Lo que Nexus ve de tu trabajo al abrir una carpeta. Ver
+  /// `LoQueVeoDeTuTrabajo`: se cuenta lo que hay, no se recomienda nada.
+  String veoSinCommitear(int cuantos, int dias);
+  String veoSinSubir(int cuantos, int dias);
+  String veoSinBajar(int cuantos);
+
   String get laMemoriaTitulo;
   String get laMemoriaVacia;
 
@@ -647,6 +653,18 @@ mixin NucleoStringsEs implements NucleoStrings {
       'Se guardan las $cuantas últimas. Esto entra en lo que se le manda a '
       'Claude en cada encargo, así que lo que crezca aquí se paga en cada '
       'turno: van las más recientes.';
+  @override
+  String veoSinCommitear(int cuantos, int dias) =>
+      'Llevas ${dias == 1 ? 'un día' : '$dias días'} con '
+      '${cuantos == 1 ? 'un archivo' : '$cuantos archivos'} sin commitear aquí.';
+  @override
+  String veoSinSubir(int cuantos, int dias) =>
+      '${cuantos == 1 ? 'Un commit' : '$cuantos commits'} sin subir, '
+      '${dias == 1 ? 'de ayer' : 'de hace $dias días'}.';
+  @override
+  String veoSinBajar(int cuantos) =>
+      'Esta rama va ${cuantos == 1 ? 'un commit' : '$cuantos commits'} por '
+      'detrás de la de origen.';
   @override
   String get laMemoriaTitulo => 'LO QUE SÉ DE TI';
   @override
@@ -1218,6 +1236,18 @@ mixin NucleoStringsEn implements NucleoStrings {
       'The last $cuantas are kept. This goes into what Claude is sent on every '
       'errand, so whatever grows here is paid for on every turn: the most '
       'recent ones go.';
+  @override
+  String veoSinCommitear(int cuantos, int dias) =>
+      "You've had ${cuantos == 1 ? 'a file' : '$cuantos files'} uncommitted "
+      "here for ${dias == 1 ? 'a day' : '$dias days'}.";
+  @override
+  String veoSinSubir(int cuantos, int dias) =>
+      '${cuantos == 1 ? 'One commit' : '$cuantos commits'} not pushed, '
+      '${dias == 1 ? 'from yesterday' : 'from $dias days ago'}.';
+  @override
+  String veoSinBajar(int cuantos) =>
+      'This branch is ${cuantos == 1 ? 'one commit' : '$cuantos commits'} '
+      'behind its upstream.';
   @override
   String get laMemoriaTitulo => 'WHAT I KNOW ABOUT YOU';
   @override

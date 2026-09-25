@@ -101,7 +101,7 @@ abstract final class NexusTheme {
       surfaceTint: Colors.transparent,
     );
 
-    // El sistema de Nexus solo define un estilo de label (10px, mono,
+    // El sistema de Nexus solo define un estilo de label (10px, Oxanium,
     // tracking .18em): labelMedium y labelSmall comparten esta misma
     // instancia a propósito, no es un duplicado sin querer.
     final labelStyle = NexusTypography.label.copyWith(color: colors.faint);
@@ -113,8 +113,11 @@ abstract final class NexusTheme {
       titleMedium: NexusTypography.brand.copyWith(color: colors.mute),
       bodyLarge: NexusTypography.lead.copyWith(color: colors.mute),
       bodyMedium: NexusTypography.body.copyWith(color: colors.ink),
-      bodySmall: NexusTypography.mono.copyWith(color: colors.faint),
-      labelLarge: NexusTypography.data.copyWith(color: colors.mute),
+      // Material pinta con estos dos lo que no se estiliza a mano: bodySmall
+      // es la ayuda bajo un campo o el subtítulo de una fila (una nota), y
+      // labelLarge el texto de botones, chips y menús (un control).
+      bodySmall: NexusTypography.nota.copyWith(color: colors.faint),
+      labelLarge: NexusTypography.control.copyWith(color: colors.mute),
       labelMedium: labelStyle,
       labelSmall: labelStyle,
     );
@@ -153,7 +156,7 @@ abstract final class NexusTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: colors.rise,
-        hintStyle: NexusTypography.mono.copyWith(color: colors.faint),
+        hintStyle: NexusTypography.nota.copyWith(color: colors.faint),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(NexusRadius.sm),
           borderSide: BorderSide(color: colors.rule2),
@@ -170,7 +173,7 @@ abstract final class NexusTheme {
       textButtonTheme: TextButtonThemeData(
         style: ButtonStyle(
           foregroundColor: WidgetStatePropertyAll(colors.mute),
-          textStyle: WidgetStatePropertyAll(NexusTypography.label),
+          textStyle: WidgetStatePropertyAll(NexusTypography.control),
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(NexusRadius.sm),
@@ -181,7 +184,7 @@ abstract final class NexusTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: ButtonStyle(
           foregroundColor: WidgetStatePropertyAll(colors.mute),
-          textStyle: WidgetStatePropertyAll(NexusTypography.label),
+          textStyle: WidgetStatePropertyAll(NexusTypography.control),
           minimumSize: const WidgetStatePropertyAll(Size(0, 44)),
           side: WidgetStatePropertyAll(BorderSide(color: colors.rule2)),
           shape: WidgetStatePropertyAll(
@@ -196,7 +199,10 @@ abstract final class NexusTheme {
           backgroundColor: WidgetStatePropertyAll(colors.accent),
           foregroundColor: WidgetStatePropertyAll(colors.void_),
           textStyle: WidgetStatePropertyAll(
-            NexusTypography.label.copyWith(fontWeight: FontWeight.w600),
+            NexusTypography.control.copyWith(
+              fontWeight: FontWeight.w600,
+              fontVariations: const [FontVariation('wght', 600)],
+            ),
           ),
           elevation: const WidgetStatePropertyAll(0),
           minimumSize: const WidgetStatePropertyAll(Size(0, 44)),
@@ -213,7 +219,7 @@ abstract final class NexusTheme {
           borderRadius: BorderRadius.circular(NexusRadius.sm),
           border: Border.all(color: colors.rule2),
         ),
-        textStyle: NexusTypography.data.copyWith(color: colors.ink),
+        textStyle: NexusTypography.nota.copyWith(color: colors.ink),
       ),
     );
   }

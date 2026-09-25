@@ -65,7 +65,7 @@ class SelectorCompacto extends StatelessWidget {
           // elegido, así que la etiqueta llega sola por el `items` de arriba.
           hint: Text(
             pista,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.control.copyWith(color: colors.faint),
           ),
           icon: cargando
               ? SizedBox(
@@ -85,7 +85,7 @@ class SelectorCompacto extends StatelessWidget {
                   etiqueta?.call(opcion) ?? opcion,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: NexusTypography.data.copyWith(color: colors.ink),
+                  style: NexusTypography.control.copyWith(color: colors.ink),
                 ),
               ),
           ],

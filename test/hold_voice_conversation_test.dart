@@ -1721,6 +1721,52 @@ void _elAudioAjeno() {
     );
   });
 
+  // 🔴 Tras «En nada, adiós» el micro seguía abierto los 6 s del plazo, como si
+  // faltara algo. Una despedida cierra al acabar de sonar su respuesta.
+  group('despedirse', () {
+    test('cierra la conversación sin esperar al plazo', () async {
+      final session = _Session();
+      final conversation = _conversation(session, _Bridge());
+
+      var cerrada = false;
+      final subscription = conversation().listen(
+        (_) {},
+        onDone: () => cerrada = true,
+      );
+      await Future<void>.delayed(Duration.zero);
+      session.emit(const VoiceSessionReady());
+      session.emit(const VoiceUserTranscript('En nada, adiós'));
+      session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
+      session.emit(const VoiceTurnCompleted());
+      await Future<void>.delayed(const Duration(milliseconds: 1800));
+
+      expect(cerrada, isTrue);
+      await subscription.cancel();
+    });
+
+    test('si vuelves a hablar antes, sigue abierta', () async {
+      final session = _Session();
+      final conversation = _conversation(session, _Bridge());
+
+      var cerrada = false;
+      final subscription = conversation().listen(
+        (_) {},
+        onDone: () => cerrada = true,
+      );
+      await Future<void>.delayed(Duration.zero);
+      session.emit(const VoiceSessionReady());
+      session.emit(const VoiceUserTranscript('Adiós'));
+      session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
+      session.emit(const VoiceTurnCompleted());
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      session.emit(const VoiceUserTranscript('ah, espera'));
+      await Future<void>.delayed(const Duration(milliseconds: 1800));
+
+      expect(cerrada, isFalse);
+      await subscription.cancel();
+    });
+  });
+
   // Llamarla por su nombre abre la voz contestando: «¿Sí, Argonauta?». Sin eso
   // el silencio no decía si te oyó ni cuándo empezar a hablar.
   group('el saludo al llamarla', () {

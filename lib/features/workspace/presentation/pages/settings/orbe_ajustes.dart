@@ -38,7 +38,7 @@ class OrbeAjustes extends ConsumerWidget {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           strings.orbeExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s5),
         Row(
@@ -77,7 +77,7 @@ class OrbeAjustes extends ConsumerWidget {
           const SizedBox(height: NexusSpacing.s3),
           Text(
             strings.orbeSinPlasma,
-            style: NexusTypography.mono.copyWith(color: colors.warn),
+            style: NexusTypography.nota.copyWith(color: colors.warn),
           ),
         ],
         // Los siete ajustes son del plasma: con puntos no mueven nada, y
@@ -181,7 +181,7 @@ class _Deslizador extends StatelessWidget {
             width: 160,
             child: Text(
               nombre,
-              style: NexusTypography.body.copyWith(color: colors.ink),
+              style: NexusTypography.control.copyWith(color: colors.ink),
             ),
           ),
           Expanded(

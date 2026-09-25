@@ -945,7 +945,7 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
                                         child: Text(
                                           dicho,
                                           textAlign: TextAlign.center,
-                                          style: NexusTypography.mono.copyWith(
+                                          style: NexusTypography.nota.copyWith(
                                             color: colors.ink,
                                           ),
                                         ),

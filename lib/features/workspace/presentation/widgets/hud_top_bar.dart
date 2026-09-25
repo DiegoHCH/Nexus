@@ -62,10 +62,7 @@ class HudTopBar extends ConsumerWidget {
           ],
           Text(
             context.strings.brand,
-            style: NexusTypography.data.copyWith(
-              color: colors.mute,
-              letterSpacing: 4.2,
-            ),
+            style: NexusTypography.brand.copyWith(color: colors.mute),
           ),
           const SizedBox(width: NexusSpacing.s5),
           Text(

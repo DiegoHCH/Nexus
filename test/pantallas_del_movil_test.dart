@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/core/design_system/nexus_theme.dart';
+import 'package:nexus/core/i18n/nexus_strings.dart';
+import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/remote/data/channel_link.dart';
 import 'package:nexus/features/remote/domain/channel_token.dart';
 import 'package:nexus/features/remote/domain/pairing.dart';
@@ -178,7 +180,14 @@ void main() {
 
   Widget app(ProviderContainer c, Widget pantalla) => UncontrolledProviderScope(
     container: c,
-    child: MaterialApp(theme: NexusTheme.dark(), home: pantalla),
+    child: MaterialApp(
+      theme: NexusTheme.dark(),
+      // Los textos cuelgan del `builder`, como en `main_movil`: sin ellos cada
+      // pantalla del móvil revienta con «falta un StringsScope».
+      builder: (context, child) =>
+          StringsScope(strings: const NexusStringsEs(), child: child!),
+      home: pantalla,
+    ),
   );
 
   group('la lista', () {
@@ -440,7 +449,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
 
       // Se dice **antes** de tocar que no borra nada: cerrar suena a borrar.
-      expect(find.textContaining('sigue en el archivo'), findsOne);
+      expect(find.textContaining('sigue en el historial'), findsOne);
 
       await tester.tap(find.byKey(const ValueKey('cerrar-la-conversacion')));
       await tester.pump();

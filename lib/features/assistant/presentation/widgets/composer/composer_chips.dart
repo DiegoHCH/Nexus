@@ -134,7 +134,9 @@ class ComposerChips extends ConsumerWidget {
                   children: [
                     Text(
                       option.name,
-                      style: NexusTypography.data.copyWith(color: colors.ink),
+                      style: NexusTypography.control.copyWith(
+                        color: colors.ink,
+                      ),
                     ),
                     if (option.path == paired?.path) ...[
                       const SizedBox(width: NexusSpacing.s3),
@@ -155,7 +157,7 @@ class ComposerChips extends ConsumerWidget {
                   const SizedBox(width: NexusSpacing.s3),
                   Text(
                     strings.noProject,
-                    style: NexusTypography.data.copyWith(color: colors.mute),
+                    style: NexusTypography.control.copyWith(color: colors.mute),
                   ),
                   if (suelta) ...[
                     const SizedBox(width: NexusSpacing.s3),
@@ -176,7 +178,7 @@ class ComposerChips extends ConsumerWidget {
                   const SizedBox(width: NexusSpacing.s3),
                   Text(
                     strings.addFolderShort,
-                    style: NexusTypography.data.copyWith(color: colors.mute),
+                    style: NexusTypography.control.copyWith(color: colors.mute),
                   ),
                 ],
               ),
@@ -215,7 +217,9 @@ class ComposerChips extends ConsumerWidget {
                       // encargos que cruzan repos y ahí bajar a uno sería
                       // esconderle la mitad.
                       paired.name,
-                      style: NexusTypography.data.copyWith(color: colors.mute),
+                      style: NexusTypography.control.copyWith(
+                        color: colors.mute,
+                      ),
                     ),
                     if (paired.activeRepo == null) ...[
                       const SizedBox(width: NexusSpacing.s3),
@@ -231,7 +235,9 @@ class ComposerChips extends ConsumerWidget {
                     children: [
                       Text(
                         repo.split('/').last,
-                        style: NexusTypography.data.copyWith(color: colors.ink),
+                        style: NexusTypography.control.copyWith(
+                          color: colors.ink,
+                        ),
                       ),
                       if (repo == paired.activeRepo) ...[
                         const SizedBox(width: NexusSpacing.s3),
@@ -352,7 +358,7 @@ class _Chip extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             label,
-            style: NexusTypography.mono.copyWith(
+            style: NexusTypography.control.copyWith(
               color: warn ? colors.warn : colors.mute,
             ),
           ),

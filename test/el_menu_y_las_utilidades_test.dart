@@ -439,7 +439,7 @@ void main() {
 
       // Se enseña igual: esconderlo deja preguntandose si falta algo.
       expect(find.text('mockup.png'), findsOne);
-      expect(find.text('SOLO EN LA MAC'), findsOne);
+      expect(find.text('SOLO EN EL MAC'), findsOne);
 
       await tester.tap(find.byKey(const ValueKey('artifact-/tmp/mockup.png')));
       await tester.pump();

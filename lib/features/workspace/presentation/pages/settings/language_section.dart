@@ -26,7 +26,7 @@ class LanguageSection extends ConsumerWidget {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           strings.languageExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s5),
         SettingsChooser<LanguageChoice>(

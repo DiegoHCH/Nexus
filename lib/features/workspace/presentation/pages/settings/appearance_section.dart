@@ -46,7 +46,7 @@ class AppearanceSection extends ConsumerWidget {
           const SizedBox(height: NexusSpacing.s2),
           Text(
             strings.themeExplainer,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           ),
           const SizedBox(height: NexusSpacing.s5),
           SettingsChooser<ThemeChoice>(
@@ -67,7 +67,7 @@ class AppearanceSection extends ConsumerWidget {
           const SizedBox(height: NexusSpacing.s2),
           Text(
             strings.accentExplainer,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           ),
           const SizedBox(height: NexusSpacing.s5),
           const _AccentButton(),
@@ -125,7 +125,7 @@ class _AccentButton extends ConsumerWidget {
               const SizedBox(width: NexusSpacing.s4),
               Text(
                 _nombre(acento.name, strings),
-                style: NexusTypography.data.copyWith(color: colors.ink),
+                style: NexusTypography.control.copyWith(color: colors.ink),
               ),
               const SizedBox(width: NexusSpacing.s3),
               // El hexadecimal al lado del nombre: el nombre es aproximado —el
@@ -219,7 +219,7 @@ class _AccentDialogState extends ConsumerState<AccentDialog> {
               children: [
                 Text(
                   _nombre(acento.name, strings),
-                  style: NexusTypography.data.copyWith(color: colors.ink),
+                  style: NexusTypography.control.copyWith(color: colors.ink),
                 ),
                 const SizedBox(width: NexusSpacing.s3),
                 Text(
@@ -236,7 +236,7 @@ class _AccentDialogState extends ConsumerState<AccentDialog> {
             // como que la app ignoró la elección.
             Text(
               strings.accentAdjusted,
-              style: NexusTypography.mono.copyWith(color: colors.faint),
+              style: NexusTypography.nota.copyWith(color: colors.faint),
             ),
             const SizedBox(height: NexusSpacing.s5),
             Row(

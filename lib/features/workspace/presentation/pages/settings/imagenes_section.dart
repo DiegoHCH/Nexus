@@ -45,7 +45,7 @@ class ImagenesSection extends ConsumerWidget {
         children: [
           Text(
             strings.imagesExplainer,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           ),
           const SizedBox(height: NexusSpacing.s5),
           // Cuál dibuja, antes que las llaves: es lo que decide cuánto cuesta
@@ -68,7 +68,7 @@ class ImagenesSection extends ConsumerWidget {
           const SizedBox(height: NexusSpacing.s3),
           Text(
             strings.imagesNotWiredYet,
-            style: NexusTypography.mono.copyWith(color: colors.warn),
+            style: NexusTypography.nota.copyWith(color: colors.warn),
           ),
         ],
       ),
@@ -143,7 +143,7 @@ class _LaDeUnaCuentaState extends ConsumerState<_LaDeUnaCuenta> {
               ),
               Text(
                 hay ? strings.keyIsSaved : strings.keyIsMissing,
-                style: NexusTypography.data.copyWith(
+                style: NexusTypography.control.copyWith(
                   color: hay ? colors.ok : colors.faint,
                 ),
               ),

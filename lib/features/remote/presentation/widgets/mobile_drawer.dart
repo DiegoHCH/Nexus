@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
 import 'package:nexus/core/design_system/nexus_spacing.dart';
 import 'package:nexus/core/design_system/nexus_typography.dart';
@@ -34,6 +35,7 @@ class MobileDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
+    final strings = context.strings;
     final pareja = ref.watch(pairingControllerProvider).value;
 
     return Drawer(
@@ -63,7 +65,7 @@ class MobileDrawer extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'ESTE MAC',
+                      strings.mobileThisMac,
                       style: NexusTypography.label.copyWith(
                         color: colors.faint,
                       ),
@@ -72,7 +74,7 @@ class MobileDrawer extends ConsumerWidget {
                     Text(
                       // La dirección y **no la huella del token**: lo que identifica al
                       // Mac aquí es dónde está, y el token no se enseña ni en trozos.
-                      pareja?.comoSeVe ?? 'sin emparejar',
+                      pareja?.comoSeVe ?? strings.mobileUnpaired,
                       style: NexusTypography.data.copyWith(color: colors.mute),
                     ),
                   ],
@@ -80,26 +82,26 @@ class MobileDrawer extends ConsumerWidget {
               ),
               _Entrada(
                 key: const ValueKey('menu-nueva'),
-                titulo: 'Conversación nueva',
-                pie: 'Sobre una carpeta ya emparejada',
+                titulo: strings.mobileNewConversation,
+                pie: strings.mobileNewConversationHint,
                 alTocar: alAbrirNueva,
               ),
               _Entrada(
                 key: const ValueKey('menu-archivo'),
-                titulo: 'El archivo',
-                pie: 'Retomar una de antes',
+                titulo: strings.mobileHistory,
+                pie: strings.mobileHistoryHint,
                 alTocar: alAbrirArchivo,
               ),
               _Entrada(
                 key: const ValueKey('menu-artifacts'),
-                titulo: 'Los artifacts',
-                pie: 'Lo que produjo Claude',
+                titulo: strings.mobileDocuments,
+                pie: strings.mobileDocumentsHint,
                 alTocar: alAbrirArtifacts,
               ),
               _Entrada(
                 key: const ValueKey('menu-olvidar'),
-                titulo: 'Olvidar este Mac',
-                pie: 'Hay que volver a emparejar',
+                titulo: strings.mobileForgetMac,
+                pie: strings.mobileForgetMacHint,
                 // La única destructiva, y va **al final y sin acento**: el sitio donde
                 // no se toca por error al buscar otra cosa.
                 peligrosa: true,

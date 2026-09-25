@@ -19,6 +19,7 @@ class HudTopBar extends ConsumerWidget {
     this.escenario,
     this.onAlternar,
     this.onAjustes,
+    this.centrada = false,
   });
 
   /// Lo que Nexus está haciendo ahora mismo, en una palabra.
@@ -44,6 +45,10 @@ class HudTopBar extends ConsumerWidget {
   /// saber. El mockup lo pone en la barra, junto al estado.
   final VoidCallback? onAjustes;
 
+  /// La barra del escenario: marca, estado y botones **en el centro**, como en
+  /// el mockup. De cerca va a la izquierda, sobre la columna del orbe.
+  final bool centrada;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
@@ -56,6 +61,7 @@ class HudTopBar extends ConsumerWidget {
       ),
       child: Row(
         children: [
+          if (centrada) const Spacer(),
           if (live) ...[
             Container(
               width: 7,
@@ -85,7 +91,10 @@ class HudTopBar extends ConsumerWidget {
               letterSpacing: 2,
             ),
           ),
-          const Spacer(),
+          if (centrada)
+            const SizedBox(width: NexusSpacing.s5)
+          else
+            const Spacer(),
           if (escenario != null && onAlternar != null)
             Tooltip(
               message: '⌘E',
@@ -119,6 +128,7 @@ class HudTopBar extends ConsumerWidget {
               onPressed: controller.pairFolder,
               child: Text(context.strings.pairFolder),
             ),
+          if (centrada) const Spacer(),
         ],
       ),
     );

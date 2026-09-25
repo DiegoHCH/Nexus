@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/features/assistant/data/datasources/conversations_data_source.dart';
 import 'package:nexus/features/assistant/domain/entities/conversation.dart';
 import 'package:nexus/features/assistant/presentation/orb/nexus_orb_painter.dart';
@@ -79,6 +80,7 @@ void main() {
     // El disco contesta en asíncrono: sin esta vuelta la lista todavía está
     // vacía y se estaría midiendo la pantalla de arranque.
     await tester.pump(const Duration(milliseconds: 100));
+    await _deCerca(tester);
 
     final muelle = tester.getRect(find.byType(ConversationDock));
     final caja = tester.getRect(_anclaDe(TourStop.orb));
@@ -161,10 +163,10 @@ void main() {
       ],
     );
     await tester.pump(const Duration(milliseconds: 100));
+    await _deCerca(tester);
 
-    // Tres: la ficha del muelle, la chapa del compositor y la esquina del
-    // escenario, que es lo que se ve con una conversación sin mensajes.
-    expect(find.text('front-mobile-b2c'), findsNWidgets(3));
+    // Dos: el de la ficha del muelle y el de la chapa del compositor.
+    expect(find.text('front-mobile-b2c'), findsNWidgets(2));
     expect(
       tester.takeException(),
       isNull,
@@ -247,6 +249,7 @@ void _laAlineacion() {
       ],
     );
     await tester.pump(const Duration(milliseconds: 100));
+    await _deCerca(tester);
 
     // Cuatro abiertas con columnas de tres: tres en la primera, la cuarta y
     // «NUEVA» en la segunda. Las fichas se agrupan por su borde izquierdo, que
@@ -330,4 +333,14 @@ class _ConAlgoDicho implements LocalConversationStore {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
+}
+
+/// El muelle vive en la conversación de cerca. Sin mensajes la app enseña el
+/// escenario, donde las conversaciones van como miniorbes en una esquina, así
+/// que se pasa a la vista de cerca como lo haría alguien: con el botón.
+Future<void> _deCerca(WidgetTester tester) async {
+  final boton = find.text(const NexusStringsEs().escenarioDeCerca);
+  if (boton.evaluate().isEmpty) return;
+  await tester.tap(boton);
+  await tester.pump(const Duration(milliseconds: 100));
 }

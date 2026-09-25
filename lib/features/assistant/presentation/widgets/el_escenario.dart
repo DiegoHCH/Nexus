@@ -9,6 +9,7 @@ import 'package:nexus/features/agenda/domain/entities/reunion.dart';
 import 'package:nexus/features/agenda/presentation/providers/el_vigilante_de_la_agenda.dart';
 import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
+import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/model_providers.dart';
 import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
 import 'package:nexus/features/assistant/presentation/state/chat_message.dart';
@@ -41,6 +42,7 @@ class ElEscenario extends ConsumerWidget {
     this.oido = false,
     this.reservaAbajo = 0,
     this.envolverOrbe,
+    this.barra,
   });
 
   final String conversationId;
@@ -59,6 +61,9 @@ class ElEscenario extends ConsumerWidget {
   /// Lo que la pantalla le pone alrededor al orbe —su parada del tour, su
   /// nombre para el lector de pantalla—, que es igual a las dos distancias.
   final Widget Function(Widget orbe)? envolverOrbe;
+
+  /// La barra de arriba —marca, estado, botones—, pintada dentro de la sala.
+  final Widget? barra;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -126,6 +131,8 @@ class ElEscenario extends ConsumerWidget {
               conversationId: conversationId,
               folderPath: folderPath,
             ),
+            if (barra != null)
+              Positioned(top: 0, left: 0, right: 0, child: barra!),
           ],
         );
       },
@@ -412,10 +419,12 @@ class _LoPensado extends StatelessWidget {
   }
 }
 
-/// La telemetría, en las esquinas y en pequeño: dónde, con qué y con qué
-/// permiso. Se lee sin buscarla y no compite con el orbe. La cuarta esquina es
-/// el muelle de conversaciones, que pone la pantalla: sus miniorbes ya dicen
-/// cuántas hay y cuál trabaja.
+/// La telemetría, en las cuatro esquinas y en pequeño: dónde, con qué,
+/// cuántas y con qué permiso. Se lee sin buscarla y no compite con el orbe.
+///
+/// Las conversaciones van como **miniorbes** y no con las fichas del muelle:
+/// en el escenario el muelle convertía la esquina en un panel. Tocar uno la
+/// trae al frente; abrir una nueva es cosa de la vista de cerca.
 class _LasEsquinas extends ConsumerWidget {
   const _LasEsquinas({required this.conversationId, required this.folderPath});
 
@@ -442,6 +451,7 @@ class _LasEsquinas extends ConsumerWidget {
         ?.usage
         ?.weeklyPercent;
     final puedeEditar = ElPermisoQueVale.enLaCarpeta(workspace, folderPath);
+    final conversaciones = ref.watch(conversationsProvider).items;
 
     final etiqueta = NexusTypography.label.copyWith(color: colors.faint);
     final dato = NexusTypography.data.copyWith(color: colors.ink);
@@ -485,6 +495,47 @@ class _LasEsquinas extends ConsumerWidget {
           ),
         ),
         Positioned(
+          left: margen,
+          bottom: margen,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                strings.escenarioConversaciones.toUpperCase(),
+                style: etiqueta,
+              ),
+              const SizedBox(height: NexusSpacing.s2),
+              Row(
+                children: [
+                  for (final c in conversaciones)
+                    Padding(
+                      padding: const EdgeInsets.only(right: NexusSpacing.s2),
+                      child: Tooltip(
+                        message: c.folderPath.split('/').last,
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: () => unawaited(
+                            ref
+                                .read(conversationsProvider.notifier)
+                                .focus(c.id),
+                          ),
+                          child: _MiniOrbe(
+                            enFoco: c.id == conversationId,
+                            vivo:
+                                ref
+                                    .watch(assistantControllerProvider(c.id))
+                                    .orbState !=
+                                NexusOrbState.sleep,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Positioned(
           right: margen,
           bottom: margen,
           child: Column(
@@ -504,6 +555,37 @@ class _LasEsquinas extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Una conversación abierta, en pequeño: encendida si está haciendo algo, con
+/// halo la que está en foco.
+class _MiniOrbe extends StatelessWidget {
+  const _MiniOrbe({required this.enFoco, required this.vivo});
+
+  final bool enFoco;
+  final bool vivo;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      width: 14,
+      height: 14,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: vivo ? colors.accent.withValues(alpha: 0.5) : null,
+        border: Border.all(color: enFoco ? colors.accent : colors.rule2),
+        boxShadow: enFoco
+            ? [
+                BoxShadow(
+                  color: colors.accent.withValues(alpha: 0.6),
+                  blurRadius: 8,
+                ),
+              ]
+            : null,
+      ),
     );
   }
 }

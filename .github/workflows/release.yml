@@ -57,6 +57,17 @@ permissions:
   contents: write
   pull-requests: write
 
+# 🔴 **Una release por commit, y en cola.** El 25 sep el CI de master corrió dos
+# veces para el mismo commit de la 1.25.2, y cada corrida disparó su Release: dos
+# runners compilando, firmando y publicando la misma versión a la vez, que
+# acaban pisándose en `gh release create` o subiendo dos veces los mismos
+# archivos. Con el grupo por commit la segunda espera a que acabe la primera, y
+# entonces «¿ya está publicada?» contesta que sí y no hace nada. No se cancela
+# la que va en curso: cortar una notarización a medias es peor que esperar.
+concurrency:
+  group: release-${{ github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: false
+
 jobs:
   # Barato y aparte: decidir si hay algo que hacer no necesita un runner de macOS,
   # y **casi siempre la respuesta es que no**. Cualquier commit en master dispara

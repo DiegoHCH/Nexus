@@ -564,7 +564,7 @@ mixin PruebasStringsEs implements PruebasStrings {
   @override
   String get sectionModel => 'Modelo';
   @override
-  String get nexusVoice => 'VOZ DE NEXUS';
+  String get nexusVoice => 'Su voz';
   @override
   String get audioOutput => 'POR DÓNDE SUENA';
   @override
@@ -575,15 +575,13 @@ mixin PruebasStringsEs implements PruebasStrings {
   String get audioOutputSystem => 'El del sistema';
   @override
   String get voiceExplainer =>
-      'Se fija al abrir la sesión, así que un cambio vale desde la próxima vez '
-      'que le hables.';
+      'Se fija al abrir la sesión: un cambio vale desde la próxima vez que le '
+      'hables.';
   @override
   String get elAcento => 'ACENTO';
   @override
   String get elAcentoExplainer =>
-      'Las voces no traen acento: se pide con palabras, así que esto entra en '
-      'la instrucción y no en un ajuste del servicio. Vale desde la próxima '
-      'vez que le hables.';
+      'Las voces no traen acento: se pide con palabras.';
   @override
   String get elAcentoAutomatico => 'El que elija ella';
   @override
@@ -663,8 +661,7 @@ mixin PruebasStringsEs implements PruebasStrings {
   String get languageTitle => 'IDIOMA';
   @override
   String get languageExplainer =>
-      'Cambia la interfaz y también cómo te responden: la voz y Claude '
-      'contestan en el idioma elegido.';
+      'Cambia la interfaz y también cómo te responden.';
   @override
   String get languageSystem => 'El del sistema';
   @override
@@ -1027,7 +1024,7 @@ mixin PruebasStringsEn implements PruebasStrings {
   @override
   String get sectionModel => 'Model';
   @override
-  String get nexusVoice => 'NEXUS VOICE';
+  String get nexusVoice => 'Her voice';
   @override
   String get audioOutput => 'WHERE IT PLAYS';
   @override
@@ -1038,15 +1035,13 @@ mixin PruebasStringsEn implements PruebasStrings {
   String get audioOutputSystem => 'Whatever the system uses';
   @override
   String get voiceExplainer =>
-      'It is fixed when the session opens, so a change applies the next time '
-      'you talk to it.';
+      'It is fixed when the session opens: a change applies the next time you '
+      'talk to her.';
   @override
   String get elAcento => 'ACCENT';
   @override
   String get elAcentoExplainer =>
-      'Voices carry no accent of their own: it is asked for in words, so this '
-      'goes into the instruction rather than a service setting. It applies the '
-      'next time you talk to it.';
+      'Voices carry no accent of their own: it is asked for in words.';
   @override
   String get elAcentoAutomatico => 'Whichever it picks';
   @override
@@ -1126,8 +1121,7 @@ mixin PruebasStringsEn implements PruebasStrings {
   String get languageTitle => 'LANGUAGE';
   @override
   String get languageExplainer =>
-      'Changes the interface and also how you are answered: the voice and '
-      'Claude reply in the chosen language.';
+      'Changes the interface and also how you are answered.';
   @override
   String get languageSystem => 'Follow the system';
   @override

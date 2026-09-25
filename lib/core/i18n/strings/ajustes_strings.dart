@@ -44,6 +44,16 @@ mixin AjustesStrings {
   String get irALlaves;
   String get keyPut;
   String get keyChange;
+  // Voz: la opción discontinua que enseña las demás voces.
+  String masVoces(int cuantas);
+  // El micrófono, dicho como estado.
+  String get micConcedidoYPrueba;
+  // Oído: lo que se ve con él encendido, lo que cuesta y cómo contesta.
+  String get oidoAsiSeVe;
+  String get oidoBluetooth;
+  String get alLlamarlaTitulo;
+  String alLlamarlaContesta(String frase);
+  String get alLlamarlaEnSilencio;
 }
 
 mixin AjustesStringsEs implements AjustesStrings {
@@ -60,7 +70,7 @@ mixin AjustesStringsEs implements AjustesStrings {
   @override
   String get sectionOido => 'Oído';
   @override
-  String oidoEspera(String palabra) => 'Espera oír «$palabra».';
+  String oidoEspera(String palabra) => 'Escuchando «$palabra»';
   @override
   String get apagado => 'Apagado';
   @override
@@ -91,7 +101,7 @@ mixin AjustesStringsEs implements AjustesStrings {
   String get canalCosteEncendido => 'escucha por Tailscale';
   @override
   String get llaveDeVozEnLlaves =>
-      'La llave de voz vive en Qué puede hacer › Llaves, con las demás.';
+      'La llave de voz vive en **Qué puede hacer › Llaves**.';
   @override
   String get llavesDeImagenesEnLlaves =>
       'Las llaves de imágenes, una por cuenta, viven en Qué puede hacer › '
@@ -102,6 +112,26 @@ mixin AjustesStringsEs implements AjustesStrings {
   String get keyPut => 'Poner';
   @override
   String get keyChange => 'Cambiar';
+  @override
+  String masVoces(int cuantas) => '+$cuantas voces';
+  @override
+  String get micConcedidoYPrueba =>
+      'Concedido. Habla un momento: si el trazo se mueve, tu voz llega bien.';
+  @override
+  String get oidoAsiSeVe =>
+      'Así se ve dormida con el oído encendido: el anillo fino respira y '
+      'tiembla cuando se habla cerca. Con el oído apagado, no hay anillo.';
+  @override
+  String get oidoBluetooth =>
+      'Con auriculares Bluetooth, el micrófono abierto hace que macOS los pase '
+      'al perfil de llamada y la música suena peor. Si otra app ya lo usa '
+      '—una reunión—, no se mete.';
+  @override
+  String get alLlamarlaTitulo => 'Al llamarla';
+  @override
+  String alLlamarlaContesta(String frase) => 'Contesta «$frase»';
+  @override
+  String get alLlamarlaEnSilencio => 'Se abre en silencio';
 }
 
 mixin AjustesStringsEn implements AjustesStrings {
@@ -118,7 +148,7 @@ mixin AjustesStringsEn implements AjustesStrings {
   @override
   String get sectionOido => 'Hearing';
   @override
-  String oidoEspera(String palabra) => 'Waiting to hear “$palabra”.';
+  String oidoEspera(String palabra) => 'Listening for “$palabra”';
   @override
   String get apagado => 'Off';
   @override
@@ -150,7 +180,7 @@ mixin AjustesStringsEn implements AjustesStrings {
   String get canalCosteEncendido => 'listens over Tailscale';
   @override
   String get llaveDeVozEnLlaves =>
-      'The voice key lives in What she can do › Keys, with the others.';
+      'The voice key lives in **What she can do › Keys**.';
   @override
   String get llavesDeImagenesEnLlaves =>
       'The image keys, one per account, live in What she can do › Keys.';
@@ -160,4 +190,26 @@ mixin AjustesStringsEn implements AjustesStrings {
   String get keyPut => 'Set';
   @override
   String get keyChange => 'Change';
+  @override
+  String masVoces(int cuantas) => '+$cuantas voices';
+  @override
+  String get micConcedidoYPrueba =>
+      'Granted. Say something: if the trace moves, your voice is getting '
+      'through.';
+  @override
+  String get oidoAsiSeVe =>
+      'This is how she looks asleep with hearing on: the thin ring breathes '
+      'and trembles when someone speaks nearby. With hearing off, there is no '
+      'ring.';
+  @override
+  String get oidoBluetooth =>
+      'With Bluetooth headphones, an open microphone makes macOS switch them to '
+      'the call profile and music sounds worse. If another app is already '
+      'using it —a meeting— it stays out.';
+  @override
+  String get alLlamarlaTitulo => 'When you call her';
+  @override
+  String alLlamarlaContesta(String frase) => 'Answers “$frase”';
+  @override
+  String get alLlamarlaEnSilencio => 'Opens in silence';
 }

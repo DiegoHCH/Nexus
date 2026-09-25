@@ -250,10 +250,7 @@ mixin SuperpoderesStringsEs implements SuperpoderesStrings {
   @override
   String get accentNameGrey => 'Gris';
   @override
-  String get themeExplainer =>
-      'La app nace oscura porque es un HUD, y de noche eso se agradece. Pero a '
-      'pleno día un fondo negro se lee peor, y nadie va a cambiar el tema del '
-      'Mac entero para eso: aquí se elige aparte.';
+  String get themeExplainer => 'Nace oscura porque es un HUD.';
   @override
   String get themeSystem => 'El del sistema';
   @override
@@ -529,10 +526,7 @@ mixin SuperpoderesStringsEn implements SuperpoderesStrings {
   @override
   String get accentNameGrey => 'Grey';
   @override
-  String get themeExplainer =>
-      'The app is born dark because it is a HUD, and at night that is welcome. '
-      'In broad daylight a black background reads worse, though, and nobody is '
-      'going to switch the whole Mac for that: pick it here instead.';
+  String get themeExplainer => 'It is born dark because it is a HUD.';
   @override
   String get themeSystem => "The system's";
   @override

@@ -74,7 +74,8 @@ void main() {
       await abrir(tester);
 
       for (final (seccion, titulo) in [
-        ('voice', strings.nexusVoice),
+        // El rótulo va en mayúsculas, como todos los de Ajustes.
+        ('voice', strings.nexusVoice.toUpperCase()),
         ('history', strings.archiveTitle),
         // Del idioma se comprueba su explicación y no el título: «IDIOMA» es
         // también el nombre del enlace del menú, y encontrarlo dos veces no

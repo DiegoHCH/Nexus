@@ -7,7 +7,6 @@ import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
 import 'package:nexus/features/assistant/presentation/orb/nexus_orb_plasma_painter.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
-import 'package:nexus/features/workspace/presentation/pages/settings/settings_chooser.dart';
 
 /// Apariencia › Orbe: de qué está hecho y, si es de plasma, su carácter.
 ///
@@ -22,25 +21,32 @@ class OrbeAjustes extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final strings = context.strings;
     final estilo = ref.watch(orbeEstiloProvider);
     final control = ref.read(orbeEstiloProvider.notifier);
     final sinPlasma = PlasmaDelOrbe.programa == null;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          strings.orbeTitle,
-          style: NexusTypography.label.copyWith(color: colors.faint),
+    // Un bloque de la sección, con su rótulo: la forma primero —como en el
+    // mockup, dos opciones con nombre— y debajo el orbe con sus siete
+    // ajustes, que solo existen si es de plasma.
+    return BloqueDeAjustes(
+      rotulo: strings.orbeTitle,
+      hijos: [
+        ElegirDeAjustes<FormaDelOrbe>(
+          llave: 'forma-del-orbe',
+          opciones: FormaDelOrbe.values,
+          elegida: estilo.forma,
+          nombre: (forma) => switch (forma) {
+            FormaDelOrbe.plasma => strings.orbePlasma,
+            FormaDelOrbe.puntos => strings.orbePuntos,
+          },
+          onElegir: (forma) => control.elegir(estilo.copyWith(forma: forma)),
         ),
-        const SizedBox(height: NexusSpacing.s2),
-        Text(
-          strings.orbeExplainer,
-          style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s5),
+        if (estilo.forma == FormaDelOrbe.plasma && sinPlasma)
+          EstadoDeAjustes(
+            tono: TonoDeAjustes.atencion,
+            texto: strings.orbeSinPlasma,
+          ),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -54,49 +60,32 @@ class OrbeAjustes extends ConsumerWidget {
                 child: const NexusOrb(state: NexusOrbState.listen),
               ),
             ),
-            const SizedBox(width: NexusSpacing.s5),
-            Expanded(
-              child: SettingsChooser<FormaDelOrbe>(
-                value: estilo.forma,
-                options: FormaDelOrbe.values,
-                label: (forma) => switch (forma) {
-                  FormaDelOrbe.plasma => strings.orbePlasma,
-                  FormaDelOrbe.puntos => strings.orbePuntos,
-                },
-                detail: (forma) => switch (forma) {
-                  FormaDelOrbe.plasma => strings.orbePlasmaDetail,
-                  FormaDelOrbe.puntos => strings.orbePuntosDetail,
-                },
-                onSelected: (forma) =>
-                    control.elegir(estilo.copyWith(forma: forma)),
+            // Los siete ajustes son del plasma: con puntos no mueven nada, y
+            // enseñarlos sería ofrecer mandos sin cable.
+            if (estilo.forma == FormaDelOrbe.plasma) ...[
+              const SizedBox(width: NexusSpacing.s5),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final ajuste in _ajustes(strings))
+                      _Deslizador(
+                        nombre: ajuste.nombre,
+                        valor: ajuste.leer(estilo),
+                        rango: OrbeEstilo.rangos[ajuste.clave]!,
+                        alMover: (v) => control.elegir(ajuste.poner(estilo, v)),
+                      ),
+                    const SizedBox(height: NexusSpacing.s2),
+                    BotonDeAjustes(
+                      texto: strings.orbeFabrica,
+                      onPulsar: control.restablecer,
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ],
         ),
-        if (estilo.forma == FormaDelOrbe.plasma && sinPlasma) ...[
-          const SizedBox(height: NexusSpacing.s3),
-          Text(
-            strings.orbeSinPlasma,
-            style: NexusTypography.nota.copyWith(color: colors.warn),
-          ),
-        ],
-        // Los siete ajustes son del plasma: con puntos no mueven nada, y
-        // enseñarlos sería ofrecer mandos sin cable.
-        if (estilo.forma == FormaDelOrbe.plasma) ...[
-          const SizedBox(height: NexusSpacing.s5),
-          for (final ajuste in _ajustes(strings))
-            _Deslizador(
-              nombre: ajuste.nombre,
-              valor: ajuste.leer(estilo),
-              rango: OrbeEstilo.rangos[ajuste.clave]!,
-              alMover: (v) => control.elegir(ajuste.poner(estilo, v)),
-            ),
-          const SizedBox(height: NexusSpacing.s3),
-          OutlinedButton(
-            onPressed: control.restablecer,
-            child: Text(strings.orbeFabrica),
-          ),
-        ],
       ],
     );
   }
@@ -169,35 +158,48 @@ class _Deslizador extends StatelessWidget {
   final (double, double) rango;
   final ValueChanged<double> alMover;
 
+  // Como los del escenario: el nombre y su valor en una línea, y la barra
+  // debajo a todo el ancho. En una sola fila, con el nombre y el número a los
+  // lados, la barra se quedaba en un tercio del ancho y el recorrido era tan
+  // corto que moverla con precisión costaba.
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final (min, max) = rango;
     return Padding(
       padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            width: 160,
-            child: Text(
-              nombre,
-              style: NexusTypography.control.copyWith(color: colors.ink),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  nombre,
+                  style: NexusTypography.nota.copyWith(color: colors.ink),
+                ),
+              ),
+              Text(
+                valor.toStringAsFixed(2),
+                style: NexusTypography.data.copyWith(color: colors.mute),
+              ),
+            ],
           ),
-          Expanded(
-            child: Slider(
-              value: valor.clamp(min, max),
-              min: min,
-              max: max,
-              onChanged: alMover,
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 2,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+              padding: EdgeInsets.zero,
             ),
-          ),
-          SizedBox(
-            width: 44,
-            child: Text(
-              valor.toStringAsFixed(2),
-              textAlign: TextAlign.end,
-              style: NexusTypography.data.copyWith(color: colors.mute),
+            child: SizedBox(
+              height: 20,
+              child: Slider(
+                value: valor.clamp(min, max),
+                min: min,
+                max: max,
+                onChanged: alMover,
+              ),
             ),
           ),
         ],

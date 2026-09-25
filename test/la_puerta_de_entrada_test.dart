@@ -213,6 +213,12 @@ void main() {
       // Y el enlace lleva a «Llaves», que es donde se ponen todas desde que
       // dejaron de estar repartidas entre Voz e Imágenes. Se desplaza antes:
       // la voz rueda y el enlace puede quedar por debajo del borde.
+      //
+      // Y se desplaza **después** de que la sección termine de montarse: el
+      // enlace va al final, debajo de la prueba del micrófono, y el trazo
+      // aparece en cuanto llega el permiso —un `Future`—. Desplazarse antes
+      // dejaba el enlace fuera del borde en cuanto el trazo lo empujaba.
+      await tester.pump(const Duration(milliseconds: 100));
       await tester.ensureVisible(find.byKey(const ValueKey('ir-a-llaves')));
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('ir-a-llaves')));

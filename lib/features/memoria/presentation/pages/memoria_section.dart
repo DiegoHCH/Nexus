@@ -18,70 +18,45 @@ class MemoriaSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final strings = context.strings;
     final cosas = ref.watch(loQueRecuerdaDeTiProvider);
 
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            strings.memoriaExplainer,
-            style: NexusTypography.nota.copyWith(color: colors.faint),
-          ),
-          const SizedBox(height: NexusSpacing.s5),
-          if (cosas.isEmpty)
-            Text(
-              strings.laMemoriaVacia,
-              style: NexusTypography.body.copyWith(color: colors.faint),
-            )
-          else
-            for (final (i, cosa) in cosas.indexed)
-              Padding(
-                padding: const EdgeInsets.only(bottom: NexusSpacing.s3),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            cosa.texto,
-                            style: NexusTypography.body.copyWith(
-                              color: colors.ink,
-                            ),
-                          ),
-                          Text(
-                            ComoSeLeeUnTurno.laFechaYLaHora(cosa.cuando),
-                            style: NexusTypography.label.copyWith(
-                              color: colors.faint,
-                            ),
-                          ),
-                        ],
+    // Un solo bloque, como en el mockup: la explicación, las filas y la nota
+    // de lo que cuesta van juntas porque son la misma pregunta —qué sabe de
+    // ti—, y una línea entre ellas las separaría.
+    return BloquesDeAjustes(
+      bloques: [
+        BloqueDeAjustes(
+          hijos: [
+            TextoDeAjustes(strings.memoriaExplainer),
+            if (cosas.isEmpty)
+              TextoDeAjustes(strings.laMemoriaVacia)
+            else
+              FilasDeAjustes(
+                filas: [
+                  for (final (i, cosa) in cosas.indexed)
+                    FilaDeAjustes(
+                      tono: TonoDeAjustes.apagado,
+                      titulo: cosa.texto,
+                      // 🔴 **La fecha se queda, aunque el mockup no la
+                      // pinte.** Es lo que deja decidir si algo apuntado hace
+                      // dos meses sigue siendo verdad, y sin ella todas las
+                      // filas parecen de hoy.
+                      dato: ComoSeLeeUnTurno.laFechaYLaHora(cosa.cuando),
+                      accion: BotonDeAjustes(
+                        texto: strings.memoriaOlvidar,
+                        tono: TonoDeBoton.peligro,
+                        onPulsar: () => ref
+                            .read(loQueRecuerdaDeTiProvider.notifier)
+                            .olvida(i),
                       ),
                     ),
-                    const SizedBox(width: NexusSpacing.s3),
-                    IconButton(
-                      onPressed: () => ref
-                          .read(loQueRecuerdaDeTiProvider.notifier)
-                          .olvida(i),
-                      icon: const Icon(Icons.close, size: 14),
-                      color: colors.faint,
-                      splashRadius: 14,
-                      tooltip: strings.memoriaOlvidar,
-                    ),
-                  ],
-                ),
+                ],
               ),
-          const SizedBox(height: NexusSpacing.s5),
-          Text(
-            strings.memoriaNota(LoQueSeSabeDeTi.cuantas),
-            style: NexusTypography.nota.copyWith(color: colors.faint),
-          ),
-        ],
-      ),
+            NotaDeAjustes(strings.memoriaNota(LoQueSeSabeDeTi.cuantas)),
+          ],
+        ),
+      ],
     );
   }
 }

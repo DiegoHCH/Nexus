@@ -667,16 +667,14 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get sectionMemoria => 'Memoria';
   @override
   String get memoriaExplainer =>
-      'Lo que me has pedido que recuerde de ti. No sale del repositorio: viaja '
-      'con todos los encargos, de cualquier carpeta, y también a la voz. Se '
-      'apunta escribiendo «/recuerda» y lo que sea.';
+      'Lo que le has pedido que recuerde de ti. Se apunta escribiendo '
+      '«/recuerda» y lo que sea.';
   @override
-  String get memoriaOlvidar => 'Olvidar esto';
+  String get memoriaOlvidar => 'Olvidar';
   @override
   String memoriaNota(int cuantas) =>
-      'Se guardan las $cuantas últimas. Esto entra en lo que se le manda a '
-      'Claude en cada encargo, así que lo que crezca aquí se paga en cada '
-      'turno: van las más recientes.';
+      'Se guardan las $cuantas últimas. Lo que crezca aquí se paga en cada '
+      'turno.';
   @override
   String veoSinCommitear(int cuantos, int dias) =>
       'Llevas ${dias == 1 ? 'un día' : '$dias días'} con '
@@ -795,7 +793,7 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String get settings => 'AJUSTES';
   @override
-  String get closeEsc => 'CERRAR  ESC';
+  String get closeEsc => 'CERRAR · ESC';
   @override
   String get sectionVoice => 'Voz';
   @override
@@ -808,25 +806,23 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get sectionNombres => 'Nombres';
   @override
   String get nombresExplainer =>
-      'La app se seguirá llamando Nexus: eso va compilado dentro. Lo que se '
-      'elige aquí es cómo se llama quien te contesta, y cómo quieres que te '
-      'llame a ti.';
+      'La app se sigue llamando Nexus. Aquí se elige cómo se llama quien te '
+      'contesta, y cómo quieres que te llame a ti.';
   @override
-  String get comoSeLlamaElAgente => 'Cómo se llama quien te contesta';
+  String get comoSeLlamaElAgente => 'Cómo se llama';
   @override
   String get comoSeLlamaElAgentePista => 'Nexus';
   @override
-  String get comoTeLlamas => 'Cómo quieres que te llame';
+  String get comoTeLlamas => 'Cómo te llama';
   @override
   String get comoTeLlamasPista => 'Tu nombre, o vacío para que no te llame';
   @override
   String get asiSeVera => 'Así se verá';
   @override
   String get suNombreLaDespierta =>
-      'Con el oído encendido, decir su nombre la despierta y abre la voz sin '
-      'tocar nada. Un nombre corto como «Ciel» se confunde con «cielo»: mejor '
-      'uno de tres sílabas o más. Por escrito, nombrarla también le dice que '
-      'le hablas a ella.';
+      'Con el **oído** encendido, decir su nombre la despierta. Un nombre '
+      'corto como «Ciel» se confunde con «cielo»: mejor uno de tres sílabas o '
+      'más.';
   @override
   String ejemploDeLoQuePides(String agente) =>
       '$agente, ¿qué reuniones tengo hoy?';
@@ -853,15 +849,12 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String get avisosAunqueLaMiresOn => 'También con Nexus delante';
   @override
-  String get elOidoOn => 'Que me oiga cuando la llame';
+  String get elOidoOn => 'Que te oiga cuando la llames';
   @override
   String elOidoExplainer(String nombre) =>
-      'Di «$nombre» y se abre la conversación de voz, sin tocar nada. Lo '
-      'reconoce este Mac: nada de lo que oye sale de aquí.\n\n'
-      'Mientras escucha, el indicador naranja del micrófono está encendido. Y '
-      'con auriculares Bluetooth, tener el micrófono abierto hace que macOS los '
-      'cambie al perfil de llamada, así que la música suena peor. Si otra app '
-      'ya lo está usando —una reunión—, no se mete.';
+      'Di «$nombre» y se abre la voz, sin tocar nada. Lo reconoce **este '
+      'Mac**: nada de lo que oye sale de aquí. Mientras escucha, el punto '
+      'naranja del micrófono de macOS está encendido.';
   @override
   String get loDisparoUnTrabajoDeFondo =>
       'Esto no contesta a lo último que escribiste: lo disparó un trabajo de '
@@ -1270,16 +1263,14 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get sectionMemoria => 'Memory';
   @override
   String get memoriaExplainer =>
-      'What you have asked me to remember about you. It does not come from the '
-      'repository: it travels with every errand, in any folder, and to the '
-      'voice too. You note it by typing “/recuerda” and whatever it is.';
+      'What you have asked her to remember about you. You note it by typing '
+      '“/recuerda” and whatever it is.';
   @override
-  String get memoriaOlvidar => 'Forget this';
+  String get memoriaOlvidar => 'Forget';
   @override
   String memoriaNota(int cuantas) =>
-      'The last $cuantas are kept. This goes into what Claude is sent on every '
-      'errand, so whatever grows here is paid for on every turn: the most '
-      'recent ones go.';
+      'The last $cuantas are kept. Whatever grows here is paid for on every '
+      'turn.';
   @override
   String veoSinCommitear(int cuantos, int dias) =>
       "You've had ${cuantos == 1 ? 'a file' : '$cuantos files'} uncommitted "
@@ -1396,7 +1387,7 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String get settings => 'SETTINGS';
   @override
-  String get closeEsc => 'CLOSE  ESC';
+  String get closeEsc => 'CLOSE · ESC';
   @override
   String get sectionVoice => 'Voice';
   @override
@@ -1409,25 +1400,23 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get sectionNombres => 'Names';
   @override
   String get nombresExplainer =>
-      'The app will still be called Nexus: that is compiled in. What you pick '
-      'here is what the one answering you is called, and how you want to be '
-      'addressed.';
+      'The app is still called Nexus. Here you pick what the one answering you '
+      'is called, and what you want her to call you.';
   @override
-  String get comoSeLlamaElAgente => 'What the one answering is called';
+  String get comoSeLlamaElAgente => 'What she is called';
   @override
   String get comoSeLlamaElAgentePista => 'Nexus';
   @override
-  String get comoTeLlamas => 'How you want to be addressed';
+  String get comoTeLlamas => 'What she calls you';
   @override
   String get comoTeLlamasPista => 'Your name, or empty for none';
   @override
   String get asiSeVera => 'How it will look';
   @override
   String get suNombreLaDespierta =>
-      'With hearing on, saying her name wakes her and opens voice without '
-      'touching anything. A short name like “Ciel” gets confused with other '
-      'words: better one of three syllables or more. In writing, naming her '
-      'also tells her you are talking to her.';
+      'With **hearing** on, saying her name wakes her. A short name like '
+      '“Ciel” gets confused with other words: better one of three syllables or '
+      'more.';
   @override
   String ejemploDeLoQuePides(String agente) =>
       '$agente, what meetings do I have today?';
@@ -1454,15 +1443,12 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String get avisosAunqueLaMiresOn => 'Even with Nexus in front';
   @override
-  String get elOidoOn => 'Listen for its name';
+  String get elOidoOn => 'Hear you when you call her';
   @override
   String elOidoExplainer(String nombre) =>
-      'Say “$nombre” and the voice conversation opens, without touching '
-      'anything. This Mac does the recognising: nothing it hears leaves here.'
-      '\n\nWhile it listens, the orange microphone indicator is on. And with '
-      'Bluetooth headphones, an open microphone makes macOS switch them to the '
-      'call profile, so music sounds worse. If another app is already using it '
-      '—a meeting— it stays out.';
+      'Say “$nombre” and voice opens, without touching anything. **This Mac** '
+      'does the recognising: nothing it hears leaves here. While it listens, '
+      'the orange macOS microphone dot is on.';
   @override
   String get loDisparoUnTrabajoDeFondo =>
       'This is not answering what you last wrote: a background job triggered it '

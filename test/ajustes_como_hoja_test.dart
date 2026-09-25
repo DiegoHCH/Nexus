@@ -304,8 +304,8 @@ void main() {
       expect(find.text(es.filePermissionsTitle), findsOne);
     });
 
-    test('el ancho de la hoja: siete décimos, con suelo y techo', () {
-      expect(SettingsPage.anchoDeLaHoja(1280), closeTo(921.6, 0.1));
+    test('el ancho de la hoja: la del mockup, con suelo y techo', () {
+      expect(SettingsPage.anchoDeLaHoja(1280), 900);
       expect(SettingsPage.anchoDeLaHoja(1024), 800);
       expect(SettingsPage.anchoDeLaHoja(2560), 1040);
       // Más estrecha que el suelo, la hoja ocupa la ventana entera.

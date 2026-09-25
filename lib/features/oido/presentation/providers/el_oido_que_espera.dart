@@ -90,6 +90,21 @@ class ElOidoQueEspera {
     await cuadrar();
   }
 
+  /// Dónde se guarda si contesta al llamarla.
+  static const saluda = 'oido_saluda';
+
+  /// Si contesta «¿Sí, Argonauta?» al llamarla o se abre en silencio.
+  ///
+  /// Contestar es lo de fábrica, por lo que cuenta [_elSaludo]: desde el otro
+  /// lado de la habitación el silencio no dice si te oyó. Pero el mockup lo
+  /// deja elegir, y tiene razón: con la app delante —o de noche, con alguien
+  /// durmiendo— el saludo sobra, y ver el orbe salir ya dice que te oyó.
+  Future<void> cambiarSaludo({required bool aSaludar}) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(saluda, aSaludar);
+    if (_ref.mounted) _ref.invalidate(elOidoSaludaProvider);
+  }
+
   /// Enciende o apaga según el ajuste y según si hay voz abierta.
   Future<void> cuadrar() async {
     final debe = await _debeEscuchar();
@@ -242,7 +257,7 @@ class ElOidoQueEspera {
       _ref
           .read(assistantControllerProvider(cual).notifier)
           .toggleVoice(
-            saludo: resto.isEmpty ? _elSaludo() : null,
+            saludo: resto.isEmpty && _contesta() ? _elSaludo() : null,
             primeraFrase: resto.isEmpty ? null : resto,
           ),
     );
@@ -270,6 +285,11 @@ class ElOidoQueEspera {
   /// perdía. El saludo contesta a las dos cosas: te oyó, y ya puedes hablar.
   String _elSaludo() =>
       _ref.read(stringsProvider).alLlamarla(_ref.read(losNombresProvider).tuyo);
+
+  /// Si al llamarla contesta. Lo que no se ha leído todavía cuenta como sí,
+  /// que es lo de fábrica: el proveedor se mantiene cargado desde que el oído
+  /// se arma, así que en la práctica ya está leído cuando alguien la llama.
+  bool _contesta() => _ref.read(elOidoSaludaProvider).value ?? true;
 
   /// El acento elegido, que viaja con cada aviso: el orbe de fuera corre en
   /// otro motor y no puede leer los ajustes por su cuenta.
@@ -326,6 +346,9 @@ final elOidoQueEsperaProvider = Provider<ElOidoQueEspera>((ref) {
   // cambio cualquiera: la llamabas y no te oía. Las que se abren llamándola ya
   // cuadraban al cerrarse; estas no.
   ref.listen(_hayVozAbiertaProvider, (_, _) => unawaited(oido.cuadrar()));
+  // Escuchado solo para tenerlo leído: la llamada se contesta en el acto y no
+  // puede esperar al disco para saber si saluda.
+  ref.listen(elOidoSaludaProvider, (_, _) {});
   ref.listen(losNombresProvider.select((nombres) => nombres.agente), (
     antes,
     ahora,
@@ -351,4 +374,10 @@ final _hayVozAbiertaProvider = Provider<bool>(
 final elOidoEstaEncendidoProvider = FutureProvider<bool>((ref) async {
   final prefs = await SharedPreferences.getInstance();
   return prefs.getBool(ElOidoQueEspera.encendido) ?? false;
+});
+
+/// Si contesta al llamarla. Nace en sí; ver [ElOidoQueEspera.cambiarSaludo].
+final elOidoSaludaProvider = FutureProvider<bool>((ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(ElOidoQueEspera.saluda) ?? true;
 });

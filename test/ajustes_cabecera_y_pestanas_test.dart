@@ -47,9 +47,10 @@ void main() {
       expect(corta.width, larga.width, reason: 'todas valen lo mismo');
       expect(
         corta.width,
-        greaterThan(180),
+        greaterThan(160),
         reason:
-            'la columna mide 200: el área útil es la columna, no la palabra',
+            'la columna mide 210 y 18 de margen a cada lado, como el mockup: '
+            'el área útil es la columna, no la palabra',
       );
     });
 
@@ -87,9 +88,11 @@ void main() {
               reason: 'hay hueco muerto antes de «$nombre»',
             );
           }
+          // 28 y no 30: el mockup les da 6 px arriba y abajo a un texto de
+          // 13,5, y eso son 30 justos —ni uno de más—.
           expect(
             actual.height,
-            greaterThan(30),
+            greaterThan(28),
             reason: '«$nombre» es muy baja',
           );
           anterior = actual;

@@ -488,6 +488,7 @@ class _LasEsquinas extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ModelMenu(folder: carpeta, meter: meter),
+                  Text(' · ', style: etiqueta),
                   EffortMenu(folder: carpeta, meter: meter),
                 ],
               ),

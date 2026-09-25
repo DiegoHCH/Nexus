@@ -1843,6 +1843,40 @@ void _elAudioAjeno() {
       await subscription.cancel();
     });
 
+    // 🔴 «Hestia, mira el historial de git»: la frase llegaba cortada en el
+    // nombre y la pregunta se perdía. Ahora es el primer turno.
+    test('con lo dicho tras el nombre no saluda: eso es tu turno', () async {
+      final session = _Session();
+      final bridge = _Bridge();
+      final gateway = _Gateway(session);
+      final conversation = _conversation(session, bridge, gateway: gateway);
+
+      final vistos = <VoiceEvent>[];
+      final subscription = conversation(
+        primeraFrase: 'mira el historial de git',
+      ).listen(vistos.add);
+      await Future<void>.delayed(Duration.zero);
+      session.emit(const VoiceSessionReady());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      // Va por el socket como tu turno, y no hay «(inicio)» ni saludo.
+      expect(session.notes, ['mira el historial de git']);
+      expect((gateway.perfil! as ComoUnaConversacion).saludo, isNull);
+      // La pantalla lo pinta como dicho por ti.
+      expect(
+        vistos.whereType<VoiceUserTranscript>().single.text,
+        'mira el historial de git',
+      );
+
+      // Y si contesta de memoria, se corrige como cualquier otro turno.
+      session.emit(VoiceReplyAudio(Uint8List.fromList([2])));
+      session.emit(const VoiceTurnCompleted());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(bridge.asked.single, contains('historial de git'));
+
+      await subscription.cancel();
+    });
+
     test(
       'sin saludo abre como siempre: callada y con el micro abierto',
       () async {

@@ -86,7 +86,8 @@ class _Guionizada extends HoldVoiceConversation {
   void emit(VoiceEvent event) => _events.add(event);
 
   @override
-  Stream<VoiceEvent> call({String? saludo}) => _events.stream;
+  Stream<VoiceEvent> call({String? saludo, String? primeraFrase}) =>
+      _events.stream;
 }
 
 /// Nada de esto se llama: si algo lo llamara, la prueba lo diría a gritos en

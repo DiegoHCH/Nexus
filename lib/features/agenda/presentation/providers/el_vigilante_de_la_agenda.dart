@@ -89,6 +89,11 @@ class ElVigilanteDeLaAgenda extends Notifier<Avisos> {
   /// para eso está [releer], que se pide a mano.
   DateTime? _leidoDesde;
   List<Reunion> _agenda = const [];
+
+  /// Las reuniones leídas de hoy, para quien las quiera enseñar —el escenario
+  /// dormido dice la próxima—. Se lee junto a este provider: el estado cambia
+  /// cada vez que se relee la agenda.
+  List<Reunion> get agenda => _agenda;
   final _yaAvisadas = <String>{};
 
   /// La hora, por el proveedor y no por `DateTime.now()` directo.

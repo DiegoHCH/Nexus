@@ -16,6 +16,9 @@ class HudTopBar extends ConsumerWidget {
     required this.status,
     this.live = false,
     this.folderPath,
+    this.escenario,
+    this.onAlternar,
+    this.onAjustes,
   });
 
   /// Lo que Nexus está haciendo ahora mismo, en una palabra.
@@ -30,6 +33,16 @@ class HudTopBar extends ConsumerWidget {
   /// abiertas ya no existe «la carpeta activa»: cada una tiene la suya, y la
   /// cabecera tiene que decir la de esta o miente sobre dónde estás trabajando.
   final String? folderPath;
+
+  /// Si se ve el escenario (de lejos) o la conversación (de cerca). Con `null`
+  /// no hay nada que alternar y el botón no sale.
+  final bool? escenario;
+  final VoidCallback? onAlternar;
+
+  /// 🔴 **Ajustes con entrada a la vista.** Solo se llegaba con ⌘, o desde la
+  /// barra de menús: medio producto escondido detrás de un atajo que hay que
+  /// saber. El mockup lo pone en la barra, junto al estado.
+  final VoidCallback? onAjustes;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -73,6 +86,29 @@ class HudTopBar extends ConsumerWidget {
             ),
           ),
           const Spacer(),
+          if (escenario != null && onAlternar != null)
+            Tooltip(
+              message: '⌘E',
+              child: TextButton(
+                onPressed: onAlternar,
+                child: Text(
+                  escenario!
+                      ? context.strings.escenarioDeCerca
+                      : context.strings.escenarioModo,
+                ),
+              ),
+            ),
+          if (onAjustes != null) ...[
+            const SizedBox(width: NexusSpacing.s2),
+            Tooltip(
+              message: '⌘,',
+              child: OutlinedButton(
+                onPressed: onAjustes,
+                child: Text(context.strings.escenarioAjustes),
+              ),
+            ),
+            const SizedBox(width: NexusSpacing.s3),
+          ],
           // Carpeta, medidor y permiso se fueron con la caja de escribir: ahí
           // es donde se miran —justo antes de pedir algo— y donde se cambian
           // sin cruzar la pantalla. Aquí arriba se queda lo que no se toca:

@@ -162,8 +162,9 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 100));
 
-    // Dos: el de la ficha del muelle y el de la chapa del compositor.
-    expect(find.text('front-mobile-b2c'), findsNWidgets(2));
+    // Tres: la ficha del muelle, la chapa del compositor y la esquina del
+    // escenario, que es lo que se ve con una conversación sin mensajes.
+    expect(find.text('front-mobile-b2c'), findsNWidgets(3));
     expect(
       tester.takeException(),
       isNull,

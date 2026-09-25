@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'dart:io';
 import 'dart:math';
 
@@ -79,6 +80,7 @@ void main() {
     // El disco contesta en asíncrono: sin esta vuelta la lista todavía está
     // vacía y se estaría midiendo la pantalla de arranque.
     await tester.pump(const Duration(milliseconds: 100));
+    await _deCerca(tester);
 
     final muelle = tester.getRect(find.byType(ConversationDock));
     final caja = tester.getRect(_anclaDe(TourStop.orb));
@@ -161,6 +163,7 @@ void main() {
       ],
     );
     await tester.pump(const Duration(milliseconds: 100));
+    await _deCerca(tester);
 
     // Dos: el de la ficha del muelle y el de la chapa del compositor.
     expect(find.text('front-mobile-b2c'), findsNWidgets(2));
@@ -246,6 +249,7 @@ void _laAlineacion() {
       ],
     );
     await tester.pump(const Duration(milliseconds: 100));
+    await _deCerca(tester);
 
     // Cuatro abiertas con columnas de tres: tres en la primera, la cuarta y
     // «NUEVA» en la segunda. Las fichas se agrupan por su borde izquierdo, que
@@ -329,4 +333,15 @@ class _ConAlgoDicho implements LocalConversationStore {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
+}
+
+/// El muelle vive en la conversación de cerca. Sin mensajes la app enseña el
+/// escenario, donde las conversaciones van como miniorbes en una esquina, así
+/// que se pasa a la vista de cerca como lo haría alguien: con ⌘E.
+Future<void> _deCerca(WidgetTester tester) async {
+  if (find.byType(ConversationDock).evaluate().isNotEmpty) return;
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+  await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+  await tester.pump(const Duration(milliseconds: 100));
 }

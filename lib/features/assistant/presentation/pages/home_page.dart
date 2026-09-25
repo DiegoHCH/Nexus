@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:nexus/features/assistant/presentation/widgets/el_escenario.dart';
 import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
 import 'package:nexus/features/oido/presentation/providers/el_oido_que_espera.dart';
 import 'package:nexus/core/audio/el_nivel_de_la_voz.dart';
@@ -81,6 +82,26 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
+  /// Si se ve el escenario o la conversación de cerca, cuando lo eligió
+  /// alguien. `null` es «que decida la app»: ver [_verElEscenario].
+  bool? _escenarioElegido;
+  bool _habiaVoz = false;
+
+  /// **La misma conversación a dos distancias**, y cuál se ve.
+  ///
+  /// Con la voz abierta, o sin nada escrito todavía, el escenario: es cuando
+  /// se habla con ella y la sala tiene que decir qué está pasando. Con
+  /// mensajes y sin voz, de cerca: es cuando se trabaja leyendo y escribiendo.
+  /// Lo que elijas con ⌘E manda hasta que la voz se
+  /// abra o se cierre, que es cuando cambia el tipo de conversación.
+  bool _verElEscenario(AssistantHudState hud) {
+    if (hud.voiceActive != _habiaVoz) {
+      _habiaVoz = hud.voiceActive;
+      _escenarioElegido = null;
+    }
+    return _escenarioElegido ?? (hud.voiceActive || hud.messages.isEmpty);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -164,6 +185,16 @@ class _HomePageState extends ConsumerState<HomePage> {
     // algo que leer: repartir la pantalla en dos para dejar media vacía sería
     // pedirle al ojo que ignore un hueco.
     final hasChat = hud.messages.isNotEmpty;
+    final escenario = _verElEscenario(hud);
+    // La barra, compartida por las dos distancias. De cerca va encima de todo;
+    // en el escenario va **dentro** de la sala, en la misma fila que las
+    // esquinas de arriba, como en el mockup.
+    final barra = HudTopBar(
+      status: _statusFor(hud.orbState, context.strings),
+      live: working || hud.voiceActive,
+      folderPath: focused.folderPath,
+      centrada: escenario,
+    );
     final anchoDelOrbe = hasChat
         ? MediaQuery.sizeOf(context).width * 0.42
         : MediaQuery.sizeOf(context).width;
@@ -233,6 +264,17 @@ class _HomePageState extends ConsumerState<HomePage> {
         // motivo para inventarse otro.
         const SingleActivator(LogicalKeyboardKey.comma, meta: true): () =>
             SettingsPage.open(context),
+        // ⌘E: de lejos o de cerca. Ver [_verElEscenario].
+        const SingleActivator(LogicalKeyboardKey.keyE, meta: true): () =>
+            setState(
+              () => _escenarioElegido = !_verElEscenario(
+                ref.read(
+                  assistantControllerProvider(
+                    ref.read(conversationsProvider).focused!.id,
+                  ),
+                ),
+              ),
+            ),
         // ⌘. es el «cancelar» de toda la vida en macOS, y el que pide el
         // diseño junto al botón Detener.
         const SingleActivator(LogicalKeyboardKey.period, meta: true):
@@ -266,11 +308,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           body: _ConLaBotoneraDelante(
             arriba: Column(
               children: [
-                HudTopBar(
-                  status: _statusFor(hud.orbState, context.strings),
-                  live: working || hud.voiceActive,
-                  folderPath: focused.folderPath,
-                ),
+                if (!escenario) barra,
                 // Se mide en vez de preguntarle a `MediaQuery` porque lo que
                 // decide el cruce con el muelle es **el alto que le queda al
                 // HUD**, no el de la ventana: la barra de arriba se lleva su
@@ -279,6 +317,48 @@ class _HomePageState extends ConsumerState<HomePage> {
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, cajaDelHud) {
+                      if (escenario) {
+                        return Stack(
+                          children: [
+                            Positioned.fill(
+                              child: ElEscenario(
+                                barra: barra,
+                                conversationId: focused.id,
+                                folderPath: focused.folderPath,
+                                onTapOrbe: controller.toggleVoice,
+                                envolverOrbe: (orbe) => TourAnchor(
+                                  stop: TourStop.orb,
+                                  child: Semantics(
+                                    button: true,
+                                    label: context.strings.orbLabel,
+                                    hint: context.strings.orbHint,
+                                    value: _statusFor(
+                                      hud.orbState,
+                                      context.strings,
+                                    ),
+                                    child: orbe,
+                                  ),
+                                ),
+                                nivelVivo: _elNivelPara(hud.orbState),
+                                pasos: _pasos(hud).$1,
+                                hechos: _pasos(hud).$2,
+                                oido:
+                                    ref
+                                        .watch(elOidoEstaEncendidoProvider)
+                                        .value ??
+                                    false,
+                              ),
+                            ),
+                            if (laFranja.hayAlgo)
+                              Positioned(
+                                top: NexusSpacing.s5,
+                                left: MediaQuery.sizeOf(context).width * 0.25,
+                                right: MediaQuery.sizeOf(context).width * 0.25,
+                                child: laFranja,
+                              ),
+                          ],
+                        );
+                      }
                       // El muelle de conversaciones flota sobre este mismo
                       // `Stack`, en la esquina de abajo a la izquierda — justo
                       // donde vive el orbe. Se le aparta su franja **solo si de
@@ -540,45 +620,52 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
               ],
             ),
-            abajo: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Los ajustes de la conversación viven aquí, junto a la
-                // caja, y ya no arriba del todo: se leen justo antes de pedir
-                // algo y se cambian sin cruzar la pantalla.
-                TourAnchor(
-                  stop: TourStop.composer,
-                  child: ComposerBar(
-                    alSepararse: () => unawaited(controller.irSola()),
-                    onSubmit: (texto, adjuntos) =>
-                        controller.submit(texto, attachments: adjuntos),
-                    onFocusChanged: controller.setListening,
-                    // El historial de las flechas: lo que ya escribiste en esta
-                    // conversación. Sale de los turnos que ya están y no de un
-                    // almacén nuevo — son lo mismo, y dos sitios con lo mismo hay
-                    // que mantenerlos de acuerdo para siempre.
-                    loQueYaEscribi: [
-                      for (final mensaje in hud.messages)
-                        if (mensaje.author == ChatAuthor.user) mensaje.text,
+            // 🔴 **En el escenario no hay caja de escribir**, como en el
+            // mockup: es la sala vista de lejos, y el compositor la convertía
+            // otra vez en un chat. Para escribir se pasa a «Conversación»
+            // —el botón de la barra o ⌘E—, que es donde se lee y se escribe.
+            abajo: escenario
+                ? const SizedBox.shrink()
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Los ajustes de la conversación viven aquí, junto a la
+                      // caja, y ya no arriba del todo: se leen justo antes de pedir
+                      // algo y se cambian sin cruzar la pantalla.
+                      TourAnchor(
+                        stop: TourStop.composer,
+                        child: ComposerBar(
+                          alSepararse: () => unawaited(controller.irSola()),
+                          onSubmit: (texto, adjuntos) =>
+                              controller.submit(texto, attachments: adjuntos),
+                          onFocusChanged: controller.setListening,
+                          // El historial de las flechas: lo que ya escribiste en esta
+                          // conversación. Sale de los turnos que ya están y no de un
+                          // almacén nuevo — son lo mismo, y dos sitios con lo mismo hay
+                          // que mantenerlos de acuerdo para siempre.
+                          loQueYaEscribi: [
+                            for (final mensaje in hud.messages)
+                              if (mensaje.author == ChatAuthor.user)
+                                mensaje.text,
+                          ],
+                          folderPath: focused.folderPath,
+                          meter: hud.meter,
+                          voiceActive: hud.voiceActive,
+                          onToggleVoice: controller.toggleVoice,
+                        ),
+                      ),
+                      // Fuera del `Stack` a propósito: se pinta en el `Overlay` de la app,
+                      // así que su sitio en el árbol da igual — pero **dentro** del Stack
+                      // le fijaba el ancho a cero, porque un Stack se dimensiona por sus
+                      // hijos sin posicionar y este mide 0. Eso dejaba el orbe con ancho
+                      // cero y el muelle desplazado.
+                      const TourOverlay(),
+                      // El icono de la barra de estado, al día con el orbe. Tamaño cero,
+                      // como el velo, y fuera del `Stack` por el mismo motivo: dentro le
+                      // fijaría el ancho.
+                      StatusPresence(conversationId: focused.id),
                     ],
-                    folderPath: focused.folderPath,
-                    meter: hud.meter,
-                    voiceActive: hud.voiceActive,
-                    onToggleVoice: controller.toggleVoice,
                   ),
-                ),
-                // Fuera del `Stack` a propósito: se pinta en el `Overlay` de la app,
-                // así que su sitio en el árbol da igual — pero **dentro** del Stack
-                // le fijaba el ancho a cero, porque un Stack se dimensiona por sus
-                // hijos sin posicionar y este mide 0. Eso dejaba el orbe con ancho
-                // cero y el muelle desplazado.
-                const TourOverlay(),
-                // El icono de la barra de estado, al día con el orbe. Tamaño cero,
-                // como el velo, y fuera del `Stack` por el mismo motivo: dentro le
-                // fijaría el ancho.
-                StatusPresence(conversationId: focused.id),
-              ],
-            ),
           ),
         ),
       ),

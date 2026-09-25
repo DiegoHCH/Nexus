@@ -16,6 +16,7 @@ class HudTopBar extends ConsumerWidget {
     required this.status,
     this.live = false,
     this.folderPath,
+    this.centrada = false,
   });
 
   /// Lo que Nexus está haciendo ahora mismo, en una palabra.
@@ -31,6 +32,10 @@ class HudTopBar extends ConsumerWidget {
   /// cabecera tiene que decir la de esta o miente sobre dónde estás trabajando.
   final String? folderPath;
 
+  /// La barra del escenario: marca, estado y botones **en el centro**, como en
+  /// el mockup. De cerca va a la izquierda, sobre la columna del orbe.
+  final bool centrada;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
@@ -43,6 +48,7 @@ class HudTopBar extends ConsumerWidget {
       ),
       child: Row(
         children: [
+          if (centrada) const Spacer(),
           if (live) ...[
             Container(
               width: 7,
@@ -67,12 +73,18 @@ class HudTopBar extends ConsumerWidget {
           const SizedBox(width: NexusSpacing.s5),
           Text(
             status.toUpperCase(),
+            // En el tono del acento, esté haciendo algo o no, como en el
+            // mockup: el estado es la voz de ella en la barra, y con el acento
+            // que elegiste se reconoce como suya.
             style: NexusTypography.label.copyWith(
-              color: live ? colors.accent : colors.faint,
+              color: colors.accent.withValues(alpha: live ? 1 : 0.75),
               letterSpacing: 2,
             ),
           ),
-          const Spacer(),
+          if (centrada)
+            const SizedBox(width: NexusSpacing.s5)
+          else
+            const Spacer(),
           // Carpeta, medidor y permiso se fueron con la caja de escribir: ahí
           // es donde se miran —justo antes de pedir algo— y donde se cambian
           // sin cruzar la pantalla. Aquí arriba se queda lo que no se toca:
@@ -83,6 +95,7 @@ class HudTopBar extends ConsumerWidget {
               onPressed: controller.pairFolder,
               child: Text(context.strings.pairFolder),
             ),
+          if (centrada) const Spacer(),
         ],
       ),
     );

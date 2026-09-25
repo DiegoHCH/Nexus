@@ -664,7 +664,11 @@ class _LaAccion extends ConsumerWidget {
         strings.runConsoleCorto,
         () => ref.read(abreLaConsolaProvider)(
           url: LaConsolaDeLaApp.urlDe(corrida.consola!),
-          titulo: '${corrida.configuracion} · ${corrida.dispositivo}',
+          // «Consola · ci · POCO F6», como el mockup: la barra de la ventana
+          // dice qué es antes que de dónde.
+          titulo:
+              '${strings.runConsoleCorto} · ${corrida.configuracion} · '
+              '${corrida.dispositivo}',
         ),
         tooltip: strings.runConsole,
       ),

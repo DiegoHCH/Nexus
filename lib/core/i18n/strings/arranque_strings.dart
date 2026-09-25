@@ -431,8 +431,8 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   String get allowScriptsAndNetwork => 'Permitir scripts y red';
   @override
   String get allowScriptsExplainer =>
-      'Este documento lo escribió Claude. Sin esto no ejecuta sus scripts ni '
-      'carga nada de internet.';
+      'Este documento lo escribió Claude. Sin permiso no ejecuta sus scripts ni '
+      'carga nada de internet. Se recarga solo si cambia.';
   @override
   String get allowScriptsShort => 'Scripts y red';
   @override
@@ -806,8 +806,8 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   String get allowScriptsAndNetwork => 'Allow scripts and network';
   @override
   String get allowScriptsExplainer =>
-      'Claude wrote this document. Without this it runs no scripts and loads '
-      'nothing from the internet.';
+      'Claude wrote this document. Without permission it runs no scripts and '
+      'loads nothing from the internet. It reloads by itself when it changes.';
   @override
   String get allowScriptsShort => 'Scripts & network';
   @override

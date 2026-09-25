@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
@@ -11,6 +12,7 @@ import 'package:nexus/features/run/domain/entities/corrida.dart';
 import 'package:nexus/features/run/domain/usecases/el_error_que_pinta_la_app.dart';
 import 'package:nexus/features/run/domain/usecases/el_registro_como_html.dart';
 import 'package:nexus/features/run/presentation/providers/corridas_providers.dart';
+import 'package:nexus/features/run/presentation/providers/pasarle_el_error_a_claude.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Quien escribe la página y abre su ventana.
@@ -28,6 +30,16 @@ typedef ElPintorDeVentanas =
 
 final elPintorDeVentanasProvider = Provider<ElPintorDeVentanas>(
   (ref) => _conElVisor,
+);
+
+/// Dónde deja «Copiar» lo que se lee en la ventana.
+///
+/// Un proveedor y no `Clipboard.setData` a pelo por lo mismo que el pintor: así
+/// se puede comprobar **qué** se copió, que es lo que tiene reglas —con su
+/// etiqueta, en el orden en que llegó, con el filtro puesto—.
+final elPortapapelesProvider = Provider<Future<void> Function(String texto)>(
+  (ref) =>
+      (texto) => Clipboard.setData(ClipboardData(text: texto)),
 );
 
 Future<void> _conElVisor(
@@ -202,8 +214,8 @@ class LasVentanasDelRegistro extends Notifier<Set<String>> {
     final viva = ref.read(corridasProvider).containsKey(corrida.deviceId);
 
     final html = deQue.sistema
-        ? _elDelSistema(corrida, s: s, viva: viva)
-        : _elDeLaCorrida(corrida, s: s, viva: viva);
+        ? _elDelSistema(corrida, nombre, s: s, viva: viva)
+        : _elDeLaCorrida(corrida, nombre, s: s, viva: viva);
 
     await ref.read(elPintorDeVentanasProvider)(
       nombre,
@@ -213,37 +225,78 @@ class LasVentanasDelRegistro extends Notifier<Set<String>> {
   }
 
   String _elDeLaCorrida(
-    Corrida corrida, {
+    Corrida corrida,
+    String nombre, {
     required NexusStrings s,
     required bool viva,
   }) {
     final lineas = ref.read(registrosProvider)[corrida.deviceId] ?? const [];
+    // 🔴 **Aquí todo se pintaba del mismo gris**, y por eso un error de la app
+    // se leía igual que una línea de Gradle: el registro del sistema sí
+    // separaba por nivel —lo trae el teléfono hecho— y este no tenía de dónde
+    // sacarlo. Ahora lo dice el texto, que es lo único que hay. Ver
+    // [ElErrorQuePintaLaApp.pintaMal].
+    final paraPintar = [
+      for (final linea in lineas)
+        LineaDeLaVentana(
+          linea,
+          tono: ElErrorQuePintaLaApp.pintaMal(linea)
+              ? TonoDeLinea.error
+              : TonoDeLinea.normal,
+        ),
+    ];
+    _loQueSeVe[nombre] = paraPintar;
     return ElRegistroComoHtml.escribe(
       viva: viva,
-      // 🔴 **Aquí todo se pintaba del mismo gris**, y por eso un error de la app
-      // se leía igual que una línea de Gradle: el registro del sistema sí
-      // separaba por nivel —lo trae el teléfono hecho— y este no tenía de dónde
-      // sacarlo. Ahora lo dice el texto, que es lo único que hay. Ver
-      // [ElErrorQuePintaLaApp.pintaMal].
-      lineas: [
-        for (final linea in lineas)
-          LineaDeLaVentana(
-            linea,
-            tono: ElErrorQuePintaLaApp.pintaMal(linea)
-                ? TonoDeLinea.error
-                : TonoDeLinea.normal,
-          ),
-      ],
+      lineas: paraPintar,
       textos: TextosDelRegistro(
         titulo: s.runLogs,
         dispositivo: '${corrida.configuracion} · ${corrida.dispositivo}',
-        vacio: s.runCompiling,
+        // Vacía dice qué pasa y qué hacer —que todavía no ha hablado, y que
+        // aparecerá aquí—, no «Compilando», que era verdad solo al principio.
+        vacio: viva ? s.runRegistroVacio : s.runStopping,
+        acciones: _lasAcciones(
+          corrida,
+          nombre,
+          s: s,
+          hayLineas: lineas.isNotEmpty,
+        ),
       ),
     );
   }
 
+  /// Lo que se puede hacer con lo que se lee, **la que toca primero**.
+  ///
+  /// «Pasarle el error a Claude» también aquí, que es donde se lee el error:
+  /// obligar a volver a la botonera para pasarlo era separar la lectura del
+  /// gesto. Solo con la corrida viva y errores contados, por lo mismo que en la
+  /// botonera: sin error que pasar, el botón no puede hacer nada.
+  List<EnlaceDelRegistro> _lasAcciones(
+    Corrida corrida,
+    String nombre, {
+    required NexusStrings s,
+    required bool hayLineas,
+  }) {
+    final viva = ref.read(corridasProvider)[corrida.deviceId];
+    return [
+      if (viva != null && viva.errores > 0)
+        EnlaceDelRegistro(
+          texto: s.runPasarloAClaude,
+          ruta: 'pasar/${_limpio(corrida.deviceId)}',
+          marcado: true,
+        ),
+      if (hayLineas)
+        EnlaceDelRegistro(texto: s.runCopiar, ruta: 'copiar/$nombre'),
+    ];
+  }
+
+  /// Lo último que se pintó en cada ventana, para poder copiarlo tal cual se
+  /// ve —con el filtro puesto— sin volver a calcularlo.
+  final _loQueSeVe = <String, List<LineaDeLaVentana>>{};
+
   String _elDelSistema(
-    Corrida corrida, {
+    Corrida corrida,
+    String nombre, {
     required NexusStrings s,
     required bool viva,
   }) {
@@ -253,36 +306,53 @@ class LasVentanasDelRegistro extends Notifier<Set<String>> {
         .escuchando(corrida.deviceId);
     final lineas = ref.read(loQueSeVeDelRegistroProvider(corrida.deviceId));
 
+    final paraPintar = [
+      for (final linea in lineas)
+        LineaDeLaVentana(
+          linea.texto,
+          etiqueta: linea.etiqueta,
+          tono: switch (linea.nivel) {
+            NivelDeRegistro.fatal || NivelDeRegistro.error => TonoDeLinea.error,
+            NivelDeRegistro.aviso => TonoDeLinea.aviso,
+            _ => TonoDeLinea.normal,
+          },
+        ),
+    ];
+    _loQueSeVe[nombre] = paraPintar;
+
     return ElRegistroComoHtml.escribe(
       viva: escuchando,
       escuchandoEn: corrida.deviceId,
       escuchando: escuchando,
-      lineas: [
-        for (final linea in lineas)
-          LineaDeLaVentana(
-            linea.texto,
-            etiqueta: linea.etiqueta,
-            tono: switch (linea.nivel) {
-              NivelDeRegistro.fatal ||
-              NivelDeRegistro.error => TonoDeLinea.error,
-              NivelDeRegistro.aviso => TonoDeLinea.aviso,
-              _ => TonoDeLinea.normal,
-            },
-          ),
-      ],
+      lineas: paraPintar,
       textos: TextosDelRegistro(
         titulo: s.runSystemLog,
         dispositivo: corrida.dispositivo,
         vacio: escuchando ? s.runSystemLogWaiting : s.runSystemLogOff,
-        // El nivel, como un ciclo y no como una lista: son cuatro pasos y un
-        // desplegable para cuatro cosas es más clics que leer.
-        nivel: switch (filtro.minimo) {
-          NivelDeRegistro.aviso => s.nivelDesdeAvisos,
-          NivelDeRegistro.error => s.nivelSoloErrores,
-          NivelDeRegistro.fatal => s.nivelSoloFatales,
-          _ => s.nivelTodo,
-        },
+        // 🔴 **Las cuatro a la vista y no un ciclo.** Era un único chip que
+        // cambiaba de texto al pulsarlo: para llegar a «solo errores» había que
+        // adivinar cuántas veces, y lo que había al otro lado no se veía hasta
+        // pasar por ello. El mockup las pone como elección con nombre.
+        niveles: [
+          for (final nivel in FiltroDelRegistro.losQueSeOfrecen)
+            EnlaceDelRegistro(
+              texto: switch (nivel) {
+                NivelDeRegistro.aviso => s.nivelDesdeAvisos,
+                NivelDeRegistro.error => s.nivelSoloErrores,
+                NivelDeRegistro.fatal => s.nivelSoloFatales,
+                _ => s.nivelTodo,
+              },
+              ruta: 'nivel/${nivel.name}',
+              marcado: nivel == filtro.minimo,
+            ),
+        ],
         escucha: s.runSystemLog,
+        acciones: _lasAcciones(
+          corrida,
+          nombre,
+          s: s,
+          hayLineas: lineas.isNotEmpty,
+        ),
       ),
     );
   }
@@ -299,9 +369,37 @@ class LasVentanasDelRegistro extends Notifier<Set<String>> {
     LoQuePideLaPagina.escuchar(ElRegistroComoHtml.que, (ruta) {
       final partes = ruta.split('/').where((p) => p.isNotEmpty).toList();
       switch (partes) {
+        // Sin nombre, el ciclo de antes: una página escrita antes de este
+        // cambio puede seguir abierta y pidiéndolo.
         case ['nivel']:
           ref.read(filtroDelRegistroProvider.notifier).siguienteNivel();
           _repintaLosDelSistema();
+        case ['nivel', final nombre]:
+          final nivel = NivelDeRegistro.values
+              .where((n) => n.name == nombre)
+              .firstOrNull;
+          if (nivel == null) return;
+          ref.read(filtroDelRegistroProvider.notifier).ponerNivel(nivel);
+          _repintaLosDelSistema();
+        case ['pasar', final deviceId]:
+          // Se busca por el id limpio porque es lo que viaja en la ruta; y la
+          // corrida de **ahora**, no la de cuando se abrió la ventana: el error
+          // que se pasa es el último.
+          final corrida = ref
+              .read(corridasProvider)
+              .values
+              .where((c) => _limpio(c.deviceId) == deviceId)
+              .firstOrNull;
+          if (corrida == null) return;
+          unawaited(ref.read(pasarleElErrorAClaudeProvider)(corrida));
+        case ['copiar', final nombre]:
+          final lineas = _loQueSeVe[nombre];
+          if (lineas == null || lineas.isEmpty) return;
+          unawaited(
+            ref.read(elPortapapelesProvider)(
+              ElRegistroComoHtml.comoTexto(lineas),
+            ),
+          );
         case ['escucha', final deviceId]:
           final deQue = _deQue[nombreDe(deviceId, sistema: true)];
           if (deQue == null) return;
@@ -343,6 +441,7 @@ class LasVentanasDelRegistro extends Notifier<Set<String>> {
     }
     _pendiente.remove(nombre)?.cancel();
     _deQue.remove(nombre);
+    _loQueSeVe.remove(nombre);
     state = {...state}..remove(nombre);
   }
 

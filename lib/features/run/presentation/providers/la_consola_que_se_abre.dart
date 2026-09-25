@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/core/platform/ventana_de_la_consola.dart';
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
 import 'package:nexus/features/run/data/datasources/tunel_data_source.dart';
@@ -101,7 +102,11 @@ class LaConsolaQueSeAbre {
     registros.anota(deviceId, 'consola de la app en $url');
     await _ref.read(abreLaConsolaProvider)(
       url: url,
-      titulo: '${corrida.configuracion} · ${corrida.dispositivo}',
+      // «Consola · ci · POCO F6»: la barra de la ventana dice qué es antes
+      // que de dónde, igual que la del registro.
+      titulo:
+          '${_ref.read(stringsProvider).runConsoleCorto} · '
+          '${corrida.configuracion} · ${corrida.dispositivo}',
     );
   }
 

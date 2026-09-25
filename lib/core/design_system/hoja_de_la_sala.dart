@@ -261,12 +261,11 @@ class BotonDeLaHoja extends StatelessWidget {
         ),
       ),
       child: Text(
-        texto,
+        texto.toUpperCase(),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: NexusTypography.control.copyWith(
+        style: NexusTypography.boton.copyWith(
           color: apagado ? colors.faint : color,
-          height: 1,
         ),
       ),
     );

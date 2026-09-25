@@ -231,7 +231,10 @@ void main() {
       );
       // Y el tipo con nombre, no la extensión.
       expect(find.textContaining(strings.artifactsTipoPagina), findsWidgets);
-      expect(find.text(strings.artifactsFiltroPaginas), findsOneWidget);
+      expect(
+        find.text(strings.artifactsFiltroPaginas.toUpperCase()),
+        findsOneWidget,
+      );
     });
 
     // Un documento de antes, sin conversación que lo reclame, se sigue viendo.
@@ -260,7 +263,7 @@ void main() {
       // En la fila y no encima: no se abre ningún diálogo.
       expect(find.byType(Dialog), findsNothing);
 
-      await tester.tap(find.text(strings.historialCancelar));
+      await tester.tap(find.text(strings.historialCancelar.toUpperCase()));
       await tester.pump();
 
       expect(find.text(strings.artifactsTrashPregunta), findsNothing);
@@ -268,7 +271,7 @@ void main() {
 
       await tester.tap(papeleras.first);
       await tester.pump();
-      await tester.tap(find.text(strings.artifactsTrashMover));
+      await tester.tap(find.text(strings.artifactsTrashMover.toUpperCase()));
       await tester.pump();
 
       expect(papelera, ['$_cajon/informe-ci.html']);
@@ -299,7 +302,7 @@ void main() {
 
       await tester.tap(find.text('informe-ci.html'));
       await tester.pump();
-      await tester.tap(find.text(strings.artifactsAbrir));
+      await tester.tap(find.text(strings.artifactsAbrir.toUpperCase()));
       await tester.pump();
 
       expect(abiertos, ['$_cajon/informe-ci.html']);

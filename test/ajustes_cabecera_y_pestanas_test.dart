@@ -72,6 +72,7 @@ void main() {
         'imagenes',
         'avisos',
         'nombres',
+        'memoria',
         'permissions',
         'mobile',
         'history',

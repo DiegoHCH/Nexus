@@ -7,6 +7,8 @@ import 'package:nexus/features/assistant/data/datasources/gemini_live_data_sourc
 import 'package:nexus/features/assistant/data/datasources/native_audio_data_source.dart';
 import 'package:nexus/features/assistant/data/repositories/audio_output_impl.dart';
 import 'package:nexus/features/assistant/data/repositories/gemini_voice_gateway.dart';
+import 'package:nexus/features/memoria/domain/entities/lo_que_se_sabe_de_ti.dart';
+import 'package:nexus/features/memoria/presentation/providers/lo_que_recuerda_de_ti.dart';
 import 'package:nexus/features/assistant/domain/repositories/audio_output.dart';
 import 'package:nexus/features/assistant/domain/repositories/voice_gateway.dart';
 import 'package:nexus/features/assistant/domain/usecases/la_sesion_de_puerta.dart';
@@ -66,6 +68,10 @@ final voiceGatewayProvider = Provider<VoiceGateway>((ref) {
         .conElIdioma(ref.read(stringsProvider).languageName),
     () => ref.read(losNombresProvider).paraElPrompt(),
     () => ref.read(losNombresProvider).agente,
+    // Lo que le pediste que recordara de ti, también hablando: es una sola
+    // memoria, y contárselo escribiendo para que hablando no lo sepa sería
+    // tener dos asistentes con el mismo nombre. Ver [LoQueSeSabeDeTi].
+    () => LoQueSeSabeDeTi.paraElPrompt(ref.read(loQueRecuerdaDeTiProvider)),
     ref.watch(losAjustesQueSuenanProvider),
   );
 });

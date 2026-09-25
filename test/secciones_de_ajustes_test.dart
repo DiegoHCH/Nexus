@@ -53,15 +53,15 @@ void main() {
       // que añadir o quitar una sección pase por aquí, y ya avisó siete veces: de
       // la novena («Móvil», al dejar de estar apagada), de la décima, de
       // «Corridas» al entrar, de «Pruebas», de «Corridas» otra vez al salir, de
-      // la anterior, y de «Nombres».
+      // la anterior, de «Nombres» y de «Memoria».
       //
       // El título de la prueba no lleva el número justamente por eso: decía
       // «ocho» cuando ya esperaba nueve, y un nombre que miente es peor que uno
       // vago.
-      17,
+      18,
       reason:
-          'se esperaban dieciséis secciones y hay $cuantas: si se añade una al enum, '
-          'esta prueba tiene que verla — y si desaparece, también',
+          'se esperaba una sección menos y hay $cuantas: si se añade una al '
+          'enum, esta prueba tiene que verla — y si desaparece, también',
     );
 
     for (var i = 0; i < cuantas; i++) {

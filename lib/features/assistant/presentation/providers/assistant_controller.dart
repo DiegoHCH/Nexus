@@ -53,6 +53,7 @@ import 'package:nexus/features/assistant/domain/usecases/por_que_murio_claude.da
 import 'package:nexus/features/history/presentation/providers/archive_providers.dart';
 import 'package:nexus/features/history/presentation/providers/el_archivo_de_la_conversacion.dart';
 import 'package:nexus/features/history/presentation/providers/el_parte_desde_la_voz.dart';
+import 'package:nexus/features/memoria/presentation/providers/lo_que_recuerda_de_ti.dart';
 import 'package:nexus/features/run/domain/usecases/decision_de_recarga.dart';
 import 'package:nexus/features/run/presentation/providers/corridas_providers.dart';
 import 'package:nexus/features/run/presentation/providers/run_providers.dart';
@@ -1026,6 +1027,7 @@ class AssistantController extends Notifier<AssistantHudState> {
               ElComandoDeLaCasa.agenda => s.ayudaAgenda,
               ElComandoDeLaCasa.mcp => s.ayudaMcp,
               ElComandoDeLaCasa.programadas => s.ayudaProgramadas,
+              ElComandoDeLaCasa.recuerda => s.ayudaRecuerda,
               ElComandoDeLaCasa.olvida => s.ayudaOlvida,
               ElComandoDeLaCasa.ayuda => s.ayudaAyuda,
             },
@@ -1181,6 +1183,33 @@ class AssistantController extends Notifier<AssistantHudState> {
         _say(ChatAuthor.user, loQueSeVe ?? trimmed);
         _sealLast();
         await _correrloAparte(comando);
+        return;
+
+      // Lo que sé de ti: apuntar algo, o enseñarlo entero. Las dos formas
+      // contestan **en la conversación**, que es donde se preguntó: mandar a
+      // Ajustes a ver qué se está diciendo de ti en cada encargo sería esconder
+      // justo lo que hay que poder mirar.
+      case ALaMemoria(:final queApuntar):
+        _say(ChatAuthor.user, loQueSeVe ?? trimmed);
+        _sealLast();
+        final s = ref.read(stringsProvider);
+        if (queApuntar.isEmpty) {
+          final cosas = ref.read(loQueRecuerdaDeTiProvider);
+          _decir(
+            cosas.isEmpty
+                ? s.laMemoriaVacia
+                : [
+                    s.laMemoriaTitulo,
+                    for (final cosa in cosas) '- ${cosa.texto}',
+                  ].join('\n'),
+          );
+          return;
+        }
+        await ref
+            .read(loQueRecuerdaDeTiProvider.notifier)
+            .recuerda(queApuntar, ref.read(relojProvider)());
+        if (!_vive) return;
+        _decir(s.laMemoriaApuntada(queApuntar));
         return;
 
       case AClaude():

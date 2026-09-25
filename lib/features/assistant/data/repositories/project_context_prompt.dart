@@ -78,6 +78,9 @@ abstract final class ProjectContextPrompt {
     /// detrás se lee como un apodo, así que al preguntarle quién era se
     /// presentaba como lo que sí sabía que era: Claude. Reportado usando la app.
     String? identidad,
+
+    /// Lo que la persona pidió que se recordara de ella. Ver [LoQueSeSabeDeTi].
+    String? loQueSeSabeDeTi,
   }) {
     final sections = <String>[];
 
@@ -93,6 +96,15 @@ abstract final class ProjectContextPrompt {
     // está hablando y quién es él— y las dos frases se leen juntas.
     if (identidad != null && identidad.isNotEmpty) {
       sections.add(identidad);
+    }
+
+    // Y lo que sabe de ella, pegado a lo anterior porque es la misma clase de
+    // dato: con quién está hablando. La diferencia con todo lo demás de este
+    // prompt es que esto **no sale del repositorio** — la sesión de Claude es
+    // de la carpeta y esto es de la persona, así que viaja con todos los
+    // encargos, de cualquier repo. Ver [LoQueSeSabeDeTi].
+    if (loQueSeSabeDeTi != null && loQueSeSabeDeTi.isNotEmpty) {
+      sections.add(loQueSeSabeDeTi);
     }
 
     // **Lo que puede y no puede ejecutar aquí.**

@@ -2,6 +2,7 @@ import 'package:nexus/features/agenda/domain/usecases/lo_que_se_pregunta_de_la_a
 import 'package:nexus/features/artifacts/domain/usecases/lo_que_se_pide_dibujar.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_trabajo_aparte.dart';
 import 'package:nexus/features/assistant/domain/usecases/los_comandos_de_la_casa.dart';
+import 'package:nexus/features/memoria/domain/usecases/lo_que_se_pide_recordar.dart';
 import 'package:nexus/features/history/domain/usecases/el_parte_de_ayer.dart';
 import 'package:nexus/features/programadas/domain/usecases/lo_que_se_pide_programar.dart';
 import 'package:nexus/features/workspace/domain/usecases/el_comando_directo.dart';
@@ -86,6 +87,19 @@ final class AProgramar extends ADondeVa {
 }
 
 /// El camino normal.
+/// Lo que Nexus sabe de ti: la lista, o una cosa nueva que apuntar.
+///
+/// 🔴 **Un solo destino para las dos formas** porque son la misma pregunta: sin
+/// texto, qué sabes de mí; con texto, apunta esto. Partirlo en dos destinos
+/// obligaría a repetir la decisión de qué cuenta como `/recuerda` en dos
+/// sitios, que es el fallo que este archivo ya se comió tres veces.
+final class ALaMemoria extends ADondeVa {
+  const ALaMemoria(this.queApuntar);
+
+  /// Lo que hay que recordar, o vacío si solo se pidió ver la lista.
+  final String queApuntar;
+}
+
 final class AClaude extends ADondeVa {
   const AClaude();
 }
@@ -140,11 +154,19 @@ abstract final class ADondeVaLoQueSeEscribe {
         return const ALosMcp();
       case ElComandoDeLaCasa.programadas:
         return const ALasProgramadas();
+      case ElComandoDeLaCasa.recuerda:
+        return const ALaMemoria('');
 
       // Los que llevan texto los reconoce su dueño, unas líneas más abajo: aquí
       // no se repite esa decisión.
       case _:
         break;
+    }
+
+    // `/recuerda algo`. Va aquí y no en el `switch` de arriba porque lleva
+    // texto detrás, como `/imagen`: allí solo viven los exactos.
+    if (LoQueSePideRecordar.deLaFrase(limpia) case final algo?) {
+      return ALaMemoria(algo);
     }
 
     // Lo que corre aparte del turno, reconocido por su dueño como los demás

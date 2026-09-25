@@ -34,6 +34,14 @@ typedef ClaudeWorkContext = ({
   /// Quién es quien contesta y para qué sirve, ya compuesto. Viaja aquí por lo
   /// mismo que los nombres: es de la app y no del encargo. Ver [QuienEsNexus].
   String? identidad,
+
+  /// Lo que la persona ha pedido que se recuerde de ella, ya compuesto.
+  ///
+  /// Viaja aquí por lo mismo que los nombres, y es lo que lo separa de la
+  /// memoria de siempre: **la sesión de Claude es de la carpeta y esto es
+  /// tuyo**, así que va con todos los encargos, de cualquier repo. Ver
+  /// [LoQueSeSabeDeTi].
+  String? loQueSeSabeDeTi,
 });
 
 /// No extiende `UseCase<ReturnType, Params>`: ese contrato es para trabajo
@@ -305,6 +313,7 @@ class AskClaude {
           constraintsNotice: context.constraintsNotice,
           nombres: context.nombres,
           identidad: context.identidad,
+          loQueSeSabeDeTi: context.loQueSeSabeDeTi,
           language: context.language,
           artifactsFolder: context.artifactsFolder,
           carpetaDePruebas: context.carpetaDePruebas,

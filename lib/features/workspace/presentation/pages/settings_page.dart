@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/features/memoria/presentation/pages/memoria_section.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/nombres_section.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
@@ -141,6 +142,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                           _Section.imagenes => const ImagenesSection(),
                           _Section.avisos => const AvisosSection(),
                           _Section.nombres => const NombresSection(),
+                          _Section.memoria => const MemoriaSection(),
                           _Section.permissions => const PermissionsSection(),
                           _Section.mobile => const MobileSection(),
                           _Section.history => const HistorySection(),
@@ -293,6 +295,7 @@ enum _Section {
   imagenes,
   avisos,
   nombres,
+  memoria,
   permissions,
   mobile,
   history,
@@ -314,6 +317,7 @@ enum _Section {
     _Section.imagenes => strings.sectionImages,
     _Section.avisos => strings.sectionAvisos,
     _Section.nombres => strings.sectionNombres,
+    _Section.memoria => strings.sectionMemoria,
     _Section.permissions => strings.sectionPermissions,
     _Section.mobile => strings.sectionMobile,
     _Section.history => strings.sectionHistory,

@@ -68,6 +68,7 @@ abstract class ClaudeBridge {
     /// — y sin esto, preguntarle quién era se contestaba solo con lo que Claude
     /// sabe de sí mismo. Ver `QuienEsNexus`.
     String? identidad,
+    String? loQueSeSabeDeTi,
 
     /// El modo en que quedó esta sesión cuando alguien pulsó «Permitir todo»,
     /// o `null` para el de siempre.

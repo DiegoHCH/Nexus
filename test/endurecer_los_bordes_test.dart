@@ -271,25 +271,31 @@ void main() {
     });
   });
 
-  // SEC-07. Que la llave viaje en la query es lo que documenta Google; lo que
-  // faltaba es escaparla.
+  // SEC-07. La llave iba en la query, y una `WebSocketException` del
+  // *upgrade* trae la URI entera: acababa a la vista como mensaje de error,
+  // también en el móvil. Ahora va en la cabecera.
   group('la dirección de Gemini', () {
-    test('la llave va escapada', () {
-      final url = GeminiLiveDataSource.urlPara('AIza+con/signos=raros');
+    test('la llave no va en la dirección', () {
+      final url = GeminiLiveDataSource.direccion;
 
-      expect(url.queryParameters['key'], 'AIza+con/signos=raros');
-      // Escapada en el texto: es lo que de verdad viaja.
-      expect(url.toString(), contains('AIza%2Bcon%2Fsignos%3Draros'));
-    });
-
-    // Lo que pasaba de verdad: una llave pegada con un salto de línea daba una
-    // URL rota y un error de conexión que no se parece a «revisa la llave».
-    test('una llave con espacios de más no rompe la dirección', () {
-      final url = GeminiLiveDataSource.urlPara(' AIzaSyLoQueSea\n');
-
-      expect(url.queryParameters['key'], 'AIzaSyLoQueSea');
+      expect(url.queryParameters, isNot(contains('key')));
+      expect(url.toString(), isNot(contains('AIza')));
       expect(url.scheme, 'wss');
       expect(url.host, 'generativelanguage.googleapis.com');
+    });
+
+    test('va en la cabecera, tal cual', () {
+      expect(GeminiLiveDataSource.cabecerasPara('AIza+con/signos=raros'), {
+        'x-goog-api-key': 'AIza+con/signos=raros',
+      });
+    });
+
+    // Lo que pasaba de verdad: una llave pegada con un salto de línea daba un
+    // error de conexión que no se parece a «revisa la llave».
+    test('una llave con espacios de más se recorta', () {
+      expect(GeminiLiveDataSource.cabecerasPara(' AIzaSyLoQueSea\n'), {
+        'x-goog-api-key': 'AIzaSyLoQueSea',
+      });
     });
   });
 }

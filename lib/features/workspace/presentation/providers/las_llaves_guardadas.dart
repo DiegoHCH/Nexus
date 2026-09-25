@@ -140,3 +140,38 @@ final olvidarUnaLlaveProvider =
         ref.invalidate(lasLlavesGuardadasProvider);
       };
     });
+
+/// Las que se ponen desde «Llaves»: la de voz y las de imágenes.
+///
+/// El token del canal, la frase y el emparejamiento no: nacen en «Móvil», al
+/// encender el canal o emparejar el teléfono, y ponerlos a mano aquí sería un
+/// secreto sin el aparato que lo tiene que conocer.
+bool sePoneDesdeLlaves(LlaveDeNexus cual) =>
+    cual == LlaveDeNexus.voz || cual == LlaveDeNexus.imagenes;
+
+/// Pone una —la de voz o la de imágenes de una cuenta— y avisa a quien la lee.
+///
+/// Por el mismo camino que usaban la voz y las imágenes cuando cada una tenía
+/// su campo: el de voz pasa por `saveGeminiKey`, que es el que usa el primer
+/// arranque, para que no haya dos formas de guardar la misma llave.
+final ponerUnaLlaveProvider =
+    Provider<Future<void> Function(LlaveEnElLlavero, String)>((ref) {
+      return (llave, valor) async {
+        switch (llave.cual) {
+          case LlaveDeNexus.voz:
+            await ref.read(saveGeminiKeyProvider)(valor);
+            // La sesión de voz y «Qué sale» leen del llavero por su cuenta.
+            ref.invalidate(geminiKeyStoreProvider);
+          case LlaveDeNexus.imagenes:
+            await ref
+                .read(geminiImageKeyStoreProvider)
+                .save(llave.perfil, valor);
+            ref.invalidate(hayLlaveDeImagenesProvider(llave.perfil));
+          case LlaveDeNexus.tokenDelCanal ||
+              LlaveDeNexus.fraseDeEscritura ||
+              LlaveDeNexus.emparejamiento:
+            return;
+        }
+        ref.invalidate(lasLlavesGuardadasProvider);
+      };
+    });

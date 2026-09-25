@@ -7,6 +7,12 @@ import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 /// D00a del mockup: el primer fotograma. Sin logo animado ni barra de
 /// progreso — solo el wordmark centrado, la etiqueta «Iniciando» abajo, y el
 /// orbe apareciendo con un fundido suave.
+///
+/// 🔴 **El orbe, apagado.** Este fotograma es la comprobación del sistema —si
+/// está Claude Code, si hay una cuenta con sesión—, y mientras no se sabe no se
+/// puede prometer nada: dormido y latiendo decía «estoy listo» antes de
+/// saberlo. Es el primer cuadro del arranque en el mockup: apagado mientras
+/// falta algo, dormido mientras se prepara, hablando cuando saluda.
 class SplashPage extends StatelessWidget {
   const SplashPage({super.key});
 
@@ -25,7 +31,7 @@ class SplashPage extends StatelessWidget {
                 opacity: t,
                 child: Transform.scale(scale: 0.92 + 0.08 * t, child: child),
               ),
-              child: const NexusOrb(state: NexusOrbState.sleep),
+              child: const NexusOrb(state: NexusOrbState.sleep, apagado: true),
             ),
           ),
           Positioned(

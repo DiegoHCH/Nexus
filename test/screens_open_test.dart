@@ -32,7 +32,7 @@ void main() {
   testWidgets('la configuración inicial', (tester) async {
     await pumpScreen(tester, const InitialSetupPage());
     expect(find.text(strings.beforeWeStart), findsOneWidget);
-    expect(find.text(strings.geminiKey), findsOneWidget);
+    expect(find.text(strings.pasoLlave), findsOneWidget);
   });
 
   testWidgets('la casa, sin ninguna conversación abierta', (tester) async {

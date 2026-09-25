@@ -52,6 +52,30 @@ final class LaPuertaAbrira extends LoQuePasaEnLaPuerta {
   final PairedFolder carpeta;
 }
 
+/// No te entendió: lo que dijiste no se parece a ninguna carpeta.
+///
+/// 🔴 **Existe para que la pantalla pueda ofrecer tocar en vez de repetir.**
+/// Hasta ahora esto solo se le contestaba al modelo, y la pantalla seguía con
+/// el saludo escrito como si nada: quien no había sido entendido no tenía otra
+/// salida que decirlo otra vez, y si fallaba por el acento o por el ruido,
+/// volvía a fallar igual. Con el aviso, la frase que se lee es la que se oye
+/// —«No te seguí. ¿En qué carpeta trabajamos?»— y las carpetas siguen a la
+/// vista para tocarlas.
+final class LaPuertaNoTeSiguio extends LoQuePasaEnLaPuerta {
+  const LaPuertaNoTeSiguio();
+}
+
+/// Oyó más de una carpeta y **no elige ninguna**: pregunta cuál.
+///
+/// Lleva cuáles, porque lo útil para la pantalla es dejar a la vista solo esas:
+/// la respuesta ya es una de dos, y enseñar todas las carpetas otra vez sería
+/// volver a preguntar desde el principio.
+final class LaPuertaDudaEntre extends LoQuePasaEnLaPuerta {
+  const LaPuertaDudaEntre(this.carpetas);
+
+  final List<PairedFolder> carpetas;
+}
+
 /// Ya se sabe dónde: se abre esa conversación y la puerta se cierra.
 final class LaPuertaEligio extends LoQuePasaEnLaPuerta {
   const LaPuertaEligio(this.carpeta, this.tarea);
@@ -141,6 +165,12 @@ class LaSesionDePuerta {
   /// El nombre de la única función que la puerta puede recibir.
   static const _laHerramienta = 'elegirCarpeta';
 
+  /// Cómo se le pide que diga una frase: literal si la hay, y si no, que
+  /// vuelva a preguntar con sus palabras.
+  static String _diLiteral(String? frase) => frase == null
+      ? 'Pregunta otra vez en una frase corta.'
+      : 'Di ahora mismo, en voz alta y nada más: "$frase". No añadas nada.';
+
   /// Lo que se le manda para que arranque a hablar.
   ///
   /// Llega como turno de usuario —es lo único que hay— así que es lo más
@@ -153,9 +183,18 @@ class LaSesionDePuerta {
   /// suscripción de un generador **no ejecuta sus `finally`** —medido, ver
   /// `LaSalidaQueSeCancela`—, así que con un `async*` el micrófono se quedaría
   /// abierto y el socket vivo cada vez que alguien cierra esta pantalla.
+  ///
+  /// [siNoTeSigue] y [siDudaEntre] son **las frases exactas** de los dos casos
+  /// en que no te entiende. Llegan de fuera por lo mismo que el saludo: el
+  /// idioma es de la pantalla, no de aquí. Se le dan literales al modelo para
+  /// que lo que se oye y lo que se lee debajo del orbe sean la misma frase —la
+  /// misma piedra que el «vale, abro nexus», y resuelta igual—. Sin ellas se le
+  /// pide que vuelva a preguntar con sus palabras.
   Stream<LoQuePasaEnLaPuerta> abrir({
     required String saludo,
     required List<PairedFolder> carpetas,
+    String? siNoTeSigue,
+    String Function(List<String> carpetas)? siDudaEntre,
   }) {
     late final StreamController<LoQuePasaEnLaPuerta> fuera;
     VoiceSession? sesion;
@@ -372,17 +411,28 @@ class LaSesionDePuerta {
               // Y **corrigiendo**: si la transcripción había adivinado otra, la
               // que se abre es esta, que es la que él acaba de anunciar.
               yaSeSabeDonde(carpeta, tarea, corrige: true);
-            case SeNombraronDos():
-            case NoSeEntendioDonde():
-              // Se le contesta que no, y sigue preguntando ella misma: cortar
-              // aquí dejaría al modelo esperando una respuesta que no llega.
+            // Se le contesta que no, y sigue preguntando ella misma: cortar
+            // aquí dejaría al modelo esperando una respuesta que no llega. Y se
+            // avisa a la pantalla, que es la que ofrece tocar en vez de repetir.
+            case SeNombraronDos(:final carpetas):
+              final nombres = [for (final c in carpetas) c.name];
               sesion?.sendToolResult(
                 callId: callId,
                 name: name,
                 result:
-                    'No hay ninguna carpeta que se llame así. Pregunta otra vez '
-                    'en una frase corta.',
+                    'Hay más de una carpeta que encaja: ${nombres.join(', ')}. '
+                    'No abras ninguna. ${_diLiteral(siDudaEntre?.call(nombres))}',
               );
+              fuera.add(LaPuertaDudaEntre(carpetas));
+            case NoSeEntendioDonde():
+              sesion?.sendToolResult(
+                callId: callId,
+                name: name,
+                result:
+                    'No hay ninguna carpeta que se llame así. '
+                    '${_diLiteral(siNoTeSigue)}',
+              );
+              fuera.add(const LaPuertaNoTeSiguio());
           }
 
         // Terminó de hablar: el micro vuelve a contar.

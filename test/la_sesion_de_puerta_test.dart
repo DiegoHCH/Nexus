@@ -643,6 +643,88 @@ void main() {
 
     expect(sesion.resultados.single, contains('"Vale, abro nexus"'));
   });
+
+  // Los dos casos de «no te entiende» (3b del mockup). Hasta ahora solo se le
+  // contestaban al modelo: la pantalla seguía con el saludo escrito, sin
+  // enterarse, y la única salida era repetir.
+  group('cuando no te entiende', () {
+    Stream<LoQuePasaEnLaPuerta> abrirConFrases() =>
+        LaSesionDePuerta(microfono, servicio, altavoz).abrir(
+          saludo: 'Buenas noches. ¿En dónde vamos a trabajar hoy?',
+          carpetas: const [_nexus, _tienda],
+          siNoTeSigue: 'No te seguí. ¿En qué carpeta trabajamos?',
+          siDudaEntre: (carpetas) =>
+              'Oí ${carpetas.join(' y ')}. ¿En cuál de las dos?',
+        );
+
+    test('lo que no se parece a ninguna se avisa, y sigue abierta', () async {
+      final vistos = <LoQuePasaEnLaPuerta>[];
+      final sub = abrirConFrases().listen(vistos.add);
+      addTearDown(sub.cancel);
+      await vueltas();
+
+      sesion.emite(
+        const VoiceToolRequested(
+          callId: 'c1',
+          name: 'elegirCarpeta',
+          arguments: {'carpeta': 'la de contabilidad'},
+        ),
+      );
+      await vueltas();
+
+      expect(vistos.whereType<LaPuertaNoTeSiguio>(), hasLength(1));
+      expect(vistos.whereType<LaPuertaAbrira>(), isEmpty);
+      expect(sesion.cerrada, isFalse, reason: 'se vuelve a preguntar');
+      // Con la frase exacta: lo que se oye es lo que se lee debajo del orbe.
+      expect(
+        sesion.resultados.single,
+        contains('"No te seguí. ¿En qué carpeta trabajamos?"'),
+      );
+    });
+
+    test(
+      'dos a la vez no abre ninguna: pregunta cuál, y dice cuáles',
+      () async {
+        final vistos = <LoQuePasaEnLaPuerta>[];
+        final sub = abrirConFrases().listen(vistos.add);
+        addTearDown(sub.cancel);
+        await vueltas();
+
+        sesion.emite(
+          const VoiceToolRequested(
+            callId: 'c1',
+            name: 'elegirCarpeta',
+            arguments: {'carpeta': 'nexus y front-mobile-b2c'},
+          ),
+        );
+        await vueltas();
+
+        final duda = vistos.whereType<LaPuertaDudaEntre>().single;
+        expect(duda.carpetas, unorderedEquals([_nexus, _tienda]));
+        expect(vistos.whereType<LaPuertaAbrira>(), isEmpty);
+        expect(sesion.cerrada, isFalse);
+        expect(sesion.resultados.single, contains('No abras ninguna'));
+        expect(sesion.resultados.single, contains('¿En cuál de las dos?"'));
+      },
+    );
+
+    test('sin frases dadas, se le pide que pregunte con las suyas', () async {
+      final sub = abrir().listen((_) {});
+      addTearDown(sub.cancel);
+      await vueltas();
+
+      sesion.emite(
+        const VoiceToolRequested(
+          callId: 'c1',
+          name: 'elegirCarpeta',
+          arguments: {'carpeta': 'la de contabilidad'},
+        ),
+      );
+      await vueltas();
+
+      expect(sesion.resultados.single, contains('Pregunta otra vez'));
+    });
+  });
 }
 
 /// El plazo para despedirse, contra el reloj del propio servicio.

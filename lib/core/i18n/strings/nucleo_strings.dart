@@ -585,8 +585,16 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String get laPuertaNoEntendio => 'No te seguí. ¿En qué carpeta trabajamos?';
   @override
-  String laPuertaOyoDos(List<String> carpetas) =>
-      'Oí ${carpetas.join(' y ')}. ¿En cuál de las dos?';
+  String laPuertaOyoDos(List<String> carpetas) {
+    // «De las dos» solo si son dos: con tres sería contar mal delante de quien
+    // las acaba de nombrar.
+    if (carpetas.length <= 2) {
+      return 'Oí ${carpetas.join(' y ')}. ¿En cuál de las dos?';
+    }
+    final antes = carpetas.sublist(0, carpetas.length - 1).join(', ');
+    return 'Oí $antes y ${carpetas.last}. ¿En cuál?';
+  }
+
   @override
   String get stopNow => 'Detener el encargo';
   @override
@@ -1185,8 +1193,14 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String get laPuertaNoEntendio => "I didn't catch that. Which folder?";
   @override
-  String laPuertaOyoDos(List<String> carpetas) =>
-      'I heard ${carpetas.join(' and ')}. Which one?';
+  String laPuertaOyoDos(List<String> carpetas) {
+    if (carpetas.length <= 2) {
+      return 'I heard ${carpetas.join(' and ')}. Which one?';
+    }
+    final antes = carpetas.sublist(0, carpetas.length - 1).join(', ');
+    return 'I heard $antes and ${carpetas.last}. Which one?';
+  }
+
   @override
   String get stopNow => 'Stop the errand';
   @override

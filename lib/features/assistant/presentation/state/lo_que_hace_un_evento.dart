@@ -190,6 +190,7 @@ abstract final class LosMensajes {
     bool esElParte = false,
     PropuestaDeProgramar? propuesta,
     bool esLaListaDeProgramadas = false,
+    bool esLaAyuda = false,
     DateTime? enviadoEl,
   }) => [
     ...mensajes,
@@ -205,6 +206,7 @@ abstract final class LosMensajes {
       respondeA: respondeA,
       propuesta: propuesta,
       esLaListaDeProgramadas: esLaListaDeProgramadas,
+      esLaAyuda: esLaAyuda,
       // Solo la respuesta, no lo que se pidió: el botón de enviar va bajo el
       // parte, y lo que se pidió es la instrucción que lo generó.
       esElParte: autor == ChatAuthor.nexus && esElParte,

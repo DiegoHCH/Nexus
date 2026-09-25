@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:nexus/features/assistant/presentation/state/activity_layout.dart';
 
 /// Los textos de la página, que vienen de fuera.
@@ -8,7 +10,7 @@ import 'package:nexus/features/assistant/presentation/state/activity_layout.dart
 class TextosDeActividad {
   const TextosDeActividad({
     required this.titulo,
-    required this.progreso,
+    required this.paso,
     required this.trabajando,
     required this.escribe,
     required this.seEjecuto,
@@ -16,10 +18,14 @@ class TextosDeActividad {
     required this.todaviaCorriendo,
     required this.sinPasos,
     required this.detener,
+    required this.ahora,
+    required this.espera,
   });
 
   final String titulo;
-  final String Function(int hechos, int total) progreso;
+
+  /// «paso 3 de 4»: el que va, de cuántos.
+  final String Function(int paso, int total) paso;
   final String trabajando;
   final String escribe;
   final String seEjecuto;
@@ -27,6 +33,11 @@ class TextosDeActividad {
   final String todaviaCorriendo;
   final String sinPasos;
   final String detener;
+
+  /// La palabra del paso que corre y la del que espera; el hecho lleva
+  /// [seEjecuto].
+  final String ahora;
+  final String espera;
 }
 
 /// Lo que está haciendo el encargo, escrito como una página.
@@ -52,9 +63,15 @@ abstract final class LaActividadComoHtml {
   /// que el botón de detener funcione desde una página estática.
   static const esquema = 'nexus';
 
+  /// La página entera. [reactor] dice cuántos segmentos tiene el aro y cuántos
+  /// van encendidos.
+  ///
+  /// **Llega hecho y no se calcula aquí**: el reparto de segmentos por paso es
+  /// el del orbe (`reactorEncendido`), y copiarlo dejaría dos reglas que
+  /// acabarían diciendo cosas distintas del mismo turno.
   static String escribe({
     required List<ActivityRow> filas,
-    required int terminados,
+    required ({int total, int encendidos}) reactor,
     required bool viva,
     required TextosDeActividad textos,
     String? detenerEn,
@@ -63,6 +80,13 @@ abstract final class LaActividadComoHtml {
         ? '<p class="vacio">${_e(textos.sinPasos)}</p>'
         : filas.map((fila) => _fila(fila, textos)).join('\n');
 
+    // «Paso n de m» con la cuenta del orbe: solo los pasos de Claude, y el
+    // que corre ya cuenta como el que va. Terminado, n es lo hecho.
+    final cuenta = laCuentaDelTurno(filas.map((fila) => fila.item));
+    final va = viva && cuenta.hechos < cuenta.pasos
+        ? cuenta.hechos + 1
+        : cuenta.hechos;
+
     return '''
 <!doctype html>
 <html><head><meta charset="utf-8">
@@ -70,27 +94,41 @@ abstract final class LaActividadComoHtml {
 <title>${_e(textos.titulo)}</title>
 <style>
   :root{
-    --bg:#0b0d10; --panel:#111419; --ink:#e8eaee; --faint:#6e7683; --line:#22262e;
-    --ok:#6fd39b; --warn:#e0a86a; --acento:#7aa0ff; --err:#f08a8a;
+    --bg:#0b0d10; --panel:#111419; --ink:#e8eaee; --mute:#a3aab5;
+    --faint:#6e7683; --line:#22262e;
+    --ok:#6fd39b; --warn:#e0a86a; --acento:#57d3e0; --err:#f08a8a;
     --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
     --sans:-apple-system,BlinkMacSystemFont,sans-serif;
   }
   @media (prefers-color-scheme:light){
-    :root{ --bg:#f3f2f0; --panel:#fff; --ink:#16181d; --faint:#8b91a0;
-           --line:#e4e2dd; --ok:#1c7a4a; --warn:#8a5a1c; --acento:#2f5bd7;
-           --err:#b02a2a; }
+    :root{ --bg:#f3f2f0; --panel:#fff; --ink:#16181d; --mute:#4c5360;
+           --faint:#8b91a0; --line:#e4e2dd; --ok:#1c7a4a; --warn:#8a5a1c;
+           --acento:#1f6f7a; --err:#b02a2a; }
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);font-family:var(--mono);font-size:12.5px;
        line-height:1.6;color:var(--ink);padding:10px}
+  /* 2 px y sin sombra, como el resto de la app: aquí nada se coge, se lee. */
   .tarjeta{background:var(--panel);border:1px solid var(--line);
-           border-radius:10px;overflow:hidden}
+           border-radius:2px;overflow:hidden}
   header{display:flex;align-items:center;gap:10px;padding:12px 14px;
          border-bottom:1px solid var(--line)}
-  h1{font-size:11px;margin:0;font-weight:700;letter-spacing:.1em;
-     text-transform:uppercase;color:var(--acento);font-family:var(--sans)}
-  .cuenta{margin-left:auto;color:var(--faint);font-size:11px;
-          font-variant-numeric:tabular-nums}
+  h1{font-size:10px;margin:0;font-weight:500;letter-spacing:.18em;
+     text-transform:uppercase;color:var(--acento);font-family:var(--mono)}
+  .cuenta{color:var(--mute);font-size:10px;letter-spacing:.18em;
+          text-transform:uppercase;font-variant-numeric:tabular-nums}
+  .hueco{flex:1}
+
+  /* El reactor, el mismo aro del orbe trabajando: un tramo por paso, encendido
+     lo hecho. Es SVG quieto —la página no lleva JavaScript— y lo único que se
+     mueve es el halo, en CSS, mientras el encargo sigue vivo. */
+  .reactor{display:flex;justify-content:center;padding:18px 0 6px}
+  .reactor svg{width:168px;height:168px}
+  .seg{stroke:var(--line);stroke-width:3;stroke-linecap:round}
+  .seg.on{stroke:var(--acento)}
+  .halo{fill:none;stroke:color-mix(in srgb,var(--acento) 35%,transparent);
+        stroke-width:1;stroke-dasharray:2 7;transform-origin:100px 100px}
+  .vivo .halo{animation:vuelta 9s linear infinite}
 
   /* El giro, en CSS: la página no lleva JavaScript.
      `inline-block` no es decorativo — a un `span` inline no se le aplican
@@ -101,63 +139,108 @@ abstract final class LaActividadComoHtml {
   @keyframes vuelta{to{transform:rotate(360deg)}}
   .punto{display:inline-block;width:7px;height:7px;border-radius:50%;flex:none}
   .punto.hecho{background:var(--ok)}
-  .punto.espera{background:var(--line)}
 
-  details{border-bottom:1px solid var(--line)}
-  details:last-child{border-bottom:none}
+  details{border-top:1px solid var(--line)}
   /* El sangrado de lo que hizo un subagente, con su guía: se lee de un vistazo
      que ese trabajo es de quien recibió el encargo, no de quien lo repartió. */
   details.hijo{padding-left:18px;
                border-left:2px solid color-mix(in srgb,var(--acento) 25%,transparent)}
+  /* Lo que todavía espera se ve, pero apagado: está en la lista, no pasando. */
+  details.espera{opacity:.55}
 
-  summary{display:flex;align-items:center;gap:8px;padding:7px 14px;
+  /* **Tres palabras por paso**: qué fue —se ejecutó, ahora, espera—, lo que se
+     hizo en mono, y debajo lo que devolvió en una línea. */
+  summary{display:grid;grid-template-columns:92px minmax(0,1fr) auto;
+          column-gap:12px;row-gap:2px;align-items:baseline;padding:10px 14px;
           cursor:default;list-style:none}
   summary::-webkit-details-marker{display:none}
   details[open] summary{background:color-mix(in srgb,var(--acento) 8%,transparent)}
+  .tipo{font-family:var(--sans);font-size:10px;letter-spacing:.14em;
+        text-transform:uppercase;color:var(--mute);display:flex;gap:6px;
+        align-items:center}
+  .hecho .tipo{color:var(--ok)} .curso .tipo{color:var(--acento)}
   /* 🔴 **Una línea por paso, y punto.** Un comando encadenado ocupaba tres o
      cuatro y la lista dejaba de ser una lista: para saber por dónde iba había
      que leerla entera. Lo que no cabe está debajo, al desplegar. */
-  .que{flex:1;min-width:0;white-space:nowrap;overflow:hidden;
-       text-overflow:ellipsis;color:var(--faint)}
-  .curso .que{color:var(--ink)}
+  .que{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+       color:var(--ink)}
+  .dev{grid-column:2 / 4;min-width:0;white-space:nowrap;overflow:hidden;
+       text-overflow:ellipsis;font-size:11px;color:var(--mute)}
+  .marcas{display:flex;gap:6px;align-items:center}
   .chapa{flex:none;font-family:var(--sans);font-size:10px;font-weight:700;
-         letter-spacing:.04em;padding:1px 5px;border-radius:3px;
+         letter-spacing:.04em;padding:1px 5px;border-radius:2px;
          color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
-  .flecha{flex:none;color:var(--line);font-size:10px}
+  .flecha{flex:none;color:var(--faint);font-size:10px}
   details[hasdetalle] summary{cursor:pointer}
 
-  .dentro{padding:0 14px 10px 32px}
-  .caja{background:var(--bg);border:1px solid var(--line);border-radius:6px;
+  .dentro{padding:0 14px 10px 118px}
+  .caja{background:var(--bg);border:1px solid var(--line);border-radius:2px;
         padding:9px 11px;margin-top:6px}
   .rotulo{font-family:var(--sans);font-size:10px;font-weight:700;
-          letter-spacing:.08em;color:var(--faint);margin-bottom:3px}
+          letter-spacing:.08em;color:var(--mute);margin-bottom:3px}
   /* Envuelve en vez de rodar: la única barra de la página es la del documento.
      Con scroll propio salían dos pegadas y la rueda del ratón hacía una cosa u
      otra según dónde estuviera el puntero. */
   pre{margin:0;white-space:pre-wrap;word-break:break-word;font-family:var(--mono)}
   .cmd{color:var(--acento)}
-  .sal{color:var(--faint)}
-  .vacio{color:var(--faint);padding:14px;margin:0}
+  .sal{color:var(--mute)}
+  .vacio{color:var(--mute);font-family:var(--sans);padding:14px;margin:0;
+         border-top:1px solid var(--line)}
   .parar{flex:none;width:22px;height:22px;display:flex;align-items:center;
-         justify-content:center;border-radius:5px;border:1px solid var(--line);
-         color:var(--faint);text-decoration:none}
+         justify-content:center;border-radius:2px;border:1px solid var(--line);
+         color:var(--mute);text-decoration:none}
   .parar:hover{color:var(--err);border-color:var(--err)}
   .parar span{width:7px;height:7px;background:currentColor;border-radius:1px}
-  @media (prefers-reduced-motion:reduce){ .gira{animation:none} }
+  @media (prefers-reduced-motion:reduce){ .gira,.vivo .halo{animation:none} }
 </style></head>
 <body>
   <div class="tarjeta">
     <header>
       ${viva ? '<span class="gira"></span>' : '<span class="punto hecho"></span>'}
       <h1>${_e(textos.titulo)}</h1>
-      <span class="cuenta">${_e(textos.progreso(terminados, filas.length))}</span>
+      ${cuenta.pasos == 0 ? '' : '<span class="cuenta">· ${_e(textos.paso(va, cuenta.pasos))}</span>'}
+      <span class="hueco"></span>
       ${viva && detenerEn != null ? _parar(detenerEn, textos.detener) : ''}
     </header>
+    ${_reactor(reactor, viva: viva)}
     $cuerpo
   </div>
 </body></html>
 ''';
   }
+
+  /// El aro de segmentos, dibujado como el del orbe: de las doce en punto y en
+  /// el sentido del reloj, encendidos los de los pasos hechos.
+  static String _reactor(
+    ({int total, int encendidos}) reactor, {
+    required bool viva,
+  }) {
+    final total = reactor.total < 1 ? 1 : reactor.total;
+    final segmentos = StringBuffer();
+    for (var i = 0; i < total; i++) {
+      final angulo = -math.pi / 2 + 2 * math.pi * i / total;
+      final (x1, y1) = _punto(angulo, 80);
+      final (x2, y2) = _punto(angulo, 92);
+      segmentos.write(
+        '<line class="seg${i < reactor.encendidos ? ' on' : ''}" '
+        'x1="$x1" y1="$y1" x2="$x2" y2="$y2"/>',
+      );
+    }
+    return '<div class="reactor${viva ? ' vivo' : ''}" aria-hidden="true">'
+        '<svg viewBox="0 0 200 200">'
+        '<defs><radialGradient id="nucleo">'
+        '<stop offset="0" stop-color="var(--acento)" stop-opacity=".55"/>'
+        '<stop offset="1" stop-color="var(--acento)" stop-opacity="0"/>'
+        '</radialGradient></defs>'
+        '<circle cx="100" cy="100" r="52" fill="url(#nucleo)"/>'
+        '<circle class="halo" cx="100" cy="100" r="66"/>'
+        '$segmentos</svg></div>';
+  }
+
+  static (String, String) _punto(double angulo, double radio) => (
+    (100 + radio * math.cos(angulo)).toStringAsFixed(1),
+    (100 + radio * math.sin(angulo)).toStringAsFixed(1),
+  );
 
   /// El cuadrado de parar. Es un enlace y no un botón: la página no lleva
   /// JavaScript, así que lo único que puede hacer es navegar — y el visor
@@ -169,11 +252,18 @@ abstract final class LaActividadComoHtml {
   static String _fila(ActivityRow fila, TextosDeActividad textos) {
     final item = fila.item;
     final hay = item.hasDetail;
-    final marca = item.done
-        ? '<span class="punto hecho"></span>'
-        : (fila.running
-              ? '<span class="gira"></span>'
-              : '<span class="punto espera"></span>');
+    final (estado, tipo, marca) = item.done
+        ? ('hecho', textos.seEjecuto, '')
+        : fila.running
+        ? ('curso', textos.ahora, '<span class="gira"></span>')
+        : ('espera', textos.espera, '');
+
+    // Lo que devolvió, en una línea: la primera que diga algo. Entera va
+    // dentro, al desplegar.
+    final devolvio = item.output
+        ?.split('\n')
+        .map((linea) => linea.trim())
+        .firstWhere((linea) => linea.isNotEmpty, orElse: () => '');
 
     final dentro = StringBuffer('<div class="dentro">');
     if (item.detail case final detalle? when detalle.isNotEmpty) {
@@ -187,22 +277,30 @@ abstract final class LaActividadComoHtml {
         '<div class="caja"><div class="rotulo">${_e(textos.devolvio)}</div>'
         '<pre class="sal">${_e(salida)}</pre></div>',
       );
-    } else if (!item.done) {
-      dentro.write(
-        '<div class="caja"><pre class="sal">'
-        '${_e(textos.todaviaCorriendo)}</pre></div>',
-      );
     }
     dentro.write('</div>');
 
-    return '<details class="${fila.depth > 0 ? 'hijo' : ''}"'
+    final linea = switch (devolvio) {
+      final dicho? when dicho.isNotEmpty =>
+        '<span class="dev">${_e(textos.devolvio)} · ${_e(dicho)}</span>',
+      _ when fila.running =>
+        '<span class="dev">${_e(textos.todaviaCorriendo)}</span>',
+      _ => '',
+    };
+
+    final clases = [if (fila.depth > 0) 'hijo', if (estado == 'espera') estado];
+    return '<details class="${clases.join(' ')}"'
         '${hay ? ' hasdetalle' : ''}>'
-        '<summary class="${fila.running ? 'curso' : ''}">'
-        '$marca<span class="que">${_e(item.description)}</span>'
+        '<summary class="$estado">'
+        '<span class="tipo">$marca${_e(tipo)}</span>'
+        '<span class="que">${_e(item.description)}</span>'
+        '<span class="marcas">'
         '${item.writes ? '<span class="chapa">${_e(textos.escribe)}</span>' : ''}'
         '${hay ? '<span class="flecha">▾</span>' : ''}'
+        '</span>'
+        '$linea'
         '</summary>'
-        '${hay || !item.done ? dentro : ''}'
+        '${hay ? dentro : ''}'
         '</details>';
   }
 

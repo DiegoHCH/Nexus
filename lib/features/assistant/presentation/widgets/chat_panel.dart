@@ -17,7 +17,9 @@ import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/assistant/domain/usecases/los_enlaces_del_texto.dart';
 import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart';
 import 'package:nexus/features/assistant/domain/usecases/como_se_lee_un_turno.dart';
+import 'package:nexus/features/assistant/domain/usecases/los_comandos_de_la_casa.dart';
 import 'package:nexus/features/assistant/presentation/state/chat_message.dart';
+import 'package:nexus/features/assistant/presentation/state/lo_que_hace_cada_comando.dart';
 import 'package:nexus/features/programadas/domain/usecases/como_se_lee_la_cita.dart';
 import 'package:nexus/features/programadas/domain/entities/encargo_programado.dart';
 import 'package:nexus/features/programadas/domain/usecases/lo_que_toca_lanzar.dart';
@@ -323,6 +325,11 @@ class _Turn extends StatelessWidget {
               Text(
                 isUser
                     ? context.strings.you
+                    // El parte lo dice en su rótulo: es lo que se busca al
+                    // subir por la conversación para mandarlo.
+                    : message.esElParte
+                    ? '${etiqueta ?? context.strings.nexus} · '
+                          '${context.strings.parteDelDia}'
                     : etiqueta ?? context.strings.nexus,
                 style: NexusTypography.label.copyWith(
                   color: isUser ? colors.faint : colors.accent,
@@ -423,6 +430,8 @@ class _Turn extends StatelessWidget {
                 height: 1.5,
               ),
             )
+          else if (!isUser && message.esLaAyuda)
+            const _LaAyuda()
           else if (!isUser)
             _Answer(text: message.text, onCorrer: onCorrer),
           // Lo que este turno dejó, al pie de su propio mensaje.
@@ -841,35 +850,91 @@ class _ElBotonDeSlack extends ConsumerStatefulWidget {
 
 class _ElBotonDeSlackState extends ConsumerState<_ElBotonDeSlack> {
   bool _mandando = false;
-  String? _dicho;
+
+  /// A dónde llegó, si llegó. Se guarda el destino de ese momento: si se
+  /// cambia en Ajustes después, lo enviado fue a donde fue.
+  String? _llegoA;
+
+  /// Por qué no salió, si no salió.
+  String? _fallo;
 
   Future<void> _mandar() async {
     setState(() {
       _mandando = true;
-      _dicho = null;
+      _llegoA = null;
+      _fallo = null;
     });
+    final destino = ref.read(slackControllerProvider).destino ?? '';
     final fallo = await ref
         .read(slackControllerProvider.notifier)
         .mandar(widget.texto);
     if (!mounted) return;
     setState(() {
       _mandando = false;
-      _dicho = fallo == null
-          ? context.strings.parteEnviado
-          : context.strings.parteFallo(fallo);
+      if (fallo == null) {
+        _llegoA = destino.trim();
+      } else {
+        _fallo = fallo;
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final enviado = _dicho == context.strings.parteEnviado;
+    final colors = context.colors;
+    final strings = context.strings;
+    final enviado = _llegoA != null;
 
-    return _Boton(
-      icono: enviado ? Icons.check : Icons.send_outlined,
-      texto: _dicho ?? context.strings.parteAlSlack,
-      onTap: _mandando || enviado ? () {} : () => unawaited(_mandar()),
+    // **El parte no sale solo**: el botón, y al lado lo que pasó con su punto
+    // de estado. El botón se queda —apagado— para que se vea qué se pulsó.
+    final (Color? color, String? estado) = switch ((_llegoA, _fallo)) {
+      (final destino?, _) => (
+        colors.ok,
+        destino.isEmpty ? strings.parteEnviado : strings.parteEnviadoA(destino),
+      ),
+      (_, final motivo?) => (colors.err, strings.parteFallo(motivo)),
+      _ => (null, null),
+    };
+
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: NexusSpacing.s2,
+      children: [
+        _Boton(
+          icono: Icons.send_outlined,
+          texto: strings.parteAlSlack,
+          onTap: _mandando || enviado ? () {} : () => unawaited(_mandar()),
+        ),
+        if ((color, estado) case (final color?, final estado?))
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _Punto(color: color),
+              const SizedBox(width: NexusSpacing.s2),
+              Text(
+                estado,
+                style: NexusTypography.nota.copyWith(color: colors.mute),
+              ),
+            ],
+          ),
+      ],
     );
   }
+}
+
+/// El punto de estado de 7 px: bien, fallo, apagado. **Siempre con su texto al
+/// lado**: el color solo no lo lee quien no distingue el verde del rojo.
+class _Punto extends StatelessWidget {
+  const _Punto({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 7,
+    height: 7,
+    decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+  );
 }
 
 class _Boton extends StatelessWidget {
@@ -1526,21 +1591,28 @@ class _LasProgramadas extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final encargo in citas.todas)
-            Padding(
-              padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
-              child: _UnaProgramada(encargo: encargo),
-            ),
+          for (final (i, encargo) in citas.todas.indexed)
+            _UnaProgramada(encargo: encargo, primera: i == 0),
         ],
       ),
     );
   }
 }
 
+/// Una fila de lo que se repite: el punto, qué es y cuándo vuelve a pasar, y
+/// sus dos salidas a la derecha.
+///
+/// **Filas con una línea entre ellas, no tarjetas**: esto es un registro de lo
+/// que va a pasar, y una tarjeta dice «un objeto que se puede coger». Cada una
+/// dice cuándo vuelve —«la próxima: lunes 29 sep»— y las apagadas van en gris
+/// y se encienden en el sitio.
 class _UnaProgramada extends ConsumerWidget {
-  const _UnaProgramada({required this.encargo});
+  const _UnaProgramada({required this.encargo, required this.primera});
 
   final EncargoProgramado encargo;
+
+  /// La primera no lleva línea encima: la separa ya el texto de arriba.
+  final bool primera;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1556,96 +1628,134 @@ class _UnaProgramada extends ConsumerWidget {
       todosLosDias: strings.todosLosDiasDicho,
     );
     final proxima = LoQueTocaLanzar.proxima(encargo, desde: DateTime.now());
+    final carpeta = encargo.carpeta.split('/').last;
+    // Encendida: su ritmo y cuándo vuelve. Apagada: que lo está, primero, y
+    // su ritmo detrás — lo que decide si va a pasar va delante.
+    final cuando = encargo.activo
+        ? [
+            ritmo,
+            carpeta,
+            if (proxima != null)
+              strings.laProximaCita(
+                ComoSeLeeLaCita.laProxima(proxima, nombres: strings.diasCortos),
+              ),
+          ]
+        : [strings.estaApagada, ritmo, carpeta];
 
     return Container(
-      padding: const EdgeInsets.all(NexusSpacing.s3),
+      padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s2),
       decoration: BoxDecoration(
-        color: colors.deep,
-        borderRadius: BorderRadius.circular(NexusRadius.sm),
-        border: Border.all(color: colors.rule),
+        border: primera ? null : Border(top: BorderSide(color: colors.rule)),
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              // Encendida o apagada, de un vistazo y antes que nada: es lo que
-              // decide si lo de al lado va a pasar o no.
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: encargo.activo ? colors.ok : colors.faint,
-                ),
-              ),
-              const SizedBox(width: NexusSpacing.s2),
-              Expanded(
-                child: Text(
+          // Encendida o apagada, de un vistazo y antes que nada: es lo que
+          // decide si lo de al lado va a pasar o no.
+          Padding(
+            padding: const EdgeInsets.only(top: 6, right: NexusSpacing.s3),
+            child: _Punto(color: encargo.activo ? colors.ok : colors.faint),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
                   encargo.tarea,
                   overflow: TextOverflow.ellipsis,
                   style: NexusTypography.nota.copyWith(
                     color: encargo.activo ? colors.ink : colors.mute,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: NexusSpacing.s3,
-            children: [
-              Text(
-                ritmo,
-                style: NexusTypography.label.copyWith(
-                  color: encargo.activo ? colors.accent : colors.faint,
-                ),
-              ),
-              Text(
-                encargo.carpeta.split('/').last,
-                style: NexusTypography.label.copyWith(color: colors.faint),
-              ),
-              if (!encargo.activo)
+                const SizedBox(height: 2),
                 Text(
-                  strings.estaApagada,
-                  style: NexusTypography.label.copyWith(color: colors.faint),
-                )
-              else if (proxima != null)
-                Text(
-                  strings.laProximaCita(
-                    ComoSeLeeLaCita.laProxima(
-                      proxima,
-                      nombres: strings.diasCortos,
-                    ),
-                  ),
-                  style: NexusTypography.label.copyWith(color: colors.mute),
-                ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Wrap(
-              spacing: NexusSpacing.s2,
-              runSpacing: NexusSpacing.s2,
-              children: [
-                _BotonDePermiso(
-                  texto: encargo.activo ? strings.apagarla : strings.encenderla,
-                  color: colors.ink,
-                  onTap: () => unawaited(
-                    vigilante.apagar(encargo.id, apagada: encargo.activo),
-                  ),
-                ),
-                _BotonDePermiso(
-                  texto: strings.borrarla,
-                  color: colors.err,
-                  onTap: () => unawaited(vigilante.borrar(encargo.id)),
+                  cuando.join(' · '),
+                  style: NexusTypography.data.copyWith(color: colors.mute),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: NexusSpacing.s3),
+          _BotonDePermiso(
+            texto: encargo.activo ? strings.apagarla : strings.encenderla,
+            color: colors.ink,
+            onTap: () => unawaited(
+              vigilante.apagar(encargo.id, apagada: encargo.activo),
+            ),
+          ),
+          const SizedBox(width: NexusSpacing.s2),
+          _BotonDePermiso(
+            texto: strings.borrarla,
+            color: colors.err,
+            onTap: () => unawaited(vigilante.borrar(encargo.id)),
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// La ayuda de `/ayuda`, **en dos columnas**: cada comando con lo que hace en
+/// cinco palabras. Es lo que se busca con los ojos, no lo que se lee de
+/// corrido, y en lista de once líneas había que leerla entera para encontrar
+/// uno.
+///
+/// Sale del catálogo y no del texto del mensaje: así no puede enseñar un
+/// comando que ya no existe. `/ayuda` no sale en la tabla: es lo que se acaba
+/// de escribir.
+class _LaAyuda extends StatelessWidget {
+  const _LaAyuda();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final strings = context.strings;
+    final comandos = [
+      for (final comando in ElComandoDeLaCasa.enLaAyuda)
+        if (comando != ElComandoDeLaCasa.ayuda) comando,
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          strings.ayudaTitulo,
+          style: NexusTypography.body.copyWith(color: colors.ink, height: 1.5),
+        ),
+        const SizedBox(height: NexusSpacing.s2),
+        LayoutBuilder(
+          builder: (context, limites) {
+            const hueco = NexusSpacing.s4;
+            final columna = (limites.maxWidth - hueco) / 2;
+            return Wrap(
+              spacing: hueco,
+              runSpacing: NexusSpacing.s1,
+              children: [
+                for (final comando in comandos)
+                  SizedBox(
+                    width: columna,
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: comando.comoSeEscribe,
+                            style: NexusTypography.mono.copyWith(
+                              color: colors.ink,
+                            ),
+                          ),
+                          TextSpan(
+                            text: '  ${loQueHaceElComando(strings, comando)}',
+                          ),
+                        ],
+                      ),
+                      style: NexusTypography.nota.copyWith(color: colors.mute),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 }

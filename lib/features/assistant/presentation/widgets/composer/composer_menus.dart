@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
+import 'package:nexus/features/assistant/domain/usecases/los_comandos_de_la_casa.dart';
 import 'package:nexus/features/assistant/presentation/providers/model_providers.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings_page.dart';
 import 'package:nexus/features/assistant/presentation/state/session_meter.dart';
@@ -21,6 +22,13 @@ import 'package:nexus/features/workspace/presentation/providers/workspace_provid
 /// Juntos porque son la misma forma repetida tres veces —un `PopupMenuButton` con
 /// sus filas— y separarlos en tres archivos habría multiplicado los imports sin
 /// que ninguno pese lo suficiente para vivir solo.
+
+/// Lo que va a la derecha de una opción: su atajo o su valor, en mono porque
+/// es un dato.
+Widget _alLado(String texto, NexusColors colors) => Padding(
+  padding: const EdgeInsets.only(left: NexusSpacing.s5),
+  child: Text(texto, style: NexusTypography.data.copyWith(color: colors.faint)),
+);
 
 /// El «+»: lo que se añade a lo que estás pidiendo.
 ///
@@ -88,13 +96,23 @@ class MoreMenu extends ConsumerWidget {
             strings.addFolderShort,
             colors,
           ),
+          // Con su atajo al lado: lo que se pide desde aquí también se puede
+          // escribir, y así se aprende sin abrir la ayuda.
           _item(
             'parte',
             Icons.calendar_today_outlined,
             strings.parteDelDia,
             colors,
+            atajo: ElComandoDeLaCasa.parte.comoSeEscribe,
           ),
-          _item('settings', Icons.tune, strings.openSettings, colors),
+          const PopupMenuDivider(),
+          _item(
+            'settings',
+            Icons.tune,
+            strings.openSettings,
+            colors,
+            atajo: '⌘,',
+          ),
         ],
         // Con punto rojo mientras quede una versión sin instalar: Ajustes vive
         // dentro de este menú, así que el aviso va pegado al camino que lleva a
@@ -110,14 +128,21 @@ class MoreMenu extends ConsumerWidget {
     String value,
     IconData icon,
     String label,
-    NexusColors colors,
-  ) => PopupMenuItem<String>(
+    NexusColors colors, {
+    String? atajo,
+  }) => PopupMenuItem<String>(
     value: value,
     child: Row(
       children: [
         Icon(icon, size: 14, color: colors.faint),
         const SizedBox(width: NexusSpacing.s3),
-        Text(label, style: NexusTypography.control.copyWith(color: colors.ink)),
+        Expanded(
+          child: Text(
+            label,
+            style: NexusTypography.control.copyWith(color: colors.ink),
+          ),
+        ),
+        if (atajo != null) _alLado(atajo, colors),
       ],
     ),
   );
@@ -159,6 +184,15 @@ String? _modeloEnUso(WidgetRef ref, PairedFolder? folder, SessionMeter meter) {
   ]..sort();
   if (conocidos.isNotEmpty) return conocidos.last;
   return pedido ?? visto;
+}
+
+/// El nombre corto del perfil de Claude de la carpeta —`work`, `private`—, o
+/// `null` si usa el de siempre. Es lo que se lee en la cabecera del modelo:
+/// elegir aquí cambia **ese** perfil.
+String? _perfil(PairedFolder? folder) {
+  final nombre = folder?.claudeProfile?.split('/').last;
+  if (nombre == null || !nombre.startsWith('.claude-')) return null;
+  return nombre.substring('.claude-'.length);
 }
 
 /// Qué modelo usa Claude **en este perfil**.
@@ -255,6 +289,7 @@ class ModelMenu extends ConsumerWidget {
       // las versiones anteriores por su nombre entero. Con solo los alias, lo
       // que la consola ofrecía no se podía elegir aquí.
       itemBuilder: (context) => [
+        cabeceraDelMenu(context, strings.modeloDelPerfil(_perfil(folder))),
         opcion(_porDefecto, strings.modelPorDefecto),
         for (final alias in _alias) opcion(alias.alias, etiquetaDe(alias)),
         const PopupMenuDivider(),
@@ -268,6 +303,9 @@ class ModelMenu extends ConsumerWidget {
         ),
         for (final modelo in versionesAnteriores)
           opcion(modelo, modelLabel(modelo)),
+        // Lo que implica elegir aquí, que no es obvio: cambia el perfil, no
+        // esta conversación. Ver el 🔴 de arriba.
+        pieDelMenu(context, strings.modeloComoEnLaConsola),
       ],
       child: Text(
         nombre ?? strings.modelTitle,
@@ -324,6 +362,10 @@ class EffortMenu extends ConsumerWidget {
         ),
       ),
       itemBuilder: (context) => [
+        cabeceraDelMenu(
+          context,
+          strings.esfuerzoDelModelo(modelo == null ? null : modelLabel(modelo)),
+        ),
         for (final option in ClaudeEffort.values)
           PopupMenuItem<ClaudeEffort>(
             value: option,
@@ -353,6 +395,7 @@ class EffortMenu extends ConsumerWidget {
               ],
             ),
           ),
+        pieDelMenu(context, strings.esfuerzoComoEnLaConsola),
       ],
       child: Text(
         vigente?.flag ?? strings.effortTitle,

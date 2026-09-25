@@ -38,8 +38,6 @@ mixin NucleoStrings {
   String get textOnly;
   String get readOnly;
   String get canEdit;
-  String get canEditExplainer;
-  String get readOnlyExplainer;
   // El permiso que se pregunta
   String permisoPregunta(String herramienta);
   String get permisoEscribe;
@@ -144,6 +142,15 @@ mixin NucleoStrings {
   String get restoreWindow;
   String stepsProgress(int done, int total);
   String stepsTaken(int steps);
+
+  /// «Paso 3 de 4» en la ventana de actividad: la misma cuenta que el reactor
+  /// del orbe, para que lo que se ve de lejos y de cerca coincida.
+  String pasoDeTotal(int paso, int total);
+
+  /// Las tres palabras de cada paso: el que corre y el que espera. El hecho
+  /// usa [ranLabel].
+  String get pasoAhora;
+  String get pasoEspera;
 
   /// La espera cuando quien tiene el turno es **algo tuyo que sigue en
   /// marcha**: el encargo anterior de esta misma conversación, un reintento,
@@ -434,11 +441,6 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String get canEdit => 'PUEDE EDITAR';
   @override
-  String get canEditExplainer =>
-      'Edita y corre comandos sin preguntar. Los conectores sí preguntan';
-  @override
-  String get readOnlyExplainer => 'Lee y ejecuta, pero no escribe';
-  @override
   String permisoPregunta(String herramienta) => '¿Le dejas usar $herramienta?';
   @override
   String get permisoEscribe => 'Esto modifica archivos.';
@@ -602,6 +604,12 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String stepsProgress(int done, int total) => '$done de $total';
   @override
+  String pasoDeTotal(int paso, int total) => 'paso $paso de $total';
+  @override
+  String get pasoAhora => 'AHORA';
+  @override
+  String get pasoEspera => 'ESPERA';
+  @override
   String stepsTaken(int steps) =>
       steps == 1 ? 'VER EL PASO QUE DIO' : 'VER LOS $steps PASOS QUE DIO';
   @override
@@ -652,9 +660,9 @@ mixin NucleoStringsEs implements NucleoStrings {
       'Todavía no hay ninguna. Pídeme algo con su día y su hora —«actualiza el '
       'documento de lunes a viernes a las 5pm»— y te pregunto si lo programo.';
   @override
-  String get ayudaProgramadas => 'las tareas que se repiten';
+  String get ayudaProgramadas => 'lo que se repite';
   @override
-  String get ayudaRecuerda => 'lo que sé de ti, y apuntar algo más';
+  String get ayudaRecuerda => 'lo que quieres que sepa de ti';
   @override
   String get sectionMemoria => 'Memoria';
   @override
@@ -733,25 +741,21 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String get ayudaTitulo => 'Esto es lo que puedes escribir aquí:';
   @override
-  String get ayudaImagen => 'dibuja lo que le digas y lo guarda en documentos';
+  String get ayudaImagen => 'dibujar desde cero';
   @override
-  String get ayudaEdita => 'sigue con la última imagen de esta conversación';
+  String get ayudaEdita => 'retocar la última imagen';
   @override
-  String get ayudaAparte =>
-      'corre algo largo aparte del turno —el gate, una suite— y te cuenta cómo '
-      'acabó. No se muere al terminar la respuesta.';
+  String get ayudaAparte => 'un trabajo en segundo plano';
   @override
-  String get ayudaGit => 'corre git aquí mismo y enseña su salida, literal';
+  String get ayudaGit => 'git directo, sin Claude';
   @override
-  String get ayudaParte => 'el parte del día, ya reunido';
+  String get ayudaParte => 'el parte de tu último día';
   @override
-  String get ayudaAgenda => 'lo que hay en tu agenda de hoy';
+  String get ayudaAgenda => 'lo que tienes hoy';
   @override
-  String get ayudaMcp => 'los servidores MCP de esta cuenta, con su estado';
+  String get ayudaMcp => 'los servidores de esta cuenta';
   @override
-  String get ayudaOlvida =>
-      'Claude deja de recordar lo hablado en esta carpeta. Lo escrito se '
-      'conserva';
+  String get ayudaOlvida => 'que la próxima empiece de cero';
   @override
   String get ayudaAyuda => 'esta lista';
   @override
@@ -1043,11 +1047,6 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String get canEdit => 'CAN EDIT';
   @override
-  String get canEditExplainer =>
-      'Edits and runs commands without asking. Connectors still ask';
-  @override
-  String get readOnlyExplainer => 'Reads and runs, but never writes';
-  @override
   String permisoPregunta(String herramienta) => 'Let it use $herramienta?';
   @override
   String get permisoEscribe => 'This changes files.';
@@ -1208,6 +1207,12 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String stepsProgress(int done, int total) => '$done of $total';
   @override
+  String pasoDeTotal(int paso, int total) => 'step $paso of $total';
+  @override
+  String get pasoAhora => 'NOW';
+  @override
+  String get pasoEspera => 'WAITING';
+  @override
   String stepsTaken(int steps) =>
       steps == 1 ? 'SEE THE STEP IT TOOK' : 'SEE THE $steps STEPS IT TOOK';
   @override
@@ -1258,9 +1263,9 @@ mixin NucleoStringsEn implements NucleoStrings {
       'Nothing yet. Ask me for something with its day and time — «update the '
       'document every weekday at 5pm» — and I will ask whether to schedule it.';
   @override
-  String get ayudaProgramadas => 'the tasks that repeat';
+  String get ayudaProgramadas => 'what repeats';
   @override
-  String get ayudaRecuerda => 'what I know about you, and noting one more';
+  String get ayudaRecuerda => 'what you want me to know about you';
   @override
   String get sectionMemoria => 'Memory';
   @override
@@ -1338,25 +1343,21 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String get ayudaTitulo => 'This is what you can type here:';
   @override
-  String get ayudaImagen => 'draws what you describe and saves it to documents';
+  String get ayudaImagen => 'draw from scratch';
   @override
-  String get ayudaEdita => 'keeps going from this conversation\'s last image';
+  String get ayudaEdita => 'touch up the last image';
   @override
-  String get ayudaAparte =>
-      'runs something long outside the turn —the gate, a suite— and tells you '
-      'how it went. It does not die when the answer ends.';
+  String get ayudaAparte => 'a job in the background';
   @override
-  String get ayudaGit => 'runs git right here and shows its output, literally';
+  String get ayudaGit => 'git straight, without Claude';
   @override
-  String get ayudaParte => 'the day\'s report, already gathered';
+  String get ayudaParte => 'the report of your last day';
   @override
-  String get ayudaAgenda => "what's on your calendar today";
+  String get ayudaAgenda => 'what you have today';
   @override
-  String get ayudaMcp => "this account's MCP servers, with their status";
+  String get ayudaMcp => "this account's servers";
   @override
-  String get ayudaOlvida =>
-      'Claude stops remembering what was said in this folder. What is written '
-      'stays';
+  String get ayudaOlvida => 'the next one starts from scratch';
   @override
   String get ayudaAyuda => 'this list';
   @override

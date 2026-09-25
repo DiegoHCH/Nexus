@@ -26,6 +26,10 @@ mixin HistorialStrings {
   String get parteSinDia;
   String get parteAlSlack;
   String get parteEnviado;
+
+  /// Dónde llegó, dicho al lado del botón: «Enviado» a secas no deja
+  /// comprobar que fue al canal que tocaba.
+  String parteEnviadoA(String destino);
   String parteFallo(String motivo);
 
   String get historyExplainer;
@@ -181,6 +185,8 @@ mixin HistorialStringsEs implements HistorialStrings {
   String get parteAlSlack => 'Mandar a Slack';
   @override
   String get parteEnviado => 'Enviado';
+  @override
+  String parteEnviadoA(String destino) => 'Enviado a $destino';
   @override
   String parteFallo(String motivo) => 'No se pudo enviar: $motivo';
   @override
@@ -412,6 +418,8 @@ mixin HistorialStringsEn implements HistorialStrings {
   String get parteAlSlack => 'Send to Slack';
   @override
   String get parteEnviado => 'Sent';
+  @override
+  String parteEnviadoA(String destino) => 'Sent to $destino';
   @override
   String parteFallo(String motivo) => 'Could not send: $motivo';
   @override

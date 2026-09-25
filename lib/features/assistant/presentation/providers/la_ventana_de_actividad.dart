@@ -5,6 +5,7 @@ import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/core/platform/lo_que_pide_la_pagina.dart';
 import 'package:nexus/core/platform/ventana_del_visor.dart';
 import 'package:nexus/features/assistant/domain/usecases/la_actividad_como_html.dart';
+import 'package:nexus/features/assistant/presentation/orb/nexus_orb_layers_painter.dart';
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
 import 'package:nexus/features/assistant/presentation/state/activity_layout.dart';
 import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
@@ -176,12 +177,14 @@ class LaVentanaDeActividad {
       alto: 820,
       html: LaActividadComoHtml.escribe(
         filas: layoutActivity(pasos),
-        terminados: pasos.where((paso) => paso.done).length,
+        // El mismo aro que el orbe trabajando, con su mismo reparto: lo que se
+        // ve de lejos en la sala y de cerca en esta ventana tiene que coincidir.
+        reactor: _elReactor(pasos),
         viva: viva,
         detenerEn: detenerEn,
         textos: TextosDeActividad(
           titulo: s.rightNow,
-          progreso: s.stepsProgress,
+          paso: s.pasoDeTotal,
           trabajando: s.working,
           escribe: s.writesTag,
           seEjecuto: s.ranLabel,
@@ -189,9 +192,17 @@ class LaVentanaDeActividad {
           todaviaCorriendo: s.stillRunning,
           sinPasos: s.noStepsYet,
           detener: s.stopNow,
+          ahora: s.pasoAhora,
+          espera: s.pasoEspera,
         ),
       ),
     );
+  }
+
+  static ({int total, int encendidos}) _elReactor(List<ActivityItem> pasos) {
+    final cuenta = laCuentaDelTurno(pasos);
+    final aro = reactorEncendido(pasos: cuenta.pasos, hechos: cuenta.hechos);
+    return (total: aro.total, encendidos: aro.encendidos);
   }
 
   /// El nombre va a una ruta de archivo, así que lo que no sea seguro se cae.

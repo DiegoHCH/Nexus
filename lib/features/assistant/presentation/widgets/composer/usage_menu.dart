@@ -10,6 +10,13 @@ import 'package:nexus/features/assistant/presentation/widgets/gauge.dart';
 import 'package:nexus/features/assistant/presentation/state/session_meter.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
+/// Desde qué porcentaje el cupo se pinta en ámbar.
+///
+/// **Sesenta y no noventa**, que es lo que vale para el contexto: el semanal
+/// tiene que verse antes de que falte, no cuando ya se acabó. Al 90 % de la
+/// semana ya no queda margen para cambiar de plan; al 60 % sí.
+const cupoEnAmbarDesde = 60;
+
 /// El cupo y la ventana de contexto.
 ///
 /// Aparte de los otros menús porque no es un menú de elegir: es un panel de
@@ -63,6 +70,13 @@ class UsageMenu extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      Text(
+                        strings.contextoYCupo,
+                        style: NexusTypography.label.copyWith(
+                          color: colors.mute,
+                        ),
+                      ),
+                      const SizedBox(height: NexusSpacing.s3),
                       Gauge(
                         label: strings.contextWindow,
                         percent: context_,
@@ -111,12 +125,14 @@ class UsageMenu extends ConsumerWidget {
                           label: strings.usageFiveHour,
                           percent: usage.fiveHourPercent,
                           note: _resets(strings, usage.fiveHourResetsAt),
+                          warnAt: cupoEnAmbarDesde,
                         ),
                         const SizedBox(height: NexusSpacing.s3),
                         Gauge(
                           label: strings.usageWeekly,
                           percent: usage.weeklyPercent,
                           note: _resets(strings, usage.weeklyResetsAt),
+                          warnAt: cupoEnAmbarDesde,
                         ),
                       ],
                     ],

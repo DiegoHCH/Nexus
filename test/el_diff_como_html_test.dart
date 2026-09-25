@@ -1,5 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexus/core/i18n/nexus_strings.dart';
+import 'package:nexus/features/assistant/domain/entities/archivo_nuevo.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_diff_como_html.dart';
+import 'package:nexus/features/assistant/presentation/providers/el_visor_de_cambios.dart';
+
+const _es = NexusStringsEs();
+final _textos = textosDelDiff(_es, titulo: 'Cambios');
 
 /// El diff pintado para el visor de documentos.
 ///
@@ -22,6 +28,7 @@ diff --git a/lib/muy/hondo/b.dart b/lib/muy/hondo/b.dart
   group('el panel de archivos', () {
     test('lista los tocados, con su cuenta', () {
       final html = ElDiffComoHtml.de(
+        textos: _textos,
         diff: dosArchivos,
         nuevos: const [],
         titulo: 'Este encargo',
@@ -37,6 +44,7 @@ diff --git a/lib/muy/hondo/b.dart b/lib/muy/hondo/b.dart
 
     test('cada archivo es un destino, y elegirlo cambia el contenido', () {
       final html = ElDiffComoHtml.de(
+        textos: _textos,
         diff: dosArchivos,
         nuevos: const [],
         titulo: 'Este encargo',
@@ -54,6 +62,7 @@ diff --git a/lib/muy/hondo/b.dart b/lib/muy/hondo/b.dart
     // ventana en blanco se lee como que no hubo cambios.
     test('sin elegir nada se enseña el primero', () {
       final html = ElDiffComoHtml.de(
+        textos: _textos,
         diff: dosArchivos,
         nuevos: const [],
         titulo: 'x',
@@ -68,6 +77,7 @@ diff --git a/lib/muy/hondo/b.dart b/lib/muy/hondo/b.dart
   group('los dos alcances', () {
     test('el segundo se ofrece como otro grupo, no en otra ventana', () {
       final html = ElDiffComoHtml.de(
+        textos: _textos,
         diff: dosArchivos,
         nuevos: const [],
         titulo: 'Este encargo',
@@ -94,6 +104,7 @@ diff --git a/lib/z.dart b/lib/z.dart
     // fila**. Era esa. Todo lo demás quedaba descuadrado detrás.
     test('los anchos los declara el colgroup, no la primera fila', () {
       final html = ElDiffComoHtml.de(
+        textos: _textos,
         diff: dosArchivos,
         nuevos: const [],
         titulo: 'x',
@@ -108,6 +119,7 @@ diff --git a/lib/z.dart b/lib/z.dart
     // central saltaba entre tramos del mismo archivo.
     test('un archivo es una sola tabla, para que el eje no salte', () {
       final html = ElDiffComoHtml.de(
+        textos: _textos,
         diff: '''
 diff --git a/lib/a.dart b/lib/a.dart
 @@ -1,1 +1,1 @@
@@ -133,6 +145,7 @@ diff --git a/lib/a.dart b/lib/a.dart
     // siguen enfrentados aunque uno ocupe tres renglones.
     test('las líneas largas se parten, sin descuadrar los lados', () {
       final html = ElDiffComoHtml.de(
+        textos: _textos,
         diff: dosArchivos,
         nuevos: const [],
         titulo: 'x',
@@ -144,6 +157,7 @@ diff --git a/lib/a.dart b/lib/a.dart
 
   group('los colores del código', () {
     String pintado(String linea) => ElDiffComoHtml.de(
+      textos: _textos,
       diff: 'diff --git a/x.dart b/x.dart\n@@ -1,1 +1,1 @@\n-x\n+$linea\n',
       nuevos: const [],
       titulo: 'x',
@@ -184,6 +198,7 @@ diff --git a/lib/a.dart b/lib/a.dart
     // rota justo donde vienes a leer qué cambió.
     test('el código se escapa, no se interpreta', () {
       final html = ElDiffComoHtml.de(
+        textos: _textos,
         diff: '''
 diff --git a/lib/x.dart b/lib/x.dart
 @@ -1,1 +1,1 @@
@@ -198,22 +213,113 @@ diff --git a/lib/x.dart b/lib/x.dart
       expect(html, contains('&lt;script&gt;'));
     });
 
-    test('un archivo nuevo se nombra aunque no tenga diff', () {
+    test('un archivo nuevo sin leer se nombra, y se dice por qué', () {
       final html = ElDiffComoHtml.de(
+        textos: _textos,
         diff: '',
         nuevos: const ['lib/nuevo.dart'],
         titulo: 'x',
       );
 
       expect(html, contains('lib/nuevo.dart'));
-      expect(html, contains('nuevo'));
+      expect(html, contains(_es.newFile));
       // Y se dice por qué no hay nada que enseñar, en vez de dejar el panel en
       // blanco como si no hubiera pasado nada.
-      expect(html, contains('Todavía no lo sigue git'));
+      expect(html, contains(_es.cambiosSinLeer));
+    });
+  });
+
+  // 🔴 b42 del repaso: un archivo nuevo salía solo por su nombre. Un test o un
+  // widget nuevo es el encargo más habitual, así que lo que más se venía a
+  // revisar era justo lo que no se veía.
+  group('los nuevos, enteros', () {
+    test('se ven todas sus líneas, numeradas, y la cuenta al lado', () {
+      final html = ElDiffComoHtml.de(
+        textos: _textos,
+        diff: '',
+        nuevos: const ['test/nuevo_test.dart'],
+        titulo: 'x',
+        enteros: const {
+          'test/nuevo_test.dart': ArchivoNuevo(
+            ruta: 'test/nuevo_test.dart',
+            lineas: ['void main() {', "  test('algo', () {});", '}'],
+            total: 3,
+          ),
+        },
+      );
+
+      expect(html, contains('<table class="entero">'));
+      expect('<tr class="entra">'.allMatches(html), hasLength(3));
+      expect(html, contains('<td class="n">3</td>'));
+      expect(html, contains('<span class="mas">+3</span>'));
+      expect(html, contains(_es.cambiosLineas(3)));
+      expect(html, isNot(contains(_es.cambiosSinLeer)));
     });
 
+    test('recortado, dice cuántas enseña de cuántas', () {
+      final html = ElDiffComoHtml.de(
+        textos: _textos,
+        diff: '',
+        nuevos: const ['gen.g.dart'],
+        titulo: 'x',
+        enteros: const {
+          'gen.g.dart': ArchivoNuevo(
+            ruta: 'gen.g.dart',
+            lineas: ['a', 'b'],
+            total: 9000,
+          ),
+        },
+      );
+
+      expect(html, contains(_es.cambiosRecortado(2, 9000)));
+    });
+
+    test('una imagen nueva dice qué es, sin líneas', () {
+      final html = ElDiffComoHtml.de(
+        textos: _textos,
+        diff: '',
+        nuevos: const ['test/goldens/resumen.png'],
+        titulo: 'x',
+        enteros: const {
+          'test/goldens/resumen.png': ArchivoNuevo.binario(
+            ruta: 'test/goldens/resumen.png',
+            imagen: true,
+          ),
+        },
+      );
+
+      expect(html, contains('${_es.newFile} · ${_es.cambiosImagen}'));
+      expect(html, contains(_es.cambiosBinarioExplica));
+      expect(html, isNot(contains('<table class="entero">')));
+    });
+
+    test('lo que trae el archivo se escapa, como el diff', () {
+      final html = ElDiffComoHtml.de(
+        textos: _textos,
+        diff: '',
+        nuevos: const ['web/index.html'],
+        titulo: 'x',
+        enteros: const {
+          'web/index.html': ArchivoNuevo(
+            ruta: 'web/index.html',
+            lineas: ['<script>robar()</script>'],
+            total: 1,
+          ),
+        },
+      );
+
+      expect(html, isNot(contains('<script>robar()')));
+    });
+  });
+
+  group('el panel', () {
     test('sin nada que enseñar se dice, y no se abre una ventana muda', () {
-      final html = ElDiffComoHtml.de(diff: '', nuevos: const [], titulo: 'x');
+      final html = ElDiffComoHtml.de(
+        textos: _textos,
+        diff: '',
+        nuevos: const [],
+        titulo: 'x',
+      );
       expect(html, contains('no dejó ningún cambio'));
     });
   });

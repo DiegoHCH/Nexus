@@ -9,22 +9,34 @@ import 'package:flutter/services.dart';
 abstract final class OrbeChannel {
   static const _canal = MethodChannel('com.katanalabs.nexus/orbe');
 
-  static Future<void> mostrar(String estado, int acento) =>
-      _decir('mostrar', estado, acento);
+  static Future<void> mostrar(
+    String estado,
+    int acento, {
+    Map<String, Object>? estilo,
+  }) => _decir('mostrar', estado, acento, estilo);
 
-  static Future<void> estado(String estado, int acento) =>
-      _decir('estado', estado, acento);
+  static Future<void> estado(
+    String estado,
+    int acento, {
+    Map<String, Object>? estilo,
+  }) => _decir('estado', estado, acento, estilo);
 
-  static Future<void> ocultar() => _decir('ocultar', null, null);
+  static Future<void> ocultar() => _decir('ocultar', null, null, null);
 
   /// El acento viaja con **cada** aviso y no una vez al abrir: los dos motores
   /// no comparten estado —son dos isolates— así que el de fuera no puede
   /// enterarse solo de que cambiaste el color en Ajustes.
-  static Future<void> _decir(String que, String? estado, int? acento) async {
+  static Future<void> _decir(
+    String que,
+    String? estado,
+    int? acento,
+    Map<String, Object>? estilo,
+  ) async {
     try {
       await _canal.invokeMethod<void>(que, {
         'estado': ?estado,
         'acento': ?acento,
+        'estilo': ?estilo,
       });
     } on Object catch (error) {
       debugPrint('orbe · no se pudo $que: $error');

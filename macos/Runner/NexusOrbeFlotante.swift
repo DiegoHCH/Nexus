@@ -107,9 +107,9 @@ final class NexusOrbeFlotante: NSObject {
   }
 
   private func mostrar(estado: String, acento: Int?) {
-    if let ventana {
-      ventana.setFrame(Self.dondeVa(), display: true)
-      ventana.orderFrontRegardless()
+    // Si ya está fuera —dos avisos seguidos—, se repinta y basta: es la misma
+    // aparición, y el motor está pintando.
+    if let ventana, ventana.isVisible {
       pinta(estado, acento: acento)
       return
     }
@@ -135,6 +135,9 @@ final class NexusOrbeFlotante: NSObject {
       defer: false
     )
     panel.contentViewController = controlador
+    // La cierra `ocultar` y la suelta Swift: que `close()` la libere además por
+    // su cuenta, como hace AppKit por defecto, es liberarla dos veces.
+    panel.isReleasedWhenClosed = false
     // 🔴 **Y el marco se pone después, que si no la ventana sale de 0×0.**
     // Asignar el controlador redimensiona la ventana a lo que mida su vista, y
     // la de Flutter no mide nada hasta que el motor pinta el primer fotograma.
@@ -174,8 +177,31 @@ final class NexusOrbeFlotante: NSObject {
     haciaElOrbe?.invokeMethod("estado", arguments: datos)
   }
 
+  /// Lo recoge **entero**: ventana y motor.
+  ///
+  /// 🔴 **Esconderlo y volver a sacarlo lo dejaba congelado.** Se hacía con
+  /// `orderOut` y la segunda vez se reutilizaba la misma ventana con
+  /// `orderFrontRegardless`. Pero macOS deja de dar fotogramas a una ventana que
+  /// no se ve —es lo mismo que desmontó ponerlo al nivel del escritorio, ver
+  /// arriba—, y al volver el motor no retomaba: la segunda llamada de la sesión
+  /// sacaba un orbe quieto que no seguía la conversación, y que tampoco dejaba
+  /// rastro en el registro, porque ese camino no decía nada. La primera
+  /// aparición tras abrir la app siempre iba bien, y por eso no se veía al
+  /// probar reabriendo la app.
+  ///
+  /// Así que cada aparición es la primera: se cierra la ventana y se apaga el
+  /// motor, y la siguiente los crea de nuevo. Arrancar el motor cuesta unas
+  /// décimas —medido, 0,17 s entre «te llamaron» y «orbe fuera»—, y el orbe
+  /// sale una vez por llamada.
   private func ocultar() {
-    ventana?.orderOut(nil)
+    guard let panel = ventana else { return }
+    panel.orderOut(nil)
+    panel.contentViewController = nil
+    panel.close()
+    ventana = nil
+    haciaElOrbe = nil
+    motor?.shutDownEngine()
+    motor = nil
     Self.log.info("orbe recogido")
   }
 }

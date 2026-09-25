@@ -149,6 +149,10 @@ class HoldVoiceConversation {
   /// la mencione. La misma que usan la puerta y el aviso.
   static const _laSenalDeArranque = '(inicio)';
 
+  /// Lo que se deja abierto después de que suene su despedida: lo justo para
+  /// un «ah, espera» sin tener que volver a llamarla.
+  static const _trasLaDespedida = Duration(milliseconds: 1500);
+
   /// Lo que se espera a que diga el saludo antes de abrir el micro igual. Una
   /// frase de un segundo que no llega en seis no va a llegar.
   static const _plazoDelSaludo = Duration(seconds: 6);
@@ -180,7 +184,13 @@ class HoldVoiceConversation {
   ///
   /// [saludo] es lo que dice al abrirse, cuando se abrió llamándola por su
   /// nombre. Ver [ComoUnaConversacion.saludo].
-  Stream<VoiceEvent> call({String? saludo}) {
+  ///
+  /// [primeraFrase] es lo que dijiste **después** del nombre —«Hestia, ¿qué
+  /// reuniones tengo?»—: va como tu primer turno, por escrito porque el micro
+  /// aún no estaba abierto cuando lo dijiste, y pasa por la misma regla que
+  /// cualquier turno —si ella contesta de memoria algo que era de Claude, se
+  /// corrige—. Con primera frase no hay saludo: ya sabes que te oyó.
+  Stream<VoiceEvent> call({String? saludo, String? primeraFrase}) {
     late StreamController<VoiceEvent> controller;
 
     /// Si está diciendo el saludo. **Hasta que acabe, el micro no sale.**
@@ -198,6 +208,10 @@ class HoldVoiceConversation {
     StreamSubscription<void>? pausaSubscription;
     StreamSubscription<VoiceEvent>? sessionSubscription;
     Timer? idleTimer;
+
+    /// El cierre que sigue a una despedida. Se cancela si vuelves a hablar
+    /// antes de que se cumpla: «adiós… ah, espera» sigue siendo conversación.
+    Timer? cierreDeLaDespedida;
     late void Function(VoiceSession) attach;
     void Function()? abortErrand;
     var reconnects = 0;
@@ -326,6 +340,7 @@ class HoldVoiceConversation {
       abortErrand = null;
       idleTimer?.cancel();
       elPlazoDelSaludo?.cancel();
+      cierreDeLaDespedida?.cancel();
       idleTimer = null;
       relojDeLaRuta?.cancel();
       relojDeLaRuta = null;
@@ -1006,7 +1021,20 @@ class HoldVoiceConversation {
             // Una vez por conversación: un reenganche también trae
             // `VoiceSessionReady`, y volver a saludar a media charla sería
             // raro.
-            if (saludo != null && !saludoPedido) {
+            if (primeraFrase != null && !saludoPedido) {
+              saludoPedido = true;
+              _log('voz · te llamaron con una frase: va como primer turno');
+              // Como si hubiera llegado transcrita: estrena turno y se acumula
+              // en `asked`, que es lo que juzga el cierre del turno.
+              turn++;
+              asked.write(primeraFrase);
+              live.sendSystemNote(primeraFrase);
+              // Después del «lista» en la pantalla, no antes: si no, la
+              // interfaz lo pintaría y luego lo borraría al abrirse.
+              scheduleMicrotask(
+                () => controller.add(VoiceUserTranscript(primeraFrase)),
+              );
+            } else if (saludo != null && !saludoPedido) {
               saludoPedido = true;
               saludando = true;
               _log('voz · te llamaron: saluda antes de escuchar');
@@ -1058,6 +1086,7 @@ class HoldVoiceConversation {
               }
               unawaited(atender(event));
             case VoiceUserTranscript(:final text):
+              cierreDeLaDespedida?.cancel();
               // El primer pedazo de una frase es el que estrena turno: los
               // siguientes son la misma frase llegando a trozos.
               if (asked.isEmpty) {
@@ -1138,7 +1167,10 @@ class HoldVoiceConversation {
               estabaHablando = false;
               tirandoLaRespuesta = false;
               if (utterance.isNotEmpty) {
-                if (VoiceRouting.needsClaude(utterance)) {
+                if (VoiceRouting.needsClaude(
+                  utterance,
+                  agente: _comoSeLlama(),
+                )) {
                   answeredAlone++;
                   _log(
                     'b6 · contestó sin pasar por Claude ($answeredAlone en esta '
@@ -1146,6 +1178,35 @@ class HoldVoiceConversation {
                   );
                   pidelaRuta(utterance, turn);
                   break;
+                }
+                // 🔴 **Una despedida es terminar, no una pausa.** Tras «En
+                // nada, adiós» el micro seguía abierto los 6 s del plazo de
+                // inactividad, como si faltara algo. Ahora se cierra cuando
+                // acaba de sonar su respuesta —la despedida de ella se oye
+                // entera— y un poco después, por si vuelves a hablar.
+                if (VoiceRouting.esDespedida(
+                  utterance,
+                  agente: _comoSeLlama(),
+                )) {
+                  unawaited(
+                    _output.pending().then((queda) {
+                      if (closing) return;
+                      cierreDeLaDespedida?.cancel();
+                      cierreDeLaDespedida = Timer(
+                        queda + _trasLaDespedida,
+                        () async {
+                          if (closing ||
+                              abortErrand != null ||
+                              herramientasEnVuelo > 0) {
+                            return;
+                          }
+                          _log('voz · te despediste: se cierra · ${reloj()}');
+                          await shutdown();
+                          if (!controller.isClosed) await controller.close();
+                        },
+                      );
+                    }),
+                  );
                 }
               }
               controller.add(event);

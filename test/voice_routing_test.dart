@@ -31,6 +31,44 @@ void main() {
       test('«$frase»', () => expect(VoiceRouting.needsClaude(frase), isFalse));
     }
 
+    // 🔴 Medido el 25 sep: «¿En qué te puedo ayudar?» — «En nada, adiós», y
+    // detrás de la despedida salió «Voy a pedirle a Claude que te responda».
+    // Nadie se despide empezando por «adiós».
+    const conRelleno = [
+      'En nada, adiós',
+      'Nada, gracias',
+      'No, gracias',
+      'Bueno, hasta luego',
+      'Vale, hasta mañana',
+      'Eso es todo',
+      'Nada más',
+      'Listo',
+      '¿Cómo te encuentras?',
+      "No, that's all",
+      'No, gracias, eso es todo',
+      'Bueno, gracias, hasta mañana',
+    ];
+
+    for (final frase in conRelleno) {
+      test('«$frase»', () => expect(VoiceRouting.needsClaude(frase), isFalse));
+    }
+
+    test('con su nombre delante o detrás sigue siendo cortesía', () {
+      expect(
+        VoiceRouting.needsClaude('Hestia, gracias', agente: 'Hestia'),
+        isFalse,
+      );
+      expect(
+        VoiceRouting.needsClaude('Adiós, Hestia', agente: 'Hestia'),
+        isFalse,
+      );
+      // Y quitarle el nombre no convierte un encargo en charla.
+      expect(
+        VoiceRouting.needsClaude('Hestia, corre los tests', agente: 'Hestia'),
+        isTrue,
+      );
+    });
+
     test('el silencio no dispara nada', () {
       expect(VoiceRouting.needsClaude(''), isFalse);
       expect(VoiceRouting.needsClaude('   '), isFalse);
@@ -70,9 +108,57 @@ void main() {
       );
     });
 
+    // Y el relleno delante tampoco: «bueno» o «no» no convierten en charla lo
+    // que viene detrás.
+    test('una muletilla delante no cuela el encargo', () {
+      expect(VoiceRouting.needsClaude('Bueno, borra la rama'), isTrue);
+      expect(VoiceRouting.needsClaude('No, corre los tests'), isTrue);
+      expect(VoiceRouting.needsClaude('Nada, ¿qué hora es?'), isTrue);
+      // Y el agujero de antes: empezar por cortesía bastaba si cabía en el tope.
+      expect(VoiceRouting.needsClaude('Hola, ¿qué hora es?'), isTrue);
+    });
+
     test('la puntuación y las mayúsculas no cambian la decisión', () {
       expect(VoiceRouting.needsClaude('¡¡GRACIAS!!'), isFalse);
       expect(VoiceRouting.needsClaude('¿¿Qué HORA es??'), isTrue);
+    });
+  });
+
+  // Despedirse cierra la conversación sin esperar el plazo de inactividad.
+  group('despedirse', () {
+    const despedidas = [
+      'Adiós',
+      'En nada, adiós',
+      'Bueno, hasta luego',
+      'Gracias, hasta mañana',
+      'No, eso es todo',
+      'Nada más, gracias',
+      "That's all, thanks",
+      'Bye',
+    ];
+    for (final frase in despedidas) {
+      test('«$frase» despide', () {
+        expect(VoiceRouting.esDespedida(frase), isTrue);
+      });
+    }
+
+    test('con su nombre también', () {
+      expect(
+        VoiceRouting.esDespedida('Adiós, Hestia', agente: 'Hestia'),
+        isTrue,
+      );
+    });
+
+    // A mitad de conversación se dicen sin irse.
+    const noDespiden = ['Gracias', 'Vale', 'Perfecto', 'Hola', 'Espera'];
+    for (final frase in noDespiden) {
+      test('«$frase» no despide', () {
+        expect(VoiceRouting.esDespedida(frase), isFalse);
+      });
+    }
+
+    test('un encargo con un adiós dentro no despide', () {
+      expect(VoiceRouting.esDespedida('Corre los tests y adiós'), isFalse);
     });
   });
 

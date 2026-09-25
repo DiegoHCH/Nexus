@@ -10,6 +10,7 @@ import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
+import 'package:nexus/features/avisos/presentation/providers/la_voz_que_avisa.dart';
 import 'package:nexus/features/oido/domain/usecases/como_se_le_llama.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -42,11 +43,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// exactamente la clase de iniciativa que no se quiere.
 class ElOidoQueEspera {
   ElOidoQueEspera(this._ref) {
-    EscuchaChannel.cuandoTeLlamen(_teLlamaron, siSeCalla: _seCallo);
+    EscuchaChannel.cuandoTeLlamen(
+      _teLlamaron,
+      alOirTuNombre: _teOyo,
+      siSeCalla: _seCallo,
+    );
     _ref.onDispose(() {
       EscuchaChannel.cuandoTeLlamen(null);
       unawaited(EscuchaChannel.parar());
       _mirando?.close();
+      _siNoLlegaAAbrirse?.cancel();
       unawaited(OrbeChannel.ocultar());
     });
   }
@@ -56,6 +62,18 @@ class ElOidoQueEspera {
   static const encendido = 'oido_encendido';
 
   var _puesto = false;
+
+  /// Hay una llamada abriéndose: desde que te oyó hasta que la voz se cierra.
+  ///
+  /// 🔴 **Sin esto una llamada se cerraba sola.** Abrir la voz tarda un par de
+  /// segundos, y en ese rato cualquier cambio en las conversaciones vuelve a
+  /// cuadrar el oído: todavía no hay voz abierta, así que la escucha se
+  /// encendía otra vez, oía el mismo «Hestia», y la segunda llamada **apagaba**
+  /// la primera —`toggleVoice` es un interruptor—. Medido el 25 sep: la sesión
+  /// con el saludo cerrada antes de estar lista y otra abierta sin saludo, que
+  /// se quedó callada.
+  var _llamando = false;
+  Timer? _siNoLlegaAAbrirse;
 
   /// Enciende o apaga según el ajuste y según si hay voz abierta.
   Future<void> cuadrar() async {
@@ -94,6 +112,7 @@ class ElOidoQueEspera {
   }
 
   Future<bool> _debeEscuchar() async {
+    if (_llamando) return false;
     try {
       final prefs = await SharedPreferences.getInstance();
       if (prefs.getBool(encendido) != true) return false;
@@ -132,12 +151,35 @@ class ElOidoQueEspera {
   /// Cuánto se espera antes de volver a probar tras callarse sola.
   static const _reintento = Duration(seconds: 5);
 
-  void _teLlamaron() {
+  /// Oyó el nombre y todavía te está escuchando el resto: el orbe sale ya.
+  /// Montar la voz tarda un segundo largo, y en ese rato lo único que sabe que
+  /// la llamaste eres tú.
+  void _teOyo() {
+    if (_ref.read(conversationsProvider).focused == null) return;
+    unawaited(OrbeChannel.mostrar(NexusOrbState.listen.name, _elAcento()));
+  }
+
+  /// [resto] es lo que dijiste después del nombre. Si dijiste algo, es tu
+  /// primer turno y **no saluda**: «Hestia, ¿qué reuniones tengo?» se
+  /// contesta, no se recibe con un «¿Sí?» que te obligaría a repetirlo.
+  void _teLlamaron(String resto) {
     _puesto = false;
     final cual = _ref.read(conversationsProvider).focused?.id;
+    // Una llamada con la voz ya abierta no la cierra: `toggleVoice` es un
+    // interruptor, y oír el nombre otra vez no es pedir que cuelgue.
+    if (_llamando ||
+        (cual != null &&
+            _ref.read(assistantControllerProvider(cual)).voiceActive)) {
+      debugPrint('escucha · te llamaron con la voz ya abierta: se ignora');
+      return;
+    }
     if (cual == null) {
+      // 🔴 **Antes no pasaba nada**: un `debugPrint` y a seguir esperando. La
+      // llamabas desde el otro lado de la habitación y el silencio no decía si
+      // no te oyó o si no podía. Ahora contesta qué falta, en voz alta, y si
+      // no puede hablar lo deja como aviso.
       debugPrint('escucha · te llamaron y no hay conversación abierta');
-      unawaited(cuadrar());
+      unawaited(_decirQueNoHayConversacion());
       return;
     }
     // El orbe sale **antes** de abrir la sesión, no después: montar la voz
@@ -146,12 +188,40 @@ class ElOidoQueEspera {
     // contestar y mientras tanto no da señales es indistinguible de uno que no
     // te oyó.
     unawaited(OrbeChannel.mostrar(NexusOrbState.listen.name, _elAcento()));
+    _llamando = true;
+    // Si la voz no llega a abrirse —una carpeta de solo texto, sin llave—, el
+    // oído no se queda apagado para siempre esperándola.
+    _siNoLlegaAAbrirse?.cancel();
+    _siNoLlegaAAbrirse = Timer(const Duration(seconds: 15), () {
+      if (!_llamando) return;
+      _llamando = false;
+      _mirando?.close();
+      _mirando = null;
+      unawaited(OrbeChannel.ocultar());
+      if (_ref.mounted) unawaited(cuadrar());
+    });
     _seguirLaConversacion(cual);
     unawaited(
       _ref
           .read(assistantControllerProvider(cual).notifier)
-          .toggleVoice(saludo: _elSaludo()),
+          .toggleVoice(
+            saludo: resto.isEmpty ? _elSaludo() : null,
+            primeraFrase: resto.isEmpty ? null : resto,
+          ),
     );
+  }
+
+  Future<void> _decirQueNoHayConversacion() async {
+    final strings = _ref.read(stringsProvider);
+    await _ref
+        .read(laVozQueAvisaProvider)
+        .decir(
+          titulo: _ref.read(losNombresProvider).agente ?? 'Nexus',
+          frase: strings.alLlamarlaSinConversacion(
+            _ref.read(losNombresProvider).tuyo,
+          ),
+        );
+    if (_ref.mounted) await cuadrar();
   }
 
   /// Lo que contesta a la llamada: «¿Sí, Argonauta?».
@@ -180,6 +250,7 @@ class ElOidoQueEspera {
     _mirando = _ref.listen(assistantControllerProvider(cual), (antes, ahora) {
       if (ahora.voiceActive) {
         llegoAAbrirse = true;
+        _siNoLlegaAAbrirse?.cancel();
         unawaited(OrbeChannel.estado(ahora.orbState.name, _elAcento()));
         return;
       }
@@ -188,6 +259,7 @@ class ElOidoQueEspera {
       if (!llegoAAbrirse) return;
       _mirando?.close();
       _mirando = null;
+      _llamando = false;
       unawaited(OrbeChannel.ocultar());
       unawaited(cuadrar());
     });

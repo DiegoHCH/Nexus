@@ -2853,7 +2853,10 @@ class AssistantController extends Notifier<AssistantHudState> {
   /// métodos porque el mando en la interfaz es uno solo: el orbe.
   /// [saludo] es lo que dice al abrirse cuando la abriste llamándola por su
   /// nombre. Ver `ElOidoQueEspera`.
-  Future<void> toggleVoice({String? saludo}) async {
+  ///
+  /// [primeraFrase] es lo que dijiste después del nombre al llamarla: va como
+  /// tu primer turno, y entonces no hay saludo.
+  Future<void> toggleVoice({String? saludo, String? primeraFrase}) async {
     if (state.voiceActive) {
       await stopVoice();
       return;
@@ -2946,33 +2949,35 @@ class AssistantController extends Notifier<AssistantHudState> {
     final conversation = ref.read(
       holdVoiceConversationProvider(conversationId),
     );
-    _voiceSubscription = conversation(saludo: saludo).listen(
-      (event) => switch (event) {
-        VoiceSessionReady() => _onVoiceReady(),
-        VoiceUserTranscript() => _onHeard(event.text),
-        VoiceReplyTranscript() => _onReply(event.text),
-        VoiceInterrupted() => _onInterrupted(),
-        VoiceIgnorado() => _onIgnorado(event.texto),
-        VoiceTurnCompleted() => _onVoiceTurnCompleted(),
-        VoiceToolStarted() => _onToolStarted(event.instruction),
-        VoiceLookupStarted() => _onLookupStarted(event.headline),
-        VoiceToolProgress() => _onToolProgress(event.text),
-        VoiceToolActivity() => _onVoiceActivity(event),
-        VoiceToolFinished() => _onToolFinished(event),
-        VoiceSessionFailed() => unawaited(_onVoiceFailed(event.message)),
-        // El audio no llega hasta aquí: lo reproduce el caso de uso. La
-        // interfaz solo necesita el texto y el estado.
-        VoiceReplyAudio() => null,
-        // La petición la atiende el caso de uso; la pantalla ve el trabajo,
-        // no la fontanería.
-        VoiceToolRequested() => null,
-      },
-      onError: (Object error) => unawaited(_onVoiceFailed(error.toString())),
-      onDone: () => state = state.copyWith(
-        voiceActive: false,
-        orbState: NexusOrbState.sleep,
-      ),
-    );
+    _voiceSubscription =
+        conversation(saludo: saludo, primeraFrase: primeraFrase).listen(
+          (event) => switch (event) {
+            VoiceSessionReady() => _onVoiceReady(),
+            VoiceUserTranscript() => _onHeard(event.text),
+            VoiceReplyTranscript() => _onReply(event.text),
+            VoiceInterrupted() => _onInterrupted(),
+            VoiceIgnorado() => _onIgnorado(event.texto),
+            VoiceTurnCompleted() => _onVoiceTurnCompleted(),
+            VoiceToolStarted() => _onToolStarted(event.instruction),
+            VoiceLookupStarted() => _onLookupStarted(event.headline),
+            VoiceToolProgress() => _onToolProgress(event.text),
+            VoiceToolActivity() => _onVoiceActivity(event),
+            VoiceToolFinished() => _onToolFinished(event),
+            VoiceSessionFailed() => unawaited(_onVoiceFailed(event.message)),
+            // El audio no llega hasta aquí: lo reproduce el caso de uso. La
+            // interfaz solo necesita el texto y el estado.
+            VoiceReplyAudio() => null,
+            // La petición la atiende el caso de uso; la pantalla ve el trabajo,
+            // no la fontanería.
+            VoiceToolRequested() => null,
+          },
+          onError: (Object error) =>
+              unawaited(_onVoiceFailed(error.toString())),
+          onDone: () => state = state.copyWith(
+            voiceActive: false,
+            orbState: NexusOrbState.sleep,
+          ),
+        );
   }
 
   /// Detiene lo que esté en curso, venga de la voz o del teclado. Es el

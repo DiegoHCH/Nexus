@@ -1721,6 +1721,52 @@ void _elAudioAjeno() {
     );
   });
 
+  // 🔴 Tras «En nada, adiós» el micro seguía abierto los 6 s del plazo, como si
+  // faltara algo. Una despedida cierra al acabar de sonar su respuesta.
+  group('despedirse', () {
+    test('cierra la conversación sin esperar al plazo', () async {
+      final session = _Session();
+      final conversation = _conversation(session, _Bridge());
+
+      var cerrada = false;
+      final subscription = conversation().listen(
+        (_) {},
+        onDone: () => cerrada = true,
+      );
+      await Future<void>.delayed(Duration.zero);
+      session.emit(const VoiceSessionReady());
+      session.emit(const VoiceUserTranscript('En nada, adiós'));
+      session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
+      session.emit(const VoiceTurnCompleted());
+      await Future<void>.delayed(const Duration(milliseconds: 1800));
+
+      expect(cerrada, isTrue);
+      await subscription.cancel();
+    });
+
+    test('si vuelves a hablar antes, sigue abierta', () async {
+      final session = _Session();
+      final conversation = _conversation(session, _Bridge());
+
+      var cerrada = false;
+      final subscription = conversation().listen(
+        (_) {},
+        onDone: () => cerrada = true,
+      );
+      await Future<void>.delayed(Duration.zero);
+      session.emit(const VoiceSessionReady());
+      session.emit(const VoiceUserTranscript('Adiós'));
+      session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
+      session.emit(const VoiceTurnCompleted());
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      session.emit(const VoiceUserTranscript('ah, espera'));
+      await Future<void>.delayed(const Duration(milliseconds: 1800));
+
+      expect(cerrada, isFalse);
+      await subscription.cancel();
+    });
+  });
+
   // Llamarla por su nombre abre la voz contestando: «¿Sí, Argonauta?». Sin eso
   // el silencio no decía si te oyó ni cuándo empezar a hablar.
   group('el saludo al llamarla', () {
@@ -1792,6 +1838,40 @@ void _elAudioAjeno() {
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
       expect(vistos.whereType<VoiceIgnorado>(), isEmpty);
+      expect(bridge.asked.single, contains('historial de git'));
+
+      await subscription.cancel();
+    });
+
+    // 🔴 «Hestia, mira el historial de git»: la frase llegaba cortada en el
+    // nombre y la pregunta se perdía. Ahora es el primer turno.
+    test('con lo dicho tras el nombre no saluda: eso es tu turno', () async {
+      final session = _Session();
+      final bridge = _Bridge();
+      final gateway = _Gateway(session);
+      final conversation = _conversation(session, bridge, gateway: gateway);
+
+      final vistos = <VoiceEvent>[];
+      final subscription = conversation(
+        primeraFrase: 'mira el historial de git',
+      ).listen(vistos.add);
+      await Future<void>.delayed(Duration.zero);
+      session.emit(const VoiceSessionReady());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      // Va por el socket como tu turno, y no hay «(inicio)» ni saludo.
+      expect(session.notes, ['mira el historial de git']);
+      expect((gateway.perfil! as ComoUnaConversacion).saludo, isNull);
+      // La pantalla lo pinta como dicho por ti.
+      expect(
+        vistos.whereType<VoiceUserTranscript>().single.text,
+        'mira el historial de git',
+      );
+
+      // Y si contesta de memoria, se corrige como cualquier otro turno.
+      session.emit(VoiceReplyAudio(Uint8List.fromList([2])));
+      session.emit(const VoiceTurnCompleted());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(bridge.asked.single, contains('historial de git'));
 
       await subscription.cancel();

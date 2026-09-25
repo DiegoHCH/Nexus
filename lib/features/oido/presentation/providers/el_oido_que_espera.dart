@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/accent_preference.dart';
+import 'package:nexus/core/design_system/orbe_preference.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/core/platform/escucha_channel.dart';
 import 'package:nexus/core/platform/orbe_channel.dart';
@@ -156,7 +157,13 @@ class ElOidoQueEspera {
   /// la llamaste eres tú.
   void _teOyo() {
     if (_ref.read(conversationsProvider).focused == null) return;
-    unawaited(OrbeChannel.mostrar(NexusOrbState.listen.name, _elAcento()));
+    unawaited(
+      OrbeChannel.mostrar(
+        NexusOrbState.listen.name,
+        _elAcento(),
+        estilo: _elEstilo(),
+      ),
+    );
   }
 
   /// [resto] es lo que dijiste después del nombre. Si dijiste algo, es tu
@@ -187,7 +194,13 @@ class ElOidoQueEspera {
     // único que sabe que la llamaste eres tú. Un asistente que tarda en
     // contestar y mientras tanto no da señales es indistinguible de uno que no
     // te oyó.
-    unawaited(OrbeChannel.mostrar(NexusOrbState.listen.name, _elAcento()));
+    unawaited(
+      OrbeChannel.mostrar(
+        NexusOrbState.listen.name,
+        _elAcento(),
+        estilo: _elEstilo(),
+      ),
+    );
     _llamando = true;
     // Si la voz no llega a abrirse —una carpeta de solo texto, sin llave—, el
     // oído no se queda apagado para siempre esperándola.
@@ -238,6 +251,10 @@ class ElOidoQueEspera {
   /// otro motor y no puede leer los ajustes por su cuenta.
   int _elAcento() => _ref.read(accentControllerProvider).chosen.toARGB32();
 
+  /// Y el estilo del orbe, por lo mismo: plasma o puntos y sus ajustes, para
+  /// que el de fuera sea el mismo que el de dentro.
+  Map<String, Object> _elEstilo() => _ref.read(orbeEstiloProvider).toMap();
+
   ProviderSubscription<AssistantHudState>? _mirando;
 
   /// Mientras dure la sesión, el orbe de fuera dice lo mismo que el de dentro.
@@ -251,7 +268,13 @@ class ElOidoQueEspera {
       if (ahora.voiceActive) {
         llegoAAbrirse = true;
         _siNoLlegaAAbrirse?.cancel();
-        unawaited(OrbeChannel.estado(ahora.orbState.name, _elAcento()));
+        unawaited(
+          OrbeChannel.estado(
+            ahora.orbState.name,
+            _elAcento(),
+            estilo: _elEstilo(),
+          ),
+        );
         return;
       }
       // El primer estado que llega puede ser el de antes de abrirse: sin esto,

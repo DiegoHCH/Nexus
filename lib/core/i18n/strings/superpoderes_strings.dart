@@ -14,6 +14,23 @@ mixin SuperpoderesStrings {
   String get accentTitle;
   String get accentExplainer;
   String get accentPick;
+
+  // El orbe: de qué está hecho y el carácter del plasma.
+  String get orbeTitle;
+  String get orbeExplainer;
+  String get orbePlasma;
+  String get orbePlasmaDetail;
+  String get orbePuntos;
+  String get orbePuntosDetail;
+  String get orbeFilamentos;
+  String get orbeTurbulencia;
+  String get orbeFinura;
+  String get orbeVelocidad;
+  String get orbeNucleo;
+  String get orbeTamano;
+  String get orbeIntensidad;
+  String get orbeFabrica;
+  String get orbeSinPlasma;
   String get accentAdjusted;
   String get accentReset;
   String get accentInDark;
@@ -161,6 +178,41 @@ mixin SuperpoderesStringsEs implements SuperpoderesStrings {
       'ajusta la app para que se lea en el tema claro y en el oscuro.';
   @override
   String get accentPick => 'Elegir el color';
+  @override
+  String get orbeTitle => 'Orbe';
+  @override
+  String get orbeExplainer =>
+      'De plasma o con los puntos de siempre. Estos ajustes son la base: '
+      'encima, cada estado se mueve a su manera, y eso no se elige porque es lo '
+      'que deja distinguirlos de lejos. Vale también para el orbe del '
+      'escritorio.';
+  @override
+  String get orbePlasma => 'Plasma';
+  @override
+  String get orbePlasmaDetail => 'hebras de luz en remolino';
+  @override
+  String get orbePuntos => 'Puntos';
+  @override
+  String get orbePuntosDetail => 'la esfera de siempre';
+  @override
+  String get orbeFilamentos => 'Filamentos';
+  @override
+  String get orbeTurbulencia => 'Turbulencia';
+  @override
+  String get orbeFinura => 'Finura de las hebras';
+  @override
+  String get orbeVelocidad => 'Velocidad';
+  @override
+  String get orbeNucleo => 'Núcleo';
+  @override
+  String get orbeTamano => 'Tamaño';
+  @override
+  String get orbeIntensidad => 'Intensidad';
+  @override
+  String get orbeFabrica => 'Valores de fábrica';
+  @override
+  String get orbeSinPlasma =>
+      'Este Mac no pudo cargar el plasma: se ven los puntos.';
   @override
   String get accentAdjusted =>
       'Se ajusta el brillo, no el color: sobre el vacío hace falta un tono más '
@@ -405,6 +457,41 @@ mixin SuperpoderesStringsEn implements SuperpoderesStrings {
       'colour; the app adjusts the brightness so it reads in both themes.';
   @override
   String get accentPick => 'Pick the colour';
+  @override
+  String get orbeTitle => 'Orb';
+  @override
+  String get orbeExplainer =>
+      'Plasma or the usual dots. These settings are the base: on top of them '
+      'each state moves its own way, and that is not a choice because it is '
+      'what lets you tell them apart from across the room. It also applies to '
+      'the desktop orb.';
+  @override
+  String get orbePlasma => 'Plasma';
+  @override
+  String get orbePlasmaDetail => 'swirling threads of light';
+  @override
+  String get orbePuntos => 'Dots';
+  @override
+  String get orbePuntosDetail => 'the usual sphere';
+  @override
+  String get orbeFilamentos => 'Filaments';
+  @override
+  String get orbeTurbulencia => 'Turbulence';
+  @override
+  String get orbeFinura => 'Thread fineness';
+  @override
+  String get orbeVelocidad => 'Speed';
+  @override
+  String get orbeNucleo => 'Core';
+  @override
+  String get orbeTamano => 'Size';
+  @override
+  String get orbeIntensidad => 'Intensity';
+  @override
+  String get orbeFabrica => 'Factory settings';
+  @override
+  String get orbeSinPlasma =>
+      'This Mac could not load the plasma: you see the dots.';
   @override
   String get accentAdjusted =>
       'The brightness is adjusted, not the colour: over the void a lighter tone '

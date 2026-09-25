@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/design_system/orbe_preference.dart';
 import 'package:nexus/core/design_system/appearance_channel.dart';
 import 'package:nexus/core/diagnostico/registro_de_la_app.dart';
 import 'package:nexus/core/diagnostico/registro_providers.dart';
@@ -293,8 +294,12 @@ class _MainAppState extends ConsumerState<MainApp> {
       // el scope ahí abajo, abrir Ajustes reventaba con «falta un
       // StringsScope» — y solo en esa pantalla, que es lo que lo hacía fácil
       // de no ver hasta usarla.
-      builder: (context, child) =>
-          StringsScope(strings: NexusStrings.of(locale), child: child!),
+      builder: (context, child) => OrbeEstiloScope(
+        // Aquí y no en cada orbe: así lo leen también los que viven dentro de
+        // rutas —Ajustes, el móvil de prueba— sin pasar por Riverpod.
+        estilo: ref.watch(orbeEstiloProvider),
+        child: StringsScope(strings: NexusStrings.of(locale), child: child!),
+      ),
       home: const AppRoot(),
     );
   }

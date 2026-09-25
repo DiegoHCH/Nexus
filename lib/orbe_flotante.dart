@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nexus/core/design_system/nexus_theme.dart';
+import 'package:nexus/core/design_system/orbe_preference.dart';
 import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 
@@ -40,6 +41,9 @@ class _ElOrbeSoloState extends State<_ElOrbeSolo> {
   /// este canal.
   Color? _acento;
 
+  /// Plasma o puntos y sus ajustes, que llegan con cada aviso como el acento.
+  var _estilo = OrbeEstilo.fabrica;
+
   @override
   void initState() {
     super.initState();
@@ -48,9 +52,11 @@ class _ElOrbeSoloState extends State<_ElOrbeSolo> {
       final datos = llamada.arguments as Map?;
       final cual = datos?['estado'] as String?;
       final acento = datos?['acento'] as int?;
+      final estilo = datos?['estilo'] as Map<Object?, Object?>?;
       setState(() {
         _estado = _elEstado(cual);
         if (acento != null) _acento = Color(acento);
+        if (estilo != null) _estilo = OrbeEstilo.fromMap(estilo);
       });
       return null;
     });
@@ -81,7 +87,12 @@ class _ElOrbeSoloState extends State<_ElOrbeSolo> {
     // también. Aquí no hace falta ninguna de las cosas que un `Scaffold` trae.
     home: ColoredBox(
       color: Colors.transparent,
-      child: Center(child: NexusOrb(state: _estado, showHorizon: false)),
+      child: Center(
+        child: OrbeEstiloScope(
+          estilo: _estilo,
+          child: NexusOrb(state: _estado),
+        ),
+      ),
     ),
   );
 }

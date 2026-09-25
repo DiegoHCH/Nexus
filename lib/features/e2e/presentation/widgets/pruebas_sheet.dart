@@ -468,12 +468,12 @@ class _LanzaderaState extends ConsumerState<_Lanzadera> {
           const SizedBox(height: 2),
           Text(
             strings.e2eVarsLoaded(credenciales.claves.length),
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           ),
           if (credenciales.enGit == true)
             Text(
               strings.e2eEnvInGit,
-              style: NexusTypography.mono.copyWith(color: colors.warn),
+              style: NexusTypography.nota.copyWith(color: colors.warn),
             ),
         ],
         const SizedBox(height: NexusSpacing.s2),
@@ -481,7 +481,7 @@ class _LanzaderaState extends ConsumerState<_Lanzadera> {
         if (pruebas.isEmpty)
           Text(
             strings.e2eNone,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           )
         else ...[
           // **Buscando no es lo mismo que no haber.** Mientras se busca no se
@@ -503,7 +503,7 @@ class _LanzaderaState extends ConsumerState<_Lanzadera> {
                   const SizedBox(width: NexusSpacing.s3),
                   Text(
                     strings.e2eSearchingDevices,
-                    style: NexusTypography.mono.copyWith(color: colors.faint),
+                    style: NexusTypography.nota.copyWith(color: colors.faint),
                   ),
                 ],
               ),
@@ -531,7 +531,7 @@ class _LanzaderaState extends ConsumerState<_Lanzadera> {
                         const SizedBox(width: NexusSpacing.s3),
                         Text(
                           strings.e2eStarting,
-                          style: NexusTypography.mono.copyWith(
+                          style: NexusTypography.nota.copyWith(
                             color: colors.faint,
                           ),
                         ),
@@ -776,13 +776,13 @@ class _HistorialState extends ConsumerState<_Historial> {
     if (lista == null) {
       return Text(
         strings.e2eTitle,
-        style: NexusTypography.mono.copyWith(color: colors.faint),
+        style: NexusTypography.nota.copyWith(color: colors.faint),
       );
     }
     if (lista.isEmpty) {
       return Text(
         strings.e2eNoRuns,
-        style: NexusTypography.mono.copyWith(color: colors.faint),
+        style: NexusTypography.nota.copyWith(color: colors.faint),
       );
     }
 
@@ -915,7 +915,7 @@ class _ElNumero extends StatelessWidget {
                 ),
                 Text(
                   strings.e2eNumeroLimite,
-                  style: NexusTypography.mono.copyWith(color: colors.faint),
+                  style: NexusTypography.nota.copyWith(color: colors.faint),
                 ),
               ],
             ),

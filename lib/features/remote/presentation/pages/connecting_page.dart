@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
 import 'package:nexus/core/design_system/nexus_spacing.dart';
 import 'package:nexus/core/design_system/nexus_typography.dart';
@@ -25,6 +26,7 @@ class ConnectingPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
+    final strings = context.strings;
     final pareja = ref.watch(pairingControllerProvider).value;
 
     return Scaffold(
@@ -52,7 +54,7 @@ class ConnectingPage extends ConsumerWidget {
               ),
               const Spacer(),
               Text(
-                'BUSCANDO TU MAC',
+                strings.mobileSearchingForMac,
                 style: NexusTypography.label.copyWith(color: colors.mute),
               ),
               const SizedBox(height: NexusSpacing.s3),
@@ -79,7 +81,7 @@ class ConnectingPage extends ConsumerWidget {
                       border: Border.all(color: colors.rule2),
                     ),
                     child: Text(
-                      'CANCELAR',
+                      strings.mobileCancel,
                       style: NexusTypography.label.copyWith(color: colors.mute),
                     ),
                   ),
@@ -90,7 +92,7 @@ class ConnectingPage extends ConsumerWidget {
                 // El mockup dice «comprueba que ambos están en la misma red», que era
                 // de cuando había red local. Lo que de verdad hay que comprobar es
                 // Tailscale, en los dos aparatos — y es lo que falló la primera vez.
-                'Si tarda, comprueba que Tailscale está activo\nen el teléfono y en el Mac.',
+                strings.mobileSlowConnectHint,
                 textAlign: TextAlign.center,
                 style: NexusTypography.mono.copyWith(color: colors.faint),
               ),

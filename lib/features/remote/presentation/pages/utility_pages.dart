@@ -182,6 +182,7 @@ class _CuentasArriba extends StatelessWidget {
   Widget build(BuildContext context) {
     // Con un solo cubo no hay elección que hacer, y un botón único solo ocupa sitio.
     if (cubos.length < 2) return const SizedBox.shrink();
+    final strings = context.strings;
 
     return Wrap(
       spacing: NexusSpacing.s2,
@@ -190,7 +191,7 @@ class _CuentasArriba extends StatelessWidget {
         for (final cubo in cubos)
           _Boton(
             key: ValueKey('cuenta-${cubo ?? 'general'}'),
-            rotulo: cubo ?? 'General',
+            rotulo: cubo ?? strings.mobileGeneral,
             activo: elegida == cubo,
             alTocar: () => alElegir(cubo),
           ),
@@ -335,6 +336,7 @@ class _ArchivePageState extends ConsumerState<ArchivePage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final archivo = ref.watch(archiveProvider);
     final cubos = _cubos(archivo.value?.map((c) => c.account));
     final cuenta = _elegido
@@ -342,7 +344,7 @@ class _ArchivePageState extends ConsumerState<ArchivePage> {
         : _cuboDePartida(archivo.value, (e) => e.account, cubos);
 
     return _ListaDeUtilidad(
-      rotulo: 'El archivo',
+      rotulo: strings.mobileHistory,
       alRefrescar: () => ref.refresh(archiveProvider.future),
       arriba: _CuentasArriba(
         cubos: cubos,
@@ -352,17 +354,18 @@ class _ArchivePageState extends ConsumerState<ArchivePage> {
           _elegido = true;
         }),
       ),
-      pie:
-          'Retomar una que ya está abierta lleva a la que hay: dos conversaciones '
-          'sobre la misma carpeta compartirían la sesión de Claude y se pisarían el '
-          'contexto.',
+      pie: strings.mobileHistoryFooter,
       cuerpo: switch (archivo) {
-        AsyncData(:final value) when value.isEmpty => const _Vacia(
-          texto: 'Todavía no hay nada guardado.',
+        AsyncData(:final value) when value.isEmpty => _Vacia(
+          texto: strings.mobileHistoryEmpty,
         ),
         AsyncData(:final value)
             when _soloDe(value, cuenta, (c) => c.account).isEmpty =>
-          _Vacia(texto: 'Nada de «${cuenta ?? 'general'}» en el archivo.'),
+          _Vacia(
+            texto: strings.mobileHistoryEmptyFor(
+              cuenta ?? strings.mobileGeneral,
+            ),
+          ),
         AsyncData(:final value) => Column(
           children: [
             for (final c in _soloDe(value, cuenta, (e) => e.account))
@@ -377,12 +380,12 @@ class _ArchivePageState extends ConsumerState<ArchivePage> {
                 dato: [
                   ?c.account,
                   _cola(c.folder),
-                  '${c.turns} turnos',
+                  strings.mobileTurns(c.turns),
                 ].join('  ·  '),
                 // Se dice cuál está viva para no ofrecer «retomar» algo que ya lo
                 // está — y se deja tocar igual, porque llevar a la abierta es
                 // exactamente lo correcto.
-                chip: c.open ? 'Abierta' : null,
+                chip: c.open ? strings.mobileOpenChip : null,
                 chipVivo: c.open,
                 alTocar: () async {
                   final id = await ref
@@ -398,9 +401,7 @@ class _ArchivePageState extends ConsumerState<ArchivePage> {
               ),
           ],
         ),
-        AsyncError() => const _Vacia(
-          texto: 'No pude pedirle el archivo al Mac.',
-        ),
+        AsyncError() => _Vacia(texto: strings.mobileHistoryUnavailable),
         _ => const _Cargando(),
       },
     );
@@ -424,6 +425,7 @@ class _ArtifactsPageState extends ConsumerState<ArtifactsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final lista = ref.watch(artifactsListProvider);
     final cubos = _cubos(lista.value?.map((a) => a.account));
     final cuenta = _elegido
@@ -431,7 +433,7 @@ class _ArtifactsPageState extends ConsumerState<ArtifactsPage> {
         : _cuboDePartida(lista.value, (e) => e.account, cubos);
 
     return _ListaDeUtilidad(
-      rotulo: 'Los artifacts',
+      rotulo: strings.mobileDocuments,
       alRefrescar: () => ref.refresh(artifactsListProvider.future),
       arriba: _CuentasArriba(
         cubos: cubos,
@@ -441,16 +443,18 @@ class _ArtifactsPageState extends ConsumerState<ArtifactsPage> {
           _elegido = true;
         }),
       ),
-      pie:
-          'El peso va delante porque abrir uno grande con datos móviles es una '
-          'decisión, no un toque: la lista se pide siempre y el contenido casi nunca.',
+      pie: strings.mobileDocumentsFooter,
       cuerpo: switch (lista) {
-        AsyncData(:final value) when value.isEmpty => const _Vacia(
-          texto: 'Claude no ha producido documentos todavía.',
+        AsyncData(:final value) when value.isEmpty => _Vacia(
+          texto: strings.mobileDocumentsEmpty,
         ),
         AsyncData(:final value)
             when _soloDe(value, cuenta, (a) => a.account).isEmpty =>
-          _Vacia(texto: 'Ningún documento de «${cuenta ?? 'general'}».'),
+          _Vacia(
+            texto: strings.mobileDocumentsEmptyFor(
+              cuenta ?? strings.mobileGeneral,
+            ),
+          ),
         AsyncData(:final value) => Column(
           children: [
             for (final a in _soloDe(value, cuenta, (e) => e.account))
@@ -461,7 +465,7 @@ class _ArtifactsPageState extends ConsumerState<ArtifactsPage> {
                 // Lo que no es texto se dice **en la lista**: un `.png` por un canal
                 // de texto no da una imagen, da un error, y una fila que solo puede
                 // fallar es peor que una fila que avisa.
-                chip: a.text ? null : 'Solo en la Mac',
+                chip: a.text ? null : strings.mobileOnlyOnMac,
                 apagada: !a.text,
                 alTocar: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
@@ -471,9 +475,7 @@ class _ArtifactsPageState extends ConsumerState<ArtifactsPage> {
               ),
           ],
         ),
-        AsyncError() => const _Vacia(
-          texto: 'No pude pedirle los documentos al Mac.',
-        ),
+        AsyncError() => _Vacia(texto: strings.mobileDocumentsUnavailable),
         _ => const _Cargando(),
       },
     );
@@ -588,7 +590,7 @@ class _ArtifactPageState extends ConsumerState<ArtifactPage> {
                     // idea por sí solo.
                     key: ValueKey('artifact-pintado-$_permitido'),
                   ),
-                  AsyncError() => const _Vacia(texto: 'No pude leerlo.'),
+                  AsyncError() => _Vacia(texto: strings.mobileCouldNotRead),
                   _ => const _Cargando(),
                 },
               ),
@@ -600,7 +602,7 @@ class _ArtifactPageState extends ConsumerState<ArtifactPage> {
 
     return _ListaDeUtilidad(
       rotulo: widget.nombre,
-      pie: 'Se pidió al abrirlo, no con la lista.',
+      pie: strings.mobileFetchedOnOpen,
       cuerpo: switch (contenido) {
         AsyncData(:final value) => SelectableText(
           value,
@@ -609,7 +611,7 @@ class _ArtifactPageState extends ConsumerState<ArtifactPage> {
           // leerlos en proporcional pierde la alineación que tienen dentro.
           style: NexusTypography.mono.copyWith(color: colors.ink, height: 1.6),
         ),
-        AsyncError() => const _Vacia(texto: 'No pude leerlo.'),
+        AsyncError() => _Vacia(texto: strings.mobileCouldNotRead),
         _ => const _Cargando(),
       },
     );
@@ -710,6 +712,7 @@ class _FoldersPageState extends ConsumerState<FoldersPage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final carpetas = ref.watch(foldersProvider);
     final cubos = _cubos(carpetas.value?.map((f) => f.account));
     final cuenta = _elegido
@@ -717,7 +720,7 @@ class _FoldersPageState extends ConsumerState<FoldersPage> {
         : _cuboDePartida(carpetas.value, (e) => e.account, cubos);
 
     return _ListaDeUtilidad(
-      rotulo: 'Conversación nueva',
+      rotulo: strings.mobileNewConversation,
       alRefrescar: () => ref.refresh(foldersProvider.future),
       arriba: _CuentasArriba(
         cubos: cubos,
@@ -727,16 +730,16 @@ class _FoldersPageState extends ConsumerState<FoldersPage> {
           _elegido = true;
         }),
       ),
-      pie:
-          'Solo las que el Mac ya tiene emparejadas: la lista la pone él. Emparejar '
-          'una carpeta nueva sigue siendo cosa del escritorio.',
+      pie: strings.mobileFoldersFooter,
       cuerpo: switch (carpetas) {
-        AsyncData(:final value) when value.isEmpty => const _Vacia(
-          texto: 'El Mac no tiene ninguna carpeta emparejada.',
+        AsyncData(:final value) when value.isEmpty => _Vacia(
+          texto: strings.mobileNoFolders,
         ),
         AsyncData(:final value)
             when _soloDe(value, cuenta, (f) => f.account).isEmpty =>
-          _Vacia(texto: 'Ninguna carpeta de «${cuenta ?? 'general'}».'),
+          _Vacia(
+            texto: strings.mobileNoFoldersFor(cuenta ?? strings.mobileGeneral),
+          ),
         AsyncData(:final value) => Column(
           children: [
             for (final f in _soloDe(value, cuenta, (e) => e.account))
@@ -749,7 +752,9 @@ class _FoldersPageState extends ConsumerState<FoldersPage> {
                 // Las dos cosas se dicen **antes** de abrir: empezar en una de solo
                 // lectura y descubrirlo al primer encargo es trabajo para tirar, y
                 // una ocupada no se puede abrir dos veces.
-                chip: f.busy ? 'Ocupada' : (f.canWrite ? null : 'Solo lectura'),
+                chip: f.busy
+                    ? strings.mobileBusy
+                    : (f.canWrite ? null : strings.mobileReadOnlyChip),
                 apagada: f.busy,
                 alTocar: () async {
                   final id = await ref
@@ -765,9 +770,7 @@ class _FoldersPageState extends ConsumerState<FoldersPage> {
               ),
           ],
         ),
-        AsyncError() => const _Vacia(
-          texto: 'No pude pedirle las carpetas al Mac.',
-        ),
+        AsyncError() => _Vacia(texto: strings.mobileFoldersUnavailable),
         _ => const _Cargando(),
       },
     );
@@ -802,7 +805,7 @@ class _Cargando extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s6),
     child: Text(
-      'Preguntando al Mac…',
+      context.strings.mobileAskingMac,
       style: NexusTypography.mono.copyWith(color: context.colors.faint),
     ),
   );

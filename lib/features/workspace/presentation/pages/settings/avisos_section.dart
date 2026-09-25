@@ -37,7 +37,7 @@ class AvisosSection extends ConsumerWidget {
         children: [
           Text(
             strings.avisosExplainer,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           ),
           const SizedBox(height: NexusSpacing.s5),
           SwitchListTile(
@@ -55,7 +55,7 @@ class AvisosSection extends ConsumerWidget {
           // viene a decidir de qué quiere enterarse solo.
           Text(
             strings.avisosPrExplainer,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -76,7 +76,7 @@ class AvisosSection extends ConsumerWidget {
           // enterarse solo— y va el último porque es el más ruidoso.
           Text(
             strings.avisosEnVozAltaExplainer,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -176,7 +176,7 @@ class AvisosSection extends ConsumerWidget {
           const SizedBox(height: NexusSpacing.s5),
           Text(
             strings.avisosNota,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           ),
         ],
       ),

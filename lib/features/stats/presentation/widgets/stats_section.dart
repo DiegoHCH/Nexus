@@ -172,7 +172,7 @@ class _Overview extends StatelessWidget {
         // sola, y esconderlos sería contar la mitad.
         Text(
           strings.statsCachedFootnote(_compact(stats.cached)),
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
       ],
     );
@@ -322,7 +322,7 @@ class _Empty extends StatelessWidget {
     alignment: Alignment.topLeft,
     child: Text(
       message,
-      style: NexusTypography.mono.copyWith(color: context.colors.faint),
+      style: NexusTypography.nota.copyWith(color: context.colors.faint),
     ),
   );
 }

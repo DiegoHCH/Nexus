@@ -102,7 +102,7 @@ class UsageMenu extends ConsumerWidget {
                             UsageState.unreachable => strings.usageUnreachable,
                             _ => strings.usageUnavailable,
                           },
-                          style: NexusTypography.mono.copyWith(
+                          style: NexusTypography.nota.copyWith(
                             color: colors.faint,
                           ),
                         )

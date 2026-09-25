@@ -7,6 +7,7 @@ import 'package:nexus/core/design_system/accent_wheel.dart';
 import 'package:nexus/core/design_system/theme_preference.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
+import 'package:nexus/features/workspace/presentation/pages/settings/orbe_ajustes.dart';
 
 /// Apariencia: claro u oscuro, y el color de acento.
 ///
@@ -32,42 +33,48 @@ class AppearanceSection extends ConsumerWidget {
     final strings = context.strings;
     final choice = ref.watch(themeControllerProvider);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          strings.themeTitle,
-          style: NexusTypography.label.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s2),
-        Text(
-          strings.themeExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s5),
-        SettingsChooser<ThemeChoice>(
-          value: choice,
-          options: ThemeChoice.values,
-          label: (option) => switch (option) {
-            ThemeChoice.system => strings.themeSystem,
-            ThemeChoice.light => strings.themeLight,
-            ThemeChoice.dark => strings.themeDark,
-          },
-          onSelected: ref.read(themeControllerProvider.notifier).select,
-        ),
-        const SizedBox(height: NexusSpacing.s7),
-        Text(
-          strings.accentTitle,
-          style: NexusTypography.label.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s2),
-        Text(
-          strings.accentExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s5),
-        const _AccentButton(),
-      ],
+    // Rueda: con el orbe y sus siete ajustes ya no cabe en el alto de la
+    // ventana, y cada sección se encarga de su propio desplazamiento.
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            strings.themeTitle,
+            style: NexusTypography.label.copyWith(color: colors.faint),
+          ),
+          const SizedBox(height: NexusSpacing.s2),
+          Text(
+            strings.themeExplainer,
+            style: NexusTypography.nota.copyWith(color: colors.faint),
+          ),
+          const SizedBox(height: NexusSpacing.s5),
+          SettingsChooser<ThemeChoice>(
+            value: choice,
+            options: ThemeChoice.values,
+            label: (option) => switch (option) {
+              ThemeChoice.system => strings.themeSystem,
+              ThemeChoice.light => strings.themeLight,
+              ThemeChoice.dark => strings.themeDark,
+            },
+            onSelected: ref.read(themeControllerProvider.notifier).select,
+          ),
+          const SizedBox(height: NexusSpacing.s7),
+          Text(
+            strings.accentTitle,
+            style: NexusTypography.label.copyWith(color: colors.faint),
+          ),
+          const SizedBox(height: NexusSpacing.s2),
+          Text(
+            strings.accentExplainer,
+            style: NexusTypography.nota.copyWith(color: colors.faint),
+          ),
+          const SizedBox(height: NexusSpacing.s5),
+          const _AccentButton(),
+          const SizedBox(height: NexusSpacing.s7),
+          const OrbeAjustes(),
+        ],
+      ),
     );
   }
 }
@@ -118,7 +125,7 @@ class _AccentButton extends ConsumerWidget {
               const SizedBox(width: NexusSpacing.s4),
               Text(
                 _nombre(acento.name, strings),
-                style: NexusTypography.data.copyWith(color: colors.ink),
+                style: NexusTypography.control.copyWith(color: colors.ink),
               ),
               const SizedBox(width: NexusSpacing.s3),
               // El hexadecimal al lado del nombre: el nombre es aproximado —el
@@ -212,7 +219,7 @@ class _AccentDialogState extends ConsumerState<AccentDialog> {
               children: [
                 Text(
                   _nombre(acento.name, strings),
-                  style: NexusTypography.data.copyWith(color: colors.ink),
+                  style: NexusTypography.control.copyWith(color: colors.ink),
                 ),
                 const SizedBox(width: NexusSpacing.s3),
                 Text(
@@ -229,7 +236,7 @@ class _AccentDialogState extends ConsumerState<AccentDialog> {
             // como que la app ignoró la elección.
             Text(
               strings.accentAdjusted,
-              style: NexusTypography.mono.copyWith(color: colors.faint),
+              style: NexusTypography.nota.copyWith(color: colors.faint),
             ),
             const SizedBox(height: NexusSpacing.s5),
             Row(

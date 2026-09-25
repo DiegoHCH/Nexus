@@ -62,14 +62,16 @@ final class NexusOrbeFlotante: NSObject {
         let datos = call.arguments as? [String: Any]
         compartido.mostrar(
           estado: datos?["estado"] as? String ?? "listen",
-          acento: datos?["acento"] as? Int
+          acento: datos?["acento"] as? Int,
+          estilo: datos?["estilo"] as? [String: Any]
         )
         result(nil)
       case "estado":
         let datos = call.arguments as? [String: Any]
         compartido.pinta(
           datos?["estado"] as? String ?? "listen",
-          acento: datos?["acento"] as? Int
+          acento: datos?["acento"] as? Int,
+          estilo: datos?["estilo"] as? [String: Any]
         )
         result(nil)
       case "ocultar":
@@ -106,11 +108,11 @@ final class NexusOrbeFlotante: NSObject {
     )
   }
 
-  private func mostrar(estado: String, acento: Int?) {
+  private func mostrar(estado: String, acento: Int?, estilo: [String: Any]?) {
     // Si ya está fuera —dos avisos seguidos—, se repinta y basta: es la misma
     // aparición, y el motor está pintando.
     if let ventana, ventana.isVisible {
-      pinta(estado, acento: acento)
+      pinta(estado, acento: acento, estilo: estilo)
       return
     }
 
@@ -167,13 +169,16 @@ final class NexusOrbeFlotante: NSObject {
     panel.hidesOnDeactivate = false
     ventana = panel
     panel.orderFrontRegardless()
-    pinta(estado, acento: acento)
+    pinta(estado, acento: acento, estilo: estilo)
     Self.log.info("orbe fuera")
   }
 
-  private func pinta(_ estado: String, acento: Int?) {
+  /// El estilo del orbe —plasma o puntos y sus ajustes— viaja tal cual: aquí
+  /// no se lee, solo se pasa al motor del orbe, que sí sabe qué es.
+  private func pinta(_ estado: String, acento: Int?, estilo: [String: Any]?) {
     var datos: [String: Any] = ["estado": estado]
     if let acento { datos["acento"] = acento }
+    if let estilo { datos["estilo"] = estilo }
     haciaElOrbe?.invokeMethod("estado", arguments: datos)
   }
 

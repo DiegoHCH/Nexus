@@ -80,7 +80,7 @@ class SalidasSection extends ConsumerWidget {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           strings.exitsExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s6),
         for (final puerta in puertas) ...[
@@ -144,7 +144,7 @@ class _Puerta extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 _queViaja(strings),
-                style: NexusTypography.mono.copyWith(color: colors.faint),
+                style: NexusTypography.nota.copyWith(color: colors.faint),
               ),
               if (puerta.dato case final dato? when dato.isNotEmpty) ...[
                 const SizedBox(height: 2),

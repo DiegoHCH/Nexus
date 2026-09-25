@@ -34,7 +34,7 @@ class HelpSection extends ConsumerWidget {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           strings.helpTourExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s5),
         Align(
@@ -216,7 +216,7 @@ class _RegistroRow extends ConsumerWidget {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           strings.logExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s4),
         SelectableText(

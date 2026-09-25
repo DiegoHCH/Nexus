@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/i18n/nexus_strings.dart';
+import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
 import 'package:nexus/features/remote/presentation/providers/mirror_providers.dart';
 import 'package:nexus/core/design_system/nexus_typography.dart';
@@ -54,16 +56,17 @@ class _HojaState extends ConsumerState<_Hoja> {
 
   /// Cada código dice **algo distinto que hacer**. Un solo «no se pudo» dejaría a
   /// quien lo lee sin saber si teclear otra vez, ir al Mac, o esperar.
-  String _decir(String codigo) => switch (codigo) {
-    'noPhrase' => 'No hay frase definida. Ponla en el Mac: Ajustes → Móvil.',
-    'wrongPhrase' => 'Esa no es la frase.',
-    'tooManyAttempts' => 'Demasiados intentos. Prueba en unos minutos.',
-    _ => 'No se pudo abrir la escritura.',
+  String _decir(NexusStrings strings, String codigo) => switch (codigo) {
+    'noPhrase' => strings.mobileNoPhrase,
+    'wrongPhrase' => strings.mobileWrongPhrase,
+    'tooManyAttempts' => strings.mobileTooManyAttempts,
+    _ => strings.mobileUnlockFailed,
   };
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final strings = context.strings;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -77,13 +80,12 @@ class _HojaState extends ConsumerState<_Hoja> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Abrir la escritura',
+            strings.mobileUnlockTitle,
             style: NexusTypography.subtitleMobile.copyWith(color: colors.ink),
           ),
           const SizedBox(height: 8),
           Text(
-            'Tu frase no se guarda en el teléfono. La comprueba el Mac, y la '
-            'ventana dura 30 minutos.',
+            strings.mobileUnlockExplainer,
             style: NexusTypography.mono.copyWith(color: colors.mute),
           ),
           const SizedBox(height: 20),
@@ -99,12 +101,12 @@ class _HojaState extends ConsumerState<_Hoja> {
             enableSuggestions: false,
             style: TextStyle(color: colors.ink),
             onSubmitted: (_) => _probar(),
-            decoration: const InputDecoration(hintText: 'Tu frase'),
+            decoration: InputDecoration(hintText: strings.mobilePhraseHint),
           ),
           if (_codigo != null) ...[
             const SizedBox(height: 14),
             Text(
-              _decir(_codigo!),
+              _decir(strings, _codigo!),
               key: const ValueKey('fallo-de-la-frase'),
               style: NexusTypography.mono.copyWith(color: colors.err),
             ),
@@ -113,7 +115,9 @@ class _HojaState extends ConsumerState<_Hoja> {
           FilledButton(
             key: const ValueKey('abrir-escritura'),
             onPressed: _probando ? null : _probar,
-            child: Text(_probando ? 'Comprobando…' : 'Abrir'),
+            child: Text(
+              _probando ? strings.mobileChecking : strings.mobileOpen,
+            ),
           ),
         ],
       ),

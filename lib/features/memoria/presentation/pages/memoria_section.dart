@@ -28,7 +28,7 @@ class MemoriaSection extends ConsumerWidget {
         children: [
           Text(
             strings.memoriaExplainer,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           ),
           const SizedBox(height: NexusSpacing.s5),
           if (cosas.isEmpty)
@@ -78,7 +78,7 @@ class MemoriaSection extends ConsumerWidget {
           const SizedBox(height: NexusSpacing.s5),
           Text(
             strings.memoriaNota(LoQueSeSabeDeTi.cuantas),
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           ),
         ],
       ),

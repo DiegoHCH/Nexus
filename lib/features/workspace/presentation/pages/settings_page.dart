@@ -248,10 +248,7 @@ class _SettingsTopBar extends ConsumerWidget {
                   child: Text(
                     context.strings.brand,
                     overflow: TextOverflow.ellipsis,
-                    style: NexusTypography.data.copyWith(
-                      color: colors.mute,
-                      letterSpacing: 4.2,
-                    ),
+                    style: NexusTypography.brand.copyWith(color: colors.mute),
                   ),
                 ),
                 const SizedBox(width: NexusSpacing.s5),

@@ -1,7 +1,7 @@
 name: nexus
 description: "A new Flutter project."
 publish_to: 'none'
-version: 1.25.2+87
+version: 1.26.0+88
 
 environment:
   sdk: ^3.12.2
@@ -60,10 +60,19 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  # El orbe de plasma. Ver `NexusOrbPlasmaPainter`.
+  shaders:
+    - shaders/orbe_plasma.frag
+
   fonts:
     - family: Instrument Sans
       fonts:
         - asset: assets/fonts/InstrumentSans-Variable.ttf
+    # La letra del instrumento: rótulos, estado, marca y títulos. Variable
+    # (eje `wght`), OFL. Decidida el 25 sep 2026 en el mockup del escenario.
+    - family: Oxanium
+      fonts:
+        - asset: assets/fonts/Oxanium-Variable.ttf
     - family: Geist Mono
       fonts:
         - asset: assets/fonts/GeistMono-Regular.ttf

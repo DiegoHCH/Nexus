@@ -124,7 +124,7 @@ class _SkillsPanelState extends ConsumerState<SkillsPanel> {
       children: [
         Text(
           strings.skillsExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s5),
 
@@ -134,7 +134,7 @@ class _SkillsPanelState extends ConsumerState<SkillsPanel> {
             padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s3),
             child: Text(
               strings.skillsNone,
-              style: NexusTypography.mono.copyWith(color: colors.faint),
+              style: NexusTypography.nota.copyWith(color: colors.faint),
             ),
           ),
         for (final skill in installed)
@@ -229,18 +229,18 @@ class _SkillsPanelState extends ConsumerState<SkillsPanel> {
                   padding: const EdgeInsets.only(top: NexusSpacing.s2),
                   child: Text(
                     strings.skillsMore(_filtrar(value.skills).length - _shown),
-                    style: NexusTypography.mono.copyWith(color: colors.faint),
+                    style: NexusTypography.nota.copyWith(color: colors.faint),
                   ),
                 ),
             ],
           ),
           AsyncError() => Text(
             strings.skillsRepoFailed,
-            style: NexusTypography.mono.copyWith(color: colors.err),
+            style: NexusTypography.nota.copyWith(color: colors.err),
           ),
           _ => Text(
             strings.skillsFetching,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           ),
         },
 
@@ -312,7 +312,7 @@ class _SkillRow extends StatelessWidget {
                 skill.description,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: NexusTypography.mono.copyWith(color: colors.faint),
+                style: NexusTypography.nota.copyWith(color: colors.faint),
               ),
             ),
           ),

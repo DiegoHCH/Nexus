@@ -105,7 +105,7 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
       children: [
         Text(
           strings.pluginsExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s5),
 
@@ -113,12 +113,12 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
         if (plugins.isLoading)
           Text(
             strings.pluginsLoading,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           )
         else if (installed.isEmpty)
           Text(
             strings.pluginsNone,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           ),
         for (final plugin in installed)
           _PluginRow(
@@ -263,7 +263,7 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
             padding: const EdgeInsets.only(top: NexusSpacing.s2),
             child: Text(
               strings.pluginsMore(rest.length - _shown),
-              style: NexusTypography.mono.copyWith(color: colors.faint),
+              style: NexusTypography.nota.copyWith(color: colors.faint),
             ),
           ),
 
@@ -350,7 +350,7 @@ class _PluginRow extends StatelessWidget {
                 plugin.description,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: NexusTypography.mono.copyWith(color: colors.faint),
+                style: NexusTypography.nota.copyWith(color: colors.faint),
               ),
             ),
           ),

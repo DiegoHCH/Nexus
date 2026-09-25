@@ -325,7 +325,7 @@ class _UnaTareaDeFondo extends StatelessWidget {
                   context.strings.laTareaDeFondo,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: NexusTypography.mono.copyWith(color: colors.accent),
+                  style: NexusTypography.control.copyWith(color: colors.accent),
                 ),
               ],
             ),

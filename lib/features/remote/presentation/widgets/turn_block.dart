@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
 import 'package:nexus/core/design_system/nexus_spacing.dart';
 import 'package:nexus/core/design_system/nexus_typography.dart';
@@ -50,7 +51,8 @@ class TurnBlock extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            mine ? 'TÚ' : 'NEXUS',
+            // «NEXUS» es la marca, y la marca no se traduce.
+            mine ? context.strings.mobileYou : 'NEXUS',
             style: NexusTypography.label.copyWith(
               color: mine ? colors.faint : colors.accent,
             ),

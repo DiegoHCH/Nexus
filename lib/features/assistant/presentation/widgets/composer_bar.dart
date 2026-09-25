@@ -477,7 +477,7 @@ class _Controls extends ConsumerWidget {
                     Text(
                       option.canWrite
                           ? strings.permisoEditarImplica(carpeta?.name)
-                          : strings.permisoSoloLeerImplica(carpeta?.name),
+                          : strings.permisoSoloLeerImplica,
                       style: NexusTypography.nota.copyWith(color: colors.mute),
                     ),
                   ],

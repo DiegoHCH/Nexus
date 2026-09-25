@@ -20,8 +20,8 @@ import 'support/screen_harness.dart';
 /// Con tres conversaciones abiertas sobre repos distintos, un rótulo sin nombre
 /// no dice a cuál se le está dando.
 ///
-/// Los dos textos estaban traducidos en los dos idiomas y sin usar desde antes,
-/// escritos para esto: eran deuda esperando a que la decisión existiera.
+/// Hoy lo dice la cabecera del menú —«Permiso en front-mobile-b2c»— y lo que
+/// implica editar, que es donde la maqueta lo pone.
 const _carpeta = '/Users/alguien/Workspace/front-mobile-b2c';
 
 void main() {
@@ -67,11 +67,18 @@ void main() {
     // pruebas de esta pantalla.
     await tester.pump(const Duration(milliseconds: 300));
 
+    // El nombre va una vez, en la cabecera, y otra en lo que implica editar:
+    // «Escribe en front-mobile-b2c». Las opciones quedan con su nombre corto,
+    // como en la maqueta.
     expect(
-      find.text(textos.canEditFilesIn('front-mobile-b2c')),
+      find.text(textos.permisoEn('front-mobile-b2c')),
       findsOneWidget,
       reason: 'sin el nombre no se sabe a qué carpeta se le está dando',
     );
-    expect(find.text(textos.readOnlyIn('front-mobile-b2c')), findsOneWidget);
+    expect(
+      find.text(textos.permisoEditarImplica('front-mobile-b2c')),
+      findsOneWidget,
+    );
+    expect(find.text(textos.permisoSoloLeerImplica), findsOneWidget);
   });
 }

@@ -119,7 +119,7 @@ void main() {
       ).readAsStringSync();
 
       expect(barra, contains('strings.permisoEditarImplica('));
-      expect(barra, contains('strings.permisoSoloLeerImplica('));
+      expect(barra, contains('strings.permisoSoloLeerImplica'));
       expect(barra, contains('cabeceraDelMenu(context, strings.permisoEn('));
       expect(muelle, contains('cabenAbiertas(Conversations.max'));
       expect(menus, contains('strings.modeloComoEnLaConsola'));

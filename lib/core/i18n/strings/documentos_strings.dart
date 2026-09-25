@@ -131,7 +131,7 @@ mixin DocumentosStrings {
   /// Lo que dice cada menú del compositor encima y debajo de sus opciones:
   /// qué implica elegir, para no descubrirlo después.
   String permisoEn(String? carpeta);
-  String permisoSoloLeerImplica(String? carpeta);
+  String get permisoSoloLeerImplica;
   String permisoEditarImplica(String? carpeta);
   String modeloDelPerfil(String? perfil);
   String get modeloComoEnLaConsola;
@@ -353,8 +353,7 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   String permisoEn(String? carpeta) =>
       carpeta == null ? 'Permiso' : 'Permiso en $carpeta';
   @override
-  String permisoSoloLeerImplica(String? carpeta) =>
-      'Lee y responde; no escribe nada aquí.';
+  String get permisoSoloLeerImplica => 'Lee y responde; no escribe nada aquí.';
   @override
   String permisoEditarImplica(String? carpeta) =>
       'Escribe en ${carpeta ?? 'esta carpeta'}. Ejecutar sigue pidiendo '
@@ -594,7 +593,7 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   String permisoEn(String? carpeta) =>
       carpeta == null ? 'Permission' : 'Permission in $carpeta';
   @override
-  String permisoSoloLeerImplica(String? carpeta) =>
+  String get permisoSoloLeerImplica =>
       'Reads and answers; writes nothing here.';
   @override
   String permisoEditarImplica(String? carpeta) =>

@@ -142,6 +142,16 @@ mixin ArranqueStrings {
   String get allowScriptsAndNetwork;
   String get allowScriptsExplainer;
 
+  /// El estado del permiso, al lado de su nombre en el botón del visor:
+  /// «Permitir scripts y red · apagado». Dicho con palabra y no solo con una
+  /// casilla, porque en la barra del título una casilla se lee como un adorno.
+  String get allowScriptsOff;
+  String get allowScriptsOn;
+
+  /// El pie de la ventana de la consola de la app: de dónde sale y qué no
+  /// toca.
+  String get consolaSoloConLaCopia;
+
   /// Lo mismo, en el ancho de un teléfono.
   String get allowScriptsShort;
 
@@ -489,6 +499,13 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   String get allowScriptsExplainer =>
       'Este documento lo escribió Claude. Sin permiso no ejecuta sus scripts ni '
       'carga nada de internet. Se recarga solo si cambia.';
+  @override
+  String get allowScriptsOff => 'apagado';
+  @override
+  String get allowScriptsOn => 'encendido';
+  @override
+  String get consolaSoloConLaCopia =>
+      'Solo con la copia «con la consola» que guarda Nexus: el repo no se toca.';
   @override
   String get allowScriptsShort => 'Scripts y red';
   @override
@@ -882,6 +899,14 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   String get allowScriptsExplainer =>
       'Claude wrote this document. Without permission it runs no scripts and '
       'loads nothing from the internet. It reloads by itself when it changes.';
+  @override
+  String get allowScriptsOff => 'off';
+  @override
+  String get allowScriptsOn => 'on';
+  @override
+  String get consolaSoloConLaCopia =>
+      'Only with the «with the console» copy Nexus keeps: the repo is not '
+      'touched.';
   @override
   String get allowScriptsShort => 'Scripts & network';
   @override

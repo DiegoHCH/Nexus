@@ -5,7 +5,6 @@ import 'package:nexus/core/design_system/nexus_typography.dart';
 import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/remote/presentation/widgets/mobile_chrome.dart';
-import 'package:nexus/features/remote/presentation/widgets/orbe_apagado.dart';
 
 /// El molde de las pantallas de estado del teléfono.
 ///
@@ -20,12 +19,13 @@ import 'package:nexus/features/remote/presentation/widgets/orbe_apagado.dart';
 ///
 /// El orbe va con su estado y no como ilustración: es el único elemento vivo del
 /// sistema. Dormido cuando el Mac está pero no hay nada que enseñar —«ya no está
-/// abierta»—, y **apagado** cuando no hay Mac: sin color, quieto y sin el anillo del
-/// oído, porque ahí no hay nadie oyendo (ver `OrbeApagado`). Un orbe girando mientras
-/// la pantalla dice «no llego a tu Mac» promete trabajo que no está pasando.
+/// abierta»—, y **apagado** cuando no hay Mac: sin color, casi quieto y sin el anillo
+/// del oído, porque ahí no hay nadie oyendo (ver `NexusOrb.apagado`). Un orbe girando
+/// a su ritmo mientras la pantalla dice «no llego a tu Mac» promete trabajo que no está
+/// pasando.
 ///
 /// Y va **en el flujo**, con el mismo reparto que `ConnectingPage`: el orbe y su texto
-/// como un solo bloque centrado entre dos espaciadores. Estuvo como capa de fondo
+/// como un solo bloque centrado en el alto. Estuvo como capa de fondo
 /// fijada al 46 % del alto, con el orbe pegado arriba y el texto aparte — se veía **de
 /// otra app** al lado de las demás. Estas pantallas y la de conectar se ven una detrás
 /// de otra —buscar, no llegar, volver a buscar—, y un salto de composición entre ellas
@@ -38,10 +38,12 @@ class MobileStatePage extends StatelessWidget {
     this.orbe = NexusOrbState.sleep,
     this.apagado = false,
     this.alMenu,
+    this.alVolver,
     this.detalle,
     this.pieDeAyuda,
     this.acciones = const [],
     this.abajo,
+    this.ladoDelOrbe = 230,
   });
 
   /// Qué pasó, en una frase corta y sin disculparse.
@@ -58,6 +60,9 @@ class MobileStatePage extends StatelessWidget {
   /// El menú, en los estados desde los que se puede ir a otra parte.
   final VoidCallback? alMenu;
 
+  /// La vuelta `‹`, en los estados a los que se llega desde otra pantalla.
+  final VoidCallback? alVolver;
+
   /// Un dato en mono: la dirección, el modelo, la ruta. Lo que hace que el mensaje
   /// sea de **este** caso y no genérico.
   final Widget? detalle;
@@ -72,6 +77,10 @@ class MobileStatePage extends StatelessWidget {
   /// Lo que va pegado al fondo, como el control de permiso.
   final Widget? abajo;
 
+  /// El lado del orbe donde cabe. El mockup lo cambia según lo que haya debajo: 230
+  /// con dos botones, 220 con uno y su pie.
+  final double ladoDelOrbe;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -79,127 +88,101 @@ class MobileStatePage extends StatelessWidget {
     return Scaffold(
       backgroundColor: colors.void_,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            NexusSpacing.s5,
-            NexusSpacing.s4,
-            NexusSpacing.s5,
-            NexusSpacing.s5,
-          ),
-          child: Column(
-            children: [
-              MobileChrome(alMenu: alMenu),
-              const Spacer(),
-              // Sin horizonte: el horizonte es lo que decía «trabajando», y aquí no
-              // se está trabajando.
-              //
-              // `Flexible` alrededor de un alto fijo: 260 donde cabe y **menos donde
-              // no**. Con dos botones y un porqué largo, en un teléfono pequeño o con
-              // la letra del sistema en grande, el alto fijo desbordaba la columna —
-              // y lo que se cortaba era justo el botón de abajo—. Encoge el orbe, que
-              // es lo único que puede encoger sin perder nada.
-              Flexible(
-                flex: 4,
-                child: SizedBox(
-                  height: 260,
-                  child: apagado
-                      ? const OrbeApagado()
-                      : IgnorePointer(
-                          child: NexusOrb(state: orbe, showHorizon: false),
+        child: Column(
+          children: [
+            MobileChrome(alMenu: alMenu, alVolver: alVolver),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  MedidasDelMovil.margen,
+                  0,
+                  MedidasDelMovil.margen,
+                  MedidasDelMovil.pie,
+                ),
+                // **El bloque entero centrado en el alto**, como el mockup y como
+                // `ConnectingPage`: el orbe, lo que dice y lo que se puede hacer son
+                // una sola cosa, y se ven una detrás de otra —buscar, no llegar,
+                // volver a buscar—. Un salto de composición entre ellas se lee como
+                // un fallo.
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Sin horizonte: el horizonte es lo que decía «trabajando», y aquí
+                    // no se está trabajando.
+                    //
+                    // `Flexible` alrededor de un alto fijo: el lado del mockup donde
+                    // cabe y **menos donde no**. Con dos botones y un porqué largo, en
+                    // un teléfono pequeño o con la letra del sistema en grande, el
+                    // alto fijo desbordaba la columna — y lo que se cortaba era justo
+                    // el botón de abajo. Encoge el orbe, que es lo único que puede
+                    // encoger sin perder nada.
+                    Flexible(
+                      child: SizedBox(
+                        height: ladoDelOrbe,
+                        child: IgnorePointer(
+                          child: NexusOrb(
+                            state: apagado ? NexusOrbState.sleep : orbe,
+                            // Apagado es el mismo orbe sin lo que dice «estoy»: el
+                            // color, la mitad de la luz y el oído. Ver
+                            // `NexusOrb.apagado`.
+                            apagado: apagado,
+                            oido: !apagado,
+                          ),
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    // El título del mockup —`.grande`— va en la letra de los títulos,
+                    // que es `title`: dice qué pasó como el panel de un aparato, no
+                    // como un párrafo. A 24, que es su medida en el teléfono.
+                    TextoEquilibrado(
+                      titulo,
+                      clave: const ValueKey('titulo-del-estado'),
+                      style: NexusTypography.title.copyWith(
+                        color: colors.ink,
+                        fontSize: 24,
+                        height: 1.25,
+                      ),
+                    ),
+                    const SizedBox(height: NexusSpacing.s2),
+                    // Y el porqué en sans, que es lo que se lee de corrido: en mono
+                    // tenue no pasaba AA y se leía como un log.
+                    Text(
+                      cuerpo,
+                      textAlign: TextAlign.center,
+                      style: NexusTypography.nota.copyWith(
+                        color: colors.mute,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                    if (detalle != null) ...[
+                      const SizedBox(height: NexusSpacing.s2),
+                      detalle!,
+                    ],
+                    if (acciones.isNotEmpty) ...[
+                      const SizedBox(height: 26),
+                      for (final (i, accion) in acciones.indexed) ...[
+                        if (i > 0) const SizedBox(height: 10),
+                        accion,
+                      ],
+                    ],
+                    if (pieDeAyuda != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        pieDeAyuda!,
+                        textAlign: TextAlign.center,
+                        style: NexusTypography.nota.copyWith(
+                          color: colors.mute,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              const SizedBox(height: NexusSpacing.s2),
-              // El título del mockup —`.grande`— es la letra del instrumento a 22,
-              // que es `title`: dice qué pasó como el panel de un aparato, no como
-              // un párrafo.
-              Text(
-                titulo,
-                key: const ValueKey('titulo-del-estado'),
-                textAlign: TextAlign.center,
-                style: NexusTypography.title.copyWith(color: colors.ink),
-              ),
-              const SizedBox(height: NexusSpacing.s3),
-              // Y el porqué en sans, que es lo que se lee de corrido: en mono tenue
-              // no pasaba AA y se leía como un log.
-              Text(
-                cuerpo,
-                textAlign: TextAlign.center,
-                style: NexusTypography.nota.copyWith(color: colors.mute),
-              ),
-              if (detalle != null) ...[
-                const SizedBox(height: NexusSpacing.s3),
-                detalle!,
-              ],
-              if (acciones.isNotEmpty) ...[
-                const SizedBox(height: NexusSpacing.s6),
-                for (final (i, accion) in acciones.indexed) ...[
-                  if (i > 0) const SizedBox(height: NexusSpacing.s3),
-                  accion,
-                ],
-              ],
-              if (pieDeAyuda != null) ...[
-                const SizedBox(height: NexusSpacing.s3),
-                Text(
-                  pieDeAyuda!,
-                  textAlign: TextAlign.center,
-                  style: NexusTypography.nota.copyWith(
-                    color: colors.mute,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-              const Spacer(),
-              ?abajo,
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Un botón del sistema: borde fino, mono, mayúsculas.
-///
-/// No un `FilledButton` de Material: el mockup no tiene ninguno relleno salvo la
-/// acción principal de emparejar, y el resto son bordes de 1px. Un botón relleno de
-/// Material en esta pantalla se ve como de otra app.
-class MobileAction extends StatelessWidget {
-  const MobileAction({
-    super.key,
-    required this.texto,
-    required this.alTocar,
-    this.principal = false,
-  });
-
-  final String texto;
-  final VoidCallback? alTocar;
-  final bool principal;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final color = principal ? colors.accent : colors.mute;
-
-    return InkWell(
-      onTap: alTocar,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: NexusSpacing.s4,
-          vertical: NexusSpacing.s3,
-        ),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(2),
-          border: Border.all(
-            color: principal
-                ? colors.accent.withValues(alpha: 0.5)
-                : colors.rule2,
-          ),
-        ),
-        // `control`, el papel de los botones: ver `WideAction`.
-        child: Text(
-          texto,
-          style: NexusTypography.control.copyWith(color: color),
+            ),
+            ?abajo,
+          ],
         ),
       ),
     );

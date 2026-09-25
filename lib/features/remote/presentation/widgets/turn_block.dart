@@ -41,7 +41,9 @@ class TurnBlock extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s4),
+      // 10 y no 16, como el bloque del mockup: en un teléfono cada bloque de más es
+      // una línea de lo que se lee que se va de la pantalla.
+      padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
         // La hairline arriba y no abajo: así el primer bloque de la pila abre con una
         // línea y el último no cierra con una suelta.
@@ -54,10 +56,11 @@ class TurnBlock extends StatelessWidget {
             // «NEXUS» es la marca, y la marca no se traduce.
             mine ? context.strings.mobileYou : 'NEXUS',
             style: NexusTypography.label.copyWith(
-              color: mine ? colors.faint : colors.accent,
+              color: mine ? colors.mute : colors.accent,
+              fontSize: 9.5,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: NexusSpacing.s1),
           // **Lo tuyo tal cual; lo de Nexus, interpretado.**
           //
           // Es la misma regla que el escritorio, y aquí faltaba: la respuesta llegaba
@@ -71,8 +74,14 @@ class TurnBlock extends StatelessWidget {
           if (mine)
             SelectableText(
               text,
-              // En tinta: lo que pediste es el ancla de la lectura.
-              style: NexusTypography.subtitleMobile.copyWith(color: colors.ink),
+              // En tinta: lo que pediste es el ancla de la lectura. A 14, como el
+              // mockup, y no con la letra grande del subtítulo: el subtítulo es la
+              // voz de Nexus, y lo que tú pediste a ese tamaño competía con ella.
+              style: NexusTypography.body.copyWith(
+                color: colors.ink,
+                fontSize: 14,
+                height: 1.45,
+              ),
             )
           else
             MarkdownBody(

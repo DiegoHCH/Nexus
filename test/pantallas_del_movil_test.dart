@@ -28,7 +28,6 @@ import 'package:nexus/features/remote/data/altavoz_del_movil.dart';
 import 'package:nexus/features/remote/presentation/pages/connecting_page.dart';
 import 'package:nexus/features/remote/presentation/pages/sin_mac_page.dart';
 import 'package:nexus/features/remote/presentation/providers/reproduccion_providers.dart';
-import 'package:nexus/features/remote/presentation/widgets/orbe_apagado.dart';
 import 'package:nexus/main_movil.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 
@@ -161,9 +160,11 @@ void main() {
       isNot(contains('MediaQuery')),
       reason: 'el alto del orbe volvio a depender del de la pantalla',
     );
-    // Orbe **en el flujo** y entre espaciadores, igual que la de conectar.
-    expect(fuente, contains('height: 260'));
-    expect(fuente.split('Spacer()').length - 1, 2);
+    // Orbe **en el flujo** y con el bloque centrado en el alto, igual que la de
+    // conectar: con el orbe en un `Flexible` y sin centrar, el sitio que no usaba iba
+    // a parar al fondo y el bloque quedaba pegado arriba.
+    expect(fuente, contains('height: ladoDelOrbe'));
+    expect(fuente, contains('mainAxisAlignment: MainAxisAlignment.center'));
   });
 
   late _SocketFalso socket;
@@ -553,8 +554,14 @@ void main() {
 
       expect(find.text('ya está ordenado'), findsOneWidget);
       // 25 y no un número recalculado aquí: la ventana depende de la variante del
-      // modelo, y calcularlo en el teléfono es repetir el error del escritorio.
-      expect(find.text('25 %'), findsOneWidget);
+      // modelo, y calcularlo en el teléfono es repetir el error del escritorio. La
+      // cifra no se pinta —el mockup dibuja la raya sola— pero se dice: es lo que
+      // lee quien no ve la raya.
+      final semantica = tester.ensureSemantics();
+      final medidor = find.bySemanticsLabel('Ventana de contexto');
+      expect(medidor, findsOne);
+      expect(tester.getSemantics(medidor).value, '25 %');
+      semantica.dispose();
     });
 
     testWidgets('el permiso se pregunta al abrir', (tester) async {
@@ -1001,28 +1008,13 @@ void main() {
       expect(find.byKey(const ValueKey('reintentar-la-conexion')), findsOne);
       expect(find.byKey(const ValueKey('ver-lo-guardado')), findsOne);
 
-      // Apagado y no dormido: sin color, quieto y sin el anillo del oído.
-      expect(find.byType(OrbeApagado), findsOne);
-      final orbe = tester.widget<NexusOrb>(
-        find.descendant(
-          of: find.byType(OrbeApagado),
-          matching: find.byType(NexusOrb),
-        ),
-      );
+      // Apagado y no dormido: sin color, casi quieto y sin el anillo del oído. Es
+      // el mismo orbe con `apagado`, no una copia suya: la copia del móvil se
+      // separaba del orbe de verdad cada vez que este cambiaba.
+      final orbe = tester.widget<NexusOrb>(find.byType(NexusOrb));
+      expect(orbe.apagado, isTrue);
       expect(orbe.state, NexusOrbState.sleep);
       expect(orbe.oido, isFalse);
-      expect(
-        MediaQuery.of(
-          tester.element(
-            find.descendant(
-              of: find.byType(OrbeApagado),
-              matching: find.byType(NexusOrb),
-            ),
-          ),
-        ).disableAnimations,
-        isTrue,
-        reason: 'un orbe apagado no se mueve',
-      );
 
       // Volver a intentar trae el reactor, y el reactor ya cuenta el que falló.
       await tester.tap(find.byKey(const ValueKey('reintentar-la-conexion')));
@@ -1032,7 +1024,7 @@ void main() {
         find.byKey(const ValueKey('orbe-buscando')),
       );
       expect(buscando.hechos, 1);
-      expect(find.byType(OrbeApagado), findsNothing);
+      expect(buscando.apagado, isFalse);
 
       // Y si vuelve a fallar, vuelve a decirlo.
       ultima().completeError(const ChannelUnreachable());
@@ -1061,7 +1053,7 @@ void main() {
 
       expect(find.text('El Mac no acepta este teléfono'), findsOne);
       expect(find.byKey(const ValueKey('volver-a-emparejar')), findsOne);
-      expect(find.byType(OrbeApagado), findsOne);
+      expect(tester.widget<NexusOrb>(find.byType(NexusOrb)).apagado, isTrue);
       await tester.pump(const Duration(seconds: 6));
     });
   });

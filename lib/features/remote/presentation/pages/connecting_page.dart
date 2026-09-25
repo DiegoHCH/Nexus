@@ -37,78 +37,92 @@ class ConnectingPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: colors.void_,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: NexusSpacing.s5,
-            vertical: NexusSpacing.s4,
-          ),
-          child: Column(
-            children: [
-              // Mientras esta pantalla está en el aire, lo que afirma es
-              // «conectando» — y el chip tiene que decir lo mismo. Si el enlace ya
-              // conectó y solo seguimos aquí por el mínimo, el estado real diría
-              // `Conectado` debajo de un «buscando tu Mac».
-              const MobileChrome(enVezDe: LinkState.conectando),
-              const Spacer(),
-              // Encoge si no cabe, por lo mismo que en las pantallas de estado: en un
-              // teléfono pequeño lo que se cortaba era el botón de cancelar.
-              Flexible(
-                flex: 4,
-                child: SizedBox(
-                  height: 250,
-                  child: IgnorePointer(
-                    child: ValueListenableBuilder<int>(
-                      valueListenable: enlace.intentos,
-                      builder: (context, intentos, _) {
-                        // Tantos segmentos como peldaños tiene la escalera de
-                        // reintentos, y uno más por cada vuelta de más: pasada la
-                        // escalera se sigue intentando, y un reactor lleno diría que
-                        // ya acabó.
-                        final pasos = math.max(enlace.esperas.length, intentos);
-                        return NexusOrb(
-                          key: const ValueKey('orbe-buscando'),
-                          state: NexusOrbState.think,
-                          pasos: pasos,
-                          hechos: math.max(0, intentos - 1),
-                        );
-                      },
+        child: Column(
+          children: [
+            // Mientras esta pantalla está en el aire, lo que afirma es «conectando»
+            // — y el chip tiene que decir lo mismo. Si el enlace ya conectó y solo
+            // seguimos aquí por el mínimo, el estado real diría `Conectado` debajo
+            // de un «buscando tu Mac».
+            const MobileChrome(enVezDe: LinkState.conectando),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: MedidasDelMovil.margen,
+                ),
+                // **Todo el bloque centrado en el alto**, como el mockup: el orbe, lo
+                // que dice y el botón son una sola cosa. Con el orbe en un `Flexible`
+                // entre dos `Spacer` el sitio que no usaba iba a parar al fondo, y el
+                // bloque quedaba pegado arriba con media pantalla vacía debajo.
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Encoge si no cabe, por lo mismo que en las pantallas de estado:
+                    // en un teléfono pequeño lo que se cortaba era el botón.
+                    Flexible(
+                      child: SizedBox(
+                        height: 250,
+                        child: IgnorePointer(
+                          child: ValueListenableBuilder<int>(
+                            valueListenable: enlace.intentos,
+                            builder: (context, intentos, _) {
+                              // Tantos segmentos como peldaños tiene la escalera de
+                              // reintentos, y uno más por cada vuelta de más: pasada
+                              // la escalera se sigue intentando, y un reactor lleno
+                              // diría que ya acabó.
+                              final pasos = math.max(
+                                enlace.esperas.length,
+                                intentos,
+                              );
+                              return NexusOrb(
+                                key: const ValueKey('orbe-buscando'),
+                                state: NexusOrbState.think,
+                                pasos: pasos,
+                                hechos: math.max(0, intentos - 1),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: NexusSpacing.s2),
+                    Text(
+                      strings.mobileSearchingForMac,
+                      style: NexusTypography.label.copyWith(color: colors.mute),
+                    ),
+                    const SizedBox(height: NexusSpacing.s1),
+                    // Pegada al rótulo, que es de quien es: «buscando tu Mac» y
+                    // **cuál**. La dirección emparejada es el dato de verdad —aquí no
+                    // hay nombres ni red local, hay Tailscale y un puerto—.
+                    Text(
+                      pareja?.comoSeVe ?? '—',
+                      style: NexusTypography.data.copyWith(
+                        color: colors.mute,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                    WideAction(
+                      key: const ValueKey('cancelar-la-conexion'),
+                      texto: strings.mobileCancel,
+                      alTocar: alCancelar,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      // Lo que hay que comprobar es Tailscale, en los dos aparatos —
+                      // y es lo que falló la primera vez. En sans: es una
+                      // explicación, no un dato.
+                      strings.mobileSlowConnectHint,
+                      textAlign: TextAlign.center,
+                      style: NexusTypography.nota.copyWith(
+                        color: colors.mute,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: NexusSpacing.s2),
-              Text(
-                strings.mobileSearchingForMac,
-                style: NexusTypography.label.copyWith(color: colors.mute),
-              ),
-              const SizedBox(height: NexusSpacing.s2),
-              Text(
-                // La dirección emparejada, que es el dato de verdad: aquí no hay
-                // nombres ni red local — hay una dirección de Tailscale y un puerto.
-                pareja?.comoSeVe ?? '—',
-                style: NexusTypography.data.copyWith(color: colors.mute),
-              ),
-              const SizedBox(height: NexusSpacing.s7),
-              WideAction(
-                key: const ValueKey('cancelar-la-conexion'),
-                texto: strings.mobileCancel,
-                alTocar: alCancelar,
-              ),
-              const SizedBox(height: NexusSpacing.s3),
-              Text(
-                // Lo que hay que comprobar es Tailscale, en los dos aparatos — y es
-                // lo que falló la primera vez. En sans: es una explicación, no un
-                // dato.
-                strings.mobileSlowConnectHint,
-                textAlign: TextAlign.center,
-                style: NexusTypography.nota.copyWith(
-                  color: colors.mute,
-                  fontSize: 12,
-                ),
-              ),
-              const Spacer(),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

@@ -9,7 +9,6 @@ import 'package:nexus/features/remote/domain/channel_token.dart';
 import 'package:nexus/features/remote/domain/pairing.dart';
 import 'package:nexus/features/remote/presentation/pages/pairing_page.dart';
 import 'package:nexus/features/remote/presentation/providers/pairing_providers.dart';
-import 'package:nexus/features/remote/presentation/widgets/link_badge.dart';
 import 'package:nexus/features/remote/presentation/widgets/mobile_chrome.dart';
 
 // Emparejar a mano, que es la primera forma y no un apaño mientras llega el QR: el
@@ -437,7 +436,7 @@ void main() {
               theme: NexusTheme.dark(),
               builder: (context, child) =>
                   StringsScope(strings: const NexusStringsEs(), child: child!),
-              home: const Scaffold(body: LinkBadge()),
+              home: const Scaffold(body: MobileChrome()),
             ),
           ),
         );

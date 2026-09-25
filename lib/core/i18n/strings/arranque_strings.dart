@@ -27,8 +27,6 @@ mixin ArranqueStrings {
   String get pasoLlaveSinLlave;
   String pasoHecho(int numero);
   String pasoPendiente(int numero);
-  // La primera parada del tour enseña el orbe por cómo se mueve.
-  String get tourComoSeMueve;
   // El tour de la primera vez (a3, pieza 2): cuatro paradas, ancladas en piezas
   // que un recién llegado sí tiene en pantalla.
   String get tourOrbTitle;
@@ -194,9 +192,7 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   @override
   String pasoPendiente(int numero) => 'Paso $numero, pendiente';
   @override
-  String get tourComoSeMueve => 'Así se mueve';
-  @override
-  String get tourOrbTitle => 'Háblale. Esto es Nexus';
+  String get tourOrbTitle => 'Háblale. Esto es Nexus.';
   @override
   String get tourOrbBody =>
       'Di su nombre o pulsa ⌥Espacio. Cuando te oye, el orbe se abre en '
@@ -536,7 +532,7 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   @override
   String get chosen => 'Elegida';
   @override
-  String get workFolderTitle => 'Nexus solo trabaja donde le digas';
+  String get workFolderTitle => 'Nexus solo trabaja donde le digas.';
   @override
   String get geminiKey => 'LLAVE DE VOZ (GEMINI)';
   @override
@@ -576,9 +572,7 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   @override
   String pasoPendiente(int numero) => 'Step $numero, pending';
   @override
-  String get tourComoSeMueve => 'How it moves';
-  @override
-  String get tourOrbTitle => 'Talk to it. This is Nexus';
+  String get tourOrbTitle => 'Talk to it. This is Nexus.';
   @override
   String get tourOrbBody =>
       'Say its name or press ⌥Space. When it hears you, the orb opens into '
@@ -918,7 +912,7 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   @override
   String get chosen => 'Chosen';
   @override
-  String get workFolderTitle => 'Nexus only works where you tell it to';
+  String get workFolderTitle => 'Nexus only works where you tell it to.';
   @override
   String get geminiKey => 'VOICE KEY (GEMINI)';
   @override

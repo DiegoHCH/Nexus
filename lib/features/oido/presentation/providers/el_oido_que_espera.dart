@@ -169,12 +169,12 @@ final elOidoQueEsperaProvider = Provider<ElOidoQueEspera>((ref) {
   final oido = ElOidoQueEspera(ref);
   unawaited(oido.cuadrar());
   ref.listen(conversationsProvider, (_, _) => unawaited(oido.cuadrar()));
-  ref.listen(
-    losNombresProvider.select((nombres) => nombres.agente),
-    (antes, ahora) {
-      if (antes != ahora) unawaited(oido.renombrar());
-    },
-  );
+  ref.listen(losNombresProvider.select((nombres) => nombres.agente), (
+    antes,
+    ahora,
+  ) {
+    if (antes != ahora) unawaited(oido.renombrar());
+  });
   return oido;
 });
 

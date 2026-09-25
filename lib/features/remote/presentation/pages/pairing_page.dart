@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/i18n/nexus_strings.dart';
+import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
 import 'package:nexus/core/design_system/nexus_spacing.dart';
 import 'package:nexus/core/design_system/nexus_typography.dart';
@@ -64,6 +66,7 @@ class _PairingPageState extends ConsumerState<PairingPage> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final strings = context.strings;
 
     return Scaffold(
       backgroundColor: colors.void_,
@@ -87,13 +90,12 @@ class _PairingPageState extends ConsumerState<PairingPage> {
               children: [
                 const SizedBox(height: NexusSpacing.s5),
                 Text(
-                  'ESCRIBIR EL CÓDIGO A MANO',
+                  strings.mobileManualTitle,
                   style: NexusTypography.label.copyWith(color: colors.mute),
                 ),
                 const SizedBox(height: NexusSpacing.s5),
                 Text(
-                  'En el Mac: Ajustes → Móvil. Enciende el canal y copia la '
-                  'dirección y el token.',
+                  strings.mobileManualExplainer,
                   textAlign: TextAlign.center,
                   style: NexusTypography.subtitleMobile.copyWith(
                     color: colors.ink,
@@ -102,7 +104,7 @@ class _PairingPageState extends ConsumerState<PairingPage> {
                 const SizedBox(height: NexusSpacing.s7),
                 MobileField(
                   key: const ValueKey('campo-url'),
-                  etiqueta: 'Dirección',
+                  etiqueta: strings.mobileAddressLabel,
                   pista: '100.x.y.z:7845',
                   controlador: _url,
                   alEscribir: () => setState(() => _problema = null),
@@ -110,8 +112,8 @@ class _PairingPageState extends ConsumerState<PairingPage> {
                 const SizedBox(height: NexusSpacing.s5),
                 MobileField(
                   key: const ValueKey('campo-token'),
-                  etiqueta: 'Token',
-                  pista: '43 caracteres',
+                  etiqueta: strings.mobileTokenLabel,
+                  pista: strings.mobileTokenHint,
                   controlador: _token,
                   alEscribir: () => setState(() => _problema = null),
                 ),
@@ -120,7 +122,7 @@ class _PairingPageState extends ConsumerState<PairingPage> {
                   _Aviso(
                     key: const ValueKey('problema'),
                     color: colors.err,
-                    texto: _decir(_problema!),
+                    texto: _decir(strings, _problema!),
                   ),
                 ],
                 if (_problema == null && _avisoDeTailscale) ...[
@@ -131,9 +133,7 @@ class _PairingPageState extends ConsumerState<PairingPage> {
                     // Avisa y **no bloquea**: el Mac solo escucha en Tailscale, así
                     // que esta dirección probablemente no conecte — pero quien tenga
                     // otro montaje sabe más que esta comprobación.
-                    texto:
-                        'Esa dirección no parece de Tailscale, y el Mac solo escucha '
-                        'ahí. Puedes seguir, pero probablemente no conecte.',
+                    texto: strings.mobileNotTailscaleWarning,
                   ),
                 ],
                 // **Sin `Spacer` aquí.** Es un `Expanded`, y un `Expanded` dentro de
@@ -143,14 +143,13 @@ class _PairingPageState extends ConsumerState<PairingPage> {
                 const SizedBox(height: NexusSpacing.s8),
                 WideAction(
                   key: const ValueKey('emparejar'),
-                  texto: _guardando ? 'Guardando…' : 'Emparejar',
+                  texto: _guardando ? strings.mobileSaving : strings.mobilePair,
                   principal: true,
                   alTocar: _guardando ? null : _emparejar,
                 ),
                 const SizedBox(height: NexusSpacing.s4),
                 Text(
-                  'El teléfono no ejecuta nada:\ntodo corre en el Mac y se muestra '
-                  'aquí.',
+                  strings.mobilePhoneRunsNothing,
                   textAlign: TextAlign.center,
                   style: NexusTypography.mono.copyWith(color: colors.faint),
                 ),
@@ -162,17 +161,18 @@ class _PairingPageState extends ConsumerState<PairingPage> {
     );
   }
 
-  String _decir(PairingProblem problema) => switch (problema) {
-    PairingProblem.urlIlegible => 'Esa dirección no se entiende.',
-    PairingProblem.esquemaEquivocado =>
-      'Eso parece la dirección de una web, no la del canal.',
-    PairingProblem.faltaElPuerto =>
-      'Falta el puerto. El canal escucha en el 7845.',
-    PairingProblem.tokenCorto => 'Ese token está incompleto.',
+  String _decir(
+    NexusStrings strings,
+    PairingProblem problema,
+  ) => switch (problema) {
+    PairingProblem.urlIlegible => strings.mobileAddressUnreadable,
+    PairingProblem.esquemaEquivocado => strings.mobileWebAddress,
+    PairingProblem.faltaElPuerto => strings.mobileMissingPort,
+    PairingProblem.tokenCorto => strings.mobileTokenShort,
     // No se ve escribiendo a mano —esto viene del escáner— pero el `switch` es
     // exhaustivo a propósito: un caso nuevo obliga a decidir qué se dice, en vez de
     // caer en un «error» genérico que nadie escribió.
-    PairingProblem.noEsDeNexus => 'Ese código no es de Nexus.',
+    PairingProblem.noEsDeNexus => strings.mobileNotNexusCode,
   };
 }
 

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/i18n/nexus_strings.dart';
+import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
 import 'package:nexus/core/design_system/nexus_spacing.dart';
 import 'package:nexus/core/design_system/nexus_typography.dart';
@@ -50,7 +52,7 @@ class MobileChrome extends ConsumerWidget {
     final estado = (enVezDe != null && real == LinkState.conectado)
         ? enVezDe!
         : real;
-    final (texto, vivo) = _decir(estado);
+    final (texto, vivo) = _decir(context.strings, estado);
 
     return Row(
       children: [
@@ -105,16 +107,17 @@ class MobileChrome extends ConsumerWidget {
   /// ahora no hay Mac: una es «el teléfono está en ello» y la otra «mira si está
   /// encendido». Y los dos que salieron de la primera prueba real —no llego, no
   /// acepta el token— piden cosas distintas: instalar Tailscale o volver a emparejar.
-  (String, bool) _decir(LinkState estado) => switch (estado) {
-    LinkState.conectado => ('Conectado', true),
-    LinkState.conectando => ('Conectando', false),
-    LinkState.reconectando => ('Reconectando', false),
-    LinkState.resincronizando => ('Al día en un momento', false),
-    LinkState.sinConexion => ('Sin conexión', false),
-    LinkState.noSeLlega => ('No llego · ¿Tailscale?', false),
-    LinkState.rechazado => ('Token rechazado', false),
-    LinkState.hayQueActualizar => ('Hay que actualizar', false),
-  };
+  (String, bool) _decir(NexusStrings strings, LinkState estado) =>
+      switch (estado) {
+        LinkState.conectado => (strings.mobileLinkConnected, true),
+        LinkState.conectando => (strings.mobileLinkConnecting, false),
+        LinkState.reconectando => (strings.mobileLinkReconnecting, false),
+        LinkState.resincronizando => (strings.mobileLinkResyncing, false),
+        LinkState.sinConexion => (strings.mobileLinkOffline, false),
+        LinkState.noSeLlega => (strings.mobileLinkUnreachable, false),
+        LinkState.rechazado => (strings.mobileLinkRejected, false),
+        LinkState.hayQueActualizar => (strings.mobileLinkMustUpdate, false),
+      };
 }
 
 /// El chip del mockup: mono, mayúsculas, con borde y tracking.
@@ -305,7 +308,7 @@ class PermissionToggle extends StatelessWidget {
         children: [
           _Lado(
             key: const ValueKey('solo-leer'),
-            texto: 'Solo leer',
+            texto: context.strings.mobileReadOnly,
             activo: !puedeEditar,
             // Bajar a solo lectura no necesita frase: **quitarse permiso siempre se
             // puede**. Subir es lo que la pide.
@@ -313,7 +316,7 @@ class PermissionToggle extends StatelessWidget {
           ),
           _Lado(
             key: const ValueKey('puede-editar'),
-            texto: 'Puede editar',
+            texto: context.strings.mobileCanEdit,
             activo: puedeEditar,
             alTocar: puedeEditar ? null : alTocar,
             enAcento: true,

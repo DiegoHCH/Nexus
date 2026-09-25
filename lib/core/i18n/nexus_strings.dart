@@ -4,6 +4,7 @@ import 'package:nexus/core/i18n/strings/documentos_strings.dart';
 import 'package:nexus/core/i18n/strings/ejecucion_strings.dart';
 import 'package:nexus/core/i18n/strings/estadisticas_strings.dart';
 import 'package:nexus/core/i18n/strings/historial_strings.dart';
+import 'package:nexus/core/i18n/strings/movil_strings.dart';
 import 'package:nexus/core/i18n/strings/nucleo_strings.dart';
 import 'package:nexus/core/i18n/strings/pruebas_strings.dart';
 import 'package:nexus/core/i18n/strings/superpoderes_strings.dart';
@@ -45,7 +46,8 @@ abstract class NexusStrings
         DocumentosStrings,
         HistorialStrings,
         EjecucionStrings,
-        ArranqueStrings {
+        ArranqueStrings,
+        MovilStrings {
   const NexusStrings();
 
   static const supported = [Locale('es'), Locale('en')];
@@ -64,7 +66,8 @@ class NexusStringsEs extends NexusStrings
         DocumentosStringsEs,
         HistorialStringsEs,
         EjecucionStringsEs,
-        ArranqueStringsEs {
+        ArranqueStringsEs,
+        MovilStringsEs {
   const NexusStringsEs();
 }
 
@@ -77,6 +80,7 @@ class NexusStringsEn extends NexusStrings
         DocumentosStringsEn,
         HistorialStringsEn,
         EjecucionStringsEn,
-        ArranqueStringsEn {
+        ArranqueStringsEn,
+        MovilStringsEn {
   const NexusStringsEn();
 }

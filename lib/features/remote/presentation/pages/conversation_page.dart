@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
 import 'package:nexus/features/remote/domain/remote_mirror.dart';
 import 'package:nexus/features/remote/presentation/providers/mirror_providers.dart';
@@ -99,11 +100,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Hay demasiados encargos esperando. Espera a que se manden.',
-        ),
-      ),
+      SnackBar(content: Text(context.strings.mobileTooManyQueued)),
     );
   }
 
@@ -156,6 +153,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final strings = context.strings;
     final conv = ref.watch(conversationProvider(widget.conversationId));
 
     // Se cerró en el Mac mientras estaba abierta aquí. Pasa: el teléfono guarda ids
@@ -166,14 +164,12 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       // Antes era un texto gris centrado, que es justo lo que ese molde existe para no
       // volver a tener: decía qué pasó y no por qué ni qué hacer.
       return MobileStatePage(
-        titulo: 'Esta conversación ya no está abierta',
-        cuerpo:
-            'El teléfono guarda los identificadores y el Mac sigue su vida: alguien '
-            'la cerró allí mientras la tenías en pantalla.',
-        pieDeAyuda: 'Lo que se dijo sigue en el archivo.',
+        titulo: strings.mobileConversationGone,
+        cuerpo: strings.mobileConversationGoneBody,
+        pieDeAyuda: strings.mobileConversationGoneHint,
         acciones: [
           WideAction(
-            texto: 'Volver',
+            texto: strings.mobileBack,
             principal: true,
             alTocar: () => Navigator.of(context).pop(),
           ),
@@ -256,7 +252,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                         onPressed: () => ref
                             .read(mirrorProvider.notifier)
                             .masHistorial(widget.conversationId),
-                        child: const Text('Ver lo anterior'),
+                        child: Text(strings.mobileSeeEarlier),
                       ),
                     ),
                   for (final mensaje in conv.history)
@@ -560,6 +556,7 @@ class _Compositor extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
+    final strings = context.strings;
     final hasta = ref.watch(writePermissionProvider).value;
     final puedeEscribir = hasta != null && DateTime.now().isBefore(hasta);
 
@@ -595,7 +592,7 @@ class _Compositor extends ConsumerWidget {
               child: Text(
                 // La hora, que es lo que el interruptor no puede decir: «puede
                 // editar» sin hasta cuándo invita a confiar en que sigue abierto.
-                'hasta las ${_hora(hasta)}',
+                strings.mobileWritableUntil(_hora(hasta)),
                 style: NexusTypography.label.copyWith(color: colors.faint),
               ),
             ),
@@ -625,7 +622,7 @@ class _Compositor extends ConsumerWidget {
                     maxLines: 4,
                     style: NexusTypography.body.copyWith(color: colors.ink),
                     decoration: InputDecoration(
-                      hintText: 'Qué hay que hacer',
+                      hintText: strings.mobileComposerHint,
                       hintStyle: NexusTypography.body.copyWith(
                         color: colors.faint,
                       ),
@@ -676,7 +673,7 @@ class _Compositor extends ConsumerWidget {
               child: Text(
                 // El texto exacto del mockup. Dice la consecuencia y no la
                 // prohibición: el botón ya no manda, así que esto explica por qué.
-                'Mandar otro encima lo pondría en cola sin decirlo',
+                strings.mobileQueueWarning,
                 style: NexusTypography.label.copyWith(color: colors.faint),
               ),
             ),
@@ -864,6 +861,7 @@ class _HojaDeAccionesState extends State<_HojaDeAcciones> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final strings = context.strings;
 
     return SafeArea(
       child: Padding(
@@ -873,16 +871,16 @@ class _HojaDeAccionesState extends State<_HojaDeAcciones> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             MobileField(
-              etiqueta: 'Nombre',
+              etiqueta: strings.mobileName,
               controlador: _campo,
               // Se dice que se puede vaciar: es la forma de deshacer, y sin decirlo
               // nadie la encuentra.
-              pista: 'vacío vuelve al primer encargo',
+              pista: strings.mobileNameHint,
             ),
             const SizedBox(height: NexusSpacing.s4),
             WideAction(
               key: const ValueKey('guardar-nombre'),
-              texto: 'Guardar el nombre',
+              texto: strings.mobileSaveName,
               principal: true,
               alTocar: () => widget.alGuardar(_campo.text),
             ),
@@ -890,14 +888,13 @@ class _HojaDeAccionesState extends State<_HojaDeAcciones> {
             Text(
               // Lo que hace falta saber **antes** de tocar: cerrar suena a borrar y no
               // lo es.
-              'Cerrarla la quita del Mac. Lo dicho sigue en el archivo, y desde ahí '
-              'se retoma.',
+              strings.mobileCloseExplainer,
               style: NexusTypography.mono.copyWith(color: colors.faint),
             ),
             const SizedBox(height: NexusSpacing.s3),
             WideAction(
               key: const ValueKey('cerrar-la-conversacion'),
-              texto: 'Cerrar la conversación',
+              texto: strings.mobileCloseConversation,
               alTocar: widget.alCerrar,
             ),
           ],

@@ -16,6 +16,7 @@ import 'package:nexus/features/e2e/domain/usecases/pasos_de_una_prueba.dart';
 import 'package:nexus/features/e2e/domain/usecases/por_que_se_cayo.dart';
 import 'package:nexus/features/e2e/presentation/providers/e2e_providers.dart';
 import 'package:nexus/features/e2e/presentation/providers/lo_que_le_falta_a_una_prueba.dart';
+import 'package:nexus/features/e2e/presentation/widgets/el_nombre_de_una_prueba.dart';
 import 'package:nexus/features/e2e/presentation/widgets/publicar_prueba_dialogo.dart';
 import 'package:nexus/features/e2e/presentation/widgets/repo_de_pruebas_seccion.dart';
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
@@ -89,8 +90,11 @@ class PruebasSheet extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(
+                    // Los rótulos del instrumento van en mayúsculas, como en el
+                    // mockup; el texto se guarda en minúscula de frase porque
+                    // también se lee en voz alta.
                     child: Text(
-                      strings.e2eTitle,
+                      strings.e2eTitle.toUpperCase(),
                       style: NexusTypography.label.copyWith(
                         color: colors.accent,
                       ),
@@ -236,7 +240,7 @@ class _Seccion extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Text(
-        titulo,
+        titulo.toUpperCase(),
         style: NexusTypography.label.copyWith(color: context.colors.accent),
       ),
       const SizedBox(height: NexusSpacing.s3),
@@ -274,9 +278,12 @@ class _AvisoDeQueCorre extends ConsumerWidget {
           ),
         ),
         const SizedBox(width: NexusSpacing.s2),
+        // «LOGIN_PE · 4/9», como la barra del mockup: es un rótulo de estado
+        // en el acento, no una línea de datos.
         Text(
-          '${prueba.flow} · ${prueba.terminados}/${prueba.pasos.length}',
-          style: NexusTypography.data.copyWith(color: colors.accent),
+          '${prueba.flow} · ${prueba.terminados}/${prueba.pasos.length}'
+              .toUpperCase(),
+          style: NexusTypography.label.copyWith(color: colors.accent),
         ),
         const SizedBox(width: NexusSpacing.s2),
         BotonDeFila(
@@ -558,14 +565,14 @@ class _LanzaderaState extends ConsumerState<_Lanzadera> {
         // que las pestañas de cuenta, que solo salen si hay más de una.
         if (_proyectos.length <= 1)
           Text(
-            '${strings.e2eLanzar} · ${_proyecto.split('/').last}',
+            '${strings.e2eLanzar} · ${_proyecto.split('/').last}'.toUpperCase(),
             style: NexusTypography.label.copyWith(color: colors.accent),
           )
         else
           Row(
             children: [
               Text(
-                '${strings.e2eLanzar} ·',
+                '${strings.e2eLanzar} ·'.toUpperCase(),
                 style: NexusTypography.label.copyWith(color: colors.accent),
               ),
               const SizedBox(width: NexusSpacing.s2),
@@ -684,8 +691,8 @@ class _LanzaderaState extends ConsumerState<_Lanzadera> {
         // ir antes de pulsar nada.
         if (dispositivos.isNotEmpty) ...[
           Text(
-            strings.e2eDevice,
-            style: NexusTypography.label.copyWith(color: colors.faint),
+            strings.e2eDevice.toUpperCase(),
+            style: NexusTypography.label.copyWith(color: colors.mute),
           ),
           const SizedBox(height: NexusSpacing.s2),
           Wrap(
@@ -873,10 +880,9 @@ class _FilaDePrueba extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  prueba.nombre,
-                  style: NexusTypography.data.copyWith(color: colors.ink),
-                ),
+                // El nombre de la prueba es un nombre: en la voz de lo que se
+                // dice y a 13,5, como el mockup. Lo de debajo sí es dato.
+                Text(prueba.nombre, style: elNombreDeUnaPrueba(colors)),
                 if (detalle.isNotEmpty)
                   Text(
                     detalle,
@@ -1046,14 +1052,13 @@ class _HistorialState extends ConsumerState<_Historial> {
                 children: [
                   Expanded(
                     child: Text(
-                      clave.isEmpty
-                          ? strings.e2eUnattributed
-                          : clave.split('/').last,
+                      (clave.isEmpty
+                              ? strings.e2eUnattributed
+                              : clave.split('/').last)
+                          .toUpperCase(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: NexusTypography.label.copyWith(
-                        color: colors.faint,
-                      ),
+                      style: NexusTypography.label.copyWith(color: colors.mute),
                     ),
                   ),
                   // **Cuántas y cuánto ocupan**, que es lo que hace falta para
@@ -1154,7 +1159,7 @@ class _ElNumero extends StatelessWidget {
                 style: NexusTypography.title.copyWith(color: colors.ink),
               ),
               Text(
-                rotulo,
+                rotulo.toUpperCase(),
                 style: NexusTypography.label.copyWith(
                   color: colors.mute,
                   fontSize: 9.5,
@@ -1350,7 +1355,7 @@ class _FilaDePasadaState extends ConsumerState<_FilaDePasada> {
                       pasada.flow,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: NexusTypography.data.copyWith(color: colors.ink),
+                      style: elNombreDeUnaPrueba(colors),
                     ),
                     Text(
                       // Cuándo, cómo acabó y cuántos pasos llegaron: «2/8» dice
@@ -1432,8 +1437,11 @@ class _FilaDePasadaState extends ConsumerState<_FilaDePasada> {
                   ref.invalidate(pasadasDePruebaProvider);
                 },
                 child: Text(
-                  strings.e2eDelete,
-                  style: NexusTypography.control.copyWith(color: colors.faint),
+                  strings.e2eDelete.toUpperCase(),
+                  style: NexusTypography.label.copyWith(
+                    color: colors.faint,
+                    letterSpacing: 1.4,
+                  ),
                 ),
               ),
             ],
@@ -1453,14 +1461,19 @@ class _FilaDePasadaState extends ConsumerState<_FilaDePasada> {
 
   /// La hora si es de hoy, la fecha si no. Un historial de una tarde con la fecha
   /// repetida en cada fila es ruido.
+  ///
+  /// «Ayer 18:40» y no «24/9 18:40», como el mockup: lo de ayer es lo que más
+  /// se busca al volver por la mañana, y una fecha obliga a hacer la cuenta.
   String _cuando(DateTime cuando) {
     final ahora = DateTime.now();
-    final hoy =
-        cuando.year == ahora.year &&
-        cuando.month == ahora.month &&
-        cuando.day == ahora.day;
+    bool mismoDia(DateTime a, DateTime b) =>
+        a.year == b.year && a.month == b.month && a.day == b.day;
     final hh = cuando.hour.toString().padLeft(2, '0');
     final mm = cuando.minute.toString().padLeft(2, '0');
-    return hoy ? '$hh:$mm' : '${cuando.day}/${cuando.month} $hh:$mm';
+    if (mismoDia(cuando, ahora)) return '$hh:$mm';
+    if (mismoDia(cuando, DateTime(ahora.year, ahora.month, ahora.day - 1))) {
+      return context.strings.e2eAyer('$hh:$mm');
+    }
+    return '${cuando.day}/${cuando.month} $hh:$mm';
   }
 }

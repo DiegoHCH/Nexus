@@ -119,6 +119,9 @@ mixin PruebasStrings {
   String get pasadaTodaLaSalida;
   String pasadaLinea(int linea);
   String pasadaCaptura(String nombre, int paso);
+
+  /// «ayer 18:40»: cuándo fue una pasada de ayer, en el historial.
+  String e2eAyer(String hora);
   String e2eVarsLoaded(int cuantas);
 
   /// La hoja en tres columnas, una por pregunta: qué lanzo, qué hay en el
@@ -464,6 +467,8 @@ mixin PruebasStringsEs implements PruebasStrings {
   String pasadaLinea(int linea) => 'línea $linea';
   @override
   String pasadaCaptura(String nombre, int paso) => '$nombre · paso $paso';
+  @override
+  String e2eAyer(String hora) => 'ayer $hora';
   @override
   String e2eVarsLoaded(int cuantas) => cuantas == 1
       ? '1 variable de .env.local'
@@ -944,6 +949,8 @@ mixin PruebasStringsEn implements PruebasStrings {
   String pasadaLinea(int linea) => 'line $linea';
   @override
   String pasadaCaptura(String nombre, int paso) => '$nombre · step $paso';
+  @override
+  String e2eAyer(String hora) => 'yesterday $hora';
   @override
   String e2eVarsLoaded(int cuantas) => cuantas == 1
       ? '1 variable from .env.local'

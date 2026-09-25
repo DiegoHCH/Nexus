@@ -36,7 +36,7 @@ class CuentasDeUnProyecto extends ConsumerWidget {
           _FilaDeCuenta(cuenta: cuenta, proyecto: proyecto, porDefecto: i == 0),
         TextButton(
           onPressed: () => editarCuenta(context, proyecto, null),
-          child: Text(strings.e2eAccountAdd),
+          child: Text(strings.e2eAccountAdd.toUpperCase()),
         ),
       ],
     );
@@ -124,7 +124,7 @@ class _FilaDeCuenta extends ConsumerWidget {
                   onPressed: () => ref
                       .read(cuentasDePruebaProvider(proyecto).notifier)
                       .hacerPorDefecto(cuenta.clave),
-                  child: Text(strings.e2eAccountMakeDefault),
+                  child: Text(strings.e2eAccountMakeDefault.toUpperCase()),
                 ),
             ],
           ),
@@ -279,11 +279,14 @@ class _FormularioDeCuentaState extends ConsumerState<_FormularioDeCuenta> {
               Navigator.of(context).pop();
             },
             child: Text(
-              strings.e2eAccountDelete,
+              strings.e2eAccountDelete.toUpperCase(),
               style: TextStyle(color: colors.err),
             ),
           ),
-        TextButton(onPressed: _guardar, child: Text(strings.e2eAccountSave)),
+        TextButton(
+          onPressed: _guardar,
+          child: Text(strings.e2eAccountSave.toUpperCase()),
+        ),
       ],
     );
   }

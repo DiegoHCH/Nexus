@@ -78,7 +78,7 @@ class _PublicarPruebaDialogoState extends ConsumerState<PublicarPruebaDialogo> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(strings.cancel),
+            child: Text(strings.cancel.toUpperCase()),
           ),
         ],
       );
@@ -148,17 +148,18 @@ class _PublicarPruebaDialogoState extends ConsumerState<PublicarPruebaDialogo> {
         if (resultado != null)
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(strings.close),
+            child: Text(strings.close.toUpperCase()),
           )
         else ...[
           TextButton(
             onPressed: _publicando ? null : () => Navigator.of(context).pop(),
-            child: Text(strings.cancel),
+            child: Text(strings.cancel.toUpperCase()),
           ),
           TextButton(
             onPressed: _publicando ? null : () => _publicar(clon),
             child: Text(
-              _publicando ? strings.e2ePublishDoing : strings.e2ePublish,
+              (_publicando ? strings.e2ePublishDoing : strings.e2ePublish)
+                  .toUpperCase(),
             ),
           ),
         ],

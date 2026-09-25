@@ -212,7 +212,10 @@ li.omitido{color:var(--faint)} li.omitido .texto{text-decoration:line-through}
         font:400 11px/1.5 var(--mono);color:var(--mute)}
 .salida span{color:var(--ink)}
 details{margin-top:8px}
-summary{cursor:pointer;list-style:none;width:max-content}
+/* Un mando, así que en mayúsculas y en la letra del instrumento, como los
+   botones de la app. */
+summary{cursor:pointer;list-style:none;width:max-content;font:400 10px/1 var(--hud);
+        letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
 summary::-webkit-details-marker{display:none}
 pre{margin:8px 0 0;white-space:pre-wrap;word-break:break-word;font:400 11px/1.6 var(--mono);color:var(--mute)}
 ''';

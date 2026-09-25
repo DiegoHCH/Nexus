@@ -31,6 +31,11 @@ void main() {
         'sería escribir doscientas líneas dos veces en el registro para poder '
         'pintar un botón. Lo que se pierde al releer del disco es el botón, no '
         'el dato: la salida sigue ahí, y copiarla es lo que se hacía antes',
+    'esLaAyuda':
+        'la tabla sale del catálogo y **el texto del mensaje ya es la lista '
+        'entera**: al releer del disco se pinta ese texto, que dice lo mismo en '
+        'lista. Lo que se pierde es la forma, no el dato — lo mismo que '
+        '`trabajo`',
   };
 
   test('todo campo de ChatMessage se guarda, o está declarado como que no', () {

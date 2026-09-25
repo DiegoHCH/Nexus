@@ -110,19 +110,20 @@ enum ElComandoDeLaCasa {
     return null;
   }
 
-  /// Los que la ayuda enseña, en el orden en que se enseñan: primero los que se
-  /// usan a diario.
+  /// Los que la ayuda enseña, en el orden en que se enseñan: primero lo tuyo
+  /// —lo que sabe de ti, tu día, lo que se repite—, después las herramientas.
+  /// Es el orden de la maqueta, y se lee en dos columnas, de dos en dos.
   static const enLaAyuda = [
-    aparte,
-    imagen,
-    edita,
-    git,
-    parte,
-    agenda,
-    mcp,
-    programadas,
     recuerda,
     olvida,
+    parte,
+    agenda,
+    programadas,
+    imagen,
+    edita,
+    mcp,
+    aparte,
+    git,
     ayuda,
   ];
 

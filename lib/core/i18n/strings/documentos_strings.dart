@@ -63,6 +63,21 @@ mixin DocumentosStrings {
   String changedFiles(int count);
   String get changesTitle;
   String get newFile;
+
+  /// Los tres grupos del visor de cambios, y lo que dice cada archivo nuevo.
+  /// Ver `ElDiffComoHtml`.
+  String get cambiosEnEstaTarea;
+  String get cambiosConElArchivoEntero;
+  String get cambiosSinComitear;
+  String get cambiosSinComitearNota;
+  String get cambiosNinguno;
+  String get cambiosNingunoEnLaTarea;
+  String get cambiosImagen;
+  String get cambiosBinario;
+  String cambiosLineas(int lineas);
+  String cambiosRecortado(int vistas, int total);
+  String get cambiosBinarioExplica;
+  String get cambiosSinLeer;
   String blockedTitle(String folder);
   String get blockedExplainer;
   String get blockedHint;
@@ -112,6 +127,19 @@ mixin DocumentosStrings {
   String get usageLimits;
   String get usageFiveHour;
   String get usageWeekly;
+
+  /// Lo que dice cada menú del compositor encima y debajo de sus opciones:
+  /// qué implica elegir, para no descubrirlo después.
+  String permisoEn(String? carpeta);
+  String get permisoSoloLeerImplica;
+  String permisoEditarImplica(String? carpeta);
+  String modeloDelPerfil(String? perfil);
+  String get modeloComoEnLaConsola;
+  String esfuerzoDelModelo(String? modelo);
+  String get esfuerzoComoEnLaConsola;
+  String get contextoYCupo;
+  String get nuevaConversacionTitulo;
+  String cabenAbiertas(int caben, int abiertas);
   String get usageUnavailable;
 
   /// Hay sesión: lo que caducó es el acceso, y lo renueva el CLI en cuanto
@@ -220,6 +248,36 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   @override
   String get newFile => 'nuevo';
   @override
+  String get cambiosEnEstaTarea => 'En esta tarea';
+  @override
+  String get cambiosConElArchivoEntero => 'Con el archivo entero';
+  @override
+  String get cambiosSinComitear => 'Todo lo no comiteado';
+  @override
+  String get cambiosSinComitearNota =>
+      'Incluye lo que ya había antes de esta tarea.';
+  @override
+  String get cambiosNinguno => 'Sin cambios';
+  @override
+  String get cambiosNingunoEnLaTarea => 'Esta tarea no dejó ningún cambio.';
+  @override
+  String get cambiosImagen => 'imagen';
+  @override
+  String get cambiosBinario => 'binario';
+  @override
+  String cambiosLineas(int lineas) =>
+      lineas == 1 ? '1 línea' : '$lineas líneas';
+  @override
+  String cambiosRecortado(int vistas, int total) =>
+      'Se enseñan las primeras $vistas de $total líneas: el resto sigue en '
+      'el archivo.';
+  @override
+  String get cambiosBinarioExplica =>
+      'Es un archivo nuevo que no es texto: no hay líneas que enseñar.';
+  @override
+  String get cambiosSinLeer =>
+      'Archivo nuevo. No se pudo leer desde aquí: puede que ya no esté.';
+  @override
   String blockedTitle(String folder) => 'COMANDOS BLOQUEADOS EN $folder';
   @override
   String get blockedExplainer =>
@@ -291,6 +349,35 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   String get usageFiveHour => 'Límite de 5 horas';
   @override
   String get usageWeekly => 'Semanal';
+  @override
+  String permisoEn(String? carpeta) =>
+      carpeta == null ? 'Permiso' : 'Permiso en $carpeta';
+  @override
+  String get permisoSoloLeerImplica => 'Lee y responde; no escribe nada aquí.';
+  @override
+  String permisoEditarImplica(String? carpeta) =>
+      'Escribe en ${carpeta ?? 'esta carpeta'}. Ejecutar sigue pidiendo '
+      'permiso.';
+  @override
+  String modeloDelPerfil(String? perfil) =>
+      perfil == null ? 'Modelo' : 'Modelo · perfil $perfil';
+  @override
+  String get modeloComoEnLaConsola =>
+      'Es el de tu perfil de Claude: cambiarlo aquí es /model en la consola.';
+  @override
+  String esfuerzoDelModelo(String? modelo) =>
+      modelo == null ? 'Esfuerzo' : 'Esfuerzo · $modelo';
+  @override
+  String get esfuerzoComoEnLaConsola =>
+      'Se guarda para este modelo, como /effort.';
+  @override
+  String get contextoYCupo => 'Contexto y cupo';
+  @override
+  String get nuevaConversacionTitulo => 'Nueva conversación';
+  @override
+  String cabenAbiertas(int caben, int abiertas) =>
+      'Caben $caben abiertas a la vez; llevas $abiertas. Con $caben, cierra '
+      'una para abrir otra.';
   @override
   String get usageUnavailable =>
       'Sin dato: esa cuenta no tiene sesión abierta.';
@@ -402,6 +489,35 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   @override
   String get newFile => 'new';
   @override
+  String get cambiosEnEstaTarea => 'In this task';
+  @override
+  String get cambiosConElArchivoEntero => 'With the whole file';
+  @override
+  String get cambiosSinComitear => 'Everything uncommitted';
+  @override
+  String get cambiosSinComitearNota =>
+      'Includes what was already there before this task.';
+  @override
+  String get cambiosNinguno => 'No changes';
+  @override
+  String get cambiosNingunoEnLaTarea => 'This task left no changes.';
+  @override
+  String get cambiosImagen => 'image';
+  @override
+  String get cambiosBinario => 'binary';
+  @override
+  String cambiosLineas(int lineas) => lineas == 1 ? '1 line' : '$lineas lines';
+  @override
+  String cambiosRecortado(int vistas, int total) =>
+      'Showing the first $vistas of $total lines: the rest is still in the '
+      'file.';
+  @override
+  String get cambiosBinarioExplica =>
+      'It is a new file that is not text: there are no lines to show.';
+  @override
+  String get cambiosSinLeer =>
+      'New file. It could not be read from here: it may be gone.';
+  @override
   String blockedTitle(String folder) => 'COMMANDS BLOCKED IN $folder';
   @override
   String get blockedExplainer =>
@@ -473,6 +589,36 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   String get usageFiveHour => '5-hour limit';
   @override
   String get usageWeekly => 'Weekly';
+  @override
+  String permisoEn(String? carpeta) =>
+      carpeta == null ? 'Permission' : 'Permission in $carpeta';
+  @override
+  String get permisoSoloLeerImplica =>
+      'Reads and answers; writes nothing here.';
+  @override
+  String permisoEditarImplica(String? carpeta) =>
+      'Writes in ${carpeta ?? 'this folder'}. Running commands still asks '
+      'first.';
+  @override
+  String modeloDelPerfil(String? perfil) =>
+      perfil == null ? 'Model' : 'Model · $perfil profile';
+  @override
+  String get modeloComoEnLaConsola =>
+      "It is your Claude profile's model: changing it here is /model in the "
+      'console.';
+  @override
+  String esfuerzoDelModelo(String? modelo) =>
+      modelo == null ? 'Effort' : 'Effort · $modelo';
+  @override
+  String get esfuerzoComoEnLaConsola => 'Saved for this model, like /effort.';
+  @override
+  String get contextoYCupo => 'Context and limits';
+  @override
+  String get nuevaConversacionTitulo => 'New conversation';
+  @override
+  String cabenAbiertas(int caben, int abiertas) =>
+      '$caben can be open at once; you have $abiertas. At $caben, close one to '
+      'open another.';
   @override
   String get usageUnavailable =>
       'No reading: that account has no session open.';

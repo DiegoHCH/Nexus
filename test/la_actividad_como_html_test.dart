@@ -15,7 +15,7 @@ void main() {
   const strings = NexusStringsEs();
   final textos = TextosDeActividad(
     titulo: strings.rightNow,
-    progreso: strings.stepsProgress,
+    paso: strings.pasoDeTotal,
     trabajando: strings.working,
     escribe: strings.writesTag,
     seEjecuto: strings.ranLabel,
@@ -23,15 +23,18 @@ void main() {
     todaviaCorriendo: strings.stillRunning,
     sinPasos: strings.noStepsYet,
     detener: strings.stopNow,
+    ahora: strings.pasoAhora,
+    espera: strings.pasoEspera,
   );
 
   String pinta(
     List<ActivityItem> pasos, {
     bool viva = true,
     String? detenerEn,
+    ({int total, int encendidos}) reactor = (total: 40, encendidos: 0),
   }) => LaActividadComoHtml.escribe(
     filas: layoutActivity(pasos),
-    terminados: pasos.where((p) => p.done).length,
+    reactor: reactor,
     viva: viva,
     textos: textos,
     detenerEn: detenerEn,
@@ -149,5 +152,99 @@ void main() {
       pinta([paso.first.asDone()], viva: false),
       isNot(contains('class="gira"')),
     );
+  });
+
+  group('el reactor, como en el orbe', () {
+    // «La ventana lleva el mismo orbe trabajando y los mismos pasos numerados:
+    // lo que ves de lejos y de cerca coincide.» Por eso cuenta solo los pasos
+    // de Claude, como el reactor: los del subagente son parte del que lo mandó.
+    test('«paso n de m» cuenta los de Claude, y el que corre ya va', () {
+      final html = pinta([
+        ActivityItem(id: 'a', description: 'Uno', writes: false, done: true),
+        ActivityItem(id: 'b', description: 'Dos', writes: false, done: true),
+        ActivityItem(id: 'c', description: 'Delegando', writes: false),
+        ActivityItem(
+          id: 'hijo',
+          description: 'Lo del subagente',
+          writes: false,
+          parentId: 'c',
+          done: true,
+        ),
+      ]);
+
+      expect(html, contains(strings.pasoDeTotal(3, 3)));
+    });
+
+    test('terminado, dice lo hecho y no el siguiente', () {
+      final html = pinta([
+        ActivityItem(id: 'a', description: 'Uno', writes: false, done: true),
+        ActivityItem(id: 'b', description: 'Dos', writes: false, done: true),
+      ], viva: false);
+
+      expect(html, contains(strings.pasoDeTotal(2, 2)));
+    });
+
+    test('el aro tiene los segmentos que llegan, y enciende los hechos', () {
+      final html = pinta(
+        [ActivityItem(id: 'a', description: 'Uno', writes: false)],
+        reactor: (total: 40, encendidos: 10),
+      );
+
+      expect('class="seg'.allMatches(html), hasLength(40));
+      expect('class="seg on"'.allMatches(html), hasLength(10));
+    });
+
+    test('el halo solo gira mientras vive', () {
+      final paso = ActivityItem(id: 'a', description: 'Uno', writes: false);
+
+      expect(pinta([paso]), contains('class="reactor vivo"'));
+      expect(
+        pinta([paso.asDone()], viva: false),
+        isNot(contains('reactor vivo')),
+      );
+    });
+  });
+
+  group('tres palabras por paso', () {
+    test('hecho, ahora y espera, cada uno con la suya', () {
+      final html = pinta([
+        ActivityItem(id: 'a', description: 'Uno', writes: false, done: true),
+        ActivityItem(id: 'jefe', description: 'Delegando', writes: false),
+        ActivityItem(
+          id: 'peon',
+          description: 'Leyendo',
+          writes: false,
+          parentId: 'jefe',
+        ),
+      ]);
+
+      expect(html, contains('<summary class="hecho">'));
+      expect(html, contains(strings.ranLabel));
+      // Corre el más hondo; quien lo mandó espera, apagado.
+      expect(html, contains('<summary class="curso">'));
+      expect(html, contains(strings.pasoAhora));
+      expect(html, contains('<summary class="espera">'));
+      expect(html, contains(strings.pasoEspera));
+    });
+
+    test('lo que devolvió, en una línea: la primera que diga algo', () {
+      final html = pinta([
+        ActivityItem(
+          id: 'a',
+          description: 'gh run list',
+          writes: false,
+          output: '\n1 fallida, 3 bien\nmás detalle',
+          done: true,
+        ),
+      ]);
+
+      expect(
+        html,
+        contains(
+          '<span class="dev">${strings.returnedLabel} · 1 fallida, 3 bien'
+          '</span>',
+        ),
+      );
+    });
   });
 }

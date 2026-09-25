@@ -79,6 +79,7 @@ class ChatMessage {
     this.propuesta,
     this.decidido,
     this.esLaListaDeProgramadas = false,
+    this.esLaAyuda = false,
     this.trabajo,
     this.enviadoEl,
     this.loQueCosto,
@@ -197,6 +198,15 @@ class ChatMessage {
   /// con botones que ya no corresponden a nada.
   final bool esLaListaDeProgramadas;
 
+  /// Este mensaje **es** la ayuda de `/ayuda`: se pinta como la tabla de
+  /// comandos y no como texto.
+  ///
+  /// Solo lo llevan los mensajes vivos, como el permiso: al releer la
+  /// conversación del disco queda el texto, que dice lo mismo en lista. La
+  /// tabla sale del catálogo y no de una copia, así que no puede enseñar un
+  /// comando que ya no existe.
+  final bool esLaAyuda;
+
   /// Hay una propuesta sin contestar en este mensaje.
   bool get esperaPropuesta => propuesta != null && decidido == null;
 
@@ -265,6 +275,7 @@ class ChatMessage {
     propuesta: propuesta,
     decidido: decidido ?? this.decidido,
     esLaListaDeProgramadas: esLaListaDeProgramadas,
+    esLaAyuda: esLaAyuda,
     trabajo: trabajo,
     enviadoEl: enviadoEl,
     loQueCosto: loQueCosto ?? this.loQueCosto,

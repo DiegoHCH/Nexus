@@ -51,10 +51,15 @@ class Gauge extends StatelessWidget {
           style: NexusTypography.control.copyWith(color: colors.mute),
         ),
         const SizedBox(height: 2),
+        // La cifra toma el color de la barra al pasar el umbral: es lo que se
+        // lee primero, y una barra ámbar con el número en gris se mira dos
+        // veces.
         Text(
           value ?? '$percent %',
           overflow: TextOverflow.ellipsis,
-          style: NexusTypography.data.copyWith(color: colors.faint),
+          style: NexusTypography.data.copyWith(
+            color: percent >= warnAt ? colors.warn : colors.faint,
+          ),
         ),
         const SizedBox(height: 4),
         ClipRRect(

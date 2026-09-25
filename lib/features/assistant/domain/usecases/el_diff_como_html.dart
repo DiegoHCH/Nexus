@@ -1,4 +1,65 @@
+import 'package:flutter/foundation.dart';
+import 'package:nexus/features/assistant/domain/entities/archivo_nuevo.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_diff_en_dos_columnas.dart';
+
+/// Un grupo del panel: un título, el diff que cuelga de él y, si hace falta,
+/// una nota debajo del título.
+///
+/// Grupos y no una pareja de alcances porque acabaron siendo tres —lo de este
+/// encargo, lo mismo con el archivo entero alrededor, y todo lo que sigue sin
+/// comitear— y cada uno contesta una pregunta distinta: «¿qué acabo de
+/// pedir?», «¿y qué había alrededor?», «¿qué llevo hecho de esta tarea?».
+/// Cuál importa solo lo sabe quien mira, así que se ofrecen todos y no se
+/// elige por él.
+@immutable
+class GrupoDelDiff {
+  const GrupoDelDiff({
+    required this.titulo,
+    required this.diff,
+    this.nuevos = const [],
+    this.nota,
+  });
+
+  final String titulo;
+  final String diff;
+
+  /// Los archivos que git todavía no sigue: no salen en [diff].
+  final List<String> nuevos;
+
+  /// Lo que hay que saber del grupo antes de leerlo. «Todo lo no comiteado»
+  /// avisa de que incluye lo de antes de esta tarea: sin eso, se lee como si
+  /// Claude hubiera tocado lo que ya estaba.
+  final String? nota;
+}
+
+/// Los textos de la página, que vienen de fuera: el idioma se elige en Ajustes
+/// y esto es dominio. Mismo trato que `TextosDeActividad`.
+@immutable
+class TextosDelDiff {
+  const TextosDelDiff({
+    required this.titulo,
+    required this.nuevo,
+    required this.imagen,
+    required this.binario,
+    required this.lineas,
+    required this.recortado,
+    required this.binarioExplica,
+    required this.sinLeer,
+    required this.sinCambios,
+    required this.ningunCambio,
+  });
+
+  final String titulo;
+  final String nuevo;
+  final String imagen;
+  final String binario;
+  final String Function(int lineas) lineas;
+  final String Function(int vistas, int total) recortado;
+  final String binarioExplica;
+  final String sinLeer;
+  final String sinCambios;
+  final String ningunCambio;
+}
 
 /// El diff, pintado para el visor de documentos.
 ///
@@ -12,25 +73,19 @@ import 'package:nexus/features/assistant/domain/usecases/el_diff_en_dos_columnas
 /// encargo y todo lo que no se ha comiteado— van en un `<details>`, que es
 /// nativo del navegador y funciona sin una línea de script.
 abstract final class ElDiffComoHtml {
-  /// Un grupo del panel: un título y el diff que cuelga de él.
+  /// La página con todos los grupos.
   ///
-  /// Grupos y no una pareja de alcances porque acabaron siendo tres —lo de este
-  /// encargo, lo mismo con el archivo entero alrededor, y todo lo que sigue sin
-  /// comitear— y cada uno contesta una pregunta distinta: «¿qué acabo de
-  /// pedir?», «¿y qué había alrededor?», «¿qué llevo hecho de esta tarea?».
-  /// Cuál importa solo lo sabe quien mira, así que se ofrecen todos y no se
-  /// elige por él.
+  /// [enteros] trae el contenido de los archivos nuevos, por su ruta. Uno que
+  /// no esté ahí sale solo por su nombre, que es lo más que se puede decir de
+  /// un archivo que no se ha podido leer.
   static String deGrupos(
-    List<({String titulo, String diff, List<String> nuevos})> entradas,
-  ) {
-    final titulo = entradas.isEmpty ? 'Cambios' : entradas.first.titulo;
+    List<GrupoDelDiff> entradas, {
+    required TextosDelDiff textos,
+    Map<String, ArchivoNuevo> enteros = const {},
+  }) {
     final grupos = [
       for (final entrada in entradas)
-        (
-          titulo: entrada.titulo,
-          archivos: ElDiffEnDosColumnas.de(entrada.diff),
-          nuevos: entrada.nuevos,
-        ),
+        (entrada: entrada, archivos: ElDiffEnDosColumnas.de(entrada.diff)),
     ];
 
     final lado = StringBuffer();
@@ -38,12 +93,20 @@ abstract final class ElDiffComoHtml {
     final seleccion = StringBuffer();
     var n = 0;
 
-    for (final grupo in grupos) {
-      lado.writeln('<p class="grupo">${_texto(grupo.titulo)}</p>');
-      if (grupo.archivos.isEmpty && grupo.nuevos.isEmpty) {
-        lado.writeln('<p class="nada">Sin cambios</p>');
+    for (final (:entrada, :archivos) in grupos) {
+      // **Con cuántos lleva**, al lado del título: dice de un vistazo si abrir
+      // el grupo merece la pena sin tener que contar las filas.
+      lado.writeln(
+        '<p class="grupo">${_texto(entrada.titulo)}'
+        '<span>${archivos.length + entrada.nuevos.length}</span></p>',
+      );
+      if (entrada.nota case final nota?) {
+        lado.writeln('<p class="nota">${_texto(nota)}</p>');
       }
-      for (final archivo in grupo.archivos) {
+      if (archivos.isEmpty && entrada.nuevos.isEmpty) {
+        lado.writeln('<p class="nada">${_texto(textos.sinCambios)}</p>');
+      }
+      for (final archivo in archivos) {
         final id = 'f$n';
         n++;
         lado.writeln(
@@ -59,40 +122,90 @@ abstract final class ElDiffComoHtml {
         );
         centro
           ..writeln('<section id="$id">')
-          ..writeln('<h2>${_texto(archivo.ruta)}</h2>')
+          ..writeln(
+            '<h2>${_texto(archivo.ruta)}<span> · '
+            '<b class="mas">+${archivo.mas}</b> '
+            '<b class="menos">−${archivo.menos}</b></span></h2>',
+          )
           ..writeln('<div class="codigo">')
           ..writeln(_cuerpo(archivo.filas))
           ..writeln('</div></section>');
       }
-      for (final nuevo in grupo.nuevos) {
+      for (final nuevo in entrada.nuevos) {
         final id = 'f$n';
         n++;
+        final entero = enteros[nuevo];
+        final clase = switch (entero) {
+          ArchivoNuevo(binario: true, imagen: true) =>
+            '${textos.nuevo} · ${textos.imagen}',
+          ArchivoNuevo(binario: true) => '${textos.nuevo} · ${textos.binario}',
+          _ => textos.nuevo,
+        };
+        final cuantas = entero != null && entero.leido && !entero.binario
+            ? entero.total
+            : null;
         lado.writeln(
           '<a href="#$id"><span class="ruta">${_texto(_corta(nuevo))}</span>'
-          '<span class="nuevo">nuevo</span></a>',
+          '<span class="nuevo">${_texto(clase)}</span>'
+          '${cuantas == null ? '' : '<span class="mas">+$cuantas</span>'}</a>',
         );
         seleccion.writeln(
           'body:has(#$id:target) a[href="#$id"]{'
           'background:var(--sel);color:var(--texto)}',
         );
-        // Un archivo nuevo no tiene diff: git todavía no lo sigue. Se dice, en
-        // vez de dejar el panel en blanco como si no hubiera pasado nada.
-        centro.writeln(
-          '<section id="$id"><h2>${_texto(nuevo)}</h2>'
-          '<p class="nada">Archivo nuevo. Todavía no lo sigue git, así que no '
-          'hay nada contra lo que compararlo.</p></section>',
-        );
+        centro
+          ..writeln('<section id="$id">')
+          ..writeln(
+            '<h2>${_texto(nuevo)}<span> · ${_texto(clase)}'
+            '${cuantas == null ? '' : ' · ${_texto(textos.lineas(cuantas))}'}'
+            '</span></h2>',
+          )
+          ..writeln(_nuevo(entero, textos))
+          ..writeln('</section>');
       }
     }
 
     if (n == 0) {
-      centro.writeln('<p class="nada">Esta tarea no dejó ningún cambio.</p>');
+      centro.writeln('<p class="nada">${_texto(textos.ningunCambio)}</p>');
     }
 
-    return '<!doctype html><html lang="es"><head><meta charset="utf-8">'
-        '<title>${_texto(titulo)}</title>'
+    return '<!doctype html><html><head><meta charset="utf-8">'
+        '<title>${_texto(textos.titulo)}</title>'
         '<style>$_estilo$seleccion</style></head>'
         '<body><nav>$lado</nav><main>$centro</main></body></html>';
+  }
+
+  /// Un archivo nuevo, **entero**: sus líneas con su número, como el lado de
+  /// la derecha de un diff donde todo entra.
+  ///
+  /// 🔴 Antes aquí había una frase —«todavía no lo sigue git, no hay contra
+  /// qué compararlo»— y era verdad y no servía: un test o un widget nuevo es
+  /// el encargo más habitual, y lo que se viene a revisar es lo que dice.
+  static String _nuevo(ArchivoNuevo? entero, TextosDelDiff textos) {
+    if (entero == null || !entero.leido) {
+      return '<p class="nada">${_texto(textos.sinLeer)}</p>';
+    }
+    if (entero.binario) {
+      return '<p class="nada">${_texto(textos.binarioExplica)}</p>';
+    }
+    final salida = StringBuffer();
+    if (entero.recortado) {
+      salida.writeln(
+        '<p class="recorte">'
+        '${_texto(textos.recortado(entero.lineas.length, entero.total))}</p>',
+      );
+    }
+    salida.write(
+      '<div class="codigo"><table class="entero"><colgroup><col class="cn">'
+      '<col></colgroup><tbody>',
+    );
+    for (final (i, linea) in entero.lineas.indexed) {
+      salida.writeln(
+        '<tr class="entra"><td class="n">${i + 1}</td>'
+        '<td class="der">${_pintado(linea)}</td></tr>',
+      );
+    }
+    return (salida..write('</tbody></table></div>')).toString();
   }
 
   /// Las filas de un archivo, **en una sola tabla**.
@@ -290,13 +403,19 @@ abstract final class ElDiffComoHtml {
     required String diff,
     required List<String> nuevos,
     required String titulo,
+    required TextosDelDiff textos,
+    Map<String, ArchivoNuevo> enteros = const {},
     String? tambien,
     String? tituloDeTambien,
-  }) => deGrupos([
-    (titulo: titulo, diff: diff, nuevos: nuevos),
-    if (tambien != null && tituloDeTambien != null)
-      (titulo: tituloDeTambien, diff: tambien, nuevos: const <String>[]),
-  ]);
+  }) => deGrupos(
+    [
+      GrupoDelDiff(titulo: titulo, diff: diff, nuevos: nuevos),
+      if (tambien != null && tituloDeTambien != null)
+        GrupoDelDiff(titulo: tituloDeTambien, diff: tambien),
+    ],
+    textos: textos,
+    enteros: enteros,
+  );
 
   /// La ruta recortada por la izquierda, que es por donde sobra: lo que
   /// identifica un archivo en una lista es su nombre, no las cinco carpetas que
@@ -335,8 +454,15 @@ body{margin:0;background:var(--fondo);color:var(--texto);display:flex;
 /* El panel de archivos */
 nav{width:250px;flex:none;height:100vh;overflow-y:auto;padding:16px 10px;
     border-right:1px solid var(--linea);background:var(--lado);position:sticky;top:0}
-.grupo{color:var(--tenue);font-size:10px;text-transform:uppercase;
-       letter-spacing:.1em;margin:12px 4px 6px}
+/* El grupo con su cuenta y una raya hasta el borde, como los días del
+   historial: separa sin necesitar una caja. */
+.grupo{display:flex;gap:8px;align-items:center;color:var(--acento);font-size:10px;
+       text-transform:uppercase;letter-spacing:.16em;margin:14px 4px 6px}
+.grupo span{color:var(--tenue)}
+.grupo::after{content:"";flex:1;height:1px;background:var(--linea)}
+.nota{color:var(--tenue);margin:0 4px 6px;font:12px/1.45 -apple-system,sans-serif}
+.recorte{color:var(--tenue);margin:0;padding:10px 18px;
+         font:12px/1.45 -apple-system,sans-serif;border-bottom:1px solid var(--linea)}
 nav a{display:flex;gap:8px;align-items:baseline;padding:3px 8px;border-radius:4px;
       text-decoration:none;color:var(--tenue)}
 nav a:hover{background:var(--sel)}
@@ -350,6 +476,7 @@ main{flex:1;min-width:0;height:100vh;overflow-y:auto;padding:0 0 40px}
 h2{position:sticky;top:0;z-index:1;margin:0;padding:12px 18px;
    background:var(--fondo);border-bottom:1px solid var(--linea);
    font-size:12px;font-weight:500;color:var(--acento);word-break:break-all}
+h2 span{color:var(--tenue)} h2 b{font-weight:500}
 .nada{color:var(--tenue);padding:18px}
 
 /* **Las líneas largas se parten, y no pasa nada.** Partirlas parecía la causa
@@ -360,6 +487,9 @@ h2{position:sticky;top:0;z-index:1;margin:0;padding:12px 18px;
    columnas obliga a arrastrar para leer media línea. */
 table{border-collapse:collapse;table-layout:fixed;width:100%}
 col.cn{width:52px} col.cc{width:calc(50% - 52px)}
+/* Un archivo nuevo es una sola columna: enfrentarlo a un hueco vacío gastaría
+   media ventana en decir que antes no había nada. */
+table.entero td.der{background:var(--verdeF)}
 td{padding:0 10px;white-space:pre-wrap;word-break:break-word;vertical-align:top}
 td.n{text-align:right;color:var(--tenue);user-select:none;padding:0 8px;
      border-right:1px solid var(--linea)}

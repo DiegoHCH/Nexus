@@ -42,6 +42,7 @@ import 'package:nexus/features/assistant/presentation/providers/model_providers.
 import 'package:nexus/features/assistant/presentation/providers/voice_session_providers.dart';
 import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
 import 'package:nexus/features/assistant/presentation/state/chat_message.dart';
+import 'package:nexus/features/assistant/presentation/state/lo_que_hace_cada_comando.dart';
 import 'package:nexus/features/assistant/presentation/state/el_orbe_cuando_calla.dart';
 import 'package:nexus/features/assistant/presentation/state/lo_que_hace_un_evento.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
@@ -431,6 +432,7 @@ class AssistantController extends Notifier<AssistantHudState> {
     String? respondeA,
     PropuestaDeProgramar? propuesta,
     bool esLaListaDeProgramadas = false,
+    bool esLaAyuda = false,
   }) {
     state = state.copyWith(
       messages: LosMensajes.diciendo(
@@ -443,6 +445,7 @@ class AssistantController extends Notifier<AssistantHudState> {
         esElParte: _elParteEnCurso,
         propuesta: propuesta,
         esLaListaDeProgramadas: esLaListaDeProgramadas,
+        esLaAyuda: esLaAyuda,
       ),
     );
   }
@@ -1031,24 +1034,17 @@ class AssistantController extends Notifier<AssistantHudState> {
         _say(ChatAuthor.user, loQueSeVe ?? trimmed);
         _sealLast();
         final s = ref.read(stringsProvider);
-        _decir(
+        // Marcada como la ayuda: la conversación la pinta en dos columnas, y
+        // el texto queda para lo que no la pinta —el historial, el móvil—.
+        _say(
+          ChatAuthor.nexus,
+          esLaAyuda: true,
           ElComandoDeLaCasa.laLista(
             s.ayudaTitulo,
-            (comando) => switch (comando) {
-              ElComandoDeLaCasa.aparte => s.ayudaAparte,
-              ElComandoDeLaCasa.imagen => s.ayudaImagen,
-              ElComandoDeLaCasa.edita => s.ayudaEdita,
-              ElComandoDeLaCasa.git => s.ayudaGit,
-              ElComandoDeLaCasa.parte => s.ayudaParte,
-              ElComandoDeLaCasa.agenda => s.ayudaAgenda,
-              ElComandoDeLaCasa.mcp => s.ayudaMcp,
-              ElComandoDeLaCasa.programadas => s.ayudaProgramadas,
-              ElComandoDeLaCasa.recuerda => s.ayudaRecuerda,
-              ElComandoDeLaCasa.olvida => s.ayudaOlvida,
-              ElComandoDeLaCasa.ayuda => s.ayudaAyuda,
-            },
+            (comando) => loQueHaceElComando(s, comando),
           ),
         );
+        _sealLast();
         return;
 
       // 🔴 **El listado de MCP, en la conversación.** Pedido con la referencia

@@ -48,6 +48,13 @@ class NexusColors extends ThemeExtension<NexusColors> {
   final Color mute;
 
   /// Texto terciario (`--faint`).
+  ///
+  /// 🔴 **No pasaba AA, y era el color del estado DORMIDO**: 3,31:1 sobre
+  /// `void` y 3,03 sobre `rise` en oscuro, 3,17 sobre el `void` claro. El
+  /// indicador más importante de la pantalla era el menos legible. Se sube
+  /// hacia `mute` lo justo para pasar 4,5:1 sobre los tres fondos de cada
+  /// tema, y sigue separado de `mute` (1,35:1) para que el orden de lectura no
+  /// se pierda. Lo comprueba `el_texto_tenue_se_lee_test.dart`.
   final Color faint;
 
   /// Acento único: el cian del orbe (`--accent`).
@@ -77,7 +84,7 @@ class NexusColors extends ThemeExtension<NexusColors> {
     rule2: Color(0xFF222E40),
     ink: Color(0xFFE4EDF6),
     mute: Color(0xFF8496AD),
-    faint: Color(0xFF54637A),
+    faint: Color(0xFF6E7F96),
     accent: Color(0xFF56E1EA),
     ok: Color(0xFF57C98A),
     warn: Color(0xFFE3B25C),
@@ -104,7 +111,7 @@ class NexusColors extends ThemeExtension<NexusColors> {
     rule2: Color(0xFFC3CEDC),
     ink: Color(0xFF08101C),
     mute: Color(0xFF4A5768),
-    faint: Color(0xFF78869A),
+    faint: Color(0xFF606D80),
     accent: Color(0xFF0B7480),
     ok: Color(0xFF1F7D51),
     warn: Color(0xFF8A6110),

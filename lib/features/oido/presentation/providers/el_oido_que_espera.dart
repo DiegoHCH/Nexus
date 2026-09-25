@@ -10,6 +10,7 @@ import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
+import 'package:nexus/features/avisos/presentation/providers/la_voz_que_avisa.dart';
 import 'package:nexus/features/oido/domain/usecases/como_se_le_llama.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -151,8 +152,12 @@ class ElOidoQueEspera {
     _puesto = false;
     final cual = _ref.read(conversationsProvider).focused?.id;
     if (cual == null) {
+      // 🔴 **Antes no pasaba nada**: un `debugPrint` y a seguir esperando. La
+      // llamabas desde el otro lado de la habitación y el silencio no decía si
+      // no te oyó o si no podía. Ahora contesta qué falta, en voz alta, y si
+      // no puede hablar lo deja como aviso.
       debugPrint('escucha · te llamaron y no hay conversación abierta');
-      unawaited(cuadrar());
+      unawaited(_decirQueNoHayConversacion());
       return;
     }
     // El orbe sale **antes** de abrir la sesión, no después: montar la voz
@@ -170,6 +175,19 @@ class ElOidoQueEspera {
             primeraFrase: resto.isEmpty ? null : resto,
           ),
     );
+  }
+
+  Future<void> _decirQueNoHayConversacion() async {
+    final strings = _ref.read(stringsProvider);
+    await _ref
+        .read(laVozQueAvisaProvider)
+        .decir(
+          titulo: _ref.read(losNombresProvider).agente ?? 'Nexus',
+          frase: strings.alLlamarlaSinConversacion(
+            _ref.read(losNombresProvider).tuyo,
+          ),
+        );
+    if (_ref.mounted) await cuadrar();
   }
 
   /// Lo que contesta a la llamada: «¿Sí, Argonauta?».

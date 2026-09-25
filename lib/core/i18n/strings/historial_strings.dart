@@ -65,6 +65,10 @@ mixin HistorialStrings {
   /// propósito: contesta a la llamada y te deja hablar. [tuyo] es cómo te
   /// llama, si se lo dijiste.
   String alLlamarla(String? tuyo);
+
+  /// Lo que contesta si la llamas sin ninguna conversación abierta: sin eso
+  /// la llamabas y no pasaba nada. Dice qué falta y qué hacer.
+  String alLlamarlaSinConversacion(String? tuyo);
   // Archivo de conversaciones
   String get archiveTitle;
   String get archiveExplainer;
@@ -199,6 +203,10 @@ mixin HistorialStringsEs implements HistorialStrings {
       'cortarme, dime mi nombre o «para».';
   @override
   String alLlamarla(String? tuyo) => tuyo == null ? '¿Sí?' : '¿Sí, $tuyo?';
+  @override
+  String alLlamarlaSinConversacion(String? tuyo) =>
+      '${tuyo == null ? 'Te oigo' : 'Te oigo, $tuyo'}, pero no tengo ninguna '
+      'conversación abierta. Abre una carpeta en Nexus y vuelve a llamarme.';
   @override
   String get archiveTitle => 'DÓNDE SE GUARDAN LAS CONVERSACIONES';
   @override
@@ -381,6 +389,10 @@ mixin HistorialStringsEn implements HistorialStrings {
       'so I let it go. To cut me off, say my name or “stop”.';
   @override
   String alLlamarla(String? tuyo) => tuyo == null ? 'Yes?' : 'Yes, $tuyo?';
+  @override
+  String alLlamarlaSinConversacion(String? tuyo) =>
+      '${tuyo == null ? 'I hear you' : 'I hear you, $tuyo'}, but there is no '
+      'conversation open. Open a folder in Nexus and call me again.';
   @override
   String get archiveTitle => 'WHERE CONVERSATIONS ARE KEPT';
   @override

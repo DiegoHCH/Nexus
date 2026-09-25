@@ -18,17 +18,43 @@ abstract final class VoiceRouting {
   /// Cortesía y control de la conversación: saludos, despedidas, gracias,
   /// «para», «espera», «repite». Nada que hable del Mac, del proyecto o del
   /// mundo entra aquí.
+  ///
+  /// 🔴 **Con relleno delante, que es como se habla.** La lista exigía que la
+  /// frase **empezara** por la cortesía, y nadie se despide así: «En nada,
+  /// adiós» —medido el 25 sep, contestando a «¿en qué te puedo ayudar?»— no
+  /// empieza por «adiós», así que se tomó por encargo y salió «Voy a pedirle a
+  /// Claude que te responda» detrás de la despedida. Ahora se aceptan delante
+  /// las muletillas que no piden nada —«en nada», «no», «bueno», «pues»,
+  /// «vale», «de acuerdo»— y entran «nada», «eso es todo», «listo» y «¿cómo te
+  /// encuentras?».
+  ///
+  /// 🔴 **Y la frase entera, no solo su principio.** Bastaba con que
+  /// *empezara* por cortesía: «Hola, ¿qué hora es?» cabía en el tope de cuatro
+  /// palabras y se contestaba de memoria. Ahora cada trozo tiene que ser
+  /// cortesía o relleno, así que «bueno, borra la rama» o «nada, ¿qué hora es?»
+  /// van a Claude: «borra» y «hora» no son ninguna de las dos cosas.
   static final _smallTalk = RegExp(
-    r'^(hola|buenas|buenos d[ií]as|buenas tardes|buenas noches|qu[eé] tal|'
-    r'c[oó]mo est[aá]s|hey|oye|nexus|gracias|much[ií]simas gracias|vale|ok|'
-    r'okey|perfecto|gen(i)?al|adi[oó]s|hasta luego|chao|nos vemos|para|'
-    r'p[aá]rate|espera|esp[eé]rate|silencio|c[aá]llate|repite|rep[ií]telo|'
-    r'otra vez|no te entend[ií]|qu[eé] dijiste|'
-    r'hi|hello|hey there|thanks|thank you|thanks a lot|okay|cool|bye|'
-    r'goodbye|see you|stop|wait|hold on|be quiet|repeat|say that again|'
-    r'what did you say)\b',
+    '^(?:(?:$_relleno|$_cortesia) )*(?:$_cortesia)(?: (?:$_relleno|$_cortesia))*\$',
     caseSensitive: false,
   );
+
+  /// Lo que se dice alrededor de una cortesía sin pedir nada.
+  static const _relleno =
+      r'en nada|nada|no|bueno|pues|y|ok|vale|listo|de acuerdo|muy bien|'
+      r'por ahora|por hoy|por favor|entonces|well|so|okay|please';
+
+  static const _cortesia =
+      r'hola|buenas|buenos d[ií]as|buenas tardes|buenas noches|qu[eé] tal|'
+      r'c[oó]mo est[aá]s|c[oó]mo te encuentras|c[oó]mo te va|c[oó]mo vas|hey|'
+      r'oye|nexus|gracias|much[ií]simas gracias|muchas gracias|vale|ok|okey|'
+      r'perfecto|gen(?:i)?al|listo|de acuerdo|muy bien|igualmente|nada|'
+      r'nada m[aá]s|eso es todo|eso era todo|es todo|adi[oó]s|hasta luego|'
+      r'hasta ma[nñ]ana|hasta pronto|chao|chau|nos vemos|buen d[ií]a|para|'
+      r'p[aá]rate|espera|esp[eé]rate|silencio|c[aá]llate|repite|rep[ií]telo|'
+      r'otra vez|no te entend[ií]|qu[eé] dijiste|'
+      r'hi|hello|hey there|thanks|thank you|thanks a lot|okay|cool|bye|'
+      r'goodbye|see you|good night|nothing|that.?s all|that.?s it|stop|wait|'
+      r'hold on|be quiet|repeat|say that again|what did you say';
 
   /// 🔴 **Lo que le preguntan sobre sí mismo lo contesta él**, y no por
   /// cortesía: es lo único que Claude **no** sabe. «¿Quién eres?» son dos
@@ -86,9 +112,14 @@ abstract final class VoiceRouting {
         !_apuntaAAlgoDeAqui.hasMatch(limpia);
   }
 
-  /// Una frase corta y sin verbo de encargo. El tope de palabras importa:
-  /// «hola, mira el historial de git» empieza como un saludo y **no** lo es.
-  static const _maxSmallTalkWords = 4;
+  /// Una frase corta y sin verbo de encargo.
+  ///
+  /// Era 4, y entonces era lo único que paraba a «hola, mira el historial de
+  /// git», porque la cortesía solo se miraba al principio. Ahora la frase
+  /// entera tiene que ser cortesía o relleno —ver [_smallTalk]—, así que el
+  /// tope ya no protege de eso y sí cortaba despedidas normales: «no, gracias,
+  /// eso es todo» son cinco. Se queda como red por si la lista crece mal.
+  static const _maxSmallTalkWords = 8;
 
   /// `true` si esto tenía que haber pasado por Claude.
   ///
@@ -98,13 +129,28 @@ abstract final class VoiceRouting {
   /// frase mal oída sigue siendo larga y sigue sin parecer cortesía, así que
   /// sigue enrutando. Lo que no aguantaba el texto roto era **el contenido** del
   /// encargo, y de eso ya no se encarga (ver [pasaloTu]).
-  static bool needsClaude(String utterance) {
-    final clean = _limpia(utterance);
+  ///
+  /// [agente] es cómo se llama ella: se quita antes de juzgar. «Hestia,
+  /// gracias» es un gracias; sin esto empezaba por una palabra que no es
+  /// cortesía y se iba a Claude. «nexus» ya estaba en la lista, y era el único
+  /// nombre que se entendía.
+  static bool needsClaude(String utterance, {String? agente}) {
+    final clean = _sinSuNombre(_limpia(utterance), agente);
     if (clean.isEmpty) return false;
     // Lo suyo, primero: ver [_quienEres] para por qué va delante del tope.
     if (esSobreElla(clean)) return false;
     if (clean.split(' ').length > _maxSmallTalkWords) return true;
     return !_smallTalk.hasMatch(clean);
+  }
+
+  static String _sinSuNombre(String limpia, String? agente) {
+    final nombre = _limpia(agente ?? '');
+    if (nombre.isEmpty) return limpia;
+    return limpia
+        .split(' ')
+        .where((palabra) => palabra != nombre)
+        .join(' ')
+        .trim();
   }
 
   /// Sin signos, sin dobles espacios y en minúsculas: lo que llega del servicio

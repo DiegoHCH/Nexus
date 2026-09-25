@@ -1138,7 +1138,10 @@ class HoldVoiceConversation {
               estabaHablando = false;
               tirandoLaRespuesta = false;
               if (utterance.isNotEmpty) {
-                if (VoiceRouting.needsClaude(utterance)) {
+                if (VoiceRouting.needsClaude(
+                  utterance,
+                  agente: _comoSeLlama(),
+                )) {
                   answeredAlone++;
                   _log(
                     'b6 · contestó sin pasar por Claude ($answeredAlone en esta '

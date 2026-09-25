@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/features/workspace/data/datasources/claude_profiles_data_source.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
@@ -103,6 +106,149 @@ void main() {
       expect(
         ClaudeProfile.nameFromPath('/Users/alguien/.claude-private/'),
         'private',
+      );
+    });
+  });
+
+  // 🔴 El modelo y el esfuerzo son del perfil: Nexus y la consola leen el mismo
+  // `settings.json`, así que cambiarlos en uno los cambia en el otro.
+  group('el modelo y el esfuerzo del perfil', () {
+    late Directory perfil;
+    File settings() => File('${perfil.path}/settings.json');
+    Map<String, dynamic> leido() =>
+        jsonDecode(settings().readAsStringSync()) as Map<String, dynamic>;
+    const fuente = ClaudeProfilesDataSource();
+
+    setUp(() => perfil = Directory.systemTemp.createTempSync('perfil-'));
+    tearDown(() => perfil.deleteSync(recursive: true));
+
+    // Es lo que escribe `/effort` hoy, copiado de un perfil de verdad.
+    test(
+      'lee el esfuerzo por modelo, que es donde lo guarda /effort',
+      () async {
+        settings().writeAsStringSync(
+          jsonEncode({
+            'model': 'opus',
+            'effortLevel': 'medium',
+            'modelSettings': {
+              'claude-opus-5-5': {'effortLevel': 'high'},
+            },
+          }),
+        );
+
+        final leidos = await fuente.defaults(perfil.path);
+
+        expect(leidos.model, 'opus');
+        expect(leidos.esfuerzoPara('claude-opus-5-5'), 'high');
+        expect(
+          leidos.esfuerzoPara('claude-opus-5-5[1m]'),
+          'high',
+          reason: 'el corchete dice la ventana, no el modelo',
+        );
+        expect(
+          leidos.esfuerzoPara('claude-sonnet-5'),
+          'medium',
+          reason: 'sin el suyo, vale el general',
+        );
+      },
+    );
+
+    test('cambiar el modelo no toca nada más del archivo', () async {
+      settings().writeAsStringSync(
+        jsonEncode({
+          'model': 'opus',
+          'permissions': {
+            'allow': ['Bash(git status)'],
+          },
+          'enabledPlugins': {'figma@claude-plugins-official': true},
+        }),
+      );
+
+      await fuente.guardarModelo(perfil.path, 'sonnet');
+
+      final ahora = leido();
+      expect(ahora['model'], 'sonnet');
+      expect(ahora['permissions'], {
+        'allow': ['Bash(git status)'],
+      });
+      expect(ahora['enabledPlugins'], {'figma@claude-plugins-official': true});
+    });
+
+    // Es el «Default (recommended)» del `/model` del CLI.
+    test('por defecto quita la clave, y el resto sigue', () async {
+      settings().writeAsStringSync(
+        jsonEncode({'model': 'claude-opus-5', 'effortLevel': 'high'}),
+      );
+
+      await fuente.guardarModelo(perfil.path, null);
+
+      expect(leido().containsKey('model'), isFalse);
+      expect(leido()['effortLevel'], 'high');
+    });
+
+    test(
+      'el esfuerzo se guarda bajo el modelo en uso, sin pisar otros',
+      () async {
+        settings().writeAsStringSync(
+          jsonEncode({
+            'modelSettings': {
+              'claude-sonnet-5': {
+                'effortLevel': 'low',
+                'maxEffortLevel': 'high',
+              },
+            },
+          }),
+        );
+
+        await fuente.guardarEsfuerzo(
+          perfil.path,
+          'xhigh',
+          modelo: 'claude-opus-5-5',
+        );
+        await fuente.guardarEsfuerzo(
+          perfil.path,
+          'medium',
+          modelo: 'claude-sonnet-5',
+        );
+
+        final modelos = leido()['modelSettings'] as Map<String, dynamic>;
+        expect(modelos['claude-opus-5-5'], {'effortLevel': 'xhigh'});
+        expect(modelos['claude-sonnet-5'], {
+          'effortLevel': 'medium',
+          'maxEffortLevel': 'high',
+        });
+      },
+    );
+
+    test('sin saber el modelo, se guarda el general', () async {
+      await fuente.guardarEsfuerzo(perfil.path, 'high');
+      expect(leido()['effortLevel'], 'high');
+    });
+
+    // Ese archivo lleva permisos, hooks y plugins: reescribirlo desde cero
+    // porque hoy no se pudo leer los borraría.
+    test('un settings.json que no se entiende no se reescribe', () async {
+      settings().writeAsStringSync('{ esto no es json');
+
+      await expectLater(
+        fuente.guardarModelo(perfil.path, 'sonnet'),
+        throwsStateError,
+      );
+      expect(settings().readAsStringSync(), '{ esto no es json');
+    });
+
+    test('la fecha y el corchete no son parte del nombre', () {
+      expect(
+        PerfilDeClaude.nombreCanonico('claude-haiku-4-5-20251001'),
+        'claude-haiku-4-5',
+      );
+      expect(
+        PerfilDeClaude.nombreCanonico('claude-opus-5[1m]'),
+        'claude-opus-5',
+      );
+      expect(
+        PerfilDeClaude.nombreCanonico('claude-opus-5-5'),
+        'claude-opus-5-5',
       );
     });
   });

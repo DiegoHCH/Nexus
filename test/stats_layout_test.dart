@@ -106,6 +106,8 @@ void main() {
 
     test('una versión con dos tramos', () {
       expect(modelLabel('claude-opus-4-8'), 'Opus 4.8');
+      // Lo que enseña ahora el menú de modelo, con el CLI en Opus 5.5.
+      expect(modelLabel('claude-opus-5-5'), 'Opus 5.5');
     });
 
     // La fecha de publicación no es parte del nombre: sin este corte salía

@@ -63,6 +63,12 @@ mixin DocumentosStrings {
   /// Ver [ElNombreDeLaCuenta].
   String get cuentaMia;
   String get modelTitle;
+
+  /// La opción de no fijar modelo, como «Default» en el `/model` del CLI.
+  String get modelPorDefecto;
+
+  /// El separador de las versiones que se eligen por su nombre entero.
+  String get modelVersionesAnteriores;
   String get effortTitle;
   String get effortFaster;
   String get effortSmarter;
@@ -190,6 +196,10 @@ mixin DocumentosStringsEs implements DocumentosStrings {
       'No se completó la entrada en el navegador. Inténtalo otra vez.';
   @override
   String get modelTitle => 'Modelo';
+  @override
+  String get modelPorDefecto => 'Por defecto (recomendado)';
+  @override
+  String get modelVersionesAnteriores => 'Versiones anteriores';
   @override
   String get effortTitle => 'Esfuerzo';
   @override
@@ -327,6 +337,10 @@ mixin DocumentosStringsEn implements DocumentosStrings {
       'The browser sign-in was not completed. Try again.';
   @override
   String get modelTitle => 'Model';
+  @override
+  String get modelPorDefecto => 'Default (recommended)';
+  @override
+  String get modelVersionesAnteriores => 'Previous versions';
   @override
   String get effortTitle => 'Effort';
   @override

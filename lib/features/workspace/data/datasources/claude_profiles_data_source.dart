@@ -85,6 +85,40 @@ class ClaudeProfile {
   }
 }
 
+/// Lo que un perfil de Claude tiene configurado en su `settings.json`.
+@immutable
+class PerfilDeClaude {
+  const PerfilDeClaude({
+    this.model,
+    this.effort,
+    this.effortPorModelo = const {},
+  });
+
+  /// El alias o nombre que fijó —`opus`—, o `null` si usa el de fábrica.
+  final String? model;
+
+  /// El esfuerzo general, `effortLevel`.
+  final String? effort;
+
+  /// El de cada modelo, `modelSettings.<modelo>.effortLevel`, por su nombre
+  /// canónico.
+  final Map<String, String> effortPorModelo;
+
+  /// El esfuerzo que vale para [modelo]: el suyo si lo tiene, que es el que
+  /// gana en el CLI, y si no el general.
+  String? esfuerzoPara(String? modelo) {
+    final canonico = modelo == null ? null : nombreCanonico(modelo);
+    return (canonico == null ? null : effortPorModelo[canonico]) ?? effort;
+  }
+
+  /// `claude-opus-5[1m]` y `claude-haiku-4-5-20251001` son, para los ajustes,
+  /// `claude-opus-5` y `claude-haiku-4-5`: el corchete dice la ventana y la
+  /// cola la fecha, no el modelo.
+  static String nombreCanonico(String modelo) => modelo
+      .replaceAll(RegExp(r'\[.*\]'), '')
+      .replaceFirst(RegExp(r'-\d{8}$'), '');
+}
+
 /// Encuentra las cuentas de Claude que hay en el Mac.
 class ClaudeProfilesDataSource {
   const ClaudeProfilesDataSource({this.home});
@@ -128,19 +162,108 @@ class ClaudeProfilesDataSource {
   /// Se lee de su `settings.json` para poder **enseñar el valor de verdad** en
   /// vez de un «el del CLI» que no dice nada: quien mira ese botón quiere saber
   /// con qué modelo va a trabajar, no que la app no ha decidido.
-  Future<({String? model, String? effort})> defaults(String configDir) async {
+  ///
+  /// 🔴 **El esfuerzo va por modelo.** `/effort` lo guarda en
+  /// `modelSettings.<modelo>.effortLevel` —el de Opus 5.5 no es el de Sonnet—
+  /// y solo el general en `effortLevel`. Aquí se leía `effort`, una clave que
+  /// el CLI no escribe, así que el menú nunca enseñó el esfuerzo de verdad.
+  Future<PerfilDeClaude> defaults(String configDir) async {
+    final settings = await _leer(configDir);
+    if (settings == null) return const PerfilDeClaude();
+    final porModelo = <String, String>{};
+    if (settings['modelSettings'] case final Map<String, dynamic> modelos) {
+      modelos.forEach((modelo, ajustes) {
+        if (ajustes case {'effortLevel': final String nivel}) {
+          porModelo[modelo] = nivel;
+        }
+      });
+    }
+    return PerfilDeClaude(
+      model: settings['model'] as String?,
+      effort: settings['effortLevel'] as String?,
+      effortPorModelo: porModelo,
+    );
+  }
+
+  /// Cambia el modelo **del perfil**, que es lo mismo que hace `/model` en la
+  /// consola: los dos leen este archivo, así que cambiarlo en un sitio lo
+  /// cambia en el otro.
+  ///
+  /// [modelo] es un alias —`opus`, el último de la familia— o un nombre entero
+  /// —`claude-opus-5`, esa versión—. `null` quita la clave y deja el que
+  /// recomiende la cuenta, que es el «Default» del CLI.
+  Future<void> guardarModelo(String configDir, String? modelo) =>
+      _editar(configDir, (settings) {
+        if (modelo == null) {
+          settings.remove('model');
+        } else {
+          settings['model'] = modelo;
+        }
+      });
+
+  /// Cambia el esfuerzo del perfil, **para ese modelo** si se sabe cuál es
+  /// —que es donde lo guarda `/effort`, y donde gana—, y el general si no.
+  ///
+  /// [modelo] va con su nombre canónico, `claude-opus-5-5`: el CLI hace
+  /// coincidir con él las variantes con fecha o con `[1m]`.
+  Future<void> guardarEsfuerzo(
+    String configDir,
+    String esfuerzo, {
+    String? modelo,
+  }) => _editar(configDir, (settings) {
+    if (modelo == null) {
+      settings['effortLevel'] = esfuerzo;
+      return;
+    }
+    final modelos = switch (settings['modelSettings']) {
+      final Map<String, dynamic> hay => hay,
+      _ => <String, dynamic>{},
+    };
+    final delModelo = switch (modelos[modelo]) {
+      final Map<String, dynamic> hay => hay,
+      _ => <String, dynamic>{},
+    };
+    delModelo['effortLevel'] = esfuerzo;
+    modelos[modelo] = delModelo;
+    settings['modelSettings'] = modelos;
+  });
+
+  /// El `settings.json` del perfil, o `null` si no hay o no se entiende.
+  Future<Map<String, dynamic>?> _leer(String configDir) async {
     final file = File('$configDir/settings.json');
-    if (!file.existsSync()) return (model: null, effort: null);
+    if (!file.existsSync()) return null;
     try {
       final decoded = jsonDecode(await file.readAsString());
-      if (decoded is! Map<String, dynamic>) return (model: null, effort: null);
-      return (
-        model: decoded['model'] as String?,
-        effort: decoded['effort'] as String?,
-      );
+      return decoded is Map<String, dynamic> ? decoded : null;
     } on FormatException {
-      return (model: null, effort: null);
+      return null;
     }
+  }
+
+  /// Cambia una cosa del `settings.json` **sin tocar el resto**.
+  ///
+  /// 🔴 **Si no se entiende, no se escribe.** Ese archivo es de Claude Code y
+  /// lleva mucho más que el modelo —permisos, hooks, plugins—: reescribirlo a
+  /// partir de un mapa vacío porque hoy no se pudo leer borraría todo eso. Y se
+  /// escribe al lado y se renombra, para que la consola nunca lo lea a medias.
+  Future<void> _editar(
+    String configDir,
+    void Function(Map<String, dynamic> settings) cambio,
+  ) async {
+    final file = File('$configDir/settings.json');
+    final settings = file.existsSync()
+        ? await _leer(configDir) ??
+              (throw StateError(
+                '$configDir/settings.json no se entiende: no se toca',
+              ))
+        : <String, dynamic>{};
+    cambio(settings);
+    await file.parent.create(recursive: true);
+    final temporal = File('${file.path}.nexus-tmp');
+    await temporal.writeAsString(
+      '${const JsonEncoder.withIndent('  ').convert(settings)}\n',
+    );
+    await temporal.rename(file.path);
   }
 
   /// Quién es esa cuenta: con qué correo entró y a qué organización pertenece.

@@ -312,6 +312,10 @@ mixin NucleoStrings {
   /// Hablar también con la app delante. Ver `ElQueHablaPrimero`.
   String get avisosAunqueLaMiresOn;
 
+  /// El oído: decir su nombre y que se abra. Ver `ElOidoQueEspera`.
+  String get elOidoOn;
+  String elOidoExplainer(String nombre);
+
   /// Qué explica la marca de un turno que disparó un trabajo de fondo.
   String get loDisparoUnTrabajoDeFondo;
 
@@ -833,6 +837,16 @@ mixin NucleoStringsEs implements NucleoStrings {
       'veces.';
   @override
   String get avisosAunqueLaMiresOn => 'También con Nexus delante';
+  @override
+  String get elOidoOn => 'Que me oiga cuando la llame';
+  @override
+  String elOidoExplainer(String nombre) =>
+      'Di «$nombre» y se abre la conversación de voz, sin tocar nada. Lo '
+      'reconoce este Mac: nada de lo que oye sale de aquí.\n\n'
+      'Mientras escucha, el indicador naranja del micrófono está encendido. Y '
+      'con auriculares Bluetooth, tener el micrófono abierto hace que macOS los '
+      'cambie al perfil de llamada, así que la música suena peor. Si otra app '
+      'ya lo está usando —una reunión—, no se mete.';
   @override
   String get loDisparoUnTrabajoDeFondo =>
       'Esto no contesta a lo último que escribiste: lo disparó un trabajo de '
@@ -1420,6 +1434,16 @@ mixin NucleoStringsEn implements NucleoStrings {
       'same thing twice.';
   @override
   String get avisosAunqueLaMiresOn => 'Even with Nexus in front';
+  @override
+  String get elOidoOn => 'Listen for its name';
+  @override
+  String elOidoExplainer(String nombre) =>
+      'Say “$nombre” and the voice conversation opens, without touching '
+      'anything. This Mac does the recognising: nothing it hears leaves here.'
+      '\n\nWhile it listens, the orange microphone indicator is on. And with '
+      'Bluetooth headphones, an open microphone makes macOS switch them to the '
+      'call profile, so music sounds worse. If another app is already using it '
+      '—a meeting— it stays out.';
   @override
   String get loDisparoUnTrabajoDeFondo =>
       'This is not answering what you last wrote: a background job triggered it '

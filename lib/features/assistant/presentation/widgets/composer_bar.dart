@@ -534,7 +534,7 @@ class _Controls extends ConsumerWidget {
         const Spacer(),
         ModelMenu(folder: folder, meter: meter),
         const SizedBox(width: NexusSpacing.s3),
-        EffortMenu(folder: folder),
+        EffortMenu(folder: folder, meter: meter),
         const SizedBox(width: NexusSpacing.s3),
         TourAnchor(
           stop: TourStop.meter,

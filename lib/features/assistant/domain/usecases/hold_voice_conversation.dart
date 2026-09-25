@@ -144,6 +144,15 @@ class HoldVoiceConversation {
   /// Reintentar en bucle contra un servicio caído solo esconde el problema.
   static const _maxReconnects = 3;
 
+  /// La señal que dispara el saludo. Llega como turno de usuario —es lo único
+  /// que hay— así que es lo más neutro posible, y la instrucción le dice que no
+  /// la mencione. La misma que usan la puerta y el aviso.
+  static const _laSenalDeArranque = '(inicio)';
+
+  /// Lo que se espera a que diga el saludo antes de abrir el micro igual. Una
+  /// frase de un segundo que no llega en seis no va a llegar.
+  static const _plazoDelSaludo = Duration(seconds: 6);
+
   final VoiceInput _voiceInput;
   final VoiceGateway _gateway;
   final AudioOutput _output;
@@ -168,8 +177,22 @@ class HoldVoiceConversation {
   /// suscripción la cierra entera**: micrófono, socket y altavoz. Ese es el
   /// único mando de apagado, para que no exista un estado donde el micro
   /// quede abierto hacia Google sin que nadie escuche los eventos.
-  Stream<VoiceEvent> call() {
+  ///
+  /// [saludo] es lo que dice al abrirse, cuando se abrió llamándola por su
+  /// nombre. Ver [ComoUnaConversacion.saludo].
+  Stream<VoiceEvent> call({String? saludo}) {
     late StreamController<VoiceEvent> controller;
+
+    /// Si está diciendo el saludo. **Hasta que acabe, el micro no sale.**
+    ///
+    /// Es la regla de la puerta, y por lo mismo: lo que suene en la habitación
+    /// mientras saluda le pisaba la frase —el servicio lo tomaba por tu turno—,
+    /// y además cualquier cosa que llegue encima de su voz el filtro del audio
+    /// ajeno la tiraría. El saludo es una frase de un segundo y lo que dice es
+    /// justo «ahora»: se pierde poco esperando a que termine.
+    var saludando = false;
+    var saludoPedido = false;
+    Timer? elPlazoDelSaludo;
     VoiceSession? session;
     StreamSubscription<AudioFrame>? micSubscription;
     StreamSubscription<void>? pausaSubscription;
@@ -302,6 +325,7 @@ class HoldVoiceConversation {
       abortErrand?.call();
       abortErrand = null;
       idleTimer?.cancel();
+      elPlazoDelSaludo?.cancel();
       idleTimer = null;
       relojDeLaRuta?.cancel();
       relojDeLaRuta = null;
@@ -351,7 +375,12 @@ class HoldVoiceConversation {
       // —`silenceDurationMs: 1200`, sensibilidad baja— para no cortar frases
       // largas. No es que fuera lento: es que se le estaba dando menos tiempo
       // del que su propia configuración necesita.
-      final grace = heardAt == null || esperandoRespuesta
+      // Con saludo, la primera señal del servicio es **su** saludo, no que te
+      // oyera: hasta que hables tú sigue siendo la espera del principio. Sin
+      // esto, el saludo gastaba el plazo largo y quedaban seis segundos para
+      // empezar a hablar.
+      final grace =
+          heardAt == null || esperandoRespuesta || (saludoPedido && turn == 0)
           ? _openingGrace
           : _idleTimeout;
       idleTimer?.cancel();
@@ -930,6 +959,29 @@ class HoldVoiceConversation {
     /// se filtra nada — la sesión la abriste tú. Ver [ElAudioAjeno].
     var estabaHablando = false;
 
+    /// Si ella ya estaba hablando **cuando empezó** la frase que se está
+    /// oyendo. Es lo que el filtro del audio ajeno pregunta de verdad.
+    ///
+    /// 🔴 **No vale mirar [estabaHablando] al cerrar el turno**, que es lo que
+    /// se hacía. El `turnComplete` del servicio llega *después* del audio de la
+    /// respuesta, así que al cerrar cualquier turno contestado ella «estaba
+    /// hablando»: contestándote a ti. Medido con la sesión delante: la frase
+    /// llegó con ella callada (`t+4600`), la respuesta empezó a sonar seis
+    /// milisegundos después y el turno cerró a los `t+12151` — y «¿Cómo
+    /// estás?» se tiró como ajena. Peor: el `tirandoLaRespuesta` que dejaba
+    /// puesto silenció entera la respuesta **siguiente**, que solo salió
+    /// escrita. Por eso se fija con el primer pedazo de la frase y no después.
+    var hablabaAlEmpezar = false;
+
+    /// Hasta cuándo sigue sonando en el altavoz lo que ya contestó, en el reloj
+    /// de la sesión.
+    ///
+    /// El servicio entrega la respuesta más rápido que en tiempo real, así que
+    /// el turno puede darse por cerrado con frases enteras todavía por sonar —y
+    /// quien habla encima de eso le está hablando encima, aunque el socket ya
+    /// esté callado—.
+    var sigueSonandoHasta = 0;
+
     /// Si la respuesta que venga se tira: es la contestación a algo que no iba
     /// dirigido a ella.
     ///
@@ -951,6 +1003,21 @@ class HoldVoiceConversation {
           // que fallaron.
           if (event is VoiceSessionReady) {
             readyAt ??= clock.elapsedMilliseconds;
+            // Una vez por conversación: un reenganche también trae
+            // `VoiceSessionReady`, y volver a saludar a media charla sería
+            // raro.
+            if (saludo != null && !saludoPedido) {
+              saludoPedido = true;
+              saludando = true;
+              _log('voz · te llamaron: saluda antes de escuchar');
+              live.sendSystemNote(_laSenalDeArranque);
+              // Por si no lo dice: el micro no se queda cerrado esperando un
+              // saludo que no llega.
+              elPlazoDelSaludo = Timer(
+                _plazoDelSaludo,
+                () => saludando = false,
+              );
+            }
           } else if (heardAt == null) {
             heardAt = clock.elapsedMilliseconds;
             _log('voz · primera señal del servicio · ${reloj()}');
@@ -993,7 +1060,12 @@ class HoldVoiceConversation {
             case VoiceUserTranscript(:final text):
               // El primer pedazo de una frase es el que estrena turno: los
               // siguientes son la misma frase llegando a trozos.
-              if (asked.isEmpty) turn++;
+              if (asked.isEmpty) {
+                turn++;
+                hablabaAlEmpezar =
+                    estabaHablando ||
+                    clock.elapsedMilliseconds < sigueSonandoHasta;
+              }
               asked.write(text);
               // 🔴 **El corte lo hacemos nosotros.** El servicio ya no
               // interrumpe —`NO_INTERRUPTION`, para que la conversación de la
@@ -1002,7 +1074,7 @@ class HoldVoiceConversation {
               // su nombre o una palabra de control, se tira lo que quedaba por
               // sonar. Y con eso este turno deja de ser «ajeno»: interrumpió, o
               // sea que iba con ella.
-              if (estabaHablando &&
+              if ((estabaHablando || hablabaAlEmpezar) &&
                   ElAudioAjeno.interrumpe(
                     asked.toString(),
                     agente: _comoSeLlama(),
@@ -1010,6 +1082,21 @@ class HoldVoiceConversation {
                 unawaited(_output.discard());
                 estabaHablando = false;
               }
+              controller.add(event);
+            case VoiceTurnCompleted() when saludando:
+              // Terminó el saludo. El micro se abre **cuando deja de sonar**,
+              // no cuando el socket lo da por cerrado: el servicio entrega más
+              // rápido que en tiempo real y aún queda frase en el altavoz.
+              elPlazoDelSaludo?.cancel();
+              asked.clear();
+              estabaHablando = false;
+              unawaited(
+                _output.pending().then((queda) {
+                  sigueSonandoHasta =
+                      clock.elapsedMilliseconds + queda.inMilliseconds;
+                  elPlazoDelSaludo = Timer(queda, () => saludando = false);
+                }),
+              );
               controller.add(event);
             case VoiceTurnCompleted():
               // Terminó un turno sin que el modelo llamara a nadie. Si lo que
@@ -1020,14 +1107,25 @@ class HoldVoiceConversation {
               // otra.
               final utterance = asked.toString().trim();
               asked.clear();
+              final empezoHablandoElla = hablabaAlEmpezar;
+              hablabaAlEmpezar = false;
+              // Lo que quede por sonar de este turno: quien hable mientras
+              // tanto le está hablando encima. Ver [sigueSonandoHasta].
+              unawaited(
+                _output.pending().then((queda) {
+                  sigueSonandoHasta =
+                      clock.elapsedMilliseconds + queda.inMilliseconds;
+                }),
+              );
               // 🔴 **Lo que se oyó mientras hablaba y no iba con ella se tira
               // entero.** Pasó con la transcripción delante: conversación de la
               // habitación contestada por el modelo, y el servicio tomándola
               // por una interrupción que cortaba la frase a medias. Ver
-              // [ElAudioAjeno], que es quien decide.
+              // [ElAudioAjeno], que es quien decide — y [hablabaAlEmpezar],
+              // que es lo que se le pregunta.
               if (ElAudioAjeno.seIgnora(
                 utterance,
-                estabaHablando: estabaHablando,
+                estabaHablando: empezoHablandoElla,
                 agente: _comoSeLlama(),
               )) {
                 ajenos++;
@@ -1073,7 +1171,10 @@ class HoldVoiceConversation {
         // juntando micro y altavoz— y abrir el socket otros tantos. En serie,
         // ese retardo se nota entre pulsar el atajo y poder hablar; a la vez,
         // se paga una sola vez.
-        final booted = await (_output.start(), _gateway.connect()).wait;
+        final booted = await (
+          _output.start(),
+          _gateway.connect(perfil: ComoUnaConversacion(saludo: saludo)),
+        ).wait;
         attach(booted.$2);
         keepAlive();
 
@@ -1089,7 +1190,7 @@ class HoldVoiceConversation {
             // para dar.
             micFrames++;
             final live = session;
-            if (live != null) {
+            if (live != null && !saludando) {
               live.sendAudio(frame.pcm);
               sentFrames++;
             }

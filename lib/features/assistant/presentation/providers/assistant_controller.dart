@@ -2851,7 +2851,9 @@ class AssistantController extends Notifier<AssistantHudState> {
 
   /// Abre o cierra la conversación por voz. Es un interruptor y no dos
   /// métodos porque el mando en la interfaz es uno solo: el orbe.
-  Future<void> toggleVoice() async {
+  /// [saludo] es lo que dice al abrirse cuando la abriste llamándola por su
+  /// nombre. Ver `ElOidoQueEspera`.
+  Future<void> toggleVoice({String? saludo}) async {
     if (state.voiceActive) {
       await stopVoice();
       return;
@@ -2944,7 +2946,7 @@ class AssistantController extends Notifier<AssistantHudState> {
     final conversation = ref.read(
       holdVoiceConversationProvider(conversationId),
     );
-    _voiceSubscription = conversation().listen(
+    _voiceSubscription = conversation(saludo: saludo).listen(
       (event) => switch (event) {
         VoiceSessionReady() => _onVoiceReady(),
         VoiceUserTranscript() => _onHeard(event.text),

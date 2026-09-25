@@ -92,7 +92,7 @@ final class NexusEscucha: NSObject {
     SFSpeechRecognizer.requestAuthorization { estado in
       DispatchQueue.main.async {
         guard estado == .authorized else {
-          Self.log.info("sin permiso para reconocer voz · \(estado.rawValue)")
+          Self.log.notice("sin permiso para reconocer voz · \(estado.rawValue)")
           return result(false)
         }
         result(self.arrancar())
@@ -139,20 +139,13 @@ final class NexusEscucha: NSObject {
 
   private func arrancar() -> Bool {
     if Self.laEntradaEstaOcupada() {
-      Self.log.info("el micrófono ya lo usa otra app · no se escucha")
+      Self.log.notice("el micrófono ya lo usa otra app · no se escucha")
       return false
     }
 
-    // El del idioma del sistema: transcribir español con el reconocedor inglés
-    // convierte «Hestia» en cualquier cosa.
-    let reconocedor = SFSpeechRecognizer() ?? SFSpeechRecognizer(locale: Locale(identifier: "es-ES"))
-    guard let reconocedor, reconocedor.isAvailable else {
-      Self.log.info("no hay reconocedor disponible")
-      return false
-    }
-    guard reconocedor.supportsOnDeviceRecognition else {
+    guard let reconocedor = Self.elReconocedor() else {
       // Ver arriba: sin reconocimiento local esto no se enciende.
-      Self.log.info("el reconocedor no puede trabajar en el dispositivo · no se escucha")
+      Self.log.notice("no hay reconocedor que trabaje en el dispositivo · no se escucha")
       return false
     }
     self.reconocedor = reconocedor
@@ -160,6 +153,12 @@ final class NexusEscucha: NSObject {
     let peticion = SFSpeechAudioBufferRecognitionRequest()
     peticion.requiresOnDeviceRecognition = true
     peticion.shouldReportPartialResults = true
+    // 🔴 **Y se le dice qué nombre esperar.** Un reconocedor general transcribe
+    // lo que le suena de un idioma, y «Hestia» no está en ese idioma: sale
+    // «estía», «es tía», «Estia». `contextualStrings` existe exactamente para
+    // esto —nombres propios que el modelo no espera— y es la diferencia entre
+    // que la oiga y que no.
+    peticion.contextualStrings = palabras
     self.peticion = peticion
 
     let entrada = engine.inputNode
@@ -195,8 +194,40 @@ final class NexusEscucha: NSObject {
     }
 
     escuchando = true
-    Self.log.info("escuchando · \(self.palabras.joined(separator: ", "), privacy: .public)")
+    Self.log.notice(
+      "escuchando · \(self.palabras.joined(separator: ", "), privacy: .public) · \(reconocedor.locale.identifier, privacy: .public)")
     return true
+  }
+
+  /// El reconocedor con el que se escucha: el del idioma en que hablas, y si
+  /// ese no puede trabajar en el Mac, otra variante **del mismo idioma** que sí.
+  ///
+  /// 🔴 **«El idioma en que hablas» no es el de la app.** `SFSpeechRecognizer()`
+  /// a secas usa `Locale.current`, y dentro de Nexus eso sale en inglés: el
+  /// bundle nativo solo declara `en`, así que macOS le da a la app su idioma y
+  /// no el tuyo. Por eso se lee `Locale.preferredLanguages`, que es lo que
+  /// elegiste en el sistema aunque la app no lo traiga.
+  ///
+  /// 🔴 **Y la variante regional no es un detalle.** macOS solo trae modelo
+  /// local para algunas: el reconocedor de `es-CO` existe, está disponible… y
+  /// no trabaja en el dispositivo. El mexicano sí, y «Hestia» suena igual en
+  /// los dos. Lo que no se hace es cambiar de idioma: transcribir español con
+  /// el reconocedor inglés convierte el nombre en cualquier cosa.
+  static func elReconocedor() -> SFSpeechRecognizer? {
+    let tuyo = Locale(identifier: Locale.preferredLanguages.first ?? Locale.current.identifier)
+    let delSistema = SFSpeechRecognizer(locale: tuyo)
+    if let delSistema, delSistema.isAvailable, delSistema.supportsOnDeviceRecognition {
+      return delSistema
+    }
+    let idioma = tuyo as NSLocale
+    let hermanas = SFSpeechRecognizer.supportedLocales()
+      .filter { ($0 as NSLocale).languageCode == idioma.languageCode }
+      .sorted { $0.identifier < $1.identifier }
+    for variante in hermanas {
+      guard let otro = SFSpeechRecognizer(locale: variante) else { continue }
+      if otro.isAvailable, otro.supportsOnDeviceRecognition { return otro }
+    }
+    return nil
   }
 
   private func reiniciar() {
@@ -208,7 +239,7 @@ final class NexusEscucha: NSObject {
 
   private func mirarSiLeLlamaron(_ dicho: String) {
     let limpio = Self.normalizar(dicho)
-    guard palabras.contains(where: { limpio.contains($0) }) else { return }
+    guard Self.leLlamaron(limpio, siendo: palabras) else { return }
     // Un segundo entre avisos: la transcripción llega creciendo y todas sus
     // versiones contienen la palabra.
     guard Date().timeIntervalSince(ultimoAviso) > 1 else { return }
@@ -235,6 +266,45 @@ final class NexusEscucha: NSObject {
     if engine.isRunning { engine.stop() }
     engine.inputNode.removeTap(onBus: 0)
     palabras = []
+  }
+
+  /// Si en lo que se oyó está su nombre.
+  ///
+  /// 🔴 **No basta con buscar la palabra entera.** El reconocedor transcribe
+  /// nombres propios como lo que le suena del idioma —«Hestia» acaba en
+  /// «estia», «es tía», «hestía»— así que además de la palabra exacta se acepta
+  /// cualquiera de lo dicho que se le parezca **a una letra**.
+  ///
+  /// Una letra y no dos: con dos, un nombre de seis letras empieza a
+  /// parecerse a demasiadas cosas, y una escucha que abre sola cuando hablas de
+  /// otra cosa es peor que una que a veces no abre.
+  static func leLlamaron(_ dicho: String, siendo palabras: [String]) -> Bool {
+    if palabras.contains(where: { dicho.contains($0) }) { return true }
+    let sueltas = dicho.split(whereSeparator: { !$0.isLetter }).map(String.init)
+    for palabra in palabras {
+      for oida in sueltas where Self.seParecen(oida, palabra) {
+        return true
+      }
+    }
+    return false
+  }
+
+  /// Si dos palabras se diferencian como mucho en una letra —cambiada, de más
+  /// o de menos—. Es la distancia de edición de toda la vida, cortada en uno.
+  static func seParecen(_ una: String, _ otra: String) -> Bool {
+    if una == otra { return true }
+    let a = Array(una), b = Array(otra)
+    if abs(a.count - b.count) > 1 { return false }
+    var i = 0, j = 0, fallos = 0
+    while i < a.count, j < b.count {
+      if a[i] == b[j] { i += 1; j += 1; continue }
+      fallos += 1
+      if fallos > 1 { return false }
+      if a.count == b.count { i += 1; j += 1 }
+      else if a.count > b.count { i += 1 }
+      else { j += 1 }
+    }
+    return fallos + (a.count - i) + (b.count - j) <= 1
   }
 
   /// Sin acentos, en minúsculas y con los espacios normalizados: «Hestia» y

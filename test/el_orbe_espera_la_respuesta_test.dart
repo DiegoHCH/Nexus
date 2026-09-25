@@ -215,7 +215,7 @@ class _Guionizada extends HoldVoiceConversation {
   Future<void> cerrar() => _events.close();
 
   @override
-  Stream<VoiceEvent> call() => _events.stream;
+  Stream<VoiceEvent> call({String? saludo}) => _events.stream;
 }
 
 class _Nada

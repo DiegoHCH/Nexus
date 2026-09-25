@@ -90,15 +90,22 @@ const _configs = {
   ),
 };
 
-const double _tilt = -0.36;
-const double _focal = 3.4;
+/// La inclinación y la distancia focal con que se mira la esfera. Públicas
+/// porque la esfera de ondas de escuchando se mira igual: con otra inclinación
+/// parecería que las dos giran sobre ejes distintos.
+const double inclinacionDelOrbe = -0.36;
+const double focalDelOrbe = 3.4;
 const int _edgeBuckets = 5;
 const int _dotBuckets = 5;
 
 /// Envolvente de voz simulada: determinista (sin aleatoriedad), tres senos
 /// batiendo entre sí para que no se note el patrón. Sostiene "listen" y
-/// "speak" hasta que en la Fase 2 haya audio real que la reemplace.
-double _envelope(double t) {
+/// "speak" mientras no llegue el nivel real del micrófono y del altavoz (paso 03
+/// del plan); cuando llega, [vozDelOrbe] la aparta.
+///
+/// Es la misma para las dos formas y para las capas de encima: con una copia
+/// en cada sitio, el anillo latiría con una voz y el orbe con otra.
+double envolventeDeVoz(double t) {
   final v =
       0.5 +
       0.30 * math.sin(t * 5.1) +
@@ -106,6 +113,22 @@ double _envelope(double t) {
       0.10 * math.sin(t * 19.7 + 2.4);
   return v.clamp(0.06, 1.0);
 }
+
+/// La voz con la que late el orbe: el [nivel] real si lo hay, y si no la
+/// envolvente simulada en el instante [t].
+///
+/// El suelo de 0,06 es el de la envolvente: con la voz a cero del todo las
+/// ondas se quedarían planas y el estado dejaría de leerse.
+double vozDelOrbe(double? nivel, double t) =>
+    nivel == null ? envolventeDeVoz(t) : nivel.clamp(0.06, 1.0);
+
+/// Dónde cae en pantalla cada punto de la esfera, y cuáles barre trabajando.
+typedef ProyeccionDelOrbe = ({
+  Float64List x,
+  Float64List y,
+  Float64List depth,
+  List<bool> lit,
+});
 
 /// Pinta el orbe y el horizonte. Portado línea por línea desde el `orb.js`
 /// de referencia (esfera de Fibonacci + aristas por radio) combinado con el
@@ -116,6 +139,10 @@ double _envelope(double t) {
 /// de opacidad, cada uno con un solo `Path`/`drawRawPoints`: pintar ~250
 /// aristas y 140 puntos con una llamada por elemento es la trampa de
 /// rendimiento documentada en el tracker.
+///
+/// Los anillos de cada estado —el oído, la esfera de ondas, el reactor, el
+/// reloj, las barras— no viven aquí sino en `NexusOrbLayersPainter`, que se
+/// pinta encima de esta forma y de la de plasma por igual.
 class NexusOrbPainter extends CustomPainter {
   const NexusOrbPainter({
     required this.state,
@@ -124,6 +151,9 @@ class NexusOrbPainter extends CustomPainter {
     this.showHorizon = true,
     this.onLight = false,
     this.fillsBox = false,
+    this.nivel,
+    this.profundo = 0,
+    this.encoge = 1,
   });
 
   final NexusOrbState state;
@@ -158,6 +188,18 @@ class NexusOrbPainter extends CustomPainter {
   /// igualan.
   final bool onLight;
 
+  /// El nivel de voz real, de 0 a 1; con `null`, la envolvente simulada. Ver
+  /// [vozDelOrbe].
+  final double? nivel;
+
+  /// Lo hondo que duerme, de 0 a 1: pasados unos minutos dormido las brasas se
+  /// apagan a la mitad. Ver `CapasVivas.profundo`.
+  final double profundo;
+
+  /// A qué fracción de su radio se encoge la esfera. Trabajando baja al 55 %
+  /// para dejarle sitio al reactor, que la rodea.
+  final double encoge;
+
   /// Cuánto se multiplica cada opacidad en claro. Salió de medir, no de
   /// tantear: se ajustó hasta que el contraste del dormido coincidió con el del
   /// tema oscuro.
@@ -176,16 +218,29 @@ class NexusOrbPainter extends CustomPainter {
 
   /// Lo más lejos del centro que el orbe llega a pintar, en radios.
   ///
-  /// No es la esfera: es el **anillo de voz**, que late hasta `1.52 · r`
-  /// (`1.34 + 0.13 + 0.05`, ver [_paintVoiceRing]) y encima respira otro 1 %.
-  /// El halo llega más lejos todavía, a `2.5 · r`, pero es un degradado que
-  /// muere en transparente: recortarlo no se ve, y protegerlo dejaría el orbe
-  /// del tamaño de una moneda.
+  /// No es la esfera: son **los anillos de encima**, y el que más sale es el de
+  /// barras de hablando, que llega a `1.58 · r` (`1.18 · 1.34`). El halo llega
+  /// más lejos todavía, a `2.5 · r`, pero es un degradado que muere en
+  /// transparente: recortarlo no se ve, y protegerlo dejaría el orbe del tamaño
+  /// de una moneda.
   ///
   /// Es quien manda el radio con [fillsBox], y por eso el número vive aquí y
-  /// no suelto: si algún día el anillo late más, esto tiene que subir con él o
-  /// la casa empieza a cortarlo por arriba y por abajo.
+  /// no suelto. Las capas, además, se recortan solas contra el borde de la
+  /// caja —su `tope`—, así que un anillo que pase de aquí se encoge en vez de
+  /// cortarse; pero si esto baja, la casa los empieza a encoger por arriba y
+  /// por abajo.
   static const _envolvente = 1.55;
+
+  /// El radio de la esfera de puntos dentro de [size], sin respirar ni latir.
+  ///
+  /// Público porque las capas se miden contra él: el reactor, el reloj y el
+  /// oído rodean a la esfera, y con la fórmula copiada allí se separarían en
+  /// cuanto una cambiara.
+  static double radioEn(Size size, {bool fillsBox = false}) {
+    final lado = math.min(size.width, size.height);
+    // El mayor radio que deja **la envolvente entera** dentro de la caja.
+    return fillsBox ? lado / 2 / _envolvente : lado * 0.30;
+  }
 
   /// El círculo que de verdad se pinta dentro de [caja] con [fillsBox].
   ///
@@ -197,7 +252,10 @@ class NexusOrbPainter extends CustomPainter {
       Rect.fromCircle(center: caja.center, radius: caja.shortestSide / 2);
 
   double _dot(_StateConfig cfg) =>
-      (onLight ? cfg.dot * _refuerzoPuntos : cfg.dot).clamp(0.0, 1.0);
+      ((onLight ? cfg.dot * _refuerzoPuntos : cfg.dot) * _brasa()).clamp(
+        0.0,
+        1.0,
+      );
   double _edge(_StateConfig cfg) =>
       (onLight ? cfg.edge * _refuerzoAristas : cfg.edge).clamp(0.0, 1.0);
   double _halo(_StateConfig cfg) =>
@@ -215,29 +273,46 @@ class NexusOrbPainter extends CustomPainter {
     // margen para ese gesto — lo que sobra por arriba es lo que le falta al
     // anillo por abajo— así que ahí va al centro exacto.
     final cy = h * (fillsBox ? 0.5 : 0.46);
-    final r0 = fillsBox
-        // El mayor radio que deja **la envolvente entera** dentro de la caja.
-        ? math.min(w, h) / 2 / _envolvente
-        : math.min(w, h) * 0.30;
-    final env = _envelope(t * cfg.envelopeSpeed);
-
-    final breathePhase = state == NexusOrbState.sleep ? 0.68 : 1.6;
-    final breathe = 1 + cfg.breathe * math.sin(t * breathePhase);
-    final beat = state == NexusOrbState.speak ? 1 + 0.075 * env : 1.0;
-    final r = r0 * breathe * beat;
+    final r0 = radioEn(size, fillsBox: fillsBox);
+    final env = vozDelOrbe(nivel, t * cfg.envelopeSpeed);
+    final r = r0 * respiracion(state, t, env) * encoge;
 
     _paintHalo(canvas, cx, cy, r, cfg, env);
-    if (state == NexusOrbState.speak) {
-      _paintConcentricWaves(canvas, cx, cy, r, env);
-    }
 
-    final projected = _project(cx, cy, r, cfg, env, state);
+    final projected = proyectar(
+      state: state,
+      t: t,
+      cx: cx,
+      cy: cy,
+      r: r,
+      env: env,
+    );
     if (_edge(cfg) > 0) _paintEdges(canvas, projected, _edge(cfg));
     _paintDots(canvas, projected, r, cfg);
 
-    if (state == NexusOrbState.think) _paintSweepRings(canvas, cx, cy, r);
-    if (state == NexusOrbState.listen) _paintVoiceRing(canvas, cx, cy, r, env);
     if (showHorizon) _paintHorizon(canvas, w, h, cx, cy, env);
+  }
+
+  /// Cuánto crece la esfera en este instante: la respiración lenta de cada
+  /// estado y, hablando, el latido con la voz.
+  static double respiracion(NexusOrbState state, double t, double env) {
+    final cfg = _configs[state]!;
+    final breathePhase = state == NexusOrbState.sleep ? 0.68 : 1.6;
+    final breathe = 1 + cfg.breathe * math.sin(t * breathePhase);
+    final beat = state == NexusOrbState.speak ? 1 + 0.075 * env : 1.0;
+    return breathe * beat;
+  }
+
+  /// A qué velocidad recorre cada estado la envolvente de voz.
+  static double ritmoDeVoz(NexusOrbState state) =>
+      _configs[state]!.envelopeSpeed;
+
+  /// Las brasas del dormido: un latido lento, de unos cuatro segundos, que
+  /// sube y baja la luz de los puntos, y a la mitad cuando duerme hondo.
+  double _brasa() {
+    if (state != NexusOrbState.sleep) return 1;
+    final latido = math.pow(0.5 + 0.5 * math.sin(t * 1.57), 3).toDouble();
+    return (0.7 + 0.4 * latido) * (1 - 0.5 * profundo);
   }
 
   void _paintHalo(
@@ -278,38 +353,23 @@ class NexusOrbPainter extends CustomPainter {
     );
   }
 
-  void _paintConcentricWaves(
-    Canvas canvas,
-    double cx,
-    double cy,
-    double r,
-    double env,
-  ) {
-    for (var q = 0; q < 3; q++) {
-      final p = ((t * 0.42) + q / 3) % 1.0;
-      final alpha = (0.26 * (1 - p) * (0.5 + env * 0.5)).clamp(0.0, 1.0);
-      canvas.drawCircle(
-        Offset(cx, cy),
-        r * (1.15 + p * 1.5),
-        Paint()
-          ..color = accent.withValues(alpha: alpha)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1,
-      );
-    }
-  }
-
-  ({Float64List x, Float64List y, Float64List depth, List<bool> lit}) _project(
-    double cx,
-    double cy,
-    double r,
-    _StateConfig cfg,
-    double env,
-    NexusOrbState state,
-  ) {
+  /// Dónde cae cada punto de la esfera en pantalla, con la deformación de
+  /// [state].
+  ///
+  /// Estático porque las chispas de pensando viajan de punto en punto por las
+  /// aristas, y tienen que caer **justo** sobre los puntos que se ven.
+  static ProyeccionDelOrbe proyectar({
+    required NexusOrbState state,
+    required double t,
+    required double cx,
+    required double cy,
+    required double r,
+    required double env,
+  }) {
+    final cfg = _configs[state]!;
     final rot = t * cfg.spin * 2 * math.pi;
     final sr = math.sin(rot), cr = math.cos(rot);
-    final st = math.sin(_tilt), ct = math.cos(_tilt);
+    final st = math.sin(inclinacionDelOrbe), ct = math.cos(inclinacionDelOrbe);
     final squash = state == NexusOrbState.think ? 0.90 : 1.0;
     final sweepY = state == NexusOrbState.think ? math.sin(t * 1.9) : 2.0;
 
@@ -343,7 +403,7 @@ class NexusOrbPainter extends CustomPainter {
           rad = 1.0;
       }
 
-      final persp = _focal / (_focal - z2);
+      final persp = focalDelOrbe / (focalDelOrbe - z2);
       px[i] = cx + x1 * r * rad * persp;
       py[i] = cy + y2 * r * rad * squash * persp;
       depth[i] = (z2 + 1) / 2;
@@ -353,11 +413,7 @@ class NexusOrbPainter extends CustomPainter {
     return (x: px, y: py, depth: depth, lit: lit);
   }
 
-  void _paintEdges(
-    Canvas canvas,
-    ({Float64List x, Float64List y, Float64List depth, List<bool> lit}) proj,
-    double edgeAlpha,
-  ) {
+  void _paintEdges(Canvas canvas, ProyeccionDelOrbe proj, double edgeAlpha) {
     final bucketPaths = List.generate(_edgeBuckets, (_) => Path());
     for (final (i, j) in OrbGeometry.edges) {
       final dd = (proj.depth[i] + proj.depth[j]) / 2;
@@ -386,7 +442,7 @@ class NexusOrbPainter extends CustomPainter {
 
   void _paintDots(
     Canvas canvas,
-    ({Float64List x, Float64List y, Float64List depth, List<bool> lit}) proj,
+    ProyeccionDelOrbe proj,
     double r,
     _StateConfig cfg,
   ) {
@@ -434,60 +490,6 @@ class NexusOrbPainter extends CustomPainter {
         Paint()..color = accent.withValues(alpha: alpha),
       );
     }
-  }
-
-  void _paintSweepRings(Canvas canvas, double cx, double cy, double r) {
-    for (var ring = 0; ring < 2; ring++) {
-      final ang = t * (ring == 0 ? 2.1 : -1.5) + ring * 1.2;
-      canvas.save();
-      canvas.translate(cx, cy);
-      canvas.rotate(ang * 0.5 + ring * 0.8);
-      final rect = Rect.fromCenter(
-        center: Offset.zero,
-        width: r * (1.22 + ring * 0.22) * 2,
-        height: r * (0.30 + ring * 0.16) * 2,
-      );
-      canvas.drawOval(
-        rect,
-        Paint()
-          ..color = accent.withValues(alpha: 0.34 - ring * 0.14)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1,
-      );
-      canvas.restore();
-    }
-  }
-
-  void _paintVoiceRing(
-    Canvas canvas,
-    double cx,
-    double cy,
-    double r,
-    double env,
-  ) {
-    final path = Path();
-    for (var s = 0; s <= 120; s++) {
-      final a = (s / 120) * 2 * math.pi;
-      final rr =
-          r *
-          (1.34 +
-              0.13 * env * math.sin(a * 6 + t * 4.2) +
-              0.05 * math.sin(a * 13 - t * 2.6));
-      final x = cx + math.cos(a) * rr, y = cy + math.sin(a) * rr;
-      if (s == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-    path.close();
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = accent.withValues(alpha: 0.20 + env * 0.30)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2,
-    );
   }
 
   /// El horizonte: cambia de *tipo* de línea según el estado, no de color.
@@ -623,6 +625,9 @@ class NexusOrbPainter extends CustomPainter {
       oldDelegate.accent != accent ||
       oldDelegate.showHorizon != showHorizon ||
       oldDelegate.fillsBox != fillsBox ||
+      oldDelegate.nivel != nivel ||
+      oldDelegate.profundo != profundo ||
+      oldDelegate.encoge != encoge ||
       // Hoy `accent` cambia con el tema y esto se repintaría igual — pero eso
       // es suerte, no diseño: el día que las dos paletas compartan cian,
       // cambiar de tema dejaría el orbe con las opacidades del otro. Y con

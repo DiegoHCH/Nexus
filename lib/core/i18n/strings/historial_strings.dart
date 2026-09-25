@@ -60,6 +60,11 @@ mixin HistorialStrings {
   /// Que se oyó algo que no iba dirigido a ella y se tiró, con el mecanismo
   /// para cortarla cuando sí quieres. Ver [ElAudioAjeno].
   String get noEraParaMi;
+
+  /// Lo que dice al abrirse cuando la llamaste por su nombre. Corto a
+  /// propósito: contesta a la llamada y te deja hablar. [tuyo] es cómo te
+  /// llama, si se lo dijiste.
+  String alLlamarla(String? tuyo);
   // Archivo de conversaciones
   String get archiveTitle;
   String get archiveExplainer;
@@ -192,6 +197,8 @@ mixin HistorialStringsEs implements HistorialStrings {
   String get noEraParaMi =>
       'Oí algo mientras hablaba que no parecía para mí y no lo atendí. Para '
       'cortarme, dime mi nombre o «para».';
+  @override
+  String alLlamarla(String? tuyo) => tuyo == null ? '¿Sí?' : '¿Sí, $tuyo?';
   @override
   String get archiveTitle => 'DÓNDE SE GUARDAN LAS CONVERSACIONES';
   @override
@@ -372,6 +379,8 @@ mixin HistorialStringsEn implements HistorialStrings {
   String get noEraParaMi =>
       'I heard something while I was talking that did not seem to be for me, '
       'so I let it go. To cut me off, say my name or “stop”.';
+  @override
+  String alLlamarla(String? tuyo) => tuyo == null ? 'Yes?' : 'Yes, $tuyo?';
   @override
   String get archiveTitle => 'WHERE CONVERSATIONS ARE KEPT';
   @override

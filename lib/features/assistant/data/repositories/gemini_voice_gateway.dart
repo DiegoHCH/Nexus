@@ -325,12 +325,14 @@ class GeminiVoiceGateway implements VoiceGateway {
       'parts': [
         {
           'text': switch (perfil) {
-            ComoUnaConversacion() => instruccionDelSistema(
-              agente: _readAgentName(),
-              idioma: _readLanguage(),
-              nombres: _losNombres(),
-              loQueSeSabeDeTi: _readMemoria(),
-            ),
+            ComoUnaConversacion(:final saludo) =>
+              instruccionDelSistema(
+                    agente: _readAgentName(),
+                    idioma: _readLanguage(),
+                    nombres: _losNombres(),
+                    loQueSeSabeDeTi: _readMemoria(),
+                  ) +
+                  (saludo == null ? '' : alLlamarla(saludo)),
             ComoLaPuerta() => laPuerta(perfil),
             ComoUnAviso(:final frase) => elAviso(
               frase,
@@ -404,6 +406,18 @@ class GeminiVoiceGateway implements VoiceGateway {
   /// y por eso la frase va en la instrucción y no como turno de usuario: así el
   /// modelo no la comenta ni dice que se la pidieron. Es la misma piedra con la
   /// que tropezó la puerta.
+  /// Lo que se le añade a la conversación cuando se abrió **llamándola**: que
+  /// conteste a la llamada antes de nada.
+  ///
+  /// 🔴 **La frase va aquí y no como turno**, por lo mismo que la puerta y el
+  /// aviso: mandada como mensaje, el modelo la comentaba —«me pidieron que
+  /// dijera eso»—. Por el socket solo va la señal de cuándo, `(inicio)`.
+  static String alLlamarla(String saludo) =>
+      '\n\nTe acaban de llamar por tu nombre para hablar contigo. '
+      'Recibirás un mensaje que dice "(inicio)": es la señal, no lo menciones. '
+      'Al recibirlo di exactamente esto y nada más: "$saludo"\n'
+      'Después espera en silencio a que te hablen.';
+
   static String elAviso(String frase, {required String idioma}) =>
       '${enQueIdioma(idioma)}'
       'Vas a decir un aviso en voz alta y nada más.\n'

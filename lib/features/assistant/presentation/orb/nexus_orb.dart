@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:nexus/core/design_system/design_system.dart';
@@ -30,6 +31,7 @@ class NexusOrb extends StatefulWidget {
     this.showHorizon = false,
     this.fillsBox = false,
     this.nivel,
+    this.nivelVivo,
     this.pasos,
     this.hechos,
     this.pensandoDesde,
@@ -45,9 +47,13 @@ class NexusOrb extends StatefulWidget {
 
   /// El nivel de voz, de 0 a 1: el del micrófono al escuchar y al dormir con
   /// el oído puesto, el del altavoz al hablar. Con `null` late con la voz
-  /// simulada de siempre, que es lo que hace hoy en todas partes: los niveles
-  /// reales llegan con el paso 03 del plan.
+  /// simulada de siempre.
   final double? nivel;
+
+  /// Lo mismo que [nivel], pero vivo: se lee en cada fotograma sin
+  /// reconstruir el widget. Es como llega el de verdad —ver `ElNivelDeLaVoz`—,
+  /// que cambia cincuenta veces por segundo. Si está, manda sobre [nivel].
+  final ValueListenable<double>? nivelVivo;
 
   /// Cuántos pasos lleva el turno de Claude y cuántos ha terminado, para el
   /// reactor de trabajando. Saldrán de la cuenta de pasos de la actividad
@@ -66,6 +72,10 @@ class NexusOrb extends StatefulWidget {
 
   @override
   State<NexusOrb> createState() => _NexusOrbState();
+}
+
+extension on State<NexusOrb> {
+  double? get _nivel => widget.nivelVivo?.value ?? widget.nivel;
 }
 
 class _NexusOrbState extends State<NexusOrb>
@@ -159,10 +169,7 @@ class _NexusOrbState extends State<NexusOrb>
       dt,
       t: t,
       estado: widget.state,
-      env: vozDelOrbe(
-        widget.nivel,
-        t * NexusOrbPainter.ritmoDeVoz(widget.state),
-      ),
+      env: vozDelOrbe(_nivel, t * NexusOrbPainter.ritmoDeVoz(widget.state)),
       puntos: _dePuntos,
     );
     _time.value = t;
@@ -195,7 +202,7 @@ class _NexusOrbState extends State<NexusOrb>
                 showHorizon: widget.showHorizon,
                 onLight: onLight,
                 fillsBox: widget.fillsBox,
-                nivel: widget.nivel,
+                nivel: _nivel,
                 profundo: _capas.profundo,
                 encoge: _capas.encoge,
               )
@@ -208,7 +215,7 @@ class _NexusOrbState extends State<NexusOrb>
                 accent: accent,
                 onLight: onLight,
                 fillsBox: widget.fillsBox,
-                nivel: widget.nivel,
+                nivel: _nivel,
                 profundo: _capas.profundo,
               ),
         foregroundPainter: NexusOrbLayersPainter(
@@ -220,7 +227,7 @@ class _NexusOrbState extends State<NexusOrb>
           puntos: puntos,
           tamano: _estilo.tamano,
           fillsBox: widget.fillsBox,
-          nivel: widget.nivel,
+          nivel: _nivel,
           pasos: widget.pasos,
           hechos: widget.hechos,
           oido: widget.oido,

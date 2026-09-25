@@ -1,5 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
+import 'package:nexus/features/oido/presentation/providers/el_oido_que_espera.dart';
+import 'package:nexus/core/audio/el_nivel_de_la_voz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -109,6 +113,26 @@ class _HomePageState extends ConsumerState<HomePage> {
   void dispose() {
     hotKeyManager.unregister(HomePage._talkHotKey);
     super.dispose();
+  }
+
+  /// Qué voz mueve al orbe en cada estado: la tuya mientras te escucha, la
+  /// suya mientras habla. En los demás no hay voz que seguir, y el orbe usa su
+  /// propio movimiento.
+  static ValueListenable<double>? _elNivelPara(NexusOrbState estado) =>
+      switch (estado) {
+        NexusOrbState.listen => ElNivelDeLaVoz.microfono,
+        NexusOrbState.speak => ElNivelDeLaVoz.altavoz,
+        _ => null,
+      };
+
+  /// Los pasos del turno para el reactor: los de primer nivel de la
+  /// actividad, y cuántos acabaron. Los de un subagente van dentro de su paso y
+  /// no cuentan aparte, o el reactor se llenaría de segmentos que no son del
+  /// turno. Sin pasos, `null`, y el reactor usa su progreso de espera.
+  static (int?, int?) _pasos(AssistantHudState hud) {
+    final propios = hud.activity.where((a) => a.parentId == null);
+    if (propios.isEmpty) return (null, null);
+    return (propios.length, propios.where((a) => a.done).length);
   }
 
   @override
@@ -304,6 +328,18 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   child: NexusOrb(
                                     state: hud.orbState,
                                     fillsBox: true,
+                                    // Las señales de verdad, que son el
+                                    // paso 03 del plan: tu voz al escuchar,
+                                    // la de ella al hablar, y los pasos de
+                                    // Claude en el reactor.
+                                    nivelVivo: _elNivelPara(hud.orbState),
+                                    pasos: _pasos(hud).$1,
+                                    hechos: _pasos(hud).$2,
+                                    oido:
+                                        ref
+                                            .watch(elOidoEstaEncendidoProvider)
+                                            .value ??
+                                        false,
                                   ),
                                 ),
                               ),
@@ -892,6 +928,11 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
                                     (true, false) => NexusOrbState.listen,
                                     (false, _) => NexusOrbState.sleep,
                                   },
+                                  nivelVivo: !_puertaAbierta
+                                      ? null
+                                      : hablando
+                                      ? ElNivelDeLaVoz.altavoz
+                                      : ElNivelDeLaVoz.microfono,
                                 ),
                               ),
                             ),

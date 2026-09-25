@@ -274,9 +274,6 @@ class _LaHoraState extends State<_LaHora> {
     super.dispose();
   }
 
-  static String _hh(DateTime t) =>
-      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -285,12 +282,15 @@ class _LaHoraState extends State<_LaHora> {
     return Text.rich(
       TextSpan(
         children: [
-          TextSpan(text: _hh(DateTime.now())),
+          TextSpan(text: horaDeReloj(DateTime.now())),
           if (proxima != null) ...[
             const TextSpan(text: '  ·  '),
             TextSpan(
               text: strings
-                  .escenarioProximo(proxima.titulo, _hh(proxima.comienza))
+                  .escenarioProximo(
+                    proxima.titulo,
+                    horaDeReloj(proxima.comienza),
+                  )
                   .toUpperCase(),
               style: TextStyle(color: colors.ink),
             ),
@@ -601,4 +601,12 @@ class _MiniOrbe extends StatelessWidget {
       ),
     );
   }
+}
+
+/// La hora en 12 horas con AM/PM, que es como se lee en casa: «4:56 PM» y no
+/// «16:56». Sin cero delante de la hora, como en un reloj.
+String horaDeReloj(DateTime t) {
+  final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
+  final m = t.minute.toString().padLeft(2, '0');
+  return '$h:$m ${t.hour < 12 ? 'AM' : 'PM'}';
 }

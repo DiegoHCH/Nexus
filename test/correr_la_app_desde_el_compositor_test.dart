@@ -4,8 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nexus/core/design_system/nexus_colors.dart';
-import 'package:nexus/core/design_system/nexus_theme.dart';
+import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/emulators/data/datasources/emuladores_data_source.dart';
@@ -33,13 +32,34 @@ class _ConfigsFalsas extends ConfigsDataSource {
 }
 
 class _MaquinaFalsa extends EmuladoresDataSource {
-  const _MaquinaFalsa(this._emuladores);
+  _MaquinaFalsa(this._emuladores);
 
-  final List<Emulador> _emuladores;
+  List<Emulador> _emuladores;
+
+  /// Los que se pidió arrancar. Arrancar uno lo deja arriba, como el de verdad
+  /// —que espera a que aparezca antes de volver—.
+  final lanzados = <String>[];
 
   @override
   Future<({List<Emulador> emuladores, String? error})> listar() async =>
       (emuladores: _emuladores, error: null);
+
+  @override
+  Future<String?> lanzar(
+    Emulador emulador, {
+    bool frio = false,
+    Duration cada = const Duration(seconds: 2),
+    int intentos = 45,
+  }) async {
+    lanzados.add(emulador.id);
+    _emuladores = [
+      for (final e in _emuladores)
+        e.id == emulador.id
+            ? e.conEstado(corriendo: true, deviceId: 'emulator-5556')
+            : e,
+    ];
+    return null;
+  }
 
   @override
   Future<List<DispositivoConectado>> listarDispositivos() async => const [];
@@ -220,11 +240,12 @@ void main() {
     await tester.tap(find.byType(CorrerMenu));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text(strings.runTitle).last);
-    await tester.pumpAndSettle();
-
-    expect(find.text('Tienda (dev)'), findsWidgets);
-    expect(find.text('Tienda (prod)'), findsWidgets);
+    // **A la vista, sin abrir nada**: eran un desplegable y había que pulsarlo
+    // para saber qué traía el repo.
+    expect(find.widgetWithText(Opcion, 'Tienda (dev)'), findsOneWidget);
+    expect(find.widgetWithText(Opcion, 'Tienda (prod)'), findsOneWidget);
+    // Y de qué proyecto son, que la conversación puede tener otro en la cabeza.
+    expect(find.text('${strings.runTitle} · tienda'), findsOneWidget);
   });
 
   testWidgets('un proyecto sin configuraciones lo dice, no se queda mudo', (
@@ -248,23 +269,49 @@ void main() {
     expect(find.text(strings.runNoProject), findsOneWidget);
   });
 
-  testWidgets('solo se ofrecen dispositivos encendidos', (tester) async {
-    // `flutter run -d` sobre un emulador apagado falla, así que ofrecerlo sería
-    // ofrecer ese fallo. Para encenderlo está el icono de al lado.
+  testWidgets('los dispositivos, a la vista y con su nombre delante', (
+    tester,
+  ) async {
     await _montar(tester);
     await tester.tap(find.byType(CorrerMenu));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text(strings.runChooseDevice).last);
-    await tester.pumpAndSettle();
-
     // El id sigue estando —es lo que pide `-d`— pero **con su nombre delante**:
     // un id no dice cuál es cuál.
-    expect(find.textContaining('emulator-5554'), findsWidgets);
-    expect(find.textContaining('Medium Phone API 36.1'), findsWidgets);
-    // Y el apagado no se ofrece, ni por id ni por nombre.
-    expect(find.textContaining('Small_Phone'), findsNothing);
-    expect(find.textContaining('Small Phone'), findsNothing);
+    expect(
+      find.widgetWithText(Opcion, 'Medium Phone API 36.1'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('emulator-5554'), findsOneWidget);
+  });
+
+  // 🔴 **El apagado se ofrece, atenuado, y elegirlo lo arranca.** Antes no
+  // aparecía —`flutter run -d` sobre algo apagado falla— y eso obligaba a ir a
+  // otro panel a encenderlo. Ahora el paso lo da Nexus, y el `-d` no se usa
+  // hasta que está arriba.
+  testWidgets('el apagado se ofrece atenuado, y elegirlo lo arranca', (
+    tester,
+  ) async {
+    final maquina = _MaquinaFalsa(const [_arrancado, _apagado]);
+    await _montar(tester, maquina: maquina);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(CorrerMenu));
+    await tester.pumpAndSettle();
+
+    final apagado = find.widgetWithText(Opcion, 'Small Phone');
+    expect(apagado, findsOneWidget);
+    expect(tester.widget<Opcion>(apagado).atenuada, isTrue);
+    expect(tester.widget<Opcion>(apagado).detalle, strings.runApagado);
+
+    await tester.tap(apagado);
+    await tester.pumpAndSettle();
+
+    expect(maquina.lanzados, ['Small_Phone']);
+    // Arriba ya, se queda elegido con su `-d` de verdad.
+    final arriba = find.widgetWithText(Opcion, 'Small Phone');
+    expect(tester.widget<Opcion>(arriba).elegida, isTrue);
+    expect(tester.widget<Opcion>(arriba).atenuada, isFalse);
+    expect(find.textContaining('emulator-5556'), findsOneWidget);
   });
 
   testWidgets('correr está apagado hasta elegir las dos cosas', (tester) async {
@@ -276,6 +323,34 @@ void main() {
       find.widgetWithText(OutlinedButton, strings.runStart),
     );
     expect(boton.onPressed, isNull);
+  });
+
+  // **El motivo, antes que el botón**: un «Correr» apagado sin decir por qué
+  // deja mirándolo. Lo que falta se dice al lado, en el orden en que se elige.
+  testWidgets('al lado del botón apagado se dice qué falta', (tester) async {
+    await _montar(tester);
+    await tester.tap(find.byType(CorrerMenu));
+    await tester.pumpAndSettle();
+
+    Text loQueFalta() =>
+        tester.widget<Text>(find.byKey(const ValueKey('lo-que-falta')));
+    expect(loQueFalta().data, strings.runEligeConfig);
+
+    await tester.tap(find.widgetWithText(Opcion, 'Tienda (dev)'));
+    await tester.pumpAndSettle();
+    expect(loQueFalta().data, strings.runChooseDevice);
+
+    await tester.tap(find.widgetWithText(Opcion, 'Medium Phone API 36.1'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('lo-que-falta')), findsNothing);
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.widgetWithText(OutlinedButton, strings.runStart),
+          )
+          .onPressed,
+      isNotNull,
+    );
   });
 
   // La fila de una corrida ya no está aquí: se fue a la botonera flotante, y
@@ -303,14 +378,10 @@ void main() {
       await tester.tap(find.byType(CorrerMenu));
       await tester.pumpAndSettle();
 
-      // Los dos desplegables, que es lo que el panel pide antes de dejar correr.
-      await tester.tap(find.text(strings.runTitle).last);
+      // Las dos elecciones, que es lo que el panel pide antes de dejar correr.
+      await tester.tap(find.widgetWithText(Opcion, 'Tienda (dev)'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Tienda (dev)').last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(strings.runChooseDevice).last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.textContaining('emulator-5554').last);
+      await tester.tap(find.widgetWithText(Opcion, 'Medium Phone API 36.1'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text(strings.runStart));
@@ -330,14 +401,10 @@ void main() {
       await tester.tap(find.byType(CorrerMenu));
       await tester.pumpAndSettle();
 
-      // Los dos desplegables, que es lo que el panel pide antes de dejar correr.
-      await tester.tap(find.text(strings.runTitle).last);
+      // Las dos elecciones, que es lo que el panel pide antes de dejar correr.
+      await tester.tap(find.widgetWithText(Opcion, 'Tienda (dev)'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Tienda (dev)').last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(strings.runChooseDevice).last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.textContaining('emulator-5554').last);
+      await tester.tap(find.widgetWithText(Opcion, 'Medium Phone API 36.1'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text(strings.runStart));
@@ -357,7 +424,12 @@ void main() {
       await tester.pumpAndSettle();
 
       // Con catorce configuraciones, elegir a mano cada vez es un peaje diario.
-      expect(find.text('Tienda (prod)'), findsWidgets);
+      expect(
+        tester
+            .widget<Opcion>(find.widgetWithText(Opcion, 'Tienda (prod)'))
+            .elegida,
+        isTrue,
+      );
       final boton = tester.widget<OutlinedButton>(
         find.widgetWithText(OutlinedButton, strings.runStart),
       );
@@ -377,7 +449,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('La que ya no está'), findsNothing);
-      expect(find.text(strings.runTitle), findsWidgets);
+      expect(find.byType(Opcion), findsWidgets);
+      expect(
+        tester.widgetList<Opcion>(find.byType(Opcion)).where((o) => o.elegida),
+        isEmpty,
+      );
     });
 
     testWidgets('cada proyecto recuerda la suya', (tester) async {
@@ -390,7 +466,12 @@ void main() {
       await tester.tap(find.byType(CorrerMenu));
       await tester.pumpAndSettle();
 
-      expect(find.text('Tienda (prod)'), findsNothing);
+      expect(
+        tester
+            .widget<Opcion>(find.widgetWithText(Opcion, 'Tienda (prod)'))
+            .elegida,
+        isFalse,
+      );
     });
 
     testWidgets('una preferencia corrupta no impide abrir el menú', (
@@ -403,7 +484,7 @@ void main() {
       await tester.tap(find.byType(CorrerMenu));
       await tester.pumpAndSettle();
 
-      expect(find.text(strings.runTitle), findsWidgets);
+      expect(find.byType(Opcion), findsWidgets);
     });
   });
 
@@ -576,6 +657,9 @@ void main() {
     });
 
     testWidgets('y con alguno, la pista vuelve a ser elegir', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'run.configPorDefecto': '{"/casa/tienda":"Tienda (dev)"}',
+      });
       await _montar(tester);
       await tester.tap(find.byType(CorrerMenu));
       await tester.pumpAndSettle();

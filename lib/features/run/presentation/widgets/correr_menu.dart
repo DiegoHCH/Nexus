@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
-import 'package:nexus/core/design_system/selector_compacto.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
 import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
@@ -65,10 +64,10 @@ class CorrerMenu extends ConsumerWidget {
             vertical: NexusSpacing.s2,
           ),
           child: SizedBox(
-            // **Ancho y bajo, no cuadrado.** Con 380 los dos desplegables y el
-            // botón se apilaban y el panel salía casi cuadrado, que en una barra
-            // de compositor se ve como una caja pegada encima. A 620 caben en una
-            // sola línea y el panel se lee como lo que es: una barra.
+            // **Ancho y bajo, no cuadrado.** Con las opciones a la vista, los
+            // nombres de configuración son largos —«Global66 (ci + mock PayIn
+            // Colombia)»— y a 620 caben dos o tres por línea: el panel crece
+            // hacia abajo lo justo en vez de volverse una columna.
             width: 620,
             child: _Panel(proyecto: proyecto),
           ),
@@ -122,6 +121,9 @@ class _PanelState extends ConsumerState<_Panel> {
   String? _dispositivo;
   var _ocupado = false;
   String? _error;
+
+  /// El nombre del emulador apagado que se está arrancando porque se eligió.
+  String? _arrancando;
 
   Future<void> _correr() async {
     final proyecto = widget.proyecto;
@@ -214,14 +216,36 @@ class _PanelState extends ConsumerState<_Panel> {
 
     final configs = ref.watch(configsProvider(proyecto)).value ?? const [];
     final dispositivos = _losDispositivos();
+    final elegida = _elegida(configs);
+    // El elegido tiene que seguir estando: un emulador que se cerró por fuera
+    // no puede quedar marcado y encender «Correr» hacia un `-d` que ya no existe.
+    final dispositivo =
+        dispositivos.destinos.any((d) => d.id == _dispositivo && d.id != null)
+        ? _dispositivo
+        : null;
+
+    // **El motivo, antes que el botón.** «Correr» apagado sin decir por qué deja
+    // mirándolo; esto dice qué falta, en el orden en que se elige.
+    final falta = elegida == null
+        ? strings.runEligeConfig
+        : dispositivos.buscando
+        ? strings.runSearchingDevices
+        : dispositivos.destinos.isEmpty
+        ? strings.runNoDevices
+        : dispositivo == null
+        ? strings.runChooseDevice
+        : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
+        // De qué repo: las configuraciones son de este proyecto y de ningún
+        // otro, y el panel se abre desde una conversación que puede tener otro
+        // nombre en la cabeza.
         Text(
-          strings.runTitle,
-          style: NexusTypography.label.copyWith(color: colors.faint),
+          '${strings.runTitle} · ${proyecto.split('/').last}',
+          style: NexusTypography.label.copyWith(color: colors.mute),
         ),
         const SizedBox(height: NexusSpacing.s3),
 
@@ -231,108 +255,184 @@ class _PanelState extends ConsumerState<_Panel> {
             style: NexusTypography.nota.copyWith(color: colors.faint),
           )
         else ...[
-          // Los dos desplegables y el botón **en una línea**. Apilados hacían
-          // del panel un cuadrado; en fila se lee como una barra, que es lo que
-          // es. El de la configuración pesa el doble porque sus nombres son
-          // largos —«Global66 (ci + mock PayIn Colombia)»— y el del dispositivo
-          // cabe en un identificador.
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          // 🔴 **Opciones a la vista y no desplegables.** Con los dos
+          // desplegables había que abrirlos para saber qué había: qué
+          // configuraciones trae el repo y, sobre todo, qué dispositivo está
+          // encendido. El mockup los pone a la vista, y así se ve qué hay antes
+          // de elegir.
+          _Rotulo(strings.runConfiguracion),
+          Wrap(
+            spacing: NexusSpacing.s2,
+            runSpacing: NexusSpacing.s2,
             children: [
-              Expanded(
-                flex: 2,
-                child: SelectorCompacto(
-                  // **La recordada, si sigue existiendo.** Se guarda el nombre y
-                  // no un índice: los índices bailan al añadir una configuración
-                  // al `launch.json`, y ese día estarías corriendo otro entorno
-                  // sin enterarte. Si el nombre ya no está, no se ofrece.
-                  valor: _elegida(configs),
-                  opciones: [for (final c in configs) c.nombre],
-                  pista: strings.runTitle,
-                  onElegir: (v) {
-                    setState(() => _config = v);
+              for (final config in configs)
+                Opcion(
+                  key: ValueKey('config-${config.nombre}'),
+                  titulo: config.nombre,
+                  // La tuya se distingue de las del repo: vive en Nexus, y
+                  // borrarla no toca el `launch.json`.
+                  detalle: config.local ? strings.runEsTuyaCorto : null,
+                  // **La recordada, si sigue existiendo.** Se guarda el nombre
+                  // y no un índice: los índices bailan al añadir una
+                  // configuración al `launch.json`, y ese día estarías corriendo
+                  // otro entorno sin enterarte.
+                  elegida: config.nombre == elegida,
+                  onPulsar: () {
+                    setState(() => _config = config.nombre);
                     ref
                         .read(configsPorDefectoProvider.notifier)
-                        .elegir(proyecto, v);
+                        .elegir(proyecto, config.nombre);
                   },
                 ),
-              ),
-              const SizedBox(width: NexusSpacing.s2),
-              Expanded(
-                child: SelectorCompacto(
-                  valor: _dispositivo,
-                  opciones: dispositivos.ids,
-                  // El nombre delante y el id detrás, por lo mismo que en el
-                  // panel de pruebas: un id no dice cuál es cuál.
-                  etiqueta: _comoSeLlama,
-                  // Tres estados donde había uno: buscando, ninguno, y elige.
-                  pista: dispositivos.buscando
-                      ? strings.runSearchingDevices
-                      : dispositivos.ids.isEmpty
-                      ? strings.runNoDevices
-                      : strings.runChooseDevice,
-                  cargando: dispositivos.buscando,
-                  onElegir: (v) => setState(() => _dispositivo = v),
-                ),
-              ),
-              const SizedBox(width: NexusSpacing.s3),
-              if (_ocupado)
+            ],
+          ),
+          const SizedBox(height: NexusSpacing.s3),
+
+          _Rotulo(strings.runDispositivo),
+          if (dispositivos.buscando && dispositivos.destinos.isEmpty)
+            // Buscando no es lo mismo que no haber: los dos estados iban
+            // aplanados a uno y el panel parecía colgado. Ver [_losDispositivos].
+            Row(
+              children: [
                 SizedBox(
-                  width: 14,
-                  height: 14,
+                  width: 12,
+                  height: 12,
                   child: CircularProgressIndicator(
                     strokeWidth: 1.5,
                     color: colors.accent,
                   ),
-                )
-              else
-                OutlinedButton(
-                  onPressed: _elegida(configs) != null && _dispositivo != null
-                      ? _correr
-                      : null,
-                  child: Text(strings.runStart),
                 ),
-            ],
-          ),
-
-          // 🔴 **La copia con el panel de depuración, sin tocar el repo.**
-          // Pedida con un caso: el repo del trabajo trae «ci + Debug
-          // Dashboard» y no la misma con `prod` ni la de `profile`. Añadirla al
-          // `launch.json` es tocar un archivo versionado y compartido — y en un
-          // repo del trabajo, la regla es no comitear nada. Ver
-          // [LaConfigDeCasa], donde está de dónde se aprenden los defines.
-          if (_laElegida(configs) case final elegida?)
+                const SizedBox(width: NexusSpacing.s2),
+                Text(
+                  strings.runSearchingDevices,
+                  style: NexusTypography.nota.copyWith(color: colors.mute),
+                ),
+              ],
+            )
+          else if (dispositivos.destinos.isEmpty)
+            Text(
+              strings.runNoDevices,
+              style: NexusTypography.nota.copyWith(color: colors.mute),
+            )
+          else
+            Wrap(
+              spacing: NexusSpacing.s2,
+              runSpacing: NexusSpacing.s2,
+              children: [
+                for (final destino in dispositivos.destinos)
+                  Opcion(
+                    key: ValueKey('destino-${destino.id ?? destino.nombre}'),
+                    titulo: destino.nombre,
+                    detalle: destino.detalle,
+                    elegida: destino.id != null && destino.id == dispositivo,
+                    // 🔴 **El apagado se ofrece, atenuado, y elegirlo lo
+                    // arranca.** Antes no aparecía para no ofrecer un
+                    // `flutter run -d` que iba a fallar, y eso obligaba a ir al
+                    // panel de dispositivos a encenderlo primero. Ahora el paso
+                    // lo da Nexus, y el `-d` no se usa hasta que está arriba.
+                    atenuada: destino.apagado != null,
+                    onPulsar: _ocupado || _arrancando != null
+                        ? null
+                        : _alElegir(destino),
+                  ),
+              ],
+            ),
+          if (_arrancando case final nombre?)
             Padding(
               padding: const EdgeInsets.only(top: NexusSpacing.s2),
               child: Row(
                 children: [
-                  if (elegida.local)
-                    TextButton(
-                      onPressed: _ocupado
-                          ? null
-                          : () => _quitarLaCopia(elegida),
-                      child: Text(strings.runQuitarCopia),
-                    )
-                  else if (LaConfigDeCasa.sePuedeDuplicar(elegida))
-                    TextButton(
-                      onPressed: _ocupado
-                          ? null
-                          : () => _duplicarConLaConsola(elegida, configs),
-                      child: Text(strings.runDuplicarConConsola),
+                  SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: colors.accent,
                     ),
+                  ),
+                  const SizedBox(width: NexusSpacing.s2),
                   Expanded(
                     child: Text(
-                      elegida.local
-                          ? strings.runEsTuya
-                          : LaConfigDeCasa.sePuedeDuplicar(elegida)
-                          ? strings.runDuplicarNota
-                          : strings.runYaTraeConsola,
-                      style: NexusTypography.label.copyWith(
-                        color: colors.faint,
-                      ),
+                      strings.runArrancando(nombre),
+                      style: NexusTypography.nota.copyWith(color: colors.mute),
                     ),
                   ),
                 ],
+              ),
+            ),
+          const SizedBox(height: NexusSpacing.s4),
+
+          Row(
+            children: [
+              if (_ocupado)
+                Padding(
+                  padding: const EdgeInsets.only(right: NexusSpacing.s3),
+                  child: SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: colors.accent,
+                    ),
+                  ),
+                )
+              else
+                BotonDeFila(
+                  key: const ValueKey('correr'),
+                  texto: strings.runStart,
+                  tono: TonoDeBoton.principal,
+                  onPulsar: falta == null ? _correr : null,
+                ),
+              const SizedBox(width: NexusSpacing.s2),
+              // 🔴 **La copia con el panel de depuración, sin tocar el repo.**
+              // Pedida con un caso: el repo del trabajo trae «ci + Debug
+              // Dashboard» y no la misma con `prod` ni la de `profile`. Añadirla
+              // al `launch.json` es tocar un archivo versionado y compartido — y
+              // en un repo del trabajo, la regla es no comitear nada. Ver
+              // [LaConfigDeCasa], donde está de dónde se aprenden los defines.
+              if (_laElegida(configs) case final config?)
+                if (config.local)
+                  BotonDeFila(
+                    texto: strings.runQuitarCopia,
+                    onPulsar: _ocupado ? null : () => _quitarLaCopia(config),
+                  )
+                else if (LaConfigDeCasa.sePuedeDuplicar(config))
+                  BotonDeFila(
+                    texto: strings.runDuplicarConConsola,
+                    onPulsar: _ocupado
+                        ? null
+                        : () => _duplicarConLaConsola(config, configs),
+                  ),
+              const SizedBox(width: NexusSpacing.s3),
+              // El motivo al lado del botón apagado, no en su tooltip: un
+              // tooltip solo lo lee quien ya sospecha que hay algo que leer.
+              if (falta != null && !_ocupado)
+                Expanded(
+                  child: Text(
+                    falta,
+                    key: const ValueKey('lo-que-falta'),
+                    style: NexusTypography.nota.copyWith(
+                      color: colors.mute,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+
+          if (_laElegida(configs) case final config?)
+            Padding(
+              padding: const EdgeInsets.only(top: NexusSpacing.s2),
+              child: Text(
+                config.local
+                    ? strings.runEsTuya
+                    : LaConfigDeCasa.sePuedeDuplicar(config)
+                    ? strings.runDuplicarNota
+                    : strings.runYaTraeConsola,
+                style: NexusTypography.nota.copyWith(
+                  color: colors.mute,
+                  fontSize: 12,
+                ),
               ),
             ),
         ],
@@ -403,56 +503,121 @@ class _PanelState extends ConsumerState<_Panel> {
     ref.read(configsPorDefectoProvider.notifier).olvidar(proyecto);
   }
 
-  /// Cómo se llama un dispositivo, para poder elegirlo.
-  ///
-  /// El nombre sale de las mismas dos listas que dan los ids, así que no hay una
-  /// tercera fuente que pueda contradecirlas.
-  String _comoSeLlama(String id) {
-    for (final e
-        in ref.read(emuladoresProvider).value?.emuladores ?? const []) {
-      if (e.deviceId == id) return '${e.nombre} · $id';
-    }
-    for (final d in ref.read(dispositivosProvider).value ?? const []) {
-      if (d.id == id) return '${d.nombre} · $id';
-    }
-    return id;
+  /// Qué hace elegir un destino: marcarlo, o arrancarlo si está apagado.
+  VoidCallback _alElegir(_Destino destino) {
+    final apagado = destino.apagado;
+    if (apagado != null) return () => _arrancarYElegir(apagado);
+    return () => setState(() => _dispositivo = destino.id);
   }
 
-  /// Lo que hay para correr: emuladores **arrancados** y teléfonos enchufados.
+  /// Arranca un emulador apagado y, cuando está arriba, lo deja elegido.
   ///
-  /// Un emulador apagado no aparece a propósito: `flutter run -d` sobre algo que
-  /// no está encendido falla, y ofrecerlo sería ofrecer ese fallo. Para
-  /// arrancarlo está el icono de al lado.
+  /// **Espera a que exista**, que el comando vuelve antes que el aparato: eso
+  /// ya lo sabe hacer el `lanzar` de los emuladores, y correr contra un `-d`
+  /// que todavía no aparece es el fallo que había que evitar ofreciéndolo.
+  Future<void> _arrancarYElegir(Emulador emulador) async {
+    setState(() {
+      _arrancando = emulador.nombre;
+      _error = null;
+    });
+    final error = await ref.read(emuladoresDataSourceProvider).lanzar(emulador);
+    ref.invalidate(emuladoresProvider);
+    String? arriba;
+    try {
+      final lista = await ref.read(emuladoresProvider.future);
+      for (final e in lista.emuladores) {
+        if (e.id == emulador.id && e.corriendo) arriba = e.deviceId;
+      }
+    } on Exception {
+      // El propio provider cuenta el fallo; aquí solo importaba no elegir mal.
+    }
+    if (!mounted) return;
+    setState(() {
+      _arrancando = null;
+      _error = error;
+      if (arriba != null) _dispositivo = arriba;
+    });
+  }
+
+  /// Lo que hay para correr: emuladores arrancados, teléfonos enchufados y,
+  /// al final, los emuladores apagados —que elegirlos los arranca—.
+  ///
   /// Y **si todavía se están buscando**, que es la mitad que faltaba.
   ///
   /// 🔴 Los dos estados iban aplanados a uno con un `?? const []`, así que
-  /// «todavía no sé» y «no hay ninguno» se pintaban igual: un selector vacío que
-  /// al pulsarlo no abre nada. Reportado mirando la pantalla —«parece que se
-  /// quedó pegada la interfaz»— y no lo parecía: estaba buscando. Y como el
-  /// botón de correr solo se enciende con un dispositivo elegido, el bloque
-  /// entero se veía muerto.
-  ///
-  /// `adb devices` cuesta 14 ms medidos —está aquí al lado—, pero arrancar su
-  /// daemon la primera vez, o un `devicectl` en frío, se van a segundos: justo
-  /// el rato en que vas a correr la app.
+  /// «todavía no sé» y «no hay ninguno» se pintaban igual. Reportado mirando la
+  /// pantalla —«parece que se quedó pegada la interfaz»— y no lo parecía:
+  /// estaba buscando.
   ///
   /// Se mira `isLoading` **junto con** `hasValue` a propósito: al refrescar ya
   /// hay una respuesta anterior que enseñar, y vaciarla para volver a llenarla
   /// sería parpadear por nada.
-  ({bool buscando, List<String> ids}) _losDispositivos() {
+  ///
+  /// **El nombre delante y el id en el detalle**: un id no dice cuál es cuál,
+  /// pero es lo que pide `-d` y a veces hay dos aparatos con el mismo nombre.
+  ({bool buscando, List<_Destino> destinos}) _losDispositivos() {
+    final strings = context.strings;
     final emuladores = ref.watch(emuladoresProvider);
     final conectados = ref.watch(dispositivosProvider);
+    final todos = emuladores.value?.emuladores ?? const <Emulador>[];
 
     return (
       buscando:
           (emuladores.isLoading && !emuladores.hasValue) ||
           (conectados.isLoading && !conectados.hasValue),
-      ids: [
-        for (final e in emuladores.value?.emuladores ?? const <Emulador>[])
-          if (e.corriendo && e.deviceId != null) e.deviceId!,
+      destinos: [
+        for (final e in todos)
+          if (e.corriendo && e.deviceId != null)
+            _Destino(
+              id: e.deviceId,
+              nombre: e.nombre,
+              detalle:
+                  '${e.plataforma == PlataformaEmulador.ios ? strings.runSimulador : strings.runEmulador} · ${e.deviceId}',
+            ),
         for (final d in conectados.value ?? const <DispositivoConectado>[])
-          d.id,
+          _Destino(
+            id: d.id,
+            nombre: d.nombre,
+            detalle: '${strings.runEnchufado} · ${d.id}',
+          ),
+        for (final e in todos)
+          if (!e.corriendo)
+            _Destino(nombre: e.nombre, detalle: strings.runApagado, apagado: e),
       ],
     );
   }
+}
+
+/// Un sitio donde correr, con lo que lo distingue.
+class _Destino {
+  const _Destino({
+    required this.nombre,
+    required this.detalle,
+    this.id,
+    this.apagado,
+  });
+
+  /// Lo que se le pasa a `-d`. Nulo mientras está apagado: todavía no existe.
+  final String? id;
+  final String nombre;
+  final String detalle;
+
+  /// El emulador que hay que arrancar para poder usarlo, si está apagado.
+  final Emulador? apagado;
+}
+
+/// El rótulo de un grupo de opciones: «Configuración», «Dispositivo».
+class _Rotulo extends StatelessWidget {
+  const _Rotulo(this.texto);
+
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
+    child: Text(
+      texto,
+      style: NexusTypography.label.copyWith(color: context.colors.faint),
+    ),
+  );
 }

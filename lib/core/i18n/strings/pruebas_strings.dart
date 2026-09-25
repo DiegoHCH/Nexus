@@ -115,6 +115,9 @@ mixin PruebasStrings {
   String get e2eAppMissing;
   String get e2eSearchingDevices;
   String get verLaPantalla;
+
+  /// El mismo verbo, corto, para el botón escrito de la fila.
+  String get verLaPantallaCorto;
   String get verLaPantallaSinTocar;
   String get verElIphoneDuplicado;
   String get verElIphoneQuickTime;
@@ -438,6 +441,8 @@ mixin PruebasStringsEs implements PruebasStrings {
   String get e2eSearchingDevices => 'Buscando dispositivos…';
   @override
   String get verLaPantalla => 'Ver la pantalla del móvil';
+  @override
+  String get verLaPantallaCorto => 'Ver la pantalla';
   @override
   String get verLaPantallaSinTocar =>
       'Ver la pantalla, sin control: hay una prueba corriendo';
@@ -879,6 +884,8 @@ mixin PruebasStringsEn implements PruebasStrings {
   String get e2eSearchingDevices => 'Looking for devices…';
   @override
   String get verLaPantalla => "See the phone's screen";
+  @override
+  String get verLaPantallaCorto => 'See the screen';
   @override
   String get verLaPantallaSinTocar =>
       'See the screen, no control: a test is running';

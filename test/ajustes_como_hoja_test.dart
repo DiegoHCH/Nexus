@@ -301,7 +301,7 @@ void main() {
       // se empareja, y no en lo último que miró.
       await tester.tap(find.text('abrir en permisos'));
       await asentar(tester);
-      expect(find.text(es.filePermissionsTitle), findsOne);
+      expect(find.text(es.filePermissionsTitle.toUpperCase()), findsOne);
     });
 
     test('el ancho de la hoja: la del mockup, con suelo y techo', () {

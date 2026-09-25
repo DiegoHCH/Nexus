@@ -64,7 +64,10 @@ void main() {
     testWidgets('abre por permisos', (tester) async {
       await abrir(tester);
       expect(find.text(strings.settings), findsOneWidget);
-      expect(find.text(strings.filePermissionsTitle), findsOneWidget);
+      expect(
+        find.text(strings.filePermissionsTitle.toUpperCase()),
+        findsOneWidget,
+      );
     });
 
     // Las cuatro secciones se abren de verdad: una que existiera y no
@@ -81,7 +84,7 @@ void main() {
         // también el nombre del enlace del menú, y encontrarlo dos veces no
         // diría si la sección llegó a pintarse.
         ('language', strings.languageExplainer),
-        ('permissions', strings.filePermissionsTitle),
+        ('permissions', strings.filePermissionsTitle.toUpperCase()),
       ]) {
         await tester.tap(find.byKey(ValueKey('seccion-$seccion')));
         await tester.pump();

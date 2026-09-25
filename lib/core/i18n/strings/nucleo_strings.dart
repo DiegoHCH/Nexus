@@ -956,12 +956,9 @@ mixin NucleoStringsEs implements NucleoStrings {
       : 'No se pudo generar la imagen: $motivo';
   @override
   String get imagesExplainer =>
-      'Las imágenes se generan con una llave propia, aparte de la de voz, '
-      'porque su proyecto necesita '
-      'facturación: con una sola, encender las imágenes empezaría a cobrar '
-      'también las conversaciones.\n\nY hay una por cuenta de Claude: el gasto '
-      'sale de un bolsillo concreto, así que ponerla solo en una cuenta es la '
-      'forma de decir que desde las demás no se generan imágenes.';
+      'Va aparte de la de voz porque su proyecto necesita facturación, y hay '
+      'una por cuenta de Claude. Las llaves viven en **Qué puede hacer › '
+      'Llaves**.';
   @override
   String get imageKeyLabel => 'LLAVE DE IMÁGENES (GEMINI)';
   @override
@@ -970,9 +967,8 @@ mixin NucleoStringsEs implements NucleoStrings {
       'tu saldo.';
   @override
   String get keysExplainer =>
-      'Lo que Nexus tiene guardado cifrado en este Mac. No se enseña ninguna: '
-      'solo si está puesta o no. Para comprobar si es la que crees, quítala y '
-      'pon la buena.';
+      'Lo que Nexus guarda cifrado en el llavero de este Mac. No se enseña '
+      'ninguna: solo si está puesta.';
   @override
   String get keyIsSaved => 'guardada';
   @override
@@ -980,7 +976,7 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String get keyForget => 'OLVIDAR';
   @override
-  String get keyVoice => 'Llave de voz (Gemini)';
+  String get keyVoice => 'Llave de voz · Gemini';
   @override
   String get keyImages => 'Llave de imágenes (Gemini)';
   @override
@@ -1550,12 +1546,9 @@ mixin NucleoStringsEn implements NucleoStrings {
       : 'Could not generate the image: $motivo';
   @override
   String get imagesExplainer =>
-      'Images are generated with a key of their own, separate from the voice '
-      'one because its project needs '
-      'billing: with a single key, turning images on would start charging for '
-      'conversations too.\n\nAnd there is one per Claude account: the spend '
-      'comes out of a specific pocket, so setting it on one account only is how '
-      'you say images are not generated from the others.';
+      'It is separate from the voice key because its project needs billing, '
+      'and there is one per Claude account. The keys live in **What she can '
+      'do › Keys**.';
   @override
   String get imageKeyLabel => 'IMAGE KEY (GEMINI)';
   @override
@@ -1564,9 +1557,8 @@ mixin NucleoStringsEn implements NucleoStrings {
       'charged to your balance.';
   @override
   String get keysExplainer =>
-      'What Nexus keeps encrypted on this Mac. None of them is shown: only '
-      'whether it is set. To check whether it is the one you think, remove it '
-      'and put the right one in.';
+      'What Nexus keeps encrypted in this Mac’s keychain. None of them is '
+      'shown: only whether it is set.';
   @override
   String get keyIsSaved => 'saved';
   @override
@@ -1574,7 +1566,7 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String get keyForget => 'FORGET';
   @override
-  String get keyVoice => 'Voice key (Gemini)';
+  String get keyVoice => 'Voice key · Gemini';
   @override
   String get keyImages => 'Image key (Gemini)';
   @override

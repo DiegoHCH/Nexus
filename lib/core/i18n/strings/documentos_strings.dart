@@ -278,25 +278,21 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   String get cambiosSinLeer =>
       'Archivo nuevo. No se pudo leer desde aquí: puede que ya no esté.';
   @override
-  String blockedTitle(String folder) => 'COMANDOS BLOQUEADOS EN $folder';
+  String blockedTitle(String folder) => 'Comandos vetados en $folder';
   @override
   String get blockedExplainer =>
       'Uno por línea, y basta con un trozo del comando. No es un ruego: el CLI '
       'los deniega, así que no hay rodeo. Claude hará todo lo demás y terminará '
       'diciéndote el comando exacto para que lo lances tú. Con # se comenta.';
   @override
-  String get blockedHint => 'build_runner\npod install\nmake generate';
+  String get blockedHint => 'build_runner · pod install · make generate';
   @override
-  String allowedTitle(String folder) => 'COMANDOS PERMITIDOS EN $folder';
+  String allowedTitle(String folder) => 'Comandos permitidos en $folder';
   @override
   String get allowedExplainer =>
-      'Poder editar no incluye ejecutar: sin esto, Claude escribe archivos pero '
-      'no corre nada. Aquí se autoriza lo que quieras, uno por línea, y solo '
-      'cuenta mientras la carpeta pueda escribir. Descargar con «curl -o» ya '
-      'viene autorizado. Escribe el principio del comando, no un trozo suelto: '
-      'lo que se permite es lo que empiece por eso.';
+      'Poder editar no incluye ejecutar: lo que no está aquí, se pregunta.';
   @override
-  String get allowedHint => 'magick\nffmpeg\nnpm run build';
+  String get allowedHint => 'magick · ffmpeg · npm run build';
   @override
   String get addFolderShort => 'Emparejar otra carpeta';
   @override
@@ -518,25 +514,22 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   String get cambiosSinLeer =>
       'New file. It could not be read from here: it may be gone.';
   @override
-  String blockedTitle(String folder) => 'COMMANDS BLOCKED IN $folder';
+  String blockedTitle(String folder) => 'Commands blocked in $folder';
   @override
   String get blockedExplainer =>
       'One per line, and a fragment of the command is enough. Not a plea: the '
       'CLI denies them, so there is no way around it. Claude will do everything '
       'else and finish by telling you the exact command to run. # comments.';
   @override
-  String get blockedHint => 'build_runner\npod install\nmake generate';
+  String get blockedHint => 'build_runner · pod install · make generate';
   @override
-  String allowedTitle(String folder) => 'COMMANDS ALLOWED IN $folder';
+  String allowedTitle(String folder) => 'Commands allowed in $folder';
   @override
   String get allowedExplainer =>
-      'Being able to edit does not include running: without this, Claude writes '
-      'files but runs nothing. Allow what you want here, one per line, and it '
-      'only counts while the folder can write. Downloading with «curl -o» is '
-      'already allowed. Write the start of the command, not a loose fragment: '
-      'what is allowed is whatever begins with it.';
+      'Being able to edit does not include running: anything not here is '
+      'asked first.';
   @override
-  String get allowedHint => 'magick\nffmpeg\nnpm run build';
+  String get allowedHint => 'magick · ffmpeg · npm run build';
   @override
   String get addFolderShort => 'Pair another folder';
   @override

@@ -54,6 +54,27 @@ mixin AjustesStrings {
   String get alLlamarlaTitulo;
   String alLlamarlaContesta(String frase);
   String get alLlamarlaEnSilencio;
+  // Permisos: el tope, con nombre y lo que cuesta.
+  String get permisoSoloLeer;
+  String get permisoPuedeEditar;
+  String get permisoPistaSoloLeer;
+  String get permisoPistaPuedeEditar;
+  // Una carpeta, en su línea de datos y en su detalle.
+  String get modalidadVoz;
+  String get modalidadSoloTexto;
+  String get repoLoFijaCorto;
+  String comandosVetadosEnDato(int cuantos);
+  String get carpetaActiva;
+  String get vozEnEstaCarpeta;
+  // Qué sale: los datos que acompañan a una puerta.
+  String salidaCuenta(String cuenta);
+  String salidaA(String destino);
+  // Llaves: lo que pasa al olvidar una.
+  String get keysOlvidarPideConfirmacion;
+  // Superpoderes: las dos puertas a lo que se pone una vez.
+  String get mcpAnadirAMano;
+  String get mcpVerElCatalogo;
+  String get figmaUsoContar;
 }
 
 mixin AjustesStringsEs implements AjustesStrings {
@@ -132,6 +153,41 @@ mixin AjustesStringsEs implements AjustesStrings {
   String alLlamarlaContesta(String frase) => 'Contesta «$frase»';
   @override
   String get alLlamarlaEnSilencio => 'Se abre en silencio';
+  @override
+  String get permisoSoloLeer => 'Solo leer';
+  @override
+  String get permisoPuedeEditar => 'Puede editar';
+  @override
+  String get permisoPistaSoloLeer => 'nada se escribe';
+  @override
+  String get permisoPistaPuedeEditar => 'cada carpeta decide';
+  @override
+  String get modalidadVoz => 'Voz';
+  @override
+  String get modalidadSoloTexto => 'Solo texto';
+  @override
+  String get repoLoFijaCorto => '(lo fija el repo)';
+  @override
+  String comandosVetadosEnDato(int cuantos) =>
+      cuantos == 1 ? '1 comando vetado' : '$cuantos comandos vetados';
+  @override
+  String get carpetaActiva => 'Activa';
+  @override
+  String get vozEnEstaCarpeta => 'Qué sale hacia la voz';
+  @override
+  String salidaCuenta(String cuenta) => 'cuenta $cuenta';
+  @override
+  String salidaA(String destino) => 'a $destino';
+  @override
+  String get keysOlvidarPideConfirmacion =>
+      '«Olvidar» pide confirmación: se borra del llavero y hay que volver a '
+      'ponerla.';
+  @override
+  String get mcpAnadirAMano => 'Añadir uno a mano';
+  @override
+  String get mcpVerElCatalogo => 'Ver el catálogo';
+  @override
+  String get figmaUsoContar => 'Contarlas';
 }
 
 mixin AjustesStringsEn implements AjustesStrings {
@@ -212,4 +268,39 @@ mixin AjustesStringsEn implements AjustesStrings {
   String alLlamarlaContesta(String frase) => 'Answers “$frase”';
   @override
   String get alLlamarlaEnSilencio => 'Opens in silence';
+  @override
+  String get permisoSoloLeer => 'Read only';
+  @override
+  String get permisoPuedeEditar => 'Can edit';
+  @override
+  String get permisoPistaSoloLeer => 'nothing is written';
+  @override
+  String get permisoPistaPuedeEditar => 'each folder decides';
+  @override
+  String get modalidadVoz => 'Voice';
+  @override
+  String get modalidadSoloTexto => 'Text only';
+  @override
+  String get repoLoFijaCorto => '(set by the repo)';
+  @override
+  String comandosVetadosEnDato(int cuantos) =>
+      cuantos == 1 ? '1 blocked command' : '$cuantos blocked commands';
+  @override
+  String get carpetaActiva => 'Active';
+  @override
+  String get vozEnEstaCarpeta => 'What goes out to voice';
+  @override
+  String salidaCuenta(String cuenta) => '$cuenta account';
+  @override
+  String salidaA(String destino) => 'to $destino';
+  @override
+  String get keysOlvidarPideConfirmacion =>
+      '“Forget” asks first: it is wiped from the keychain and has to be set '
+      'again.';
+  @override
+  String get mcpAnadirAMano => 'Add one by hand';
+  @override
+  String get mcpVerElCatalogo => 'See the catalogue';
+  @override
+  String get figmaUsoContar => 'Count them';
 }

@@ -585,17 +585,15 @@ mixin PruebasStringsEs implements PruebasStrings {
   @override
   String get elAcentoAutomatico => 'El que elija ella';
   @override
-  String get filePermissionsTitle => 'PERMISOS SOBRE TUS ARCHIVOS';
+  String get filePermissionsTitle => 'Sobre tus archivos';
   @override
   String get tambienSubeElTope =>
       'La app está en solo lectura: al dar permiso aquí, también se abre el de '
       'la app. Las demás carpetas se quedan como están.';
   @override
   String get filePermissionsExplainer =>
-      'Este es el tope de la app y manda por encima de todo: en «solo leer» '
-      'no se escribe en ninguna carpeta, aunque alguna diga que sí. El permiso '
-      'del día a día es de cada carpeta y se cambia junto a la caja de '
-      'escribir, en la conversación de esa carpeta.';
+      'El tope de la app, y manda sobre todo: en «solo leer» no se escribe en '
+      'ninguna carpeta.';
   @override
   String get repoDeclaraTitle => 'LO QUE DECLARA ESTE REPOSITORIO';
   @override
@@ -1045,17 +1043,15 @@ mixin PruebasStringsEn implements PruebasStrings {
   @override
   String get elAcentoAutomatico => 'Whichever it picks';
   @override
-  String get filePermissionsTitle => 'PERMISSIONS OVER YOUR FILES';
+  String get filePermissionsTitle => 'Over your files';
   @override
   String get tambienSubeElTope =>
       'The app is read-only: allowing writes here opens the app-level one too. '
       'Every other folder stays as it is.';
   @override
   String get filePermissionsExplainer =>
-      'This is the app-level cap and it wins over everything: on “read only” '
-      'nothing is written in any folder, even one that says otherwise. The '
-      'day-to-day permission belongs to each folder and is changed next to the '
-      'composer, inside that folder’s conversation.';
+      'The app-level cap, and it wins over everything: on “read only” nothing '
+      'is written in any folder.';
   @override
   String get repoDeclaraTitle => 'WHAT THIS REPOSITORY DECLARES';
   @override

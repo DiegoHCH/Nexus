@@ -169,6 +169,7 @@ class OpcionDeAjustes extends StatelessWidget {
     required this.onPulsar,
     this.pista,
     this.discontinua = false,
+    this.sePuedeSoltar = false,
   });
 
   final String nombre;
@@ -181,6 +182,11 @@ class OpcionDeAjustes extends StatelessWidget {
   /// Con el borde discontinuo: «+25 voces», que no es una opción sino la
   /// puerta a las demás.
   final bool discontinua;
+
+  /// Elegida, se vuelve a pulsar para soltarla: una opción sola que es un sí
+  /// o un no —«En todas las cuentas»—. Entre varias no hace falta, porque se
+  /// suelta eligiendo otra.
+  final bool sePuedeSoltar;
 
   @override
   Widget build(BuildContext context) {
@@ -217,7 +223,7 @@ class OpcionDeAjustes extends StatelessWidget {
       selected: elegida,
       enabled: onPulsar != null,
       child: InkWell(
-        onTap: elegida ? null : onPulsar,
+        onTap: elegida && !sePuedeSoltar ? null : onPulsar,
         borderRadius: BorderRadius.circular(NexusRadius.sm),
         child: CustomPaint(
           foregroundPainter: discontinua
@@ -648,6 +654,39 @@ class BotonDeAjustes extends StatelessWidget {
       return Tooltip(message: mensaje, child: boton);
     }
     return boton;
+  }
+}
+
+/// Un estado dicho con la misma caja que un botón, pero que **no se pulsa**:
+/// «SALIENDO», «CERRADA» al final de una fila de «Qué sale».
+///
+/// Con la forma del botón porque así lo dibuja el mockup —la columna de la
+/// derecha de cada fila es siempre lo que esa fila dice de sí misma—, y sin
+/// tinta ni cursor porque ahí no hay nada que decidir: esa sección se mira.
+class EtiquetaDeAjustes extends StatelessWidget {
+  const EtiquetaDeAjustes(this.texto, {super.key});
+
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: colors.rule2),
+        borderRadius: BorderRadius.circular(NexusRadius.sm),
+      ),
+      child: Text(
+        texto.toUpperCase(),
+        maxLines: 1,
+        style: NexusTypography.label.copyWith(
+          letterSpacing: 1.4,
+          height: 1,
+          color: colors.ink,
+        ),
+      ),
+    );
   }
 }
 

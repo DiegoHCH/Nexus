@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings_page.dart';
+import 'package:nexus/core/design_system/design_system.dart';
+import 'package:nexus/features/workspace/domain/entities/workspace.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:nexus/features/workspace/presentation/widgets/permission_switch.dart';
 
@@ -126,8 +128,10 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('seccion-permissions')));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.byType(PermissionSwitch), findsOne);
-      expect(find.text(strings.filePermissionsTitle), findsOne);
+      // En Permisos va con la gramática de Ajustes —dos opciones con nombre—
+      // y no con el interruptor de la caja de escribir, que es de allí.
+      expect(find.byType(ElegirDeAjustes<FilePermission>), findsOne);
+      expect(find.text(strings.filePermissionsTitle.toUpperCase()), findsOne);
     });
 
     testWidgets('y «Cerrar» está pegado al borde derecho', (tester) async {

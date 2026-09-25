@@ -24,6 +24,8 @@ import 'package:nexus/features/assistant/presentation/providers/conversations_pr
 import 'package:nexus/features/assistant/presentation/widgets/activity_button.dart';
 import 'package:nexus/features/assistant/presentation/widgets/chat_panel.dart';
 import 'package:nexus/features/assistant/presentation/widgets/la_franja_de_avisos.dart';
+import 'package:nexus/features/assistant/presentation/widgets/las_carpetas_de_la_puerta.dart';
+import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/programadas/domain/usecases/como_se_lee_la_cita.dart';
 import 'package:nexus/features/programadas/presentation/providers/el_vigilante_de_las_programadas.dart';
 import 'package:nexus/features/onboarding/presentation/state/tour_state.dart';
@@ -629,6 +631,12 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
   /// entrecortaba la voz.
   final _hablandoLaPuerta = ValueNotifier<bool>(false);
 
+  /// Entre qué carpetas duda, si duda. `null` es que no: se enseñan todas.
+  ///
+  /// Un `ValueNotifier` por lo mismo que el subtítulo: llega mientras suena su
+  /// pregunta, y un `setState` ahí repinta el orbe y entrecorta la voz.
+  final _dudaEntre = ValueNotifier<List<PairedFolder>?>(null);
+
   /// Lo escrito es el saludo adelantado y todavía no lo ha dicho él.
   ///
   /// 🔴 Se veía dos veces: primero lo pintamos nosotros para que la pantalla no
@@ -652,6 +660,7 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
     unawaited(_puerta?.cancel());
     _dicho.dispose();
     _hablandoLaPuerta.dispose();
+    _dudaEntre.dispose();
     super.dispose();
   }
 
@@ -711,7 +720,8 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
     // 🔴 **Del ámbito del widget, no del proveedor.** Los dos existen y pueden
     // discrepar —una prueba los pilló diciendo uno inglés y el otro español—, y
     // el que manda en lo que se ve es el que envuelve a esta pantalla.
-    final saludo = context.strings.saludoDeLaPuerta(
+    final strings = context.strings;
+    final saludo = strings.saludoDeLaPuerta(
       LaPuertaQueSaluda.franjaDe(DateTime.now()),
       ref.read(losNombresProvider).tuyo,
     );
@@ -726,7 +736,14 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
 
     _puerta = ref
         .read(laSesionDePuertaProvider)
-        .abrir(saludo: saludo, carpetas: carpetas)
+        .abrir(
+          saludo: saludo,
+          carpetas: carpetas,
+          // Las dos frases de cuando no te entiende, del mismo ámbito que el
+          // saludo: lo que se oye y lo que se lee tienen que ser la misma.
+          siNoTeSigue: strings.laPuertaNoEntendio,
+          siDudaEntre: strings.laPuertaOyoDos,
+        )
         .listen(_loQuePasaEnLaPuerta);
   }
 
@@ -739,7 +756,35 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
     _dicho.value = '';
     _adelanto = '';
     _hablandoLaPuerta.value = false;
+    _dudaEntre.value = null;
     _loTranscrito.clear();
+  }
+
+  /// La frase de la puerta, escrita ya y en lugar de lo que hubiera: el modelo
+  /// la dice literal —se le da así—, y si no llega a decirla se lee igual.
+  void _escribeYa(String frase) {
+    _adelanto = frase;
+    _loTranscrito.clear();
+    _dicho.value = frase;
+  }
+
+  /// Se tocó una sugerencia: se trabaja ahí, **sin esperar a la voz**.
+  ///
+  /// La puerta se cierra antes de abrir la conversación —cancelar la
+  /// suscripción suelta el micro y el socket—, porque si siguiera oyendo podría
+  /// elegir otra carpeta encima de la que acabas de tocar. Tocar es la
+  /// respuesta más clara que hay, y gana.
+  Future<void> _elegirTocando(String carpeta) async {
+    // El proveedor se coge antes de esperar nada: al abrirse la conversación
+    // esta pantalla se va, y un `ref` de después ya no vale.
+    final conversaciones = ref.read(conversationsProvider.notifier);
+    final puerta = _puerta;
+    _puerta = null;
+    await puerta?.cancel();
+    final id = await conversaciones.open(carpeta);
+    // No se pudo abrir: vuelve la pantalla de siempre en vez de quedarse con
+    // una puerta que ya no escucha.
+    if (id == null) _sinPuerta();
   }
 
   void _loQuePasaEnLaPuerta(LoQuePasaEnLaPuerta evento) {
@@ -770,9 +815,19 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
       // pantalla no puede cambiar en silencio. Si lo dice, su transcripción
       // trae la misma frase y esto no se mueve — ver [ElAdelantoDeLaPuerta].
       case LaPuertaAbrira(:final carpeta):
-        _adelanto = context.strings.laPuertaAbre(carpeta.name);
-        _loTranscrito.clear();
-        _dicho.value = _adelanto;
+        _dudaEntre.value = null;
+        _escribeYa(context.strings.laPuertaAbre(carpeta.name));
+      // Los dos casos de «no te entiende»: la frase se escribe ya, igual que
+      // la de abrir, y las carpetas siguen a la vista para tocarlas. Si duda,
+      // quedan solo las que dudó.
+      case LaPuertaNoTeSiguio():
+        _dudaEntre.value = null;
+        _escribeYa(context.strings.laPuertaNoEntendio);
+      case LaPuertaDudaEntre(:final carpetas):
+        _dudaEntre.value = carpetas;
+        _escribeYa(
+          context.strings.laPuertaOyoDos([for (final c in carpetas) c.name]),
+        );
       case LaPuertaHabla(:final hablando):
         _hablandoLaPuerta.value = hablando;
       case LaPuertaEstaLista():
@@ -917,7 +972,7 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
                         Positioned(
                           left: NexusSpacing.s8,
                           right: NexusSpacing.s8,
-                          bottom: ConversationDock.alDelSuelo + 40,
+                          bottom: ConversationDock.alDelSuelo + 64,
                           // 🔴 **Sin comerse las pulsaciones.** Se pinta después
                           // del muelle, así que queda por encima: sin esto, el
                           // borde superior de «nueva» dejaba de responder — y un
@@ -942,17 +997,25 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
                                   builder: (context, dicho, _) =>
                                       SingleChildScrollView(
                                         reverse: true,
-                                        child: Text(
-                                          dicho,
-                                          textAlign: TextAlign.center,
-                                          style: NexusTypography.nota.copyWith(
-                                            color: colors.ink,
-                                          ),
-                                        ),
+                                        child: _ConLaPreguntaTenue(dicho),
                                       ),
                                 ),
                               ),
                             ),
+                          ),
+                        ),
+                      // Las carpetas, para tocar en vez de repetir. Debajo del
+                      // subtítulo y a la altura del muelle, que con la puerta
+                      // abierta no está.
+                      if (_puertaAbierta)
+                        Positioned(
+                          left: NexusSpacing.s8,
+                          right: NexusSpacing.s8,
+                          bottom: ConversationDock.alDelSuelo,
+                          child: _LasSugerencias(
+                            carpetas: folders,
+                            dudaEntre: _dudaEntre,
+                            alElegir: _elegirTocando,
                           ),
                         ),
                       if (folders.isEmpty &&
@@ -1002,6 +1065,75 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Lo que dice la puerta, con la pregunta en tenue. Ver
+/// [ElAdelantoDeLaPuerta.laPreguntaAparte].
+class _ConLaPreguntaTenue extends StatelessWidget {
+  const _ConLaPreguntaTenue(this.texto);
+
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final (dicho, pregunta) = ElAdelantoDeLaPuerta.laPreguntaAparte(texto);
+    final estilo = NexusTypography.nota.copyWith(color: colors.ink);
+    return Text.rich(
+      TextSpan(
+        text: dicho,
+        children: [
+          if (pregunta.isNotEmpty)
+            TextSpan(
+              text: pregunta,
+              style: estilo.copyWith(color: colors.faint),
+            ),
+        ],
+      ),
+      textAlign: TextAlign.center,
+      style: estilo,
+    );
+  }
+}
+
+/// Las sugerencias de la puerta con lo que hace falta para pintarlas: cuáles
+/// —o solo las que duda—, y «Sin proyecto» si hay carpeta de documentos.
+class _LasSugerencias extends ConsumerWidget {
+  const _LasSugerencias({
+    required this.carpetas,
+    required this.dudaEntre,
+    required this.alElegir,
+  });
+
+  final List<PairedFolder> carpetas;
+  final ValueNotifier<List<PairedFolder>?> dudaEntre;
+  final ValueChanged<String> alElegir;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ultima = ref.watch(
+      workspaceControllerProvider.select((w) => w.activePath),
+    );
+    final documentos = ref.watch(artifactsFolderProvider);
+    // «Sin proyecto» es la carpeta de documentos, y solo cuando no es ya una
+    // de las emparejadas: dos botones que abren lo mismo es uno de más.
+    final sinProyecto =
+        documentos != null && !carpetas.any((c) => c.path == documentos);
+    return ValueListenableBuilder<List<PairedFolder>?>(
+      valueListenable: dudaEntre,
+      builder: (context, duda, _) => LasCarpetasDeLaPuerta(
+        carpetas:
+            duda ?? LaPuertaQueSaluda.sugerencias(carpetas, laUltima: ultima),
+        resaltadas: duda != null,
+        alElegir: (carpeta) => alElegir(carpeta.path),
+        // Dudando entre dos no se ofrece una tercera salida: la pregunta ya
+        // es cuál de esas.
+        alElegirSinProyecto: sinProyecto && duda == null
+            ? () => alElegir(documentos)
+            : null,
       ),
     );
   }

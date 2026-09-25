@@ -62,4 +62,36 @@ void main() {
       'Vale, abro nexus',
     );
   });
+
+  // La pregunta en tenue, como el mockup: es lo que queda por contestar.
+  group('la pregunta aparte', () {
+    test('lo dicho y lo preguntado, por separado', () {
+      expect(
+        ElAdelantoDeLaPuerta.laPreguntaAparte(
+          'No te seguí. ¿En qué carpeta trabajamos?',
+        ),
+        ('No te seguí. ', '¿En qué carpeta trabajamos?'),
+      );
+      expect(
+        ElAdelantoDeLaPuerta.laPreguntaAparte(
+          "I didn't catch that. Which folder?",
+        ),
+        ("I didn't catch that. ", 'Which folder?'),
+      );
+    });
+
+    test('sin pregunta al final, todo junto', () {
+      expect(ElAdelantoDeLaPuerta.laPreguntaAparte('Vale, abro nexus.'), (
+        'Vale, abro nexus.',
+        '',
+      ));
+    });
+
+    test('y una pregunta sola no se parte', () {
+      expect(ElAdelantoDeLaPuerta.laPreguntaAparte('¿En cuál?'), (
+        '¿En cuál?',
+        '',
+      ));
+    });
+  });
 }

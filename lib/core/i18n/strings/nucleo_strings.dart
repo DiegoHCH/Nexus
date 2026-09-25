@@ -197,6 +197,22 @@ mixin NucleoStrings {
   String get laListaDeProgramadas;
   String get ningunaProgramada;
   String get ayudaProgramadas;
+
+  /// Qué hace `/recuerda`, en la ayuda.
+  String get ayudaRecuerda;
+
+  /// La cabecera de lo que sabe de ti, y el aviso de que está vacío.
+  /// La sección de Ajustes donde se ve lo que sabe de ti.
+  String get sectionMemoria;
+  String get memoriaExplainer;
+  String get memoriaOlvidar;
+  String memoriaNota(int cuantas);
+
+  String get laMemoriaTitulo;
+  String get laMemoriaVacia;
+
+  /// Lo que se contesta al apuntar algo.
+  String laMemoriaApuntada(String texto);
   String get apagarla;
   String get encenderla;
   String get borrarla;
@@ -615,6 +631,30 @@ mixin NucleoStringsEs implements NucleoStrings {
       'documento de lunes a viernes a las 5pm»— y te pregunto si lo programo.';
   @override
   String get ayudaProgramadas => 'las tareas que se repiten';
+  @override
+  String get ayudaRecuerda => 'lo que sé de ti, y apuntar algo más';
+  @override
+  String get sectionMemoria => 'Memoria';
+  @override
+  String get memoriaExplainer =>
+      'Lo que me has pedido que recuerde de ti. No sale del repositorio: viaja '
+      'con todos los encargos, de cualquier carpeta, y también a la voz. Se '
+      'apunta escribiendo «/recuerda» y lo que sea.';
+  @override
+  String get memoriaOlvidar => 'Olvidar esto';
+  @override
+  String memoriaNota(int cuantas) =>
+      'Se guardan las $cuantas últimas. Esto entra en lo que se le manda a '
+      'Claude en cada encargo, así que lo que crezca aquí se paga en cada '
+      'turno: van las más recientes.';
+  @override
+  String get laMemoriaTitulo => 'LO QUE SÉ DE TI';
+  @override
+  String get laMemoriaVacia =>
+      'Todavía no sé nada de ti. Escribe «/recuerda» y lo que quieras que no '
+      'se me olvide: viaja con todos los encargos, de cualquier carpeta.';
+  @override
+  String laMemoriaApuntada(String texto) => 'Apuntado: $texto';
   @override
   String get apagarla => 'Apagar';
   @override
@@ -1162,6 +1202,30 @@ mixin NucleoStringsEn implements NucleoStrings {
       'document every weekday at 5pm» — and I will ask whether to schedule it.';
   @override
   String get ayudaProgramadas => 'the tasks that repeat';
+  @override
+  String get ayudaRecuerda => 'what I know about you, and noting one more';
+  @override
+  String get sectionMemoria => 'Memory';
+  @override
+  String get memoriaExplainer =>
+      'What you have asked me to remember about you. It does not come from the '
+      'repository: it travels with every errand, in any folder, and to the '
+      'voice too. You note it by typing “/recuerda” and whatever it is.';
+  @override
+  String get memoriaOlvidar => 'Forget this';
+  @override
+  String memoriaNota(int cuantas) =>
+      'The last $cuantas are kept. This goes into what Claude is sent on every '
+      'errand, so whatever grows here is paid for on every turn: the most '
+      'recent ones go.';
+  @override
+  String get laMemoriaTitulo => 'WHAT I KNOW ABOUT YOU';
+  @override
+  String get laMemoriaVacia =>
+      'I do not know anything about you yet. Type “/recuerda” and whatever you '
+      'do not want me to forget: it travels with every errand, in any folder.';
+  @override
+  String laMemoriaApuntada(String texto) => 'Noted: $texto';
   @override
   String get apagarla => 'Turn off';
   @override

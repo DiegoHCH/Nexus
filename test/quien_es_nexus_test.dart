@@ -126,6 +126,7 @@ void main() {
       () => 'español',
       () => null,
       () => 'Hal',
+      () => null,
       () async {},
     ).elSetupDe(const ComoLaPuerta(saludo: 'buenas', carpetas: ['nexus']));
     final dicho =
@@ -206,5 +207,29 @@ void main() {
         expect(VoiceRouting.needsClaude(dicho), isFalse, reason: dicho);
       }
     });
+  });
+
+  // 🔴 **Una sola memoria, no dos.** Lo que le cuentas escribiendo tiene que
+  // saberlo hablando: dos asistentes con el mismo nombre y memorias distintas
+  // es peor que uno sin memoria. Ver `LoQueSeSabeDeTi`.
+  test('y lo que sabe de ti viaja también a la voz', () {
+    final dicho = GeminiVoiceGateway.instruccionDelSistema(
+      agente: 'Hestia',
+      idioma: 'español',
+      nombres: '',
+      loQueSeSabeDeTi: '- uso tabuladores',
+    );
+
+    expect(dicho, contains('- uso tabuladores'));
+  });
+
+  test('y sin memoria no deja un hueco raro en la instrucción', () {
+    final dicho = GeminiVoiceGateway.instruccionDelSistema(
+      agente: 'Hestia',
+      idioma: 'español',
+      nombres: '',
+    );
+
+    expect(dicho, isNot(contains('null')));
   });
 }

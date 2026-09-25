@@ -430,6 +430,7 @@ class _PuenteQuePregunta implements ClaudeBridge {
     String? language,
     String? nombres,
     String? identidad,
+    String? loQueSeSabeDeTi,
     String? modoConcedido,
     Future<RespuestaDePermiso> Function(PeticionDePermiso)? alPedirPermiso,
   }) async* {
@@ -490,6 +491,7 @@ class _PuenteQuePreguntaDosVeces implements ClaudeBridge {
     String? language,
     String? nombres,
     String? identidad,
+    String? loQueSeSabeDeTi,
     String? modoConcedido,
     Future<RespuestaDePermiso> Function(PeticionDePermiso)? alPedirPermiso,
   }) async* {

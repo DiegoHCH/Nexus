@@ -31,6 +31,7 @@ class _Bridge implements ClaudeBridge {
     String? language,
     String? nombres,
     String? identidad,
+    String? loQueSeSabeDeTi,
     String? modoConcedido,
     Future<RespuestaDePermiso> Function(PeticionDePermiso)? alPedirPermiso,
   }) async* {
@@ -104,6 +105,7 @@ AskClaude _askWith(
           carpetaDePruebas: null,
           nombres: null,
           identidad: null,
+          loQueSeSabeDeTi: null,
           disallowedTools: const <String>[],
           comandosPermitidos: const <String>[],
           constraintsNotice: null,

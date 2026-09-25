@@ -46,6 +46,7 @@ class _PuenteQueTrabaja implements ClaudeBridge {
     String? language,
     String? nombres,
     String? identidad,
+    String? loQueSeSabeDeTi,
     String? modoConcedido,
     Object? alPedirPermiso,
   }) async* {
@@ -107,6 +108,7 @@ void main() {
       carpetaDePruebas: null,
       nombres: null,
       identidad: null,
+      loQueSeSabeDeTi: null,
       disallowedTools: const <String>[],
       comandosPermitidos: const <String>[],
       constraintsNotice: null,

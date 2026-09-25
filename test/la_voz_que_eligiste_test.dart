@@ -51,6 +51,7 @@ GeminiVoiceGateway _gateway({
   () => 'español',
   () => null,
   () => null,
+  () => null,
   ajustes ?? () async {},
 );
 

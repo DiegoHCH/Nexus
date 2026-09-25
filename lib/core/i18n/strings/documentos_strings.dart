@@ -53,6 +53,25 @@ mixin DocumentosStrings {
   /// Cuando un texto no se puede leer al abrirlo.
   String get artifactsNoSePudoLeer;
 
+  /// La vista previa de un documento: la línea de arriba dice de qué cuenta
+  /// es —«cuenta work»—, el bloque «Salió de» nombra la conversación, y las
+  /// tres acciones van debajo.
+  String artifactsCuenta(String cuenta);
+  String get artifactsSalioDe;
+  String get artifactsAbrir;
+  String get artifactsRetomar;
+
+  /// Lo que se avisa de una página antes de abrirla: que se abre con los
+  /// scripts y la red apagados. Es verdad del visor —ver `NexusArtifacts`— y
+  /// decirlo antes evita el «está rota» de una página que solo está quieta.
+  String get artifactsNotaDelVisor;
+
+  /// Cuando retomar desde un documento no sale: el muelle está lleno, o la
+  /// conversación ya no está donde se guardó. Callar se leería como que el
+  /// botón no hace nada.
+  String artifactsRetomarNoCabe(int maximo);
+  String get artifactsRetomarNoEsta;
+
   /// Lo que se lee mientras se arrastra un archivo por encima del compositor.
   String get dropHere;
 
@@ -185,7 +204,9 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   @override
   String get artifactsChoose => 'Elegir carpeta';
   @override
-  String get artifactsChange => 'Cambiar de carpeta';
+  // «Cambiar» a secas: va al lado de la ruta y debajo de «Dónde se guardan»,
+  // así que ya se sabe qué se cambia.
+  String get artifactsChange => 'Cambiar';
   @override
   String get artifactsReveal => 'Enseñar en el Finder';
   @override
@@ -231,6 +252,24 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   String get artifactsDondeSeGuardan => 'Dónde se guardan';
   @override
   String get artifactsNoSePudoLeer => 'No se pudo leer.';
+  @override
+  String artifactsCuenta(String cuenta) => 'cuenta $cuenta';
+  @override
+  String get artifactsSalioDe => 'Salió de';
+  @override
+  String get artifactsAbrir => 'Abrir';
+  @override
+  String get artifactsRetomar => 'Retomar la conversación';
+  @override
+  String get artifactsNotaDelVisor =>
+      'Se abre en el visor de Nexus con scripts y red apagados; se encienden '
+      'desde su barra si hace falta.';
+  @override
+  String artifactsRetomarNoCabe(int maximo) =>
+      'Ya hay $maximo conversaciones abiertas. Cierra una para retomar esta.';
+  @override
+  String get artifactsRetomarNoEsta =>
+      'Esa conversación ya no está donde se guardó.';
   @override
   String get dropHere => 'Suéltalo aquí';
   @override
@@ -426,7 +465,7 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   @override
   String get artifactsChoose => 'Pick a folder';
   @override
-  String get artifactsChange => 'Change folder';
+  String get artifactsChange => 'Change';
   @override
   String get artifactsReveal => 'Show in Finder';
   @override
@@ -472,6 +511,25 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   String get artifactsDondeSeGuardan => 'Where they are kept';
   @override
   String get artifactsNoSePudoLeer => 'Could not be read.';
+  @override
+  String artifactsCuenta(String cuenta) => '$cuenta account';
+  @override
+  String get artifactsSalioDe => 'Came from';
+  @override
+  String get artifactsAbrir => 'Open';
+  @override
+  String get artifactsRetomar => 'Resume the conversation';
+  @override
+  String get artifactsNotaDelVisor =>
+      'Opens in the Nexus viewer with scripts and network off; turn them on '
+      'from its bar if needed.';
+  @override
+  String artifactsRetomarNoCabe(int maximo) =>
+      'There are already $maximo conversations open. Close one to resume this '
+      'one.';
+  @override
+  String get artifactsRetomarNoEsta =>
+      'That conversation is no longer where it was saved.';
   @override
   String get dropHere => 'Drop it here';
   @override

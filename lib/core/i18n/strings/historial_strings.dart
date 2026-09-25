@@ -78,6 +78,11 @@ mixin HistorialStrings {
   String get historialRetomar;
   String get historialBorrar;
 
+  /// El «Cancelar» de las confirmaciones en la fila, en minúscula de frase como
+  /// cualquier otro botón de las hojas: [cancel] va en mayúsculas porque es de
+  /// los diálogos de antes, y al lado de «Borrar» se leía como un grito.
+  String get historialCancelar;
+
   /// Lo que hace cada botón de la vista, dicho debajo. Hay dos porque el de
   /// olvidar solo aparece en la conversación de la carpeta que se tiene abierta,
   /// y explicar un botón que no está confunde más que no explicarlo.
@@ -135,8 +140,6 @@ mixin HistorialStrings {
   String get notionMissing;
   String get claudeAccount;
   String get claudeAccountDefault;
-  String get deleteConversation;
-  String get deleteForReal;
   String get cancel;
   String claudeAccountSignedOut(String name);
 }
@@ -248,7 +251,9 @@ mixin HistorialStringsEs implements HistorialStrings {
   String historialTurnos(int cuantos) =>
       cuantos == 1 ? '1 turno' : '$cuantos turnos';
   @override
-  String get historialLoQuePediste => 'Lo último que pediste';
+  // «Lo que pediste» y no «lo último»: debajo va una frase sola, y el
+  // «último» ya lo dice el turno de al lado.
+  String get historialLoQuePediste => 'Lo que pediste';
   @override
   String get historialLoQueDijo => 'Lo último que dijo';
   @override
@@ -261,6 +266,8 @@ mixin HistorialStringsEs implements HistorialStrings {
   String get historialRetomar => 'Retomar';
   @override
   String get historialBorrar => 'Borrar';
+  @override
+  String get historialCancelar => 'Cancelar';
   @override
   String get historialNotaRetomar =>
       'Retomar la abre donde la dejaste: Claude sabe lo que ya hicisteis.';
@@ -364,10 +371,6 @@ mixin HistorialStringsEs implements HistorialStrings {
   String get claudeAccount => 'Cuenta de Claude para esta carpeta';
   @override
   String get claudeAccountDefault => 'cuenta por defecto';
-  @override
-  String get deleteConversation => 'Borrar esta conversación';
-  @override
-  String get deleteForReal => 'BORRAR';
   @override
   String get cancel => 'CANCELAR';
   @override
@@ -474,7 +477,7 @@ mixin HistorialStringsEn implements HistorialStrings {
   String historialTurnos(int cuantos) =>
       cuantos == 1 ? '1 turn' : '$cuantos turns';
   @override
-  String get historialLoQuePediste => 'What you last asked';
+  String get historialLoQuePediste => 'What you asked';
   @override
   String get historialLoQueDijo => 'What it last said';
   @override
@@ -488,6 +491,8 @@ mixin HistorialStringsEn implements HistorialStrings {
   String get historialRetomar => 'Resume';
   @override
   String get historialBorrar => 'Delete';
+  @override
+  String get historialCancelar => 'Cancel';
   @override
   String get historialNotaRetomar =>
       'Resuming opens it where you left off: Claude knows what you already '
@@ -590,10 +595,6 @@ mixin HistorialStringsEn implements HistorialStrings {
   String get claudeAccount => 'Claude account for this folder';
   @override
   String get claudeAccountDefault => 'default account';
-  @override
-  String get deleteConversation => 'Delete this conversation';
-  @override
-  String get deleteForReal => 'DELETE';
   @override
   String get cancel => 'CANCEL';
   @override

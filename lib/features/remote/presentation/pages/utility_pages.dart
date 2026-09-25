@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/artifacts/domain/usecases/html_del_visor.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
@@ -66,7 +67,8 @@ class _ListaDeUtilidad extends StatelessWidget {
         ],
         cuerpo,
         const SizedBox(height: NexusSpacing.s6),
-        Text(pie, style: NexusTypography.mono.copyWith(color: colors.faint)),
+        // En sans y `mute`: es una explicación, y en mono tenue no pasaba AA.
+        Text(pie, style: NexusTypography.nota.copyWith(color: colors.mute)),
         const SizedBox(height: NexusSpacing.s6),
       ],
     );
@@ -251,6 +253,7 @@ class _Fila extends StatelessWidget {
     super.key,
     required this.titulo,
     required this.dato,
+    this.delante,
     this.chip,
     this.chipVivo = false,
     this.alTocar,
@@ -259,6 +262,10 @@ class _Fila extends StatelessWidget {
 
   final String titulo;
   final String dato;
+
+  /// Lo que va a la izquierda, cuando hace falta: el tipo de un documento.
+  final Widget? delante;
+
   final String? chip;
   final bool chipVivo;
   final VoidCallback? alTocar;
@@ -273,44 +280,232 @@ class _Fila extends StatelessWidget {
 
     return InkWell(
       onTap: apagada ? null : alTocar,
-      child: Container(
-        width: double.infinity,
-        // s3 y no s4: en una lista de teléfono, 16 px arriba y abajo por fila
-        // convierten cuatro elementos en una pantalla entera. Con 12 caben seis sin
-        // que se toquen.
-        padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s3),
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: colors.rule)),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    titulo,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: NexusTypography.lead.copyWith(
-                      color: apagada ? colors.mute : colors.ink,
+      child: Opacity(
+        // Tenue como el mockup, y no solo el título en gris: la fila entera dice «esto
+        // está, pero aquí no se abre».
+        opacity: apagada ? 0.55 : 1,
+        child: Container(
+          width: double.infinity,
+          // s3 y no s4: en una lista de teléfono, 16 px arriba y abajo por fila
+          // convierten cuatro elementos en una pantalla entera. Con 12 caben seis sin
+          // que se toquen.
+          padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s3),
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: colors.rule)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (delante case final algo?) ...[
+                algo,
+                const SizedBox(width: NexusSpacing.s3),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Lo que se lee, en sans y a tamaño de fila: con `lead` cuatro
+                    // filas ya llenaban la pantalla.
+                    Text(
+                      titulo,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: NexusTypography.body.copyWith(
+                        color: colors.ink,
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    dato,
-                    style: NexusTypography.data.copyWith(color: colors.faint),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    // Y el dato en mono, en `mute`: en `faint` sobre el fondo no pasaba
+                    // AA, y es lo que distingue una fila de su vecina.
+                    Text(
+                      dato,
+                      style: NexusTypography.data.copyWith(color: colors.mute),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            if (chip != null) ...[
-              const SizedBox(width: NexusSpacing.s3),
-              StateChip(texto: chip!, vivo: chipVivo),
+              if (chip != null) ...[
+                const SizedBox(width: NexusSpacing.s3),
+                StateChip(texto: chip!, vivo: chipVivo),
+              ],
             ],
-          ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+/// La caja de buscar del teléfono: el campo del compositor, con su pista.
+///
+/// **No la del Mac** (`CampoDeBusqueda`): aquella lleva el atajo `⌘F` al lado, que en
+/// un teléfono es una tecla que no existe. Lo que se comparte con el Mac es lo que
+/// dice —«Buscar en lo que se habló»— y cómo busca, no el dibujo.
+class _Buscador extends StatelessWidget {
+  const _Buscador({required this.pista, required this.alCambiar});
+
+  final String pista;
+  final ValueChanged<String> alCambiar;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 44),
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: NexusSpacing.s3),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(color: colors.rule2),
+      ),
+      child: TextField(
+        key: const ValueKey('buscar-en-el-historial'),
+        onChanged: alCambiar,
+        style: NexusTypography.body.copyWith(color: colors.ink),
+        cursorColor: colors.accent,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: pista,
+          hintStyle: NexusTypography.body.copyWith(color: colors.faint),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          isDense: true,
+        ),
+      ),
+    );
+  }
+}
+
+/// El rótulo de un grupo: «Hoy», «Ayer», «De: CRED-310 · desenlaces».
+class _Grupo extends StatelessWidget {
+  const _Grupo(this.texto);
+
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(
+      top: NexusSpacing.s4,
+      bottom: NexusSpacing.s1,
+    ),
+    child: Text(
+      texto.toUpperCase(),
+      style: NexusTypography.label.copyWith(color: context.colors.mute),
+    ),
+  );
+}
+
+/// Las del archivo que casan con lo buscado, **con la misma regla que el Mac**: todas
+/// las palabras, en el título, la carpeta o la cuenta, sin mayúsculas.
+///
+/// Lo que el Mac busca además —lo último que se pidió y se contestó— no viaja con la
+/// lista del teléfono: traerlo sería mandar por 4G el final de treinta conversaciones
+/// para buscar en una.
+List<ArchiveEntry> _buscadas(List<ArchiveEntry> todas, String busqueda) {
+  final palabras = busqueda
+      .toLowerCase()
+      .split(RegExp(r'\s+'))
+      .where((p) => p.isNotEmpty)
+      .toList();
+  if (palabras.isEmpty) return todas;
+  return [
+    for (final c in todas)
+      if (palabras.every(
+        '${c.title} ${c.folder} ${c.account ?? ''}'.toLowerCase().contains,
+      ))
+        c,
+  ];
+}
+
+/// El archivo por días, del más reciente al más viejo: la misma forma que el
+/// historial del Mac, donde el día se dice **una vez** en su cabecera.
+///
+/// Las que no traen fecha —un Mac de antes— van al final y sin cabecera: ponerlas en
+/// «hoy» sería mentir sobre cuándo fueron.
+List<(DateTime?, List<ArchiveEntry>)> _porDias(List<ArchiveEntry> entradas) {
+  final dias = <DateTime, List<ArchiveEntry>>{};
+  final sinDia = <ArchiveEntry>[];
+  for (final e in entradas) {
+    final cuando = e.when;
+    if (cuando == null) {
+      sinDia.add(e);
+      continue;
+    }
+    dias
+        .putIfAbsent(DateTime(cuando.year, cuando.month, cuando.day), () => [])
+        .add(e);
+  }
+  final orden = dias.keys.toList()..sort((a, b) => b.compareTo(a));
+  return [
+    for (final dia in orden)
+      (dia, dias[dia]!..sort((a, b) => b.when!.compareTo(a.when!))),
+    if (sinDia.isNotEmpty) (null, sinDia),
+  ];
+}
+
+/// «Hoy», «Ayer» o la fecha, con las mismas palabras que el historial del Mac.
+String _nombreDelDia(NexusStrings strings, DateTime dia, DateTime ahora) {
+  final hoy = DateTime(ahora.year, ahora.month, ahora.day);
+  if (dia == hoy) return strings.historialHoy;
+  // Con el constructor y no restando 24 h: el día que cambia la hora, ayer a las
+  // 00:00 está a 23 o 25 horas.
+  if (dia == DateTime(ahora.year, ahora.month, ahora.day - 1)) {
+    return strings.historialAyer;
+  }
+  return strings.historialDia(dia, conElAno: dia.year != ahora.year);
+}
+
+/// Los documentos **por la conversación que los produjo**, como el Mac: del grupo con
+/// el documento más reciente al más viejo, y «Sin conversación» siempre al final —
+/// no es una conversación, es lo que no se sabe de dónde vino—.
+List<(String?, List<ArtifactEntry>)> _porConversacion(
+  List<ArtifactEntry> documentos,
+) {
+  final epoca = DateTime.fromMillisecondsSinceEpoch(0);
+  final ordenados = [...documentos]
+    ..sort((a, b) => (b.when ?? epoca).compareTo(a.when ?? epoca));
+  final grupos = <String, List<ArtifactEntry>>{};
+  final titulos = <String, String>{};
+  final sueltos = <ArtifactEntry>[];
+  for (final d in ordenados) {
+    final id = d.conversation;
+    if (id == null) {
+      sueltos.add(d);
+      continue;
+    }
+    grupos.putIfAbsent(id, () => []).add(d);
+    titulos.putIfAbsent(id, () => d.conversationTitle ?? '');
+  }
+  return [
+    for (final id in grupos.keys) (titulos[id], grupos[id]!),
+    if (sueltos.isNotEmpty) (null, sueltos),
+  ];
+}
+
+/// El tipo de un documento, en la caja de la izquierda: su extensión, que es un dato.
+class _Tipo extends StatelessWidget {
+  const _Tipo(this.nombre);
+
+  final String nombre;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final punto = nombre.lastIndexOf('.');
+    final extension = punto == -1 ? '' : nombre.substring(punto + 1);
+    return Container(
+      width: 34,
+      height: 34,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(border: Border.all(color: colors.rule2)),
+      child: Text(
+        extension.toUpperCase(),
+        maxLines: 1,
+        overflow: TextOverflow.clip,
+        style: NexusTypography.data.copyWith(color: colors.mute, fontSize: 8),
       ),
     );
   }
@@ -334,6 +529,9 @@ class _ArchivePageState extends ConsumerState<ArchivePage> {
   /// verdad** —«general»— y por tanto no puede significar también «sin elegir».
   bool _elegido = false;
 
+  /// Lo que se busca. Tampoco se guarda, por lo mismo que la cuenta.
+  var _busqueda = '';
+
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
@@ -346,13 +544,25 @@ class _ArchivePageState extends ConsumerState<ArchivePage> {
     return _ListaDeUtilidad(
       rotulo: strings.mobileHistory,
       alRefrescar: () => ref.refresh(archiveProvider.future),
-      arriba: _CuentasArriba(
-        cubos: cubos,
-        elegida: cuenta,
-        alElegir: (cubo) => setState(() {
-          _cuenta = cubo;
-          _elegido = true;
-        }),
+      // El buscador **antes** que las cuentas, como el mockup: se viene a buscar una
+      // concreta, y la cuenta es un filtro que se toca después si hace falta.
+      arriba: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _Buscador(
+            pista: strings.historialBuscar,
+            alCambiar: (texto) => setState(() => _busqueda = texto),
+          ),
+          if (cubos.length > 1) const SizedBox(height: NexusSpacing.s3),
+          _CuentasArriba(
+            cubos: cubos,
+            elegida: cuenta,
+            alElegir: (cubo) => setState(() {
+              _cuenta = cubo;
+              _elegido = true;
+            }),
+          ),
+        ],
       ),
       pie: strings.mobileHistoryFooter,
       cuerpo: switch (archivo) {
@@ -366,39 +576,24 @@ class _ArchivePageState extends ConsumerState<ArchivePage> {
               cuenta ?? strings.mobileGeneral,
             ),
           ),
+        // Sin resultados se dice **qué se buscó**, con la frase del Mac: una lista
+        // vacía a secas se lee como «no hay historial», y lo hay.
+        AsyncData(:final value)
+            when _buscadas(
+              _soloDe(value, cuenta, (c) => c.account),
+              _busqueda,
+            ).isEmpty =>
+          _Vacia(texto: strings.historialNadaDe(_busqueda.trim())),
         AsyncData(:final value) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final c in _soloDe(value, cuenta, (e) => e.account))
-              _Fila(
-                key: ValueKey('archivada-${c.id}'),
-                titulo: c.title,
-                // La cuenta primero cuando la hay: en un archivo con veintitrés
-                // de `private` y siete de `work`, la carpeta sola no distingue —dos
-                // cuentas pueden trabajar sobre el mismo repo—. El escritorio lo
-                // resuelve con pestanas; aqui, sin sitio para pestanas, va en la
-                // propia fila.
-                dato: [
-                  ?c.account,
-                  _cola(c.folder),
-                  strings.mobileTurns(c.turns),
-                ].join('  ·  '),
-                // Se dice cuál está viva para no ofrecer «retomar» algo que ya lo
-                // está — y se deja tocar igual, porque llevar a la abierta es
-                // exactamente lo correcto.
-                chip: c.open ? strings.mobileOpenChip : null,
-                chipVivo: c.open,
-                alTocar: () async {
-                  final id = await ref
-                      .read(archiveProvider.notifier)
-                      .retomar(c.id);
-                  if (id == null || !context.mounted) return;
-                  await Navigator.of(context).pushReplacement(
-                    MaterialPageRoute<void>(
-                      builder: (_) => ConversationPage(conversationId: id),
-                    ),
-                  );
-                },
-              ),
+            for (final (dia, fichas) in _porDias(
+              _buscadas(_soloDe(value, cuenta, (c) => c.account), _busqueda),
+            )) ...[
+              if (dia != null)
+                _Grupo(_nombreDelDia(strings, dia, DateTime.now())),
+              for (final c in fichas) _archivada(context, c),
+            ],
           ],
         ),
         AsyncError() => _Vacia(texto: strings.mobileHistoryUnavailable),
@@ -406,9 +601,39 @@ class _ArchivePageState extends ConsumerState<ArchivePage> {
       },
     );
   }
+
+  Widget _archivada(BuildContext context, ArchiveEntry c) {
+    final strings = context.strings;
+    return _Fila(
+      key: ValueKey('archivada-${c.id}'),
+      titulo: c.title,
+      // La cuenta primero cuando la hay: en un archivo con veintitrés de `private` y
+      // siete de `work`, la carpeta sola no distingue —dos cuentas pueden trabajar
+      // sobre el mismo repo—. El escritorio lo resuelve con pestañas; aquí, sin sitio
+      // para pestañas, va en la propia fila.
+      dato: [
+        ?c.account,
+        _cola(c.folder),
+        strings.mobileTurns(c.turns),
+      ].join('  ·  '),
+      // Se dice cuál está viva para no ofrecer «retomar» algo que ya lo está — y se
+      // deja tocar igual, porque llevar a la abierta es exactamente lo correcto.
+      chip: c.open ? strings.mobileOpenChip : null,
+      chipVivo: c.open,
+      alTocar: () async {
+        final id = await ref.read(archiveProvider.notifier).retomar(c.id);
+        if (id == null || !context.mounted) return;
+        await Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) => ConversationPage(conversationId: id),
+          ),
+        );
+      },
+    );
+  }
 }
 
-/// Los artifacts: lo que produjo Claude.
+/// Los documentos: lo que produjo Claude.
 class ArtifactsPage extends ConsumerStatefulWidget {
   const ArtifactsPage({super.key});
 
@@ -455,24 +680,23 @@ class _ArtifactsPageState extends ConsumerState<ArtifactsPage> {
               cuenta ?? strings.mobileGeneral,
             ),
           ),
+        // **Cada documento cuelga de la conversación que lo pidió**, con las
+        // palabras del Mac: «De: …» y «Sin conversación». Un Finder no dice de dónde
+        // salió cada cosa, y cinco `mockup-algo.html` seguidos solo se distinguen
+        // por eso.
         AsyncData(:final value) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final a in _soloDe(value, cuenta, (e) => e.account))
-              _Fila(
-                key: ValueKey('artifact-${a.id}'),
-                titulo: a.name,
-                dato: [?a.account, _peso(a.bytes)].join('  ·  '),
-                // Lo que no es texto se dice **en la lista**: un `.png` por un canal
-                // de texto no da una imagen, da un error, y una fila que solo puede
-                // fallar es peor que una fila que avisa.
-                chip: a.text ? null : strings.mobileOnlyOnMac,
-                apagada: !a.text,
-                alTocar: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => ArtifactPage(id: a.id, nombre: a.name),
-                  ),
-                ),
+            for (final (titulo, documentos) in _porConversacion(
+              _soloDe(value, cuenta, (e) => e.account),
+            )) ...[
+              _Grupo(
+                titulo == null
+                    ? strings.artifactsSinConversacion
+                    : '${strings.artifactsDe} $titulo',
               ),
+              for (final a in documentos) _documento(context, a),
+            ],
           ],
         ),
         AsyncError() => _Vacia(texto: strings.mobileDocumentsUnavailable),
@@ -480,6 +704,27 @@ class _ArtifactsPageState extends ConsumerState<ArtifactsPage> {
       },
     );
   }
+
+  Widget _documento(BuildContext context, ArtifactEntry a) => _Fila(
+    key: ValueKey('artifact-${a.id}'),
+    delante: _Tipo(a.name),
+    titulo: a.name,
+    // El peso va delante porque abrir uno grande con datos móviles es una decisión.
+    // Y lo que no es texto se dice **en la misma línea**: un `.png` por un canal de
+    // texto no da una imagen, da un error, y una fila que solo puede fallar es peor
+    // que una fila que avisa.
+    dato: [
+      ?a.account,
+      _peso(a.bytes),
+      if (!a.text) context.strings.mobileOnlyOnMac,
+    ].join('  ·  '),
+    apagada: !a.text,
+    alTocar: () => Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ArtifactPage(id: a.id, nombre: a.name),
+      ),
+    ),
+  );
 }
 
 /// El contenido de un artifact.

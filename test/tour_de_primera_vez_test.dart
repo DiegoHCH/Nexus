@@ -4,7 +4,10 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/core/design_system/design_system.dart';
+import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
 import 'package:nexus/features/assistant/presentation/pages/home_page.dart';
+import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
+import 'package:nexus/features/onboarding/presentation/widgets/tour_overlay.dart';
 import 'package:nexus/features/onboarding/presentation/providers/tour_providers.dart';
 import 'package:nexus/features/onboarding/presentation/state/tour_state.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
@@ -80,6 +83,46 @@ void main() {
       expect(find.textContaining('Háblale'), findsOne);
       expect(find.text('Siguiente'), findsOne);
       expect(find.text('Saltar el tour'), findsOne);
+    });
+
+    // La primera parada presenta el orbe **por cómo se mueve**: lo que luego
+    // hay que saber leer. Se enseña con los orbes de verdad, cada uno con la
+    // palabra que pondrá la barra.
+    testWidgets('la primera parada enseña cómo se mueve el orbe', (
+      tester,
+    ) async {
+      await abrirCasa(tester);
+
+      final muestra = find.byType(ComoSeMueveElOrbe);
+      expect(muestra, findsOne);
+      final estados = tester
+          .widgetList<NexusOrb>(
+            find.descendant(of: muestra, matching: find.byType(NexusOrb)),
+          )
+          .map((o) => o.state)
+          .toList();
+      expect(estados, [
+        NexusOrbState.sleep,
+        NexusOrbState.listen,
+        NexusOrbState.think,
+        NexusOrbState.speak,
+      ]);
+      for (final palabra in [
+        'Dormido',
+        'Escuchando',
+        'Trabajando',
+        'Hablando',
+      ]) {
+        expect(
+          find.descendant(of: muestra, matching: find.text(palabra)),
+          findsOne,
+        );
+      }
+
+      // Y solo en esa parada: en las demás estorbaría.
+      await tester.tap(find.text('Siguiente'));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.byType(ComoSeMueveElOrbe), findsNothing);
     });
 
     testWidgets('«Siguiente» avanza, y el último dice «Entendido»', (

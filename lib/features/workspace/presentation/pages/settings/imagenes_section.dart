@@ -5,10 +5,9 @@ import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/artifacts/domain/entities/modelo_de_imagen.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/settings_chooser.dart';
 import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
-import 'package:nexus/features/workspace/presentation/providers/las_llaves_guardadas.dart';
-import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
+import 'package:nexus/features/workspace/presentation/pages/settings/secciones_de_ajustes.dart';
 
-/// Dónde se ponen las llaves con las que se generan las imágenes.
+/// Con qué se generan las imágenes, y dónde están sus llaves.
 ///
 /// **Una por cuenta de Claude, no una para todo.** Cada carpeta emparejada dice
 /// con qué cuenta trabaja, y el gasto de las imágenes sale de un bolsillo
@@ -19,6 +18,10 @@ import 'package:nexus/features/workspace/presentation/providers/workspace_provid
 ///
 /// Y aparte de la de voz porque el proyecto de imágenes necesita facturación
 /// —su modelo no está en el nivel gratuito— mientras que el de voz no.
+///
+/// Las llaves se ponen en «Llaves», con todas las demás: aquí se elige el
+/// modelo y se enlaza allí. Tenerlas repartidas obligaba a pasar por tres
+/// secciones para saber qué había guardado.
 class ImagenesSection extends ConsumerWidget {
   const ImagenesSection({super.key});
 
@@ -26,15 +29,11 @@ class ImagenesSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final strings = context.strings;
-    final cuentas = cuentasParaLlaves(
-      ref.watch(claudeProfilesProvider).value ?? const [],
-    );
+    final ir = IrASeccionDeAjustes.of(context);
 
-    // 🔴 **Rueda, porque esta sección crece con las cuentas.** Con tres —la de
-    // siempre, `private` y `work`— son tres etiquetas, tres campos y tres
-    // botones debajo del selector, y deja de caber en el alto de Ajustes: 85 px
-    // por abajo, medidos. Con una cuenta cabía, y por eso no se vio al
-    // escribirla.
+    // Rueda aunque ya no crezca con las cuentas —sus llaves se fueron a
+    // «Llaves»—: la explicación son dos párrafos, y en una ventana baja no caben
+    // con el selector y el enlace debajo.
     //
     // El scroll va aquí y no en el marco de Ajustes: hay secciones que usan
     // `Expanded` y `ListView` por dentro, y envolverlas a todas les quitaría el
@@ -45,7 +44,7 @@ class ImagenesSection extends ConsumerWidget {
         children: [
           Text(
             strings.imagesExplainer,
-            style: NexusTypography.nota.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.mute),
           ),
           const SizedBox(height: NexusSpacing.s5),
           // Cuál dibuja, antes que las llaves: es lo que decide cuánto cuesta
@@ -64,123 +63,21 @@ class ImagenesSection extends ConsumerWidget {
             onSelected: ref.read(modeloDeImagenProvider.notifier).elegir,
           ),
           const SizedBox(height: NexusSpacing.s6),
-          for (final cuenta in cuentas) _LaDeUnaCuenta(perfil: cuenta),
-          const SizedBox(height: NexusSpacing.s3),
+          Text(
+            strings.llavesDeImagenesEnLlaves,
+            style: NexusTypography.nota.copyWith(color: colors.mute),
+          ),
+          if (ir != null) ...[
+            const SizedBox(height: NexusSpacing.s3),
+            OutlinedButton(
+              onPressed: () => ir(SeccionDeAjustes.llaves),
+              child: Text(strings.irALlaves),
+            ),
+          ],
+          const SizedBox(height: NexusSpacing.s5),
           Text(
             strings.imagesNotWiredYet,
             style: NexusTypography.nota.copyWith(color: colors.warn),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LaDeUnaCuenta extends ConsumerStatefulWidget {
-  const _LaDeUnaCuenta({required this.perfil});
-
-  /// `null` es la cuenta de siempre, la que no tiene nombre.
-  final String? perfil;
-
-  @override
-  ConsumerState<_LaDeUnaCuenta> createState() => _LaDeUnaCuentaState();
-}
-
-class _LaDeUnaCuentaState extends ConsumerState<_LaDeUnaCuenta> {
-  final _controller = TextEditingController();
-  bool _guardando = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _guardar() async {
-    final llave = _controller.text.trim();
-    if (llave.isEmpty || _guardando) return;
-    setState(() => _guardando = true);
-    await ref.read(geminiImageKeyStoreProvider).save(widget.perfil, llave);
-    if (!mounted) return;
-    _controller.clear();
-    setState(() => _guardando = false);
-    _refrescar();
-  }
-
-  Future<void> _olvidar() async {
-    await ref.read(geminiImageKeyStoreProvider).clear(widget.perfil);
-    if (!mounted) return;
-    _refrescar();
-  }
-
-  /// Las dos pantallas que preguntan por esta llave leen del llavero por su
-  /// cuenta, así que hay que decírselo a las dos.
-  void _refrescar() {
-    ref.invalidate(hayLlaveDeImagenesProvider(widget.perfil));
-    ref.invalidate(lasLlavesGuardadasProvider);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final strings = context.strings;
-    final hay =
-        ref.watch(hayLlaveDeImagenesProvider(widget.perfil)).value ?? false;
-    final cuenta = widget.perfil ?? strings.defaultAccount;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: NexusSpacing.s5),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  cuenta.toUpperCase(),
-                  style: NexusTypography.label.copyWith(color: colors.faint),
-                ),
-              ),
-              Text(
-                hay ? strings.keyIsSaved : strings.keyIsMissing,
-                style: NexusTypography.control.copyWith(
-                  color: hay ? colors.ok : colors.faint,
-                ),
-              ),
-              // Olvidar solo lo que está puesto. Uno que a veces no hace nada
-              // enseña a no pulsarlo, y entonces tampoco se pulsa el día que sí.
-              if (hay)
-                Padding(
-                  padding: const EdgeInsets.only(left: NexusSpacing.s3),
-                  child: TextButton(
-                    onPressed: _olvidar,
-                    style: TextButton.styleFrom(foregroundColor: colors.err),
-                    child: Text(
-                      strings.keyForget,
-                      style: NexusTypography.label.copyWith(color: colors.err),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: NexusSpacing.s2),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _controller,
-                  obscureText: true,
-                  onSubmitted: (_) => _guardar(),
-                  style: NexusTypography.mono.copyWith(color: colors.ink),
-                  decoration: InputDecoration(hintText: strings.geminiKeyHint),
-                ),
-              ),
-              const SizedBox(width: NexusSpacing.s3),
-              OutlinedButton(
-                onPressed: _guardando ? null : _guardar,
-                child: Text(strings.geminiKeySave),
-              ),
-            ],
           ),
         ],
       ),

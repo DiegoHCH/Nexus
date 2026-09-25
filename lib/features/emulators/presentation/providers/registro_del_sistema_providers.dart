@@ -27,7 +27,7 @@ class FiltroDelRegistro
   /// Cuatro y no seis: `verboso` y `depuracion` en un teléfono de verdad son
   /// miles de líneas por minuto y nadie las lee a mano — para eso está el filtro
   /// de texto. Se quedan fuera del botón, no del modelo.
-  static const _losQueSeOfrecen = [
+  static const losQueSeOfrecen = [
     NivelDeRegistro.info,
     NivelDeRegistro.aviso,
     NivelDeRegistro.error,
@@ -35,11 +35,22 @@ class FiltroDelRegistro
   ];
 
   void siguienteNivel() {
-    final donde = _losQueSeOfrecen.indexOf(state.minimo);
+    final donde = losQueSeOfrecen.indexOf(state.minimo);
     state = (
-      minimo: _losQueSeOfrecen[(donde + 1) % _losQueSeOfrecen.length],
+      minimo: losQueSeOfrecen[(donde + 1) % losQueSeOfrecen.length],
       texto: state.texto,
     );
+  }
+
+  /// Uno concreto, que es lo que pide la página ahora que enseña los cuatro
+  /// a la vista: se pulsa «Solo errores» y es eso, sin dar vueltas.
+  ///
+  /// Uno que no se ofrece se ignora: una página vieja abierta desde ayer puede
+  /// pedir un nombre que ya no existe, y eso no puede dejar el filtro en un
+  /// nivel que ningún botón enseña.
+  void ponerNivel(NivelDeRegistro nivel) {
+    if (!losQueSeOfrecen.contains(nivel)) return;
+    state = (minimo: nivel, texto: state.texto);
   }
 
   void buscar(String texto) => state = (minimo: state.minimo, texto: texto);

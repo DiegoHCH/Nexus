@@ -1,4 +1,8 @@
 import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:nexus/features/artifacts/domain/entities/origen_del_documento.dart';
+import 'package:nexus/features/artifacts/presentation/providers/el_origen_de_los_documentos.dart';
 import 'package:nexus/features/artifacts/domain/entities/artifact.dart';
 import 'package:nexus/features/remote/domain/dispatcher.dart';
 import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
@@ -173,7 +177,10 @@ class AssistantSurface implements RemoteSurface {
             // escritorio. Antes se recalculaba aquí a partir de los mensajes, y
             // eso obligaba a traerlos todos para pintar una lista.
             title: r.title,
-            when: r.startedAt,
+            // Cuándo se usó por última vez y no cuándo empezó, que es por lo que
+            // el Mac agrupa sus días: una conversación retomada hoy es de hoy, y
+            // el teléfono la tiene que poner en el mismo día que el escritorio.
+            when: r.usadaEn,
             turns: r.turns,
             // Si ya está abierta, se dice: ofrecer «retomar» algo vivo lleva a abrir
             // una segunda sobre la misma carpeta, que el escritorio no permite.
@@ -423,9 +430,12 @@ class AssistantSurface implements RemoteSurface {
     // uno. Es el mismo fallo dos veces, así que va escrito en los dos sitios.
     await _ref.read(artifactsFolderProvider.notifier).cargada;
     final lista = await _ref.read(artifactsProvider.future);
+    final origenes = await _origenesDeLosDocumentos();
     return [
       for (final a in lista)
         RemoteArtifact(
+          conversation: origenes[a.path]?.conversacion,
+          conversationTitle: origenes[a.path]?.titulo,
           // La ruta como id: es lo que el escritorio ya usa para abrirlos, y no hace
           // falta inventar otro identificador que habría que mantener en paralelo.
           id: a.path,
@@ -436,6 +446,27 @@ class AssistantSurface implements RemoteSurface {
           account: a.account,
         ),
     ];
+  }
+
+  /// De qué conversación salió cada documento, **con la misma cuenta que el Mac**.
+  ///
+  /// Se reusa [losOrigenesDe] —lo que agrupa la lista del escritorio— en vez de
+  /// repetirlo: dos ideas de «de dónde salió» acabarían poniendo el mismo documento
+  /// bajo dos conversaciones distintas según desde dónde se mire.
+  ///
+  /// **Sin historial no se pierde la lista**: si no se puede leer, los documentos
+  /// salen sin origen —al grupo «Sin conversación»—, que es lo mismo que hace el Mac.
+  /// No saber de dónde vino algo no es motivo para no enseñarlo.
+  Future<Map<String, OrigenDelDocumento>> _origenesDeLosDocumentos() async {
+    try {
+      await _ref.read(archiveControllerProvider.notifier).cargado;
+      return losOrigenesDe(
+        await _ref.read(allSavedConversationsProvider.future),
+      );
+    } on Object catch (error) {
+      debugPrint('los documentos van sin origen: $error');
+      return const {};
+    }
   }
 
   @override

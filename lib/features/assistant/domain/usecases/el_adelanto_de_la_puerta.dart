@@ -42,6 +42,26 @@ abstract final class ElAdelantoDeLaPuerta {
   /// contra «Buenos días, Argonauta,»— y a veces se come los acentos: con
   /// cualquiera de las dos cosas dentro, la misma frase parecía otra y volvía el
   /// borrón que esto viene a quitar.
+  /// Lo que se dice y lo que se pregunta, por separado: la pantalla pinta la
+  /// pregunta más tenue, como el mockup —«No te seguí. ¿En qué carpeta
+  /// trabajamos?», con la segunda frase en `faint`—.
+  ///
+  /// 🔴 **Porque la pregunta es lo que queda pendiente**, y es lo único que hay
+  /// que contestar: en tenue se lee como el hueco que falta por llenar, y lo
+  /// dicho delante se lee como lo que ya pasó. Solo se parte si **acaba** en
+  /// pregunta y hay algo dicho antes; si no, va todo junto, que un subtítulo a
+  /// medio llegar no tiene por qué cambiar de tono a cada trozo.
+  static (String, String) laPreguntaAparte(String texto) {
+    final limpio = texto.trimRight();
+    if (!limpio.endsWith('?')) return (texto, '');
+    final corte = [
+      limpio.lastIndexOf('. '),
+      limpio.lastIndexOf('! '),
+    ].reduce((a, b) => a > b ? a : b);
+    if (corte < 0) return (texto, '');
+    return (limpio.substring(0, corte + 2), limpio.substring(corte + 2));
+  }
+
   static String _comparable(String texto) {
     var limpio = texto
         .toLowerCase()

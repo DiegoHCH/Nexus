@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
+import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
+import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/onboarding/presentation/providers/tour_providers.dart';
 import 'package:nexus/features/onboarding/presentation/state/tour_state.dart';
 
@@ -137,6 +139,11 @@ class _TourOverlayState extends ConsumerState<TourOverlay> {
           title: titulo,
           body: cuerpo,
           step: strings.tourStep(tour.index, tour.total),
+          // 🔴 **La primera parada presenta el orbe por cómo se mueve**, que es
+          // lo que luego hay que saber leer. El texto lo cuenta y esto lo
+          // enseña: los mismos estados que el de verdad, con la palabra que
+          // pondrá la barra de arriba cuando esté en cada uno.
+          extra: stop == TourStop.orb ? const ComoSeMueveElOrbe() : null,
           isLast: tour.pending.isEmpty,
           onNext: () => ref.read(tourControllerProvider.notifier).next(),
           onSkip: () => ref.read(tourControllerProvider.notifier).skip(),
@@ -211,6 +218,7 @@ class _Card extends StatelessWidget {
     required this.isLast,
     required this.onNext,
     required this.onSkip,
+    this.extra,
   });
 
   static const _width = 340.0;
@@ -229,9 +237,13 @@ class _Card extends StatelessWidget {
   final VoidCallback onNext;
   final VoidCallback onSkip;
 
+  /// Lo que la parada enseña además de contarlo. Ver [ComoSeMueveElOrbe].
+  final Widget? extra;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final extra = this.extra;
     final pantalla = MediaQuery.sizeOf(context);
 
     // Fuera del hueco si cabe, y si no, encima — pero **siempre dentro de la
@@ -312,11 +324,26 @@ class _Card extends StatelessWidget {
                 style: NexusTypography.lead.copyWith(color: colors.ink),
               ),
               const SizedBox(height: NexusSpacing.s3),
+              // Lo que acompaña al texto —la tira de orbes de la primera
+              // parada— va **dentro** de la parte que cede: con el orbe grande
+              // del escenario le queda menos alto a la tarjeta, y fuera del
+              // scroll la desbordaba 41 px.
               Flexible(
                 child: SingleChildScrollView(
-                  child: Text(
-                    body,
-                    style: NexusTypography.body.copyWith(color: colors.mute),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        body,
+                        style: NexusTypography.body.copyWith(
+                          color: colors.mute,
+                        ),
+                      ),
+                      if (extra != null) ...[
+                        const SizedBox(height: NexusSpacing.s4),
+                        extra,
+                      ],
+                    ],
                   ),
                 ),
               ),
@@ -361,6 +388,83 @@ class _Card extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// El orbe en cuatro de sus estados, cada uno con su palabra.
+///
+/// Son **los mismos orbes** que la app pinta —misma forma, mismas capas—, no
+/// un dibujo aparte: lo que se aprende aquí tiene que reconocerse después en el
+/// grande, y un icono que lo imite enseñaría otra cosa. Cuatro y no cinco:
+/// pensando es trabajando sin decir nada, y se entiende cuando llega.
+///
+/// La palabra es la de la barra de arriba, no una nueva: una palabra por cosa.
+class ComoSeMueveElOrbe extends StatelessWidget {
+  const ComoSeMueveElOrbe({super.key});
+
+  /// Lo que se enseña, en el orden en que pasa: te espera, te oye, trabaja y
+  /// te contesta.
+  static const estados = [
+    NexusOrbState.sleep,
+    NexusOrbState.listen,
+    NexusOrbState.think,
+    NexusOrbState.speak,
+  ];
+
+  static const _lado = 56.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final strings = context.strings;
+    String palabra(NexusOrbState estado) => switch (estado) {
+      NexusOrbState.sleep => strings.asleep,
+      NexusOrbState.listen => strings.listening,
+      NexusOrbState.think => strings.working,
+      NexusOrbState.ponder => strings.pensando,
+      NexusOrbState.speak => strings.speaking,
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          strings.tourComoSeMueve,
+          style: NexusTypography.label.copyWith(color: colors.mute),
+        ),
+        const SizedBox(height: NexusSpacing.s2),
+        Row(
+          children: [
+            for (final estado in estados)
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox.square(
+                      dimension: _lado,
+                      child: NexusOrb(state: estado, oido: false),
+                    ),
+                    const SizedBox(height: NexusSpacing.s1),
+                    // Encoge antes que cortarse: «Escuchando» cortado en
+                    // «Escuchan…» ya no es la palabra de la barra.
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        palabra(estado),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        style: NexusTypography.control.copyWith(
+                          color: colors.ink,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }

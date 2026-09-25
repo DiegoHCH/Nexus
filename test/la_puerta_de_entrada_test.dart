@@ -111,8 +111,10 @@ void main() {
     setUp(() => support = prepareScreenTest());
     tearDown(() => support.deleteSync(recursive: true));
 
-    // La pantalla se desplaza —en 1280×800 sobran unos 500 píxeles— y eso está
-    // bien; lo que no puede ser es que no se note. La barra del sistema no lo
+    // La pantalla se desplaza cuando la ventana es baja, y eso está bien; lo que
+    // no puede ser es que no se note. Con el orbe a la izquierda los tres pasos
+    // caben en 1280×800, así que se mira en una ventana baja —la que queda con
+    // el texto del sistema agrandado, o partida en media pantalla—. La barra del sistema no lo
     // resuelve: en macOS se pinta al desplazar y desaparece sola, o sea que
     // aparece cuando ya sabes que hay más.
     testWidgets('no se anuncia con una barra', (tester) async {
@@ -125,7 +127,11 @@ void main() {
     testWidgets('se anuncia con una flecha, y solo mientras haga falta', (
       tester,
     ) async {
-      await pumpScreen(tester, const InitialSetupPage());
+      await pumpScreen(
+        tester,
+        const InitialSetupPage(),
+        size: const Size(1024, 480),
+      );
       await tester.pump(const Duration(milliseconds: 200));
 
       final flecha = find.byIcon(Icons.keyboard_arrow_down);

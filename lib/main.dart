@@ -15,6 +15,7 @@ import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/platform/app_menu_channel.dart';
+import 'package:nexus/orbe_flotante.dart';
 import 'package:nexus/features/artifacts/presentation/widgets/artifacts_sheet.dart';
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
@@ -26,7 +27,18 @@ import 'package:nexus/features/remote/presentation/providers/channel_providers.d
 import 'package:nexus/features/agenda/presentation/providers/el_vigilante_de_la_agenda.dart';
 import 'package:nexus/features/programadas/presentation/providers/el_vigilante_de_las_programadas.dart';
 import 'package:nexus/features/assistant/domain/entities/conversation.dart';
+import 'package:nexus/features/oido/presentation/providers/el_oido_que_espera.dart';
 import 'package:nexus/features/prs/presentation/providers/el_vigilante_de_los_pr.dart';
+
+/// **El orbe que sale al escritorio cuando la llamas.**
+///
+/// Vive aquí y no junto a su widget porque el segundo motor de Flutter busca el
+/// punto de entrada **en la librería principal**: con la función en su propio
+/// archivo, el arranque muere con «Could not resolve main entrypoint function».
+/// Medido lanzando la app. El cuerpo sí está donde le toca, en
+/// `orbe_flotante.dart`.
+@pragma('vm:entry-point')
+void orbeFlotante() => arrancarElOrbeFlotante();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -249,6 +261,12 @@ class _MainAppState extends ConsumerState<MainApp> {
     // pasó a mezclado y avisa; si solo lo armara su interruptor en Ajustes,
     // estaría apagado justo cuando hace falta — que es con la app de fondo.
     ref.watch(elVigilanteDeLosPrProvider);
+
+    // Y el oído, por quinta vez la misma línea: si solo lo armara su
+    // interruptor en Ajustes, estaría apagado justo cuando sirve —con la app
+    // de fondo y tú lejos del teclado—. Él decide si escucha o no; lo que no
+    // puede es no existir.
+    ref.watch(elOidoQueEsperaProvider);
 
     return MaterialApp(
       navigatorKey: _navigatorKey,

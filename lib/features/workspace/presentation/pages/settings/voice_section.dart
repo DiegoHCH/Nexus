@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/settings_chooser.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
+import 'package:nexus/features/oido/domain/usecases/como_se_le_llama.dart';
+import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
+import 'package:nexus/features/oido/presentation/providers/el_oido_que_espera.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/assistant/domain/entities/el_acento.dart';
 import 'package:nexus/features/assistant/domain/entities/nexus_voice.dart';
@@ -49,6 +53,7 @@ class VoiceSection extends ConsumerWidget {
             context.strings.voiceExplainer,
             style: NexusTypography.mono.copyWith(color: colors.faint),
           ),
+          const SizedBox(height: NexusSpacing.s5),
           const SizedBox(height: NexusSpacing.s5),
           // 🔴 **Aquí hubo un botón para escuchar la voz, y se quitó midiendo.**
           //
@@ -240,6 +245,36 @@ class _AudioOutputPicker extends ConsumerWidget {
         Text(
           strings.audioOutputExplainer,
           style: NexusTypography.mono.copyWith(color: colors.faint),
+        ),
+        // 🔴 **Y va al final, no al principio.** Lo puse arriba —es lo
+        // único de aquí que decide si el micrófono está abierto cuando no le
+        // hablas— y empujó la llave de Gemini fuera de la pantalla: la
+        // prueba de la puerta de entrada dejó de poder escribirla. La llave
+        // es lo que hace que la voz exista; el oído es lo que se le añade
+        // encima, así que este es su sitio.
+        Text(
+          context.strings.elOidoExplainer(
+            ComoSeLeLlama.lasPalabras(
+              ref.watch(losNombresProvider).agente,
+            ).first,
+          ),
+          style: NexusTypography.mono.copyWith(color: colors.faint),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: ref.watch(elOidoEstaEncendidoProvider).value ?? false,
+          onChanged: (on) async {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool(ElOidoQueEspera.encendido, on);
+            ref.invalidate(elOidoEstaEncendidoProvider);
+            // Y se cuadra ya: encender un interruptor que no hace nada hasta
+            // reiniciar la app es un interruptor que no se cree nadie.
+            await ref.read(elOidoQueEsperaProvider).cuadrar();
+          },
+          title: Text(
+            context.strings.elOidoOn,
+            style: NexusTypography.body.copyWith(color: colors.ink),
+          ),
         ),
       ],
     );

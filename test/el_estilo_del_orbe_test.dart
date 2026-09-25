@@ -25,19 +25,22 @@ void main() {
     expect(OrbeEstilo.fromMap(elegido.toMap()), elegido);
   });
 
-  test('lo que no se entiende sale de fábrica, y lo que se pasa se recorta', () {
-    final leido = OrbeEstilo.fromMap({
-      'forma': 'lava',
-      'tamano': 9.0,
-      'intensidad': -3,
-      'finura': 'mucha',
-    });
-    expect(leido.forma, FormaDelOrbe.plasma);
-    // Más allá de 0,33 el halo toca el borde y se vería el cuadrado.
-    expect(leido.tamano, 0.33);
-    expect(leido.intensidad, 0.2);
-    expect(leido.finura, OrbeEstilo.fabrica.finura);
-  });
+  test(
+    'lo que no se entiende sale de fábrica, y lo que se pasa se recorta',
+    () {
+      final leido = OrbeEstilo.fromMap({
+        'forma': 'lava',
+        'tamano': 9.0,
+        'intensidad': -3,
+        'finura': 'mucha',
+      });
+      expect(leido.forma, FormaDelOrbe.plasma);
+      // Más allá de 0,33 el halo toca el borde y se vería el cuadrado.
+      expect(leido.tamano, 0.33);
+      expect(leido.intensidad, 0.2);
+      expect(leido.finura, OrbeEstilo.fabrica.finura);
+    },
+  );
 
   test('sin nada, de fábrica', () {
     expect(OrbeEstilo.fromMap(null), OrbeEstilo.fabrica);

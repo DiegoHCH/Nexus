@@ -26,9 +26,23 @@ name: Release
 # `v0.0.3`. Un paso manual entre «está aprobado» y «está publicado» es un paso que
 # algún día no se da. La etiqueta la pone este workflow, que ya sabe qué versión
 # es porque la lee del `pubspec`.
+#
+# 🔴 **Y mezclar en master ya no basta: tiene que pasar el CI.** Antes esto
+# arrancaba con el mismo `push` que el CI, en paralelo y sin esperarlo, así que
+# una versión con las pruebas en rojo se compilaba, se firmaba y se publicaba
+# igual. Ahora lo dispara el CI al terminar, y solo si terminó en verde —ver la
+# condición de `decidir`—.
+#
+# Dos cosas que hay que saber de `workflow_run`: GitHub lo lee **del workflow
+# de `master`**, así que este cambio empieza a valer desde la release que lo
+# lleve allí; y el commit que se publica es el que probó el CI
+# (`workflow_run.head_sha`), no lo último de master.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [master]
+  push:
     # Se conserva la etiqueta como disparador: sirve para publicar algo antiguo
     # sin tocar master.
     tags: ['v*']
@@ -49,12 +63,17 @@ jobs:
   # esto, y solo los que traen una versión nueva llegan a compilar.
   decidir:
     name: ¿hay algo que publicar?
+    # Del CI solo vale un `push` a master que terminó en verde: un PR contra
+    # master también dispara el CI, y uno cancelado o en rojo no publica nada.
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
       publicar: ${{ steps.puerta.outputs.publicar }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: de dónde sale la versión
         id: v
@@ -96,6 +115,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           # El histórico completo: hace falta para comprobar que esto sale de
           # master, para las notas del appcast, y un clon superficial no puede
           # responder a ninguna de las dos.

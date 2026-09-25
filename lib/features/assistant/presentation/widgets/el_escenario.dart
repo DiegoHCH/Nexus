@@ -492,10 +492,10 @@ class _LasEsquinas extends ConsumerWidget {
                   EffortMenu(folder: carpeta, meter: meter),
                 ],
               ),
+              // Sin turno todavía no se ha gastado nada: 0 %, que es la
+              // verdad, y no un guion que parece un dato que falta.
               Text(
-                contexto == null
-                    ? strings.escenarioContextoSinDatos.toUpperCase()
-                    : strings.escenarioContexto(contexto).toUpperCase(),
+                strings.escenarioContexto(contexto ?? 0).toUpperCase(),
                 style: dato,
               ),
               if (cupo != null)

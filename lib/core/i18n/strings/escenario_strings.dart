@@ -9,7 +9,6 @@ mixin EscenarioStrings {
   String get escenarioCarpeta;
   String get escenarioSinCarpeta;
   String escenarioContexto(int porcentaje);
-  String get escenarioContextoSinDatos;
   String escenarioCupoSemana(int porcentaje);
   String get escenarioConversaciones;
   String get escenarioPermiso;
@@ -35,8 +34,6 @@ mixin EscenarioStringsEs implements EscenarioStrings {
   String get escenarioSinCarpeta => 'sin carpeta';
   @override
   String escenarioContexto(int porcentaje) => 'contexto $porcentaje %';
-  @override
-  String get escenarioContextoSinDatos => 'contexto —';
   @override
   String escenarioCupoSemana(int porcentaje) => 'cupo semana $porcentaje %';
   @override
@@ -66,8 +63,6 @@ mixin EscenarioStringsEn implements EscenarioStrings {
   String get escenarioSinCarpeta => 'no folder';
   @override
   String escenarioContexto(int porcentaje) => 'context $porcentaje %';
-  @override
-  String get escenarioContextoSinDatos => 'context —';
   @override
   String escenarioCupoSemana(int porcentaje) => 'weekly quota $porcentaje %';
   @override

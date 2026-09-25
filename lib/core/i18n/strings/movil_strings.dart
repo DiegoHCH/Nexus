@@ -382,7 +382,7 @@ mixin MovilStringsEs implements MovilStrings {
   @override
   String get mobileHistoryUnavailable => 'No pude pedirle el historial al Mac.';
   @override
-  String mobileTurns(int turnos) => '$turnos turnos';
+  String mobileTurns(int turnos) => turnos == 1 ? '1 turno' : '$turnos turnos';
   @override
   String get mobileOpenChip => 'Abierta';
   @override
@@ -399,7 +399,7 @@ mixin MovilStringsEs implements MovilStrings {
   String get mobileDocumentsUnavailable =>
       'No pude pedirle los documentos al Mac.';
   @override
-  String get mobileOnlyOnMac => 'Solo en la Mac';
+  String get mobileOnlyOnMac => 'Solo en el Mac';
   @override
   String get mobileCouldNotRead => 'No pude leerlo.';
   @override

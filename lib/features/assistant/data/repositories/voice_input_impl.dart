@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:nexus/core/audio/el_nivel_de_la_voz.dart';
 import 'package:nexus/features/assistant/data/datasources/native_audio_data_source.dart';
 import 'package:nexus/features/assistant/domain/entities/audio_frame.dart';
 import 'package:nexus/features/assistant/domain/repositories/voice_input.dart';
@@ -32,6 +32,7 @@ class VoiceInputImpl implements VoiceInput {
     Future<void> stopMic() async {
       await subscription?.cancel();
       subscription = null;
+      ElNivelDeLaVoz.microfono.value = 0;
       await _audio.release();
     }
 
@@ -41,7 +42,10 @@ class VoiceInputImpl implements VoiceInput {
           await _audio.acquire();
           subscription = _audio.frames.listen((chunk) {
             final pcm = _normalize(chunk);
-            controller.add(AudioFrame(pcm: pcm, amplitude: _rms(pcm)));
+            final nivel = ElNivelDeLaVoz.deUnTrozo(pcm);
+            // El orbe también lo mira: escuchando se mueve con tu voz.
+            ElNivelDeLaVoz.microfono.value = nivel;
+            controller.add(AudioFrame(pcm: pcm, amplitude: nivel));
           }, onError: controller.addError);
         } catch (error, stackTrace) {
           controller.addError(error, stackTrace);
@@ -73,25 +77,4 @@ class VoiceInputImpl implements VoiceInput {
 Uint8List _normalize(Uint8List chunk) {
   final evenLength = chunk.length - (chunk.length.isOdd ? 1 : 0);
   return Uint8List.fromList(Uint8List.sublistView(chunk, 0, evenLength));
-}
-
-/// RMS de un buffer PCM de 16 bits con signo, little-endian, normalizado
-/// a 0..1 sobre el fondo de escala (32768).
-///
-/// El RMS crudo de la voz se queda en valores muy bajos frente al fondo de
-/// escala, así que se aplica una raíz para que el orbe se mueva de forma
-/// perceptible en vez de quedarse casi plano.
-double _rms(Uint8List chunk) {
-  if (chunk.length < 2) return 0;
-  // ByteData en vez de asInt16List: getInt16 no exige alineación a 2 bytes,
-  // así que esto no depende de que le llegue un buffer ya normalizado.
-  final bytes = ByteData.sublistView(chunk);
-  final sampleCount = bytes.lengthInBytes ~/ 2;
-  var sum = 0.0;
-  for (var i = 0; i < sampleCount; i++) {
-    final normalized = bytes.getInt16(i * 2, Endian.little) / 32768.0;
-    sum += normalized * normalized;
-  }
-  final rms = math.sqrt(sum / sampleCount);
-  return math.sqrt(rms).clamp(0.0, 1.0);
 }

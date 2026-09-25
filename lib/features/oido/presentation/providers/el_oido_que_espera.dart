@@ -169,8 +169,18 @@ class ElOidoQueEspera {
   /// Oyó el nombre y todavía te está escuchando el resto: el orbe sale ya.
   /// Montar la voz tarda un segundo largo, y en ese rato lo único que sabe que
   /// la llamaste eres tú.
+  ///
+  /// 🔴 **Solo si esta llamada va a abrir algo.** Con la voz ya abierta —por el
+  /// orbe, por el atajo— o con otra llamada abriéndose, la llamada se ignora
+  /// después, y ese camino no recoge el orbe: se quedaba fuera en
+  /// «escuchando» con la app sin hacer nada (visto el 25 sep).
   void _teOyo() {
-    if (_ref.read(conversationsProvider).focused == null) return;
+    final cual = _ref.read(conversationsProvider).focused?.id;
+    if (cual == null ||
+        _llamando ||
+        _ref.read(assistantControllerProvider(cual)).voiceActive) {
+      return;
+    }
     unawaited(
       OrbeChannel.mostrar(
         NexusOrbState.listen.name,
@@ -310,6 +320,12 @@ final elOidoQueEsperaProvider = Provider<ElOidoQueEspera>((ref) {
   final oido = ElOidoQueEspera(ref);
   unawaited(oido.cuadrar());
   ref.listen(conversationsProvider, (_, _) => unawaited(oido.cuadrar()));
+  // 🔴 **Y al abrirse o cerrarse una voz, que no cambia la lista.** Las
+  // conversaciones no cambian cuando se cuelga, así que una voz abierta con el
+  // orbe o con el atajo dejaba el oído apagado al colgar hasta el siguiente
+  // cambio cualquiera: la llamabas y no te oía. Las que se abren llamándola ya
+  // cuadraban al cerrarse; estas no.
+  ref.listen(_hayVozAbiertaProvider, (_, _) => unawaited(oido.cuadrar()));
   ref.listen(losNombresProvider.select((nombres) => nombres.agente), (
     antes,
     ahora,
@@ -318,6 +334,18 @@ final elOidoQueEsperaProvider = Provider<ElOidoQueEspera>((ref) {
   });
   return oido;
 });
+
+/// Si alguna conversación tiene la voz abierta.
+final _hayVozAbiertaProvider = Provider<bool>(
+  (ref) => ref
+      .watch(conversationsProvider)
+      .items
+      .any(
+        (c) => ref.watch(
+          assistantControllerProvider(c.id).select((s) => s.voiceActive),
+        ),
+      ),
+);
 
 /// Si está encendido, para pintarlo en Ajustes.
 final elOidoEstaEncendidoProvider = FutureProvider<bool>((ref) async {

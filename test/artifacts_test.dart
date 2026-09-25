@@ -187,8 +187,10 @@ void main() {
             'filtrar la lista por lo que abre el visor esconde documentos que '
             'existen; el tipo decide donde se abren, no si se enseñan',
       );
-      // Y sigue habiendo dos caminos al abrir: uno no vale para los dos.
-      expect(hoja, contains('Artifact.isViewable(artifact.path)'));
+      // Y sigue habiendo dos caminos al abrir: uno no vale para los dos. Vive en
+      // `abrirUnDocumento` desde que la vista previa del historial abre también
+      // los documentos de una conversación.
+      expect(hoja, contains('Artifact.isViewable(ruta)'));
     });
 
     test('el visor del movil no vive dentro de un scroll', () {

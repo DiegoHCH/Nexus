@@ -17,6 +17,42 @@ mixin DocumentosStrings {
   String get artifactsReveal;
   String get artifactsTrash;
 
+  /// La caja de buscar y los filtros por tipo.
+  String get artifactsBuscar;
+  String artifactsTodos(int cuantos);
+
+  /// Los tipos **con nombre de persona**, en plural para los filtros y en
+  /// singular para cada fila: «Páginas», no «html». Ver `TipoDeDocumento`.
+  String get artifactsFiltroPaginas;
+  String get artifactsFiltroTexto;
+  String get artifactsFiltroImagenes;
+  String get artifactsFiltroPdf;
+  String get artifactsTipoPagina;
+  String get artifactsTipoTexto;
+  String get artifactsTipoImagen;
+  String get artifactsTipoPdf;
+
+  /// La cabecera de un grupo: «De:» y el nombre de la conversación, o el grupo
+  /// de los que no se sabe de dónde salieron.
+  String get artifactsDe;
+  String get artifactsSinConversacion;
+
+  /// Lo que se dice cuando la búsqueda o el filtro no dejan nada.
+  String artifactsNadaQueSeLlame(String busqueda);
+  String get artifactsNingunoDeEseTipo;
+
+  /// La confirmación de la papelera, **en la propia fila**: la pregunta, lo que
+  /// tranquiliza —se puede sacar— y el botón que la confirma.
+  String get artifactsTrashPregunta;
+  String get artifactsTrashSeRecupera;
+  String get artifactsTrashMover;
+
+  /// El pie: dónde se guardan.
+  String get artifactsDondeSeGuardan;
+
+  /// Cuando un texto no se puede leer al abrirlo.
+  String get artifactsNoSePudoLeer;
+
   /// Lo que se lee mientras se arrastra un archivo por encima del compositor.
   String get dropHere;
 
@@ -126,6 +162,47 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   String get artifactsReveal => 'Enseñar en el Finder';
   @override
   String get artifactsTrash => 'Mover a la papelera';
+  @override
+  String get artifactsBuscar => 'Buscar por nombre';
+  @override
+  String artifactsTodos(int cuantos) => 'Todos · $cuantos';
+  @override
+  String get artifactsFiltroPaginas => 'Páginas';
+  @override
+  String get artifactsFiltroTexto => 'Texto';
+  @override
+  String get artifactsFiltroImagenes => 'Imágenes';
+  @override
+  String get artifactsFiltroPdf => 'PDF';
+  @override
+  String get artifactsTipoPagina => 'Página';
+  @override
+  String get artifactsTipoTexto => 'Texto';
+  @override
+  String get artifactsTipoImagen => 'Imagen';
+  @override
+  String get artifactsTipoPdf => 'PDF';
+  @override
+  String get artifactsDe => 'De:';
+  @override
+  String get artifactsSinConversacion => 'Sin conversación';
+  @override
+  String artifactsNadaQueSeLlame(String busqueda) =>
+      'Ningún documento se llama «$busqueda».';
+  @override
+  String get artifactsNingunoDeEseTipo =>
+      'Ningún documento de ese tipo todavía. Claude los deja aquí cuando un '
+      'encargo los produce.';
+  @override
+  String get artifactsTrashPregunta => '¿A la papelera?';
+  @override
+  String get artifactsTrashSeRecupera => 'Se puede sacar desde el Finder.';
+  @override
+  String get artifactsTrashMover => 'Mover';
+  @override
+  String get artifactsDondeSeGuardan => 'Dónde se guardan';
+  @override
+  String get artifactsNoSePudoLeer => 'No se pudo leer.';
   @override
   String get dropHere => 'Suéltalo aquí';
   @override
@@ -267,6 +344,47 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   String get artifactsReveal => 'Show in Finder';
   @override
   String get artifactsTrash => 'Move to trash';
+  @override
+  String get artifactsBuscar => 'Search by name';
+  @override
+  String artifactsTodos(int cuantos) => 'All · $cuantos';
+  @override
+  String get artifactsFiltroPaginas => 'Pages';
+  @override
+  String get artifactsFiltroTexto => 'Text';
+  @override
+  String get artifactsFiltroImagenes => 'Images';
+  @override
+  String get artifactsFiltroPdf => 'PDF';
+  @override
+  String get artifactsTipoPagina => 'Page';
+  @override
+  String get artifactsTipoTexto => 'Text';
+  @override
+  String get artifactsTipoImagen => 'Image';
+  @override
+  String get artifactsTipoPdf => 'PDF';
+  @override
+  String get artifactsDe => 'From:';
+  @override
+  String get artifactsSinConversacion => 'No conversation';
+  @override
+  String artifactsNadaQueSeLlame(String busqueda) =>
+      'No document is called “$busqueda”.';
+  @override
+  String get artifactsNingunoDeEseTipo =>
+      'No documents of that type yet. Claude leaves them here when a task '
+      'produces them.';
+  @override
+  String get artifactsTrashPregunta => 'Move to trash?';
+  @override
+  String get artifactsTrashSeRecupera => 'You can take it back out in Finder.';
+  @override
+  String get artifactsTrashMover => 'Move';
+  @override
+  String get artifactsDondeSeGuardan => 'Where they are kept';
+  @override
+  String get artifactsNoSePudoLeer => 'Could not be read.';
   @override
   String get dropHere => 'Drop it here';
   @override

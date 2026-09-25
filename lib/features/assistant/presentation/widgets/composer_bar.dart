@@ -424,87 +424,13 @@ class _Controls extends ConsumerWidget {
     // dejaba que dar escritura en un proyecto la diera también en el del
     // trabajo. Ver [ElPermisoQueVale].
     final carpeta = folder;
-    final canWrite = ElPermisoQueVale.enLaCarpeta(workspace, carpeta?.path);
-    // Con el tope cerrado, dar permiso aquí no haría escribir: se dice en el
-    // propio menú y elegirlo lo sube también.
-    final subeElTope = !ElPermisoQueVale.elTopeLoPermite(workspace);
 
     return Row(
       children: [
         // El permiso, como un menú y no como un interruptor: al desplegarlo se
         // lee la consecuencia de cada opción, que es lo que hay que saber para
         // elegir bien y no cabía junto a un conmutador.
-        PopupMenuButton<FilePermission>(
-          color: colors.deep,
-          tooltip: '',
-          // **Sin carpeta emparejada no hay permiso que dar.** Es el caso de la
-          // carpeta de documentos: no se escribe ahí por este camino, y un menú
-          // que se abre para no poder elegir nada engaña.
-          enabled: carpeta != null,
-          initialValue: canWrite
-              ? FilePermission.canEdit
-              : FilePermission.readOnly,
-          onSelected: (opcion) => ref
-              .read(workspaceControllerProvider.notifier)
-              .setPermisoDeCarpeta(carpeta!.path, opcion.canWrite),
-          itemBuilder: (context) => [
-            // 🔴 **Con el nombre de la carpeta, en la cabecera.** El permiso es
-            // suyo desde el #278 y el menú seguía rotulado en genérico, que es
-            // exactamente lo que hizo creer que era de la app —«la carpeta ya
-            // tiene permiso de puede editar»—. Arriba lo dice una vez y las
-            // opciones quedan con su nombre corto.
-            cabeceraDelMenu(context, strings.permisoEn(carpeta?.name)),
-            for (final option in FilePermission.values)
-              PopupMenuItem<FilePermission>(
-                value: option,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      option.canWrite ? strings.canEdit : strings.readOnly,
-                      style: NexusTypography.control.copyWith(
-                        // La elegida, con su color: ámbar si escribe, que es
-                        // lo que hay que tener presente mientras trabaja.
-                        color: option.canWrite != canWrite
-                            ? colors.ink
-                            : (canWrite ? colors.warn : colors.accent),
-                      ),
-                    ),
-                    // **Lo que implica, y lo que no.** «Ejecutar sigue pidiendo
-                    // permiso» evita creer que editar lo abre todo; el texto de
-                    // antes decía justo eso —«corre comandos sin preguntar»— y
-                    // no era verdad desde que hay quien conteste.
-                    Text(
-                      option.canWrite
-                          ? strings.permisoEditarImplica(carpeta?.name)
-                          : strings.permisoSoloLeerImplica,
-                      style: NexusTypography.nota.copyWith(color: colors.mute),
-                    ),
-                  ],
-                ),
-              ),
-            // Lo que además va a pasar, dicho **antes** de elegir: para eso
-            // este control es un menú con explicaciones y no un conmutador.
-            if (subeElTope) pieDelMenu(context, strings.tambienSubeElTope),
-          ],
-          child: Row(
-            children: [
-              Icon(
-                canWrite ? Icons.edit_outlined : Icons.lock_outline,
-                size: 13,
-                color: canWrite ? colors.warn : colors.faint,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                canWrite ? strings.canEdit : strings.readOnly,
-                style: NexusTypography.label.copyWith(
-                  color: canWrite ? colors.warn : colors.faint,
-                ),
-              ),
-              Icon(Icons.expand_more, size: 14, color: colors.faint),
-            ],
-          ),
-        ),
+        MenuDelPermiso(folder: carpeta, workspace: workspace),
         const SizedBox(width: NexusSpacing.s3),
         MoreMenu(onAttach: onAttach),
         const SizedBox(width: NexusSpacing.s2),
@@ -598,6 +524,102 @@ class _BotonDePruebas extends ConsumerWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// El permiso de la carpeta, como un menú con lo que implica cada opción.
+///
+/// Público porque se cambia desde dos sitios: el compositor, de cerca, y la
+/// esquina del permiso del escenario, de lejos. Los dos tienen que decir lo
+/// mismo y cambiar lo mismo.
+class MenuDelPermiso extends ConsumerWidget {
+  const MenuDelPermiso({
+    super.key,
+    required this.folder,
+    required this.workspace,
+  });
+
+  final PairedFolder? folder;
+  final Workspace workspace;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final strings = context.strings;
+    final carpeta = folder;
+    final canWrite = ElPermisoQueVale.enLaCarpeta(workspace, carpeta?.path);
+    // Con el tope cerrado, dar permiso aquí no haría escribir: se dice en el
+    // propio menú y elegirlo lo sube también.
+    final subeElTope = !ElPermisoQueVale.elTopeLoPermite(workspace);
+    return PopupMenuButton<FilePermission>(
+      color: colors.deep,
+      tooltip: '',
+      // **Sin carpeta emparejada no hay permiso que dar.** Es el caso de la
+      // carpeta de documentos: no se escribe ahí por este camino, y un menú
+      // que se abre para no poder elegir nada engaña.
+      enabled: carpeta != null,
+      initialValue: canWrite ? FilePermission.canEdit : FilePermission.readOnly,
+      onSelected: (opcion) => ref
+          .read(workspaceControllerProvider.notifier)
+          .setPermisoDeCarpeta(carpeta!.path, opcion.canWrite),
+      itemBuilder: (context) => [
+        // 🔴 **Con el nombre de la carpeta, en la cabecera.** El permiso es
+        // suyo desde el #278 y el menú seguía rotulado en genérico, que es
+        // exactamente lo que hizo creer que era de la app —«la carpeta ya
+        // tiene permiso de puede editar»—. Arriba lo dice una vez y las
+        // opciones quedan con su nombre corto.
+        cabeceraDelMenu(context, strings.permisoEn(carpeta?.name)),
+        for (final option in FilePermission.values)
+          PopupMenuItem<FilePermission>(
+            value: option,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  option.canWrite ? strings.canEdit : strings.readOnly,
+                  style: NexusTypography.control.copyWith(
+                    // La elegida, con su color: ámbar si escribe, que es
+                    // lo que hay que tener presente mientras trabaja.
+                    color: option.canWrite != canWrite
+                        ? colors.ink
+                        : (canWrite ? colors.warn : colors.accent),
+                  ),
+                ),
+                // **Lo que implica, y lo que no.** «Ejecutar sigue pidiendo
+                // permiso» evita creer que editar lo abre todo; el texto de
+                // antes decía justo eso —«corre comandos sin preguntar»— y
+                // no era verdad desde que hay quien conteste.
+                Text(
+                  option.canWrite
+                      ? strings.permisoEditarImplica(carpeta?.name)
+                      : strings.permisoSoloLeerImplica,
+                  style: NexusTypography.nota.copyWith(color: colors.mute),
+                ),
+              ],
+            ),
+          ),
+        // Lo que además va a pasar, dicho **antes** de elegir: para eso
+        // este control es un menú con explicaciones y no un conmutador.
+        if (subeElTope) pieDelMenu(context, strings.tambienSubeElTope),
+      ],
+      child: Row(
+        children: [
+          Icon(
+            canWrite ? Icons.edit_outlined : Icons.lock_outline,
+            size: 13,
+            color: canWrite ? colors.warn : colors.faint,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            canWrite ? strings.canEdit : strings.readOnly,
+            style: NexusTypography.label.copyWith(
+              color: canWrite ? colors.warn : colors.faint,
+            ),
+          ),
+          Icon(Icons.expand_more, size: 14, color: colors.faint),
+        ],
+      ),
     );
   }
 }

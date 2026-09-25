@@ -135,7 +135,7 @@ class ConversationDock extends ConsumerWidget {
             );
           },
         ),
-      if (!conversations.isFull) const _OpenAnother(),
+      if (!conversations.isFull) const AbrirOtraConversacion(),
     ];
 
     return Row(
@@ -314,8 +314,14 @@ class _DockOrbState extends ConsumerState<_DockOrb> {
 /// **Y su menú dice el límite.** Antes se descubría al intentar abrir una de
 /// más: el botón se iba sin decir por qué. Dicho al pie, se sabe antes de
 /// llegar y qué hacer cuando se llega.
-class _OpenAnother extends ConsumerWidget {
-  const _OpenAnother();
+///
+/// Público porque el escenario también abre conversaciones: allí no hay muelle,
+/// solo los miniorbes de la esquina, y el «+» de su lado es este mismo menú.
+/// [compacto] lo pinta como ese «+», del tamaño de un miniorbe.
+class AbrirOtraConversacion extends ConsumerWidget {
+  const AbrirOtraConversacion({super.key, this.compacto = false});
+
+  final bool compacto;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -397,30 +403,41 @@ class _OpenAnother extends ConsumerWidget {
           context.strings.cabenAbiertas(Conversations.max, abiertas),
         ),
       ],
-      child: Container(
-        width: ConversationDock.tabWidth,
-        height: ConversationDock.tabHeight,
-        padding: const EdgeInsets.only(right: NexusSpacing.s3),
-        decoration: BoxDecoration(
-          border: Border.all(color: colors.rule),
-          borderRadius: BorderRadius.circular(NexusRadius.sm),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 46,
-              height: 46,
-              child: Icon(Icons.add, size: 18, color: colors.faint),
+      child: compacto
+          ? Container(
+              width: 14,
+              height: 14,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: colors.rule2),
+              ),
+              child: Icon(Icons.add, size: 10, color: colors.mute),
+            )
+          : Container(
+              width: ConversationDock.tabWidth,
+              height: ConversationDock.tabHeight,
+              padding: const EdgeInsets.only(right: NexusSpacing.s3),
+              decoration: BoxDecoration(
+                border: Border.all(color: colors.rule),
+                borderRadius: BorderRadius.circular(NexusRadius.sm),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 46,
+                    height: 46,
+                    child: Icon(Icons.add, size: 18, color: colors.faint),
+                  ),
+                  const SizedBox(width: NexusSpacing.s2),
+                  Text(
+                    context.strings.newConversation,
+                    style: NexusTypography.label.copyWith(color: colors.faint),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(width: NexusSpacing.s2),
-            Text(
-              context.strings.newConversation,
-              style: NexusTypography.label.copyWith(color: colors.faint),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

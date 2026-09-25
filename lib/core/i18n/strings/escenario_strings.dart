@@ -1,9 +1,6 @@
 // El escenario: la conversación vista de lejos. Ver `ElEscenario`.
 
 mixin EscenarioStrings {
-  String get escenarioModo;
-  String get escenarioDeCerca;
-  String get escenarioAjustes;
   String escenarioProximo(String titulo, String hora);
   String get escenarioEscuchando;
   String escenarioPasoDe(int paso, int de);
@@ -12,6 +9,7 @@ mixin EscenarioStrings {
   String get escenarioCarpeta;
   String get escenarioSinCarpeta;
   String escenarioContexto(int porcentaje);
+  String get escenarioContextoSinDatos;
   String escenarioCupoSemana(int porcentaje);
   String get escenarioConversaciones;
   String get escenarioPermiso;
@@ -20,12 +18,6 @@ mixin EscenarioStrings {
 }
 
 mixin EscenarioStringsEs implements EscenarioStrings {
-  @override
-  String get escenarioModo => 'Escenario';
-  @override
-  String get escenarioDeCerca => 'Conversación';
-  @override
-  String get escenarioAjustes => 'Ajustes';
   @override
   String escenarioProximo(String titulo, String hora) =>
       'próximo: $titulo $hora';
@@ -44,6 +36,8 @@ mixin EscenarioStringsEs implements EscenarioStrings {
   @override
   String escenarioContexto(int porcentaje) => 'contexto $porcentaje %';
   @override
+  String get escenarioContextoSinDatos => 'contexto —';
+  @override
   String escenarioCupoSemana(int porcentaje) => 'cupo semana $porcentaje %';
   @override
   String get escenarioConversaciones => 'conversaciones';
@@ -56,12 +50,6 @@ mixin EscenarioStringsEs implements EscenarioStrings {
 }
 
 mixin EscenarioStringsEn implements EscenarioStrings {
-  @override
-  String get escenarioModo => 'Stage';
-  @override
-  String get escenarioDeCerca => 'Conversation';
-  @override
-  String get escenarioAjustes => 'Settings';
   @override
   String escenarioProximo(String titulo, String hora) => 'next: $titulo $hora';
   @override
@@ -78,6 +66,8 @@ mixin EscenarioStringsEn implements EscenarioStrings {
   String get escenarioSinCarpeta => 'no folder';
   @override
   String escenarioContexto(int porcentaje) => 'context $porcentaje %';
+  @override
+  String get escenarioContextoSinDatos => 'context —';
   @override
   String escenarioCupoSemana(int porcentaje) => 'weekly quota $porcentaje %';
   @override

@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/features/assistant/presentation/widgets/conversation_dock.dart';
+import 'package:nexus/features/assistant/presentation/widgets/composer_bar.dart';
+import 'package:nexus/features/assistant/presentation/widgets/composer/composer_menus.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/agenda/domain/entities/reunion.dart';
@@ -14,7 +17,6 @@ import 'package:nexus/features/assistant/presentation/providers/model_providers.
 import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
 import 'package:nexus/features/assistant/presentation/state/chat_message.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
-import 'package:nexus/features/workspace/domain/usecases/el_permiso_que_vale.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
 /// **La conversación vista de lejos**: el orbe manda y la sala se reorganiza
@@ -450,7 +452,6 @@ class _LasEsquinas extends ConsumerWidget {
         .value
         ?.usage
         ?.weeklyPercent;
-    final puedeEditar = ElPermisoQueVale.enLaCarpeta(workspace, folderPath);
     final conversaciones = ref.watch(conversationsProvider).items;
 
     final etiqueta = NexusTypography.label.copyWith(color: colors.faint);
@@ -477,13 +478,25 @@ class _LasEsquinas extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              if (meter.displayModel case final modelo?)
-                Text(modelo.toUpperCase(), style: etiqueta),
-              if (contexto != null)
-                Text(
-                  strings.escenarioContexto(contexto).toUpperCase(),
-                  style: dato,
-                ),
+              // Modelo y esfuerzo **se tocan desde aquí**: son los mismos menús
+              // del compositor, así que el de lejos y el de cerca dicen lo
+              // mismo y cambian lo mismo —el perfil de Claude, como `/model`—.
+              // Y salen desde el principio: el modelo es el que tiene la
+              // carpeta, no el que dijo el último turno, que en una
+              // conversación nueva todavía no existe.
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ModelMenu(folder: carpeta, meter: meter),
+                  EffortMenu(folder: carpeta, meter: meter),
+                ],
+              ),
+              Text(
+                contexto == null
+                    ? strings.escenarioContextoSinDatos.toUpperCase()
+                    : strings.escenarioContexto(contexto).toUpperCase(),
+                style: dato,
+              ),
               if (cupo != null)
                 Text(
                   strings.escenarioCupoSemana(cupo).toUpperCase(),
@@ -530,6 +543,11 @@ class _LasEsquinas extends ConsumerWidget {
                         ),
                       ),
                     ),
+                  // Una nueva, en cualquier carpeta: el mismo menú que
+                  // «Nueva» en el muelle. Sin él, desde el escenario no había
+                  // forma de abrir otra.
+                  if (!ref.watch(conversationsProvider).isFull)
+                    const AbrirOtraConversacion(compacto: true),
                 ],
               ),
             ],
@@ -542,15 +560,9 @@ class _LasEsquinas extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(strings.escenarioPermiso.toUpperCase(), style: etiqueta),
-              Text(
-                (puedeEditar
-                        ? strings.escenarioPuedeEditar
-                        : strings.escenarioSoloLectura)
-                    .toUpperCase(),
-                style: NexusTypography.label.copyWith(
-                  color: puedeEditar ? colors.warn : colors.mute,
-                ),
-              ),
+              // El permiso se cambia desde aquí, con el mismo menú del
+              // compositor y sus explicaciones.
+              MenuDelPermiso(folder: carpeta, workspace: workspace),
             ],
           ),
         ),

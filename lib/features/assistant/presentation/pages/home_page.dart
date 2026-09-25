@@ -92,7 +92,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   /// Con la voz abierta, o sin nada escrito todavía, el escenario: es cuando
   /// se habla con ella y la sala tiene que decir qué está pasando. Con
   /// mensajes y sin voz, de cerca: es cuando se trabaja leyendo y escribiendo.
-  /// Lo que elijas con el botón de la barra (o ⌘E) manda hasta que la voz se
+  /// Lo que elijas con ⌘E manda hasta que la voz se
   /// abra o se cierre, que es cuando cambia el tipo de conversación.
   bool _verElEscenario(AssistantHudState hud) {
     if (hud.voiceActive != _habiaVoz) {
@@ -193,10 +193,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       status: _statusFor(hud.orbState, context.strings),
       live: working || hud.voiceActive,
       folderPath: focused.folderPath,
-      escenario: escenario,
       centrada: escenario,
-      onAlternar: () => setState(() => _escenarioElegido = !escenario),
-      onAjustes: () => SettingsPage.open(context),
     );
     final anchoDelOrbe = hasChat
         ? MediaQuery.sizeOf(context).width * 0.42

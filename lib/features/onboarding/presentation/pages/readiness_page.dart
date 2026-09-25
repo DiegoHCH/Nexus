@@ -78,7 +78,7 @@ class ReadinessPage extends ConsumerWidget {
       panel: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(
           0,
-          NexusSpacing.s6,
+          0,
           NexusSpacing.s6,
           NexusSpacing.s6,
         ),
@@ -86,29 +86,43 @@ class ReadinessPage extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // El `.sec-t` del mockup: 28 px y un poco apretado. Es el título
+            // de la pantalla entera, y a 22 se quedaba a la altura de un
+            // encabezado de sección.
             Text(
               strings.readinessTitle,
               style: NexusTypography.title.copyWith(
                 color: colors.ink,
-                fontSize: 26,
+                fontSize: 28,
+                letterSpacing: -0.56,
+                height: 1.2,
               ),
             ),
             const SizedBox(height: NexusSpacing.s3),
-            Text(
-              strings.readinessExplainer,
-              style: NexusTypography.body.copyWith(color: colors.mute),
+            // Con el tope de línea del mockup (62ch): es una frase que se lee
+            // de un tirón, y a todo el ancho del panel la segunda línea se
+            // quedaba en una palabra suelta.
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 580),
+              child: Text(
+                strings.readinessExplainer,
+                style: NexusTypography.body.copyWith(
+                  color: colors.mute,
+                  fontSize: 14,
+                ),
+              ),
             ),
-            const SizedBox(height: NexusSpacing.s4),
+            const SizedBox(height: 14),
             for (final (i, fila) in filas.indexed) ...[
               // Línea de 1 px entre filas y no alrededor: es un registro, no
               // tarjetas. La primera no la lleva, como en el mockup.
               if (i > 0) Divider(height: 1, thickness: 1, color: colors.rule),
               fila,
             ],
-            const SizedBox(height: NexusSpacing.s5),
+            const SizedBox(height: 18),
             Wrap(
-              spacing: NexusSpacing.s3,
-              runSpacing: NexusSpacing.s3,
+              spacing: NexusSpacing.s2,
+              runSpacing: NexusSpacing.s2,
               children: [
                 BotonDelArranque(
                   texto: strings.readinessRecheck,
@@ -124,10 +138,13 @@ class ReadinessPage extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: NexusSpacing.s3),
+            const SizedBox(height: NexusSpacing.s2),
             Text(
               strings.readinessContinueHint,
-              style: NexusTypography.nota.copyWith(color: colors.mute),
+              style: NexusTypography.nota.copyWith(
+                color: colors.mute,
+                fontSize: 12.5,
+              ),
             ),
           ],
         ),
@@ -159,15 +176,24 @@ class _Fila extends StatelessWidget {
     final colors = context.colors;
     final detalle = this.detalle;
     final accion = this.accion;
+    // La fila del mockup: 9 de aire arriba y abajo, el punto en una columna
+    // de 14 y el texto a 10 de ella. Es un registro que se lee en columna, y
+    // con el aire de antes parecían tres bloques en vez de tres líneas.
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s3),
+      padding: const EdgeInsets.symmetric(vertical: 9),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             // A la altura de la primera línea del título, no del bloque.
-            padding: const EdgeInsets.only(top: 8, right: NexusSpacing.s3),
-            child: PuntoDeEstado(color: bien ? colors.ok : colors.err),
+            padding: const EdgeInsets.only(top: 7, right: 10),
+            child: SizedBox(
+              width: 14,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: PuntoDeEstado(color: bien ? colors.ok : colors.err),
+              ),
+            ),
           ),
           Expanded(
             child: Column(
@@ -175,15 +201,23 @@ class _Fila extends StatelessWidget {
               children: [
                 Text(
                   titulo,
-                  style: NexusTypography.body.copyWith(color: colors.ink),
+                  style: NexusTypography.body.copyWith(
+                    color: colors.ink,
+                    fontSize: 13.5,
+                  ),
                 ),
-                if (detalle != null) ...[
-                  const SizedBox(height: NexusSpacing.s1),
+                if (detalle != null)
+                  // En nota y no en mono, aunque el mockup lo ponga en mono: es
+                  // una explicación —cómo se arregla—, no un dato, y el mono
+                  // es solo para lo que se lee en columna. Un punto más
+                  // pequeña, para que quede por debajo del título como allí.
                   Text(
                     detalle,
-                    style: NexusTypography.nota.copyWith(color: colors.mute),
+                    style: NexusTypography.nota.copyWith(
+                      color: colors.mute,
+                      fontSize: 12,
+                    ),
                   ),
-                ],
               ],
             ),
           ),

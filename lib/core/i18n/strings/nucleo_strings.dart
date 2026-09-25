@@ -127,7 +127,6 @@ mixin NucleoStrings {
   String get rightNow;
   String get noStepsYet;
   String get stopButton;
-  String get writesTag;
   String get ranLabel;
   String get returnedLabel;
   String get stillRunning;
@@ -147,10 +146,27 @@ mixin NucleoStrings {
   /// del orbe, para que lo que se ve de lejos y de cerca coincida.
   String pasoDeTotal(int paso, int total);
 
-  /// Las tres palabras de cada paso: el que corre y el que espera. El hecho
-  /// usa [ranLabel].
-  String get pasoAhora;
+  /// La palabra del paso que espera —una delegación mientras trabaja su
+  /// subagente—; los demás llevan su verbo (ver [verboLee]).
   String get pasoEspera;
+
+  /// El verbo de cada paso en la ventana de actividad, hecho y en curso
+  /// —«Se ejecutó» y «Ejecuta»—, en su columna y aparte de lo que tocó. Ver
+  /// `ElVerboDeUnPaso`: la frase del paso llega en un idioma fijo, y así la
+  /// ventana en inglés deja de decir «Leyendo».
+  ({String hecho, String ahora}) get verboLee;
+  ({String hecho, String ahora}) get verboEscribe;
+  ({String hecho, String ahora}) get verboEdita;
+  ({String hecho, String ahora}) get verboEjecuta;
+  ({String hecho, String ahora}) get verboBusca;
+  ({String hecho, String ahora}) get verboDelega;
+  ({String hecho, String ahora}) get verboConsulta;
+
+  /// Lo que no se sabe qué fue: una herramienta sin verbo propio.
+  ({String hecho, String ahora}) get verboOtro;
+
+  /// El rótulo de la ventana de actividad, en su barra: «NEXUS · Actividad».
+  String get actividadRotulo;
 
   /// La espera cuando quien tiene el turno es **algo tuyo que sigue en
   /// marcha**: el encargo anterior de esta misma conversación, un reintento,
@@ -558,8 +574,6 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String get stopButton => 'DETENER  ⌘.';
   @override
-  String get writesTag => 'ESCRIBE';
-  @override
   String get ranLabel => 'SE EJECUTÓ';
   @override
   String get returnedLabel => 'DEVOLVIÓ';
@@ -604,11 +618,34 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String stepsProgress(int done, int total) => '$done de $total';
   @override
-  String pasoDeTotal(int paso, int total) => 'paso $paso de $total';
-  @override
-  String get pasoAhora => 'AHORA';
+  String pasoDeTotal(int paso, int total) => '$paso de $total';
   @override
   String get pasoEspera => 'ESPERA';
+  @override
+  ({String hecho, String ahora}) get verboLee => (hecho: 'Leyó', ahora: 'Lee');
+  @override
+  ({String hecho, String ahora}) get verboEscribe =>
+      (hecho: 'Escribió', ahora: 'Escribe');
+  @override
+  ({String hecho, String ahora}) get verboEdita =>
+      (hecho: 'Editó', ahora: 'Edita');
+  @override
+  ({String hecho, String ahora}) get verboEjecuta =>
+      (hecho: 'Se ejecutó', ahora: 'Ejecuta');
+  @override
+  ({String hecho, String ahora}) get verboBusca =>
+      (hecho: 'Buscó', ahora: 'Busca');
+  @override
+  ({String hecho, String ahora}) get verboDelega =>
+      (hecho: 'Delegó', ahora: 'Delega');
+  @override
+  ({String hecho, String ahora}) get verboConsulta =>
+      (hecho: 'Consultó', ahora: 'Consulta');
+  @override
+  ({String hecho, String ahora}) get verboOtro =>
+      (hecho: 'Hecho', ahora: 'Ahora');
+  @override
+  String get actividadRotulo => 'Actividad';
   @override
   String stepsTaken(int steps) =>
       steps == 1 ? 'VER EL PASO QUE DIO' : 'VER LOS $steps PASOS QUE DIO';
@@ -1163,8 +1200,6 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String get stopButton => 'STOP  ⌘.';
   @override
-  String get writesTag => 'WRITES';
-  @override
   String get ranLabel => 'IT RAN';
   @override
   String get returnedLabel => 'IT RETURNED';
@@ -1207,11 +1242,34 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String stepsProgress(int done, int total) => '$done of $total';
   @override
-  String pasoDeTotal(int paso, int total) => 'step $paso of $total';
-  @override
-  String get pasoAhora => 'NOW';
+  String pasoDeTotal(int paso, int total) => '$paso of $total';
   @override
   String get pasoEspera => 'WAITING';
+  @override
+  ({String hecho, String ahora}) get verboLee =>
+      (hecho: 'Read', ahora: 'Reads');
+  @override
+  ({String hecho, String ahora}) get verboEscribe =>
+      (hecho: 'Wrote', ahora: 'Writes');
+  @override
+  ({String hecho, String ahora}) get verboEdita =>
+      (hecho: 'Edited', ahora: 'Edits');
+  @override
+  ({String hecho, String ahora}) get verboEjecuta =>
+      (hecho: 'Ran', ahora: 'Runs');
+  @override
+  ({String hecho, String ahora}) get verboBusca =>
+      (hecho: 'Searched', ahora: 'Searches');
+  @override
+  ({String hecho, String ahora}) get verboDelega =>
+      (hecho: 'Delegated', ahora: 'Delegates');
+  @override
+  ({String hecho, String ahora}) get verboConsulta =>
+      (hecho: 'Fetched', ahora: 'Fetches');
+  @override
+  ({String hecho, String ahora}) get verboOtro => (hecho: 'Done', ahora: 'Now');
+  @override
+  String get actividadRotulo => 'Activity';
   @override
   String stepsTaken(int steps) =>
       steps == 1 ? 'SEE THE STEP IT TOOK' : 'SEE THE $steps STEPS IT TOOK';

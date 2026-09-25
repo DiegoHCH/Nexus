@@ -3,6 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
+import 'package:nexus/core/design_system/accent_preference.dart';
+import 'package:nexus/core/design_system/la_hoja_viva_de_las_paginas.dart';
+import 'package:nexus/core/design_system/theme_preference.dart';
 import 'package:nexus/core/design_system/selector_compacto.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
@@ -1404,10 +1407,15 @@ class _FilaDePasadaState extends ConsumerState<_FilaDePasada> {
               // cosa quieta, y no había motivo para dos formas de mirar lo mismo.
               BotonDeFila(
                 texto: strings.e2eSee,
-                onPulsar: () => ref
+                onPulsar: () async => ref
                     .read(e2eDataSourceProvider)
                     .abreElInforme(
                       pasada.carpeta,
+                      textos: textosDeLaPasada(strings),
+                      hoja: await laHojaCon(
+                        acento: ref.read(accentControllerProvider),
+                        eleccion: ref.read(themeControllerProvider),
+                      ),
                       explica: (por) => switch (por) {
                         PorQueSeCayo.driverNoSeInstala =>
                           strings.e2eDriverBlocked,

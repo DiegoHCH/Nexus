@@ -9,6 +9,7 @@ import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/e2e/data/datasources/e2e_data_source.dart';
 import 'package:nexus/features/e2e/domain/entities/pasada_de_prueba.dart';
 import 'package:nexus/features/e2e/domain/usecases/el_numero_de_las_pruebas.dart';
+import 'package:nexus/features/e2e/domain/usecases/la_pasada_como_html.dart';
 import 'package:nexus/features/e2e/domain/usecases/pasos_de_una_prueba.dart';
 import 'package:nexus/features/e2e/domain/usecases/por_que_se_cayo.dart';
 import 'package:nexus/features/e2e/presentation/providers/e2e_providers.dart';
@@ -118,6 +119,8 @@ class _Borrados extends E2eDataSource {
   Future<void> abreElInforme(
     String registro, {
     String Function(PorQueSeCayo)? explica,
+    TextosDeLaPasada textos = TextosDeLaPasada.es,
+    String? hoja,
   }) async => borrados.add('ver:$registro');
 
   @override

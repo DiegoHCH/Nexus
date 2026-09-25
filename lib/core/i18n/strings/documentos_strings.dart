@@ -78,6 +78,10 @@ mixin DocumentosStrings {
   String cambiosRecortado(int vistas, int total);
   String get cambiosBinarioExplica;
   String get cambiosSinLeer;
+
+  /// El rótulo de la ventana de cambios en su barra, y su botón de cerrar.
+  String get cambiosRotulo;
+  String get cambiosCerrar;
   String blockedTitle(String folder);
   String get blockedExplainer;
   String get blockedHint;
@@ -277,6 +281,10 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   @override
   String get cambiosSinLeer =>
       'Archivo nuevo. No se pudo leer desde aquí: puede que ya no esté.';
+  @override
+  String get cambiosRotulo => 'Cambios';
+  @override
+  String get cambiosCerrar => 'Cerrar · Esc';
   @override
   String blockedTitle(String folder) => 'COMANDOS BLOQUEADOS EN $folder';
   @override
@@ -517,6 +525,10 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   @override
   String get cambiosSinLeer =>
       'New file. It could not be read from here: it may be gone.';
+  @override
+  String get cambiosRotulo => 'Changes';
+  @override
+  String get cambiosCerrar => 'Close · Esc';
   @override
   String blockedTitle(String folder) => 'COMMANDS BLOCKED IN $folder';
   @override

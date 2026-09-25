@@ -108,6 +108,17 @@ mixin PruebasStrings {
   String e2eNumeroDesde(String fecha);
   String get e2eNumeroLimite;
   String e2eMissingVars(String claves);
+
+  /// La ventana de una pasada: su estado en la barra, el botón de parar, la
+  /// línea de la salida y el pie de la captura. Ver `LaPasadaComoHtml`.
+  String get pasadaCorriendo;
+  String get pasadaBien;
+  String get pasadaMal;
+  String get pasadaDetener;
+  String get pasadaSalida;
+  String get pasadaTodaLaSalida;
+  String pasadaLinea(int linea);
+  String pasadaCaptura(String nombre, int paso);
   String e2eVarsLoaded(int cuantas);
 
   /// La hoja en tres columnas, una por pregunta: qué lanzo, qué hay en el
@@ -437,6 +448,22 @@ mixin PruebasStringsEs implements PruebasStrings {
       '${cuantas == 1 ? '1 pasada' : '$cuantas pasadas'} · $tamano';
   @override
   String e2eMissingVars(String claves) => 'Faltan en .env.local: $claves';
+  @override
+  String get pasadaCorriendo => 'Corriendo';
+  @override
+  String get pasadaBien => 'Finalizada';
+  @override
+  String get pasadaMal => 'Error';
+  @override
+  String get pasadaDetener => '■ Detener';
+  @override
+  String get pasadaSalida => 'salida';
+  @override
+  String get pasadaTodaLaSalida => 'Toda la salida';
+  @override
+  String pasadaLinea(int linea) => 'línea $linea';
+  @override
+  String pasadaCaptura(String nombre, int paso) => '$nombre · paso $paso';
   @override
   String e2eVarsLoaded(int cuantas) => cuantas == 1
       ? '1 variable de .env.local'
@@ -901,6 +928,22 @@ mixin PruebasStringsEn implements PruebasStrings {
       '${cuantas == 1 ? '1 run' : '$cuantas runs'} · $tamano';
   @override
   String e2eMissingVars(String claves) => 'Missing from .env.local: $claves';
+  @override
+  String get pasadaCorriendo => 'Running';
+  @override
+  String get pasadaBien => 'Finished';
+  @override
+  String get pasadaMal => 'Error';
+  @override
+  String get pasadaDetener => '■ Stop';
+  @override
+  String get pasadaSalida => 'output';
+  @override
+  String get pasadaTodaLaSalida => 'All the output';
+  @override
+  String pasadaLinea(int linea) => 'line $linea';
+  @override
+  String pasadaCaptura(String nombre, int paso) => '$nombre · step $paso';
   @override
   String e2eVarsLoaded(int cuantas) => cuantas == 1
       ? '1 variable from .env.local'

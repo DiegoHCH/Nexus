@@ -202,6 +202,9 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
   /// recargar.
   private var scrollY: Double = 0
 
+  /// Quien escucha el Esc de esta ventana, para soltarlo al cerrarla.
+  private var escucha: Any?
+
   init(
     path: String,
     width: Double? = nil,
@@ -246,6 +249,7 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
     window.delegate = self
     web.navigationDelegate = self
     if !propia { ponerLaCasilla() }
+    if propia { cerrarConEsc() }
     load()
     watch()
   }
@@ -503,7 +507,13 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
     // app, y eso no es navegar. Antes que el reenvío al navegador, porque
     // `nexus://parar` no es una dirección de internet.
     if let target = navigationAction.request.url, target.scheme == "nexus" {
-      NexusArtifacts.pidieron(target.host ?? "", ruta: target.path)
+      // «Cerrar» lo resuelve la ventana y no la app: es la ventana la que se
+      // va, y un viaje de ida y vuelta por el canal no añade nada.
+      if target.host == "cerrar" {
+        window.performClose(nil)
+      } else {
+        NexusArtifacts.pidieron(target.host ?? "", ruta: target.path)
+      }
       decisionHandler(.cancel, preferences)
       return
     }
@@ -515,7 +525,25 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
     decisionHandler(.allow, preferences)
   }
 
+  /// **Esc cierra las páginas de Nexus**, como dice su botón: «Cerrar · Esc».
+  ///
+  /// Solo las propias: un documento de Claude puede tener sus propios campos,
+  /// y ahí Esc es de quien escribe. Estas no llevan ni un campo ni JavaScript,
+  /// así que Esc no tiene otro dueño. Con un monitor local y no heredando la
+  /// ventana: el `WKWebView` se queda las teclas antes de que lleguen a ella.
+  private func cerrarConEsc() {
+    escucha = NSEvent.addLocalMonitorForEvents(matching: .keyDown) {
+      [weak self] evento in
+      guard let self, evento.keyCode == 53, evento.window === self.window
+      else { return evento }
+      self.window.performClose(nil)
+      return nil
+    }
+  }
+
   func windowWillClose(_ notification: Notification) {
+    if let escucha { NSEvent.removeMonitor(escucha) }
+    escucha = nil
     pending?.cancel()
     watcher?.cancel()
     // **Que se cerró hay que decirlo, o nadie se entera.** Una página que se

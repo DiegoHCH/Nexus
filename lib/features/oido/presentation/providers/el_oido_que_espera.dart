@@ -42,7 +42,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// exactamente la clase de iniciativa que no se quiere.
 class ElOidoQueEspera {
   ElOidoQueEspera(this._ref) {
-    EscuchaChannel.cuandoTeLlamen(_teLlamaron);
+    EscuchaChannel.cuandoTeLlamen(_teLlamaron, siSeCalla: _seCallo);
     _ref.onDispose(() {
       EscuchaChannel.cuandoTeLlamen(null);
       unawaited(EscuchaChannel.parar());
@@ -112,6 +112,25 @@ class ElOidoQueEspera {
   /// Cómo hay que llamarla. Ver [ComoSeLeLlama].
   List<String> _lasPalabras() =>
       ComoSeLeLlama.lasPalabras(_ref.read(losNombresProvider).agente);
+
+  /// La escucha se renovó sola y no pudo volver: el micrófono lo tomó otra
+  /// app, o se desenchufó.
+  ///
+  /// Se intenta **una vez** al rato, no en bucle: si sigue sin poder, `empezar`
+  /// devuelve que no y ahí se queda, igual que al arrancar. Lo que no se hace
+  /// es seguir creyendo que escucha.
+  void _seCallo() {
+    _puesto = false;
+    debugPrint('escucha · se calló sola; se prueba otra vez en un rato');
+    unawaited(
+      Future<void>.delayed(_reintento, () async {
+        if (_ref.mounted) await cuadrar();
+      }),
+    );
+  }
+
+  /// Cuánto se espera antes de volver a probar tras callarse sola.
+  static const _reintento = Duration(seconds: 5);
 
   void _teLlamaron() {
     _puesto = false;

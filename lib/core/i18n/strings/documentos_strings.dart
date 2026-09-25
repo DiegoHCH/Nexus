@@ -171,7 +171,7 @@ mixin DocumentosStrings {
   /// Cuándo vuelven los cupos, en una frase al pie: «Se renueva el lunes a
   /// las 09:00». Una sola frase y no una nota bajo cada barra, como en el
   /// mockup; con las dos fechas cuando se saben las dos.
-  String seRenuevan({String? cincoHoras, String? semanal});
+  String seRenuevan(String? cincoHoras, String? semanal);
 
   /// Un plazo corto, contado: «en 2 h 10 min».
   String dentroDe(int horas, int minutos);
@@ -415,13 +415,14 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   @override
   String get noReadingYet => 'Sin dato';
   @override
-  String seRenuevan({String? cincoHoras, String? semanal}) =>
-      switch ((cincoHoras, semanal)) {
-        (final c?, final s?) => 'El de 5 horas se renueva $c; el semanal, $s.',
-        (null, final s?) => 'Se renueva $s.',
-        (final c?, null) => 'El de 5 horas se renueva $c.',
-        (null, null) => '',
-      };
+  String seRenuevan(String? cincoHoras, String? semanal) =>
+      cincoHoras != null && semanal != null
+      ? 'El de 5 horas se renueva $cincoHoras; el semanal, $semanal.'
+      : semanal != null
+      ? 'Se renueva $semanal.'
+      : cincoHoras != null
+      ? 'El de 5 horas se renueva $cincoHoras.'
+      : '';
   @override
   String dentroDe(int horas, int minutos) =>
       horas > 0 ? 'en $horas h $minutos min' : 'en $minutos min';
@@ -697,13 +698,14 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   @override
   String get noReadingYet => 'No reading';
   @override
-  String seRenuevan({String? cincoHoras, String? semanal}) =>
-      switch ((cincoHoras, semanal)) {
-        (final c?, final s?) => 'The 5-hour one resets $c; the weekly one, $s.',
-        (null, final s?) => 'Resets $s.',
-        (final c?, null) => 'The 5-hour one resets $c.',
-        (null, null) => '',
-      };
+  String seRenuevan(String? cincoHoras, String? semanal) =>
+      cincoHoras != null && semanal != null
+      ? 'The 5-hour one resets $cincoHoras; the weekly one, $semanal.'
+      : semanal != null
+      ? 'Resets $semanal.'
+      : cincoHoras != null
+      ? 'The 5-hour one resets $cincoHoras.'
+      : '';
   @override
   String dentroDe(int horas, int minutos) =>
       horas > 0 ? 'in $horas h $minutos min' : 'in $minutos min';

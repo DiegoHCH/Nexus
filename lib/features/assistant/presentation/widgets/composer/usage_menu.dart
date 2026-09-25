@@ -184,8 +184,8 @@ class UsageMenu extends ConsumerWidget {
     }
 
     return strings.seRenuevan(
-      cincoHoras: cuando(usage.fiveHourResetsAt),
-      semanal: cuando(usage.weeklyResetsAt),
+      cuando(usage.fiveHourResetsAt),
+      cuando(usage.weeklyResetsAt),
     );
   }
 }

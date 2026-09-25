@@ -210,14 +210,11 @@ void main() {
 
     test('una sola frase al pie, con lo que se sepa', () {
       expect(
-        es.seRenuevan(semanal: 'el lunes a las 09:00'),
+        es.seRenuevan(null, 'el lunes a las 09:00'),
         'Se renueva el lunes a las 09:00.',
       );
-      expect(
-        es.seRenuevan(cincoHoras: 'en 2 h', semanal: 'el lunes'),
-        contains('5 horas'),
-      );
-      expect(es.seRenuevan(), isEmpty);
+      expect(es.seRenuevan('en 2 h', 'el lunes'), contains('5 horas'));
+      expect(es.seRenuevan(null, null), isEmpty);
     });
 
     test('«Nueva» solo dice qué hacer cuando ya no cabe otra', () {

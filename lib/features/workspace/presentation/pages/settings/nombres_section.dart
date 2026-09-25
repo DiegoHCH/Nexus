@@ -55,9 +55,12 @@ class NombresSection extends ConsumerWidget {
           const SizedBox(height: NexusSpacing.s2),
           _ComoSeVera(nombres: nombres),
           const SizedBox(height: NexusSpacing.s5),
+          // Decía que ponerle nombre no la despertaba, y desde que existe el
+          // oído sí: el aviso en ámbar contaba una limitación que ya no está.
+          // Ahora es una explicación, y va en el tono de las explicaciones.
           Text(
-            strings.sinPalabraDeActivacion,
-            style: NexusTypography.nota.copyWith(color: colors.warn),
+            strings.suNombreLaDespierta,
+            style: NexusTypography.nota.copyWith(color: colors.mute),
           ),
         ],
       ),

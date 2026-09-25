@@ -33,6 +33,7 @@ import 'package:nexus/features/onboarding/presentation/widgets/tour_overlay.dart
 import 'package:nexus/features/assistant/presentation/widgets/conversation_dock.dart';
 import 'package:nexus/features/history/presentation/widgets/conversation_history_sheet.dart';
 import 'package:nexus/features/assistant/presentation/widgets/composer_bar.dart';
+import 'package:nexus/features/workspace/presentation/pages/settings/secciones_de_ajustes.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings_page.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:nexus/features/run/presentation/widgets/la_botonera_de_corridas.dart';
@@ -794,7 +795,9 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
       // Ni carpeta emparejada ni carpeta de documentos: no hay dónde trabajar,
       // así que se lleva a elegir en vez de crear una conversación que no
       // podría hacer nada.
-      if (mounted) await SettingsPage.open(context);
+      if (mounted) {
+        await SettingsPage.open(context, en: SeccionDeAjustes.permissions);
+      }
       return;
     }
     final id = await ref.read(conversationsProvider.notifier).open(where);
@@ -814,7 +817,9 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
   Future<void> _talk() async {
     final where = whereToStart(ref);
     if (where == null) {
-      if (mounted) await SettingsPage.open(context);
+      if (mounted) {
+        await SettingsPage.open(context, en: SeccionDeAjustes.permissions);
+      }
       return;
     }
     final id = await ref.read(conversationsProvider.notifier).open(where);
@@ -963,7 +968,10 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
                           right: 0,
                           child: Center(
                             child: TextButton(
-                              onPressed: () => SettingsPage.open(context),
+                              onPressed: () => SettingsPage.open(
+                                context,
+                                en: SeccionDeAjustes.permissions,
+                              ),
                               child: Text(
                                 context.strings.pairAFolderToStart,
                                 style: NexusTypography.label.copyWith(

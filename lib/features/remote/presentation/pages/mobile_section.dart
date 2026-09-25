@@ -9,6 +9,7 @@ import 'package:nexus/features/remote/presentation/providers/write_phrase_provid
 import 'package:nexus/features/remote/domain/channel_token.dart';
 import 'package:nexus/features/remote/domain/pairing.dart';
 import 'package:nexus/features/remote/domain/pairing_code.dart';
+import 'package:nexus/features/workspace/presentation/pages/settings/apagado_o_encendido.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 /// El canal del teléfono: encenderlo, ver dónde escucha, y rotar el token.
@@ -47,26 +48,28 @@ class MobileSection extends ConsumerWidget {
             style: NexusTypography.label.copyWith(color: colors.faint),
           ),
           const SizedBox(height: NexusSpacing.s2),
+          // En sans y no en mono: es una explicación, y en mono se leía como un
+          // registro.
           Text(
             strings.channelExplainer,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.mute),
           ),
           const SizedBox(height: NexusSpacing.s5),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  strings.channelSwitch,
-                  style: NexusTypography.data.copyWith(color: colors.ink),
-                ),
-              ),
-              Switch(
-                key: const ValueKey('interruptor-del-canal'),
-                value: estado is ChannelOn || estado is ChannelStarting,
-                onChanged: (encender) =>
-                    encender ? control.encender() : control.apagar(),
-              ),
-            ],
+          Text(
+            strings.channelSwitch.toUpperCase(),
+            style: NexusTypography.label.copyWith(color: colors.faint),
+          ),
+          const SizedBox(height: NexusSpacing.s2),
+          // Dos opciones con nombre y no un interruptor: el canal es una puerta
+          // por la que algo sale del Mac, y lo que cuesta abrirla tiene que
+          // leerse antes de abrirla.
+          ApagadoOEncendido(
+            llave: 'canal',
+            encendido: estado is ChannelOn || estado is ChannelStarting,
+            costeApagado: strings.canalCosteApagado,
+            costeEncendido: strings.canalCosteEncendido,
+            onCambiar: (encender) =>
+                encender ? control.encender() : control.apagar(),
           ),
           const SizedBox(height: NexusSpacing.s5),
           switch (estado) {
@@ -89,7 +92,7 @@ class MobileSection extends ConsumerWidget {
             padding: const EdgeInsets.all(NexusSpacing.s5),
             child: Text(
               strings.channelNoPhoneYet,
-              style: NexusTypography.mono.copyWith(color: colors.faint),
+              style: NexusTypography.nota.copyWith(color: colors.mute),
             ),
           ),
         ],
@@ -159,7 +162,7 @@ class _Encendido extends ConsumerWidget {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           strings.channelRotateWarning,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.mute),
         ),
         if (token.value case final actual?) ...[
           const SizedBox(height: NexusSpacing.s6),
@@ -198,7 +201,7 @@ class _CodigoParaElMovil extends StatelessWidget {
       children: [
         Text(
           strings.channelQrExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.mute),
         ),
         const SizedBox(height: NexusSpacing.s4),
         // Sobre blanco y con margen: un QR sobre el fondo oscuro de la app lo lee
@@ -261,7 +264,7 @@ class _Nota extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     texto,
-    style: NexusTypography.mono.copyWith(color: context.colors.faint),
+    style: NexusTypography.nota.copyWith(color: context.colors.mute),
   );
 }
 
@@ -290,7 +293,7 @@ class _Frase extends ConsumerWidget {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           strings.phraseExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.mute),
         ),
         const SizedBox(height: NexusSpacing.s4),
         Row(
@@ -333,7 +336,7 @@ class _Frase extends ConsumerWidget {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           strings.phraseChangeWarning,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.mute),
         ),
       ],
     );
@@ -436,7 +439,7 @@ class _PhraseDialogState extends ConsumerState<_PhraseDialog> {
                 Text(
                   strings.phraseTooShort,
                   key: const ValueKey('frase-corta'),
-                  style: NexusTypography.mono.copyWith(color: colors.warn),
+                  style: NexusTypography.nota.copyWith(color: colors.warn),
                 ),
               ],
               const SizedBox(height: NexusSpacing.s6),

@@ -10,6 +10,7 @@ import 'package:nexus/features/onboarding/presentation/pages/initial_setup_page.
 import 'package:nexus/features/onboarding/presentation/state/onboarding_state.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings_page.dart';
+import 'package:nexus/features/workspace/presentation/providers/las_llaves_guardadas.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
 import 'support/screen_harness.dart';
@@ -178,6 +179,14 @@ void main() {
         const SettingsPage(),
         overrides: [
           geminiKeyStoreProvider.overrideWithValue(llavero),
+          // El inventario de «Llaves», fijo: leerlo de verdad pasa por las
+          // cuentas de Claude del disco y por el llavero de cada feature, y lo
+          // que aquí se prueba es la llave de voz, no el inventario.
+          lasLlavesGuardadasProvider.overrideWith(
+            (ref) async => const [
+              LlaveEnElLlavero(cual: LlaveDeNexus.voz, hay: false),
+            ],
+          ),
           workspaceControllerProvider.overrideWith(
             // En solo texto a propósito: con la carpeta en voz, su interruptor
             // dice «VOZ» y choca con la pestaña de la sección, que dice lo
@@ -190,11 +199,23 @@ void main() {
         ],
       );
 
-      await tester.tap(find.text(es.sectionVoice.toUpperCase()));
+      // En Voz se dice que falta, y qué significa no tenerla.
+      await tester.tap(find.byKey(const ValueKey('seccion-voice')));
       await tester.pump(const Duration(milliseconds: 100));
-
-      // Sin llave se dice, y se dice qué significa no tenerla.
       expect(find.text(es.geminiKeyMissing), findsOneWidget);
+
+      // Y el enlace lleva a «Llaves», que es donde se ponen todas desde que
+      // dejaron de estar repartidas entre Voz e Imágenes. Se desplaza antes:
+      // la voz rueda y el enlace puede quedar por debajo del borde.
+      await tester.ensureVisible(find.byKey(const ValueKey('ir-a-llaves')));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('ir-a-llaves')));
+      await tester.pump(const Duration(milliseconds: 100));
+      // Otro fotograma: el inventario llega en un `Future`, y el que monta la
+      // sección es el que lo pide.
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('poner-voz-')));
+      await tester.pump(const Duration(milliseconds: 100));
 
       await tester.enterText(find.byType(TextField).last, 'la-llave-nueva');
       await tester.tap(find.text(es.geminiKeySave));

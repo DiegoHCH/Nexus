@@ -76,7 +76,7 @@ void main() {
         ),
       ],
     );
-    await tester.tap(find.text(es.sectionAppearance.toUpperCase()));
+    await tester.tap(find.byKey(const ValueKey('seccion-appearance')));
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text(es.accentTitle), findsOne);
@@ -98,7 +98,7 @@ void main() {
         ),
       ],
     );
-    await tester.tap(find.text(es.sectionAppearance.toUpperCase()));
+    await tester.tap(find.byKey(const ValueKey('seccion-appearance')));
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(find.byKey(const ValueKey('abrir-rueda-de-color')));
     await _asentar(tester);
@@ -125,7 +125,7 @@ void main() {
         ),
       ],
     );
-    await tester.tap(find.text(es.sectionAppearance.toUpperCase()));
+    await tester.tap(find.byKey(const ValueKey('seccion-appearance')));
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(find.byKey(const ValueKey('abrir-rueda-de-color')));
     await _asentar(tester);
@@ -176,7 +176,7 @@ void main() {
           ),
         ],
       );
-      await tester.tap(find.text(es.sectionAppearance.toUpperCase()));
+      await tester.tap(find.byKey(const ValueKey('seccion-appearance')));
       await tester.pump(const Duration(milliseconds: 100));
       await tester.tap(find.byKey(const ValueKey('abrir-rueda-de-color')));
       await _asentar(tester);

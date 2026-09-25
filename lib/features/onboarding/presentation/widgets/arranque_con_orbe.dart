@@ -121,23 +121,6 @@ class ArranqueConOrbe extends StatelessWidget {
   }
 }
 
-/// Un punto de 7 px con color: «bien, fallo, pendiente».
-///
-/// Siempre con el texto al lado, nunca solo el color: es la regla de la
-/// postura, y por eso aquí no lleva `semanticLabel` — lo dice la frase.
-class PuntoDeEstado extends StatelessWidget {
-  const PuntoDeEstado({super.key, required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 7,
-    height: 7,
-    decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-  );
-}
-
 /// El botón del arranque: solo contorno, y en acento el que se espera.
 ///
 /// «Solo contorno» es lo que la postura del mockup dice que significa

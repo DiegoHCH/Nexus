@@ -13,13 +13,23 @@ import 'package:nexus/features/workspace/data/datasources/git_data_source.dart';
 void main() {
   final ahora = DateTime(2026, 9, 25, 10);
 
-  LoQueVeo? veo(ComoEstaElRepo estado) => LoQueVeoDeTuTrabajo.loQueDiria(
+  LoQueVeo? veo(
+    ComoEstaElRepo estado, {
+    String? ciRoto,
+    int? prParado,
+    DateTime? prDesde,
+  }) => LoQueVeoDeTuTrabajo.loQueDiria(
     estado,
     ahora: ahora,
     carpeta: '/casa/nexus',
     sinCommitear: (cuantos, dias) => 'sin commitear $cuantos hace $dias',
     sinSubir: (cuantos, dias) => 'sin subir $cuantos hace $dias',
     sinBajar: (cuantos) => 'sin bajar $cuantos',
+    ciRoto: ciRoto,
+    elCiEstaRoto: (flujo) => 'ci roto $flujo',
+    prParado: prParado,
+    prDesde: prDesde,
+    elPrEstaParado: (numero, dias) => 'pr $numero parado $dias',
   );
 
   DateTime haceDias(int dias) => ahora.subtract(Duration(days: dias));
@@ -97,5 +107,47 @@ void main() {
   // parado: lo que no se sabe no se comenta.
   test('sin último commit no se inventa una antigüedad', () {
     expect(veo(const ComoEstaElRepo(sinCommitear: 3)), isNull);
+  });
+
+  group('lo que hay que ir a preguntar', () {
+    // 🔴 **Lo primero de todo, y por encima de lo tuyo sin guardar.** Lo demás
+    // son cosas tuyas que decides cuándo atender; esto es trabajo que ya salió
+    // de tu máquina y no funciona, y encima de eso se construye.
+    test('el CI en rojo se dice antes que nada', () {
+      final visto = veo(
+        ComoEstaElRepo(sinCommitear: 9, sinSubir: 4, ultimoCommit: haceDias(5)),
+        ciRoto: 'análisis y pruebas',
+      );
+
+      expect(visto!.decir, 'ci roto análisis y pruebas');
+    });
+
+    // Y el PR parado va detrás de lo tuyo sin subir —eso solo depende de ti—
+    // pero delante de lo que falta por bajar: es trabajo hecho que no está
+    // sirviendo de nada.
+    test('un PR quieto se menciona pasados tres días', () {
+      final visto = veo(
+        const ComoEstaElRepo(sinBajar: 2),
+        prParado: 6,
+        prDesde: haceDias(28),
+      );
+
+      expect(visto!.decir, 'pr 6 parado 28');
+      expect(visto.llave, '/casa/nexus·pr·6');
+    });
+
+    test('y uno de anteayer todavía no está parado', () {
+      final visto = veo(
+        const ComoEstaElRepo(),
+        prParado: 3838,
+        prDesde: haceDias(2),
+      );
+
+      expect(
+        visto,
+        isNull,
+        reason: 'uno del viernes mirado el lunes espera gente, no está parado',
+      );
+    });
   });
 }

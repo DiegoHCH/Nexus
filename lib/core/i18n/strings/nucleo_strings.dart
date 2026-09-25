@@ -213,6 +213,8 @@ mixin NucleoStrings {
   String veoSinCommitear(int cuantos, int dias);
   String veoSinSubir(int cuantos, int dias);
   String veoSinBajar(int cuantos);
+  String veoElCiRoto(String flujo);
+  String veoUnPrParado(int numero, int dias);
 
   String get laMemoriaTitulo;
   String get laMemoriaVacia;
@@ -665,6 +667,12 @@ mixin NucleoStringsEs implements NucleoStrings {
   String veoSinBajar(int cuantos) =>
       'Esta rama va ${cuantos == 1 ? 'un commit' : '$cuantos commits'} por '
       'detrás de la de origen.';
+  @override
+  String veoElCiRoto(String flujo) =>
+      'El CI de esta rama está en rojo: $flujo.';
+  @override
+  String veoUnPrParado(int numero, int dias) =>
+      'El PR $numero lleva ${dias == 1 ? 'un día' : '$dias días'} sin moverse.';
   @override
   String get laMemoriaTitulo => 'LO QUE SÉ DE TI';
   @override
@@ -1248,6 +1256,11 @@ mixin NucleoStringsEn implements NucleoStrings {
   String veoSinBajar(int cuantos) =>
       'This branch is ${cuantos == 1 ? 'one commit' : '$cuantos commits'} '
       'behind its upstream.';
+  @override
+  String veoElCiRoto(String flujo) => 'CI is red on this branch: $flujo.';
+  @override
+  String veoUnPrParado(int numero, int dias) =>
+      'PR $numero has not moved in ${dias == 1 ? 'a day' : '$dias days'}.';
   @override
   String get laMemoriaTitulo => 'WHAT I KNOW ABOUT YOU';
   @override

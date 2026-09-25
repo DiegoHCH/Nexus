@@ -20,6 +20,13 @@ class LoQueVeo {
 /// avisaba de lo que terminaba— y esto es lo primero que **mira por su cuenta**
 /// y se pronuncia.
 ///
+/// ## Lo que mira
+///
+/// Dos cosas locales —lo que no has commiteado y lo que no has subido— y dos
+/// que hay que ir a preguntar: si el CI de tu rama está en rojo y si tienes un
+/// PR parado. Las de fuera cuestan una llamada a `gh` cada una y por eso van
+/// donde van: se miran al abrir una conversación, no cada dos minutos.
+///
 /// ## Las tres reglas que lo hacen soportable
 ///
 /// 1. **Una sola cosa cada vez.** Hay tres observaciones posibles y se elige la
@@ -45,6 +52,14 @@ abstract final class LoQueVeoDeTuTrabajo {
   ///
   /// [comoSeDice] recibe los datos ya elegidos y devuelve la frase: el texto
   /// vive en el diccionario y esta decisión no tiene por qué saber de idiomas.
+  /// Cuánto lleva un PR sin moverse para que se mencione.
+  ///
+  /// Tres días y no dos: uno abierto el viernes y mirado el lunes no está
+  /// parado, está esperando a que vuelva la gente. Lo que se busca es el que
+  /// se quedó atrás de verdad — en la máquina donde se midió esto había uno de
+  /// veintiocho días.
+  static const elPlazoDeUnPr = Duration(days: 3);
+
   static LoQueVeo? loQueDiria(
     ComoEstaElRepo estado, {
     required DateTime ahora,
@@ -52,7 +67,27 @@ abstract final class LoQueVeoDeTuTrabajo {
     required String Function(int cuantos, int dias) sinCommitear,
     required String Function(int cuantos, int dias) sinSubir,
     required String Function(int cuantos) sinBajar,
+
+    /// El flujo que falló en tu rama, si falló alguno.
+    String? ciRoto,
+    required String Function(String flujo) elCiEstaRoto,
+
+    /// El PR tuyo de esta carpeta que lleva más tiempo sin moverse.
+    int? prParado,
+    DateTime? prDesde,
+    required String Function(int numero, int dias) elPrEstaParado,
   }) {
+    // 🔴 **Lo primero, porque es lo único que ya está roto para los demás.** Lo
+    // demás son cosas tuyas que puedes decidir cuándo atender; esto es trabajo
+    // tuyo que ya salió de tu máquina y no funciona, y cuanto más tarde te
+    // enteres, peor: encima de eso se construye.
+    if (ciRoto != null) {
+      return LoQueVeo(
+        llave: '$carpeta·ci·$ciRoto',
+        decir: elCiEstaRoto(ciRoto),
+      );
+    }
+
     final quieto = estado.ultimoCommit == null
         ? null
         : ahora.difference(estado.ultimoCommit!);
@@ -74,6 +109,20 @@ abstract final class LoQueVeoDeTuTrabajo {
         llave: '$carpeta·sin-subir',
         decir: sinSubir(estado.sinSubir, dias),
       );
+    }
+
+    // El PR que se quedó atrás. Va detrás de lo tuyo sin subir porque eso solo
+    // depende de ti, y esto depende también de quien tenga que revisarlo — pero
+    // delante de lo que falta por bajar, porque un PR parado sí es trabajo que
+    // ya hiciste y no está sirviendo de nada.
+    if (prParado != null && prDesde != null) {
+      final quieto = ahora.difference(prDesde);
+      if (quieto >= elPlazoDeUnPr) {
+        return LoQueVeo(
+          llave: '$carpeta·pr·$prParado',
+          decir: elPrEstaParado(prParado, quieto.inDays),
+        );
+      }
     }
 
     // Y por último lo que te falta por traer, que no es un olvido tuyo: es que

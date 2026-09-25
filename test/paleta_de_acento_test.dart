@@ -101,7 +101,7 @@ void main() {
     await tester.tap(find.text(es.sectionAppearance.toUpperCase()));
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(find.byKey(const ValueKey('abrir-rueda-de-color')));
-    await tester.pumpAndSettle();
+    await _asentar(tester);
 
     expect(find.byType(AccentWheel), findsOne);
     // Y la explicación del ajuste de brillo, que es lo que evita que el ajuste se
@@ -128,7 +128,7 @@ void main() {
     await tester.tap(find.text(es.sectionAppearance.toUpperCase()));
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(find.byKey(const ValueKey('abrir-rueda-de-color')));
-    await tester.pumpAndSettle();
+    await _asentar(tester);
 
     expect(container.read(accentControllerProvider), Accent.cyan);
 
@@ -140,7 +140,7 @@ void main() {
       disco.top + disco.width / 2,
     );
     await tester.dragFrom(centro, const Offset(70, 0));
-    await tester.pumpAndSettle();
+    await _asentar(tester);
 
     final elegido = container.read(accentControllerProvider);
     expect(
@@ -179,7 +179,7 @@ void main() {
       await tester.tap(find.text(es.sectionAppearance.toUpperCase()));
       await tester.pump(const Duration(milliseconds: 100));
       await tester.tap(find.byKey(const ValueKey('abrir-rueda-de-color')));
-      await tester.pumpAndSettle();
+      await _asentar(tester);
     }
 
     await abrir();
@@ -193,11 +193,11 @@ void main() {
     container
         .read(accentControllerProvider.notifier)
         .select(const Color(0xFFB79BFF));
-    await tester.pumpAndSettle();
+    await _asentar(tester);
     expect(find.byKey(const ValueKey('volver-al-color-original')), findsOne);
 
     await tester.tap(find.byKey(const ValueKey('volver-al-color-original')));
-    await tester.pumpAndSettle();
+    await _asentar(tester);
 
     expect(container.read(accentControllerProvider), Accent.cyan);
     expect(
@@ -313,4 +313,14 @@ void main() {
     );
     expect(lejos(plasmaVioleta, hCian), greaterThan(40));
   });
+}
+
+/// Lo que haría `pumpAndSettle` si hubiera algo que asentar.
+///
+/// Apariencia lleva ahora el orbe de muestra, que se mueve sin parar —es lo
+/// que hace un orbe—, y `pumpAndSettle` esperaría para siempre. Las
+/// transiciones de la rueda duran menos que esto.
+Future<void> _asentar(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 600));
+  await tester.pump();
 }

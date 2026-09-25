@@ -327,6 +327,26 @@ void main() {
       },
     );
 
+    test('lo que suena mueve el compás del orbe, y callar lo apaga', () async {
+      // El orbe del teléfono late con la voz que sale **de su altavoz**, y al ritmo en
+      // que suena: el trozo llega de golpe, y el nivel espera al colchón.
+      final voz = Uint8List.view(
+        Int16List.fromList([
+          for (var i = 0; i < 2400; i++) i.isEven ? 8000 : -8000,
+        ]).buffer,
+      );
+      enlace.baja(voz);
+      await Future<void>.delayed(Duration.zero);
+      final compas = c.read(compasProvider);
+      expect(compas.nivel.value, 0, reason: 'todavía juntando el colchón');
+
+      await Future<void>.delayed(const Duration(milliseconds: 330));
+      expect(compas.nivel.value, greaterThan(0));
+
+      await c.read(reproduccionProvider.notifier).callar();
+      expect(compas.nivel.value, 0, reason: 'callada, el orbe no late');
+    });
+
     test('cuando el Mac interrumpe, se tira lo que quedaba', () async {
       enlace.baja(pcm(4800));
       await Future<void>.delayed(Duration.zero);

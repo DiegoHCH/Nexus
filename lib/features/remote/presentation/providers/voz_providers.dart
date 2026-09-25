@@ -3,12 +3,24 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/audio/el_nivel_de_la_voz.dart';
 import 'package:nexus/features/remote/data/channel_link.dart';
 import 'package:nexus/features/remote/data/microfono_del_movil.dart';
 import 'package:nexus/features/remote/presentation/providers/pairing_providers.dart';
 import 'package:nexus_protocol/nexus_protocol.dart';
 
 final microfonoProvider = Provider<Microfono>((ref) => MicrofonoDelMovil());
+
+/// Lo alto que hablas al teléfono, de 0 a 1, para que el orbe escuche con tu voz.
+///
+/// El Mac pone el orbe en «escuchando», pero la voz la tiene el teléfono: el Mac oye
+/// los trozos por el canal, con su retraso, y el orbe de aquí latiría a destiempo si
+/// esperara a que se lo contaran. Cero con el micrófono cerrado.
+final nivelDelMicrofonoProvider = Provider<ValueNotifier<double>>((ref) {
+  final nivel = ValueNotifier<double>(0);
+  ref.onDispose(nivel.dispose);
+  return nivel;
+});
 
 /// En qué anda el micrófono del teléfono.
 enum Voz {
@@ -91,6 +103,7 @@ class VozController extends Notifier<Voz> {
   }
 
   void _mandar(Uint8List pcm) {
+    ref.read(nivelDelMicrofonoProvider).value = ElNivelDeLaVoz.deUnTrozo(pcm);
     final salio = ref
         .read(channelLinkProvider)
         .mandarAudio(Audio(seq: _seq++, pcmBase64: base64Encode(pcm)));
@@ -109,6 +122,7 @@ class VozController extends Notifier<Voz> {
   Future<void> soltar(String conversationId) async {
     await _escucha?.cancel();
     _escucha = null;
+    ref.read(nivelDelMicrofonoProvider).value = 0;
     await ref.read(microfonoProvider).cerrar();
 
     // **El cierre se manda aunque el enlace vaya mal.** Es idempotente y se reintenta

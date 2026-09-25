@@ -361,6 +361,26 @@ void main() {
       expect(c.read(vozProvider), Voz.callado);
     });
 
+    test(
+      'lo que capturas mueve el orbe del teléfono, y al soltar se apaga',
+      () async {
+        // Escuchando, el orbe late con tu voz: la tiene el teléfono, y esperar a que el
+        // Mac la contara sería latir a destiempo.
+        final orden = <String>[];
+        final c = _conVoz(orden: orden);
+        await c.read(vozProvider.notifier).sostener('a');
+
+        _micro.emite(
+          _pcm([for (var i = 0; i < 320; i++) i.isEven ? 9000 : -9000]),
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(c.read(nivelDelMicrofonoProvider).value, greaterThan(0));
+
+        await c.read(vozProvider.notifier).soltar('a');
+        expect(c.read(nivelDelMicrofonoProvider).value, 0);
+      },
+    );
+
     test('lo que captura el microfono sale como marcos numerados', () async {
       final orden = <String>[];
       final c = _conVoz(orden: orden);

@@ -75,6 +75,17 @@ mixin MovilStrings {
   String get mobileCancel;
   String get mobileSlowConnectHint;
 
+  // Sin Mac: lo que pasó y qué hacer, uno por cada causa que pide algo distinto.
+  String get mobileTryAgain;
+  String get mobileSeeSaved;
+  String get mobileUnreachableTitle;
+  String get mobileUnreachableBody;
+  String get mobileRejectedTitle;
+  String get mobileRejectedBody;
+  String get mobilePairAgain;
+  String get mobileMustUpdateTitle;
+  String get mobileMustUpdateBody;
+
   // El menú.
   String get mobileThisMac;
   String get mobileUnpaired;
@@ -87,6 +98,11 @@ mixin MovilStrings {
   String get mobileForgetMac;
   String get mobileForgetMacHint;
 
+  /// La confirmación de olvidar el Mac, **en la misma fila** del menú: la pregunta
+  /// con lo que cuesta, y el botón que la confirma.
+  String get mobileForgetMacAsk;
+  String get mobileForgetMacConfirm;
+
   // La lista de conversaciones.
   String get mobileNothingOpen;
   String get mobileNothingOpenBody;
@@ -95,6 +111,18 @@ mixin MovilStrings {
   String get mobileAskAgain;
   String get mobileListening;
   String get mobileWorking;
+
+  /// La cabecera de la lista, con cuántas hay: «Abiertas en el Mac · 3».
+  String mobileOpenOnMac(int cuantas);
+
+  /// Lo que dice cada fila según el estado de su orbe.
+  String mobileRowSpeaking(String texto);
+  String get mobileRowThinking;
+  String get mobileRowListening;
+
+  /// En qué paso va el turno: «Paso 3 de 4». Lo cuentan también los segmentos del
+  /// reactor, así que el número y el dibujo dicen lo mismo.
+  String mobileStepOf(int paso, int total);
 
   // Una conversación.
   String get mobileYou;
@@ -260,10 +288,34 @@ mixin MovilStringsEs implements MovilStrings {
   @override
   String get mobileSearchingForMac => 'BUSCANDO TU MAC';
   @override
-  String get mobileCancel => 'CANCELAR';
+  String get mobileCancel => 'Cancelar';
   @override
   String get mobileSlowConnectHint =>
-      'Si tarda, comprueba que Tailscale está activo\nen el teléfono y en el Mac.';
+      'Si tarda, comprueba que Tailscale está activo aquí y en el Mac.';
+  @override
+  String get mobileTryAgain => 'Volver a intentar';
+  @override
+  String get mobileSeeSaved => 'Ver el historial guardado';
+  @override
+  String get mobileUnreachableTitle => 'No llego a tu Mac';
+  @override
+  String get mobileUnreachableBody =>
+      'Puede estar dormido, o fuera de Tailscale. Lo que dejaste pedido sigue '
+      'en el Mac.';
+  @override
+  String get mobileRejectedTitle => 'El Mac no acepta este teléfono';
+  @override
+  String get mobileRejectedBody =>
+      'El token que guarda el teléfono ya no es el del Mac: puede que se '
+      'rotara. Empareja otra vez con el código de Ajustes → Móvil.';
+  @override
+  String get mobilePairAgain => 'Volver a emparejar';
+  @override
+  String get mobileMustUpdateTitle => 'Hay que actualizar';
+  @override
+  String get mobileMustUpdateBody =>
+      'El Mac y el teléfono ya no hablan la misma versión del canal. Actualiza '
+      'el que vaya por detrás y vuelve a intentarlo.';
   @override
   String get mobileThisMac => 'ESTE MAC';
   @override
@@ -283,7 +335,14 @@ mixin MovilStringsEs implements MovilStrings {
   @override
   String get mobileForgetMac => 'Olvidar este Mac';
   @override
-  String get mobileForgetMacHint => 'Hay que volver a emparejar';
+  String get mobileForgetMacHint =>
+      'Pide confirmación: hay que volver a emparejar';
+  @override
+  String get mobileForgetMacAsk =>
+      '¿Olvidar este Mac? El teléfono deja de verlo, y para volver hay que '
+      'emparejar otra vez con el código.';
+  @override
+  String get mobileForgetMacConfirm => 'Olvidar este Mac';
   @override
   String get mobileNothingOpen => 'Nada abierto en el Mac';
   @override
@@ -299,9 +358,19 @@ mixin MovilStringsEs implements MovilStrings {
   @override
   String get mobileAskAgain => 'Volver a preguntar';
   @override
-  String get mobileListening => 'ESCUCHA';
+  String get mobileListening => '· te escucha';
   @override
-  String get mobileWorking => 'trabajando';
+  String get mobileWorking => 'Trabajando';
+  @override
+  String mobileOpenOnMac(int cuantas) => 'Abiertas en el Mac · $cuantas';
+  @override
+  String mobileRowSpeaking(String texto) => 'Hablando: «$texto»';
+  @override
+  String get mobileRowThinking => 'Pensando';
+  @override
+  String get mobileRowListening => 'Escuchando';
+  @override
+  String mobileStepOf(int paso, int total) => 'Paso $paso de $total';
   @override
   String get mobileYou => 'TÚ';
   @override
@@ -311,8 +380,7 @@ mixin MovilStringsEs implements MovilStrings {
   String get mobileConversationGone => 'Esta conversación ya no está abierta';
   @override
   String get mobileConversationGoneBody =>
-      'El teléfono guarda los identificadores y el Mac sigue su vida: alguien '
-      'la cerró allí mientras la tenías en pantalla.';
+      'Alguien la cerró en el Mac mientras la tenías en pantalla.';
   @override
   String get mobileConversationGoneHint =>
       'Lo que se dijo sigue en el historial.';
@@ -387,8 +455,7 @@ mixin MovilStringsEs implements MovilStrings {
   String get mobileOpenChip => 'Abierta';
   @override
   String get mobileDocumentsFooter =>
-      'El peso va delante porque abrir uno grande con datos móviles es una '
-      'decisión, no un toque: la lista se pide siempre y el contenido casi nunca.';
+      'El peso va delante: abrir uno grande con datos móviles es una decisión.';
   @override
   String get mobileDocumentsEmpty =>
       'Claude no ha producido documentos todavía.';
@@ -399,7 +466,7 @@ mixin MovilStringsEs implements MovilStrings {
   String get mobileDocumentsUnavailable =>
       'No pude pedirle los documentos al Mac.';
   @override
-  String get mobileOnlyOnMac => 'Solo en el Mac';
+  String get mobileOnlyOnMac => 'solo en el Mac';
   @override
   String get mobileCouldNotRead => 'No pude leerlo.';
   @override
@@ -525,10 +592,34 @@ mixin MovilStringsEn implements MovilStrings {
   @override
   String get mobileSearchingForMac => 'LOOKING FOR YOUR MAC';
   @override
-  String get mobileCancel => 'CANCEL';
+  String get mobileCancel => 'Cancel';
   @override
   String get mobileSlowConnectHint =>
-      'If it takes a while, check that Tailscale is on\non both the phone and the Mac.';
+      'If it takes a while, check that Tailscale is on here and on the Mac.';
+  @override
+  String get mobileTryAgain => 'Try again';
+  @override
+  String get mobileSeeSaved => 'See the saved history';
+  @override
+  String get mobileUnreachableTitle => "I can't reach your Mac";
+  @override
+  String get mobileUnreachableBody =>
+      'It may be asleep, or off Tailscale. What you left asked for is still on '
+      'the Mac.';
+  @override
+  String get mobileRejectedTitle => "The Mac won't let this phone in";
+  @override
+  String get mobileRejectedBody =>
+      "The token this phone keeps is no longer the Mac's: it may have been "
+      'rotated. Pair again with the code in Settings → Mobile.';
+  @override
+  String get mobilePairAgain => 'Pair again';
+  @override
+  String get mobileMustUpdateTitle => 'An update is needed';
+  @override
+  String get mobileMustUpdateBody =>
+      'The Mac and the phone no longer speak the same version of the channel. '
+      'Update whichever is behind and try again.';
   @override
   String get mobileThisMac => 'THIS MAC';
   @override
@@ -548,7 +639,13 @@ mixin MovilStringsEn implements MovilStrings {
   @override
   String get mobileForgetMac => 'Forget this Mac';
   @override
-  String get mobileForgetMacHint => "You'll have to pair again";
+  String get mobileForgetMacHint => "Asks first: you'll have to pair again";
+  @override
+  String get mobileForgetMacAsk =>
+      'Forget this Mac? The phone stops seeing it, and coming back means '
+      'pairing again with the code.';
+  @override
+  String get mobileForgetMacConfirm => 'Forget this Mac';
   @override
   String get mobileNothingOpen => 'Nothing open on the Mac';
   @override
@@ -564,9 +661,19 @@ mixin MovilStringsEn implements MovilStrings {
   @override
   String get mobileAskAgain => 'Ask again';
   @override
-  String get mobileListening => 'LISTENING';
+  String get mobileListening => '· hears you';
   @override
-  String get mobileWorking => 'working';
+  String get mobileWorking => 'Working';
+  @override
+  String mobileOpenOnMac(int cuantas) => 'Open on the Mac · $cuantas';
+  @override
+  String mobileRowSpeaking(String texto) => 'Speaking: “$texto”';
+  @override
+  String get mobileRowThinking => 'Thinking';
+  @override
+  String get mobileRowListening => 'Listening';
+  @override
+  String mobileStepOf(int paso, int total) => 'Step $paso of $total';
   @override
   String get mobileYou => 'YOU';
   @override
@@ -576,8 +683,7 @@ mixin MovilStringsEn implements MovilStrings {
   String get mobileConversationGone => 'This conversation is no longer open';
   @override
   String get mobileConversationGoneBody =>
-      'The phone keeps the identifiers and the Mac gets on with its life: '
-      'someone closed it there while you had it on screen.';
+      'Someone closed it on the Mac while you had it on screen.';
   @override
   String get mobileConversationGoneHint => "What was said is still in History.";
   @override
@@ -651,9 +757,7 @@ mixin MovilStringsEn implements MovilStrings {
   String get mobileOpenChip => 'Open';
   @override
   String get mobileDocumentsFooter =>
-      'Size comes first because opening a big one on mobile data is a '
-      'decision, not a tap: the list is always fetched and the content almost '
-      'never.';
+      'Size comes first: opening a big one on mobile data is a decision.';
   @override
   String get mobileDocumentsEmpty =>
       "Claude hasn't produced any documents yet.";
@@ -664,7 +768,7 @@ mixin MovilStringsEn implements MovilStrings {
   String get mobileDocumentsUnavailable =>
       "I couldn't get the documents from the Mac.";
   @override
-  String get mobileOnlyOnMac => 'Only on the Mac';
+  String get mobileOnlyOnMac => 'only on the Mac';
   @override
   String get mobileCouldNotRead => "I couldn't read it.";
   @override

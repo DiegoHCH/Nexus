@@ -52,7 +52,7 @@ class MobileChrome extends ConsumerWidget {
     final estado = (enVezDe != null && real == LinkState.conectado)
         ? enVezDe!
         : real;
-    final (texto, vivo) = _decir(context.strings, estado);
+    final (texto, tono) = _decir(context.strings, estado);
 
     return Row(
       children: [
@@ -90,8 +90,11 @@ class MobileChrome extends ConsumerWidget {
           key: const ValueKey('estado-del-enlace'),
           texto: texto,
           // El acento **solo cuando está conectado**. Un chip siempre encendido no
-          // dice nada; el color es la información.
-          vivo: vivo,
+          // dice nada; el color es la información — y con el punto delante, como
+          // el mockup: «estado con su color, y el texto al lado, nunca solo el
+          // color».
+          tono: tono,
+          punto: true,
         ),
         if (alFinal != null) ...[
           const SizedBox(width: NexusSpacing.s3),
@@ -107,54 +110,106 @@ class MobileChrome extends ConsumerWidget {
   /// ahora no hay Mac: una es «el teléfono está en ello» y la otra «mira si está
   /// encendido». Y los dos que salieron de la primera prueba real —no llego, no
   /// acepta el token— piden cosas distintas: instalar Tailscale o volver a emparejar.
-  (String, bool) _decir(NexusStrings strings, LinkState estado) =>
+  (String, TonoDelChip) _decir(NexusStrings strings, LinkState estado) =>
       switch (estado) {
-        LinkState.conectado => (strings.mobileLinkConnected, true),
-        LinkState.conectando => (strings.mobileLinkConnecting, false),
-        LinkState.reconectando => (strings.mobileLinkReconnecting, false),
-        LinkState.resincronizando => (strings.mobileLinkResyncing, false),
-        LinkState.sinConexion => (strings.mobileLinkOffline, false),
-        LinkState.noSeLlega => (strings.mobileLinkUnreachable, false),
-        LinkState.rechazado => (strings.mobileLinkRejected, false),
-        LinkState.hayQueActualizar => (strings.mobileLinkMustUpdate, false),
+        LinkState.conectado => (strings.mobileLinkConnected, TonoDelChip.vivo),
+        // En ámbar lo que el teléfono **está resolviendo**: buscar, reconectar,
+        // ponerse al día y no llegar —que se reintenta solo—. Es «atención», no
+        // «fallo»: no hay nada que tocar todavía.
+        LinkState.conectando => (
+          strings.mobileLinkConnecting,
+          TonoDelChip.atencion,
+        ),
+        LinkState.reconectando => (
+          strings.mobileLinkReconnecting,
+          TonoDelChip.atencion,
+        ),
+        LinkState.resincronizando => (
+          strings.mobileLinkResyncing,
+          TonoDelChip.atencion,
+        ),
+        LinkState.noSeLlega => (
+          strings.mobileLinkUnreachable,
+          TonoDelChip.atencion,
+        ),
+        LinkState.sinConexion => (
+          strings.mobileLinkOffline,
+          TonoDelChip.apagado,
+        ),
+        // En rojo los dos que esperar no arregla: hay que hacer algo.
+        LinkState.rechazado => (strings.mobileLinkRejected, TonoDelChip.fallo),
+        LinkState.hayQueActualizar => (
+          strings.mobileLinkMustUpdate,
+          TonoDelChip.fallo,
+        ),
       };
 }
 
-/// El chip del mockup: mono, mayúsculas, con borde y tracking.
+/// Con qué color habla un chip: los cuatro estados del mockup —bien, atención,
+/// fallo, apagado— y ninguno más. Un quinto tono sería un quinto significado que
+/// nadie ha aprendido.
+enum TonoDelChip { vivo, atencion, fallo, apagado }
+
+/// El chip del mockup: Oxanium en mayúsculas, con tracking, y su punto de color
+/// delante cuando dice un estado.
 ///
 /// Existe como pieza suya porque se usa para más cosas que el estado —«Interrumpido»
-/// en una respuesta cortada, «Esperando» en un encargo sin salir— y esas tres cosas
-/// tienen que verse iguales o el ojo las lee como niveles distintos.
+/// en una respuesta cortada, «Esperando» en un encargo sin salir, «Abierta» en una
+/// fila del historial— y esas cosas tienen que verse iguales o el ojo las lee como
+/// niveles distintos.
+///
+/// **Sin borde**, como el mockup: el borde lo convertía en un botón que no se podía
+/// tocar. Lo que dice que es un estado es el punto; las filas lo llevan sin punto,
+/// porque allí la palabra ya está pegada a lo que describe.
 class StateChip extends StatelessWidget {
-  const StateChip({super.key, required this.texto, this.vivo = false});
+  const StateChip({
+    super.key,
+    required this.texto,
+    this.vivo = false,
+    this.tono,
+    this.punto = false,
+  });
 
   final String texto;
 
-  /// En acento. Se reserva para lo que está pasando ahora.
+  /// En acento. Se reserva para lo que está pasando ahora. Atajo de
+  /// `tono: TonoDelChip.vivo`.
   final bool vivo;
+
+  /// El tono, cuando no es solo «vivo o no». Manda sobre [vivo].
+  final TonoDelChip? tono;
+
+  /// El punto de 6 px delante. Para el estado del enlace, que es un estado y no una
+  /// etiqueta.
+  final bool punto;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final color = vivo ? colors.accent : colors.faint;
+    final color = switch (tono ??
+        (vivo ? TonoDelChip.vivo : TonoDelChip.apagado)) {
+      TonoDelChip.vivo => colors.accent,
+      TonoDelChip.atencion => colors.warn,
+      TonoDelChip.fallo => colors.err,
+      TonoDelChip.apagado => colors.mute,
+    };
 
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: NexusSpacing.s2,
-        vertical: 3,
-      ),
-      decoration: BoxDecoration(
-        // 2px y no un pill: el sistema de esta app es de esquinas casi rectas, y un
-        // radio grande lo delata como venido de otro sitio.
-        borderRadius: BorderRadius.circular(2),
-        border: Border.all(
-          color: vivo ? color.withValues(alpha: 0.4) : colors.rule,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (punto) ...[
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+        ],
+        Text(
+          texto.toUpperCase(),
+          style: NexusTypography.label.copyWith(color: color),
         ),
-      ),
-      child: Text(
-        texto.toUpperCase(),
-        style: NexusTypography.label.copyWith(color: color),
-      ),
+      ],
     );
   }
 }
@@ -171,6 +226,7 @@ class WideAction extends StatelessWidget {
     required this.texto,
     required this.alTocar,
     this.principal = false,
+    this.peligrosa = false,
   });
 
   final String texto;
@@ -179,12 +235,19 @@ class WideAction extends StatelessWidget {
   /// En acento. Para la acción que la pantalla viene a hacer.
   final bool principal;
 
+  /// En rojo, borde y letra: la que no tiene vuelta atrás sin trabajo —cerrar la
+  /// conversación, olvidar el Mac—. Es lo que dibuja el mockup, y el color va
+  /// **con** la palabra, nunca en su lugar.
+  final bool peligrosa;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final apagado = alTocar == null;
     final color = apagado
         ? colors.faint
+        : peligrosa
+        ? colors.err
         : (principal ? colors.accent : colors.mute);
 
     return SizedBox(
@@ -197,14 +260,23 @@ class WideAction extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(2),
             border: Border.all(
-              color: principal && !apagado
+              color: apagado
+                  ? colors.rule2
+                  : peligrosa
+                  ? colors.err.withValues(alpha: 0.6)
+                  : principal
                   ? colors.accent.withValues(alpha: 0.5)
                   : colors.rule2,
             ),
           ),
+          // `control` y no `label`: un botón es un mando del aparato y se lee como
+          // una orden —«Volver a intentar»—, no como un rótulo. Es el papel que el
+          // escritorio ya les da a todos sus botones; el teléfono se había quedado
+          // con el rótulo en mayúsculas de antes.
           child: Text(
-            texto.toUpperCase(),
-            style: NexusTypography.label.copyWith(color: color),
+            texto,
+            textAlign: TextAlign.center,
+            style: NexusTypography.control.copyWith(color: color),
           ),
         ),
       ),

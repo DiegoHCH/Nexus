@@ -200,11 +200,22 @@ class RemoteArtifact {
     this.bytes = 0,
     this.text = false,
     this.account,
+    this.conversation,
+    this.conversationTitle,
   });
 
   final String id;
   final String name;
   final DateTime when;
+
+  /// La conversación que lo produjo, cuando se sabe: su id y cómo se llama.
+  ///
+  /// Va porque **el teléfono agrupa como el Mac**: cada documento cuelga del encargo
+  /// que lo pidió —«De: CRED-310 · desenlaces»—, y cinco `mockup-algo.html` seguidos
+  /// solo se distinguen por eso. Nulos con los de antes de que se guardara el origen,
+  /// que van al grupo «Sin conversación».
+  final String? conversation;
+  final String? conversationTitle;
 
   /// El tamaño, para poder decidir si se abre con datos móviles.
   final int bytes;
@@ -227,6 +238,8 @@ class RemoteArtifact {
     'bytes': bytes,
     if (text) 'text': true,
     'account': ?account,
+    'conversation': ?conversation,
+    'conversationTitle': ?conversationTitle,
   };
 }
 

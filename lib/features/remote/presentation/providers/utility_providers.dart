@@ -21,6 +21,7 @@ class ArchiveEntry {
     required this.turns,
     required this.open,
     this.account,
+    this.when,
   });
 
   factory ArchiveEntry.fromJson(Map<String, Object?> j) => ArchiveEntry(
@@ -30,6 +31,7 @@ class ArchiveEntry {
     turns: (j['turns'] as int?) ?? 0,
     open: j['open'] == true,
     account: j['account'] as String?,
+    when: DateTime.tryParse((j['when'] as String?) ?? '')?.toLocal(),
   );
 
   final String id;
@@ -42,6 +44,10 @@ class ArchiveEntry {
 
   /// De qué cuenta de Claude es —`work`, `private`—. Nula si el Mac tiene una sola.
   final String? account;
+
+  /// Cuándo se usó por última vez, para agrupar por días como el Mac. Nula con un Mac
+  /// que todavía no la manda: esas van al final, sin cabecera de día.
+  final DateTime? when;
 }
 
 @immutable
@@ -76,6 +82,9 @@ class ArtifactEntry {
     required this.bytes,
     this.text = false,
     this.account,
+    this.when,
+    this.conversation,
+    this.conversationTitle,
   });
 
   factory ArtifactEntry.fromJson(Map<String, Object?> j) => ArtifactEntry(
@@ -84,6 +93,9 @@ class ArtifactEntry {
     bytes: (j['bytes'] as int?) ?? 0,
     text: j['text'] == true,
     account: j['account'] as String?,
+    when: DateTime.tryParse((j['when'] as String?) ?? ''),
+    conversation: j['conversation'] as String?,
+    conversationTitle: j['conversationTitle'] as String?,
   );
 
   final String id;
@@ -96,6 +108,13 @@ class ArtifactEntry {
 
   /// De qué cuenta salió —`work`, `private`—, cuando están separados por perfil.
   final String? account;
+
+  final DateTime? when;
+
+  /// La conversación que lo produjo: agrupa la lista, como en el Mac. Nula si no se
+  /// sabe, y entonces va a «Sin conversación».
+  final String? conversation;
+  final String? conversationTitle;
 }
 
 /// El archivo de conversaciones.

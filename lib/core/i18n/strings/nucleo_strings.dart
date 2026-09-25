@@ -294,7 +294,9 @@ mixin NucleoStrings {
   String get comoTeLlamas;
   String get comoTeLlamasPista;
   String get asiSeVera;
-  String get sinPalabraDeActivacion;
+
+  /// Lo que despierta su nombre: con el oído, decirlo abre la voz.
+  String get suNombreLaDespierta;
   String ejemploDeLoQuePides(String agente);
   String ejemploDeLoQueContesta(String vocativo);
   String get avisosExplainer;
@@ -808,10 +810,11 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String get asiSeVera => 'Así se verá';
   @override
-  String get sinPalabraDeActivacion =>
-      'Ponerle nombre no hace que despierte al decirlo: la voz se sigue '
-      'abriendo con ⌥Espacio. Sí entiende que le hablas a ella si la nombras '
-      'por escrito.';
+  String get suNombreLaDespierta =>
+      'Con el oído encendido, decir su nombre la despierta y abre la voz sin '
+      'tocar nada. Un nombre corto como «Ciel» se confunde con «cielo»: mejor '
+      'uno de tres sílabas o más. Por escrito, nombrarla también le dice que '
+      'le hablas a ella.';
   @override
   String ejemploDeLoQuePides(String agente) =>
       '$agente, ¿qué reuniones tengo hoy?';
@@ -932,7 +935,7 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get drawingIt => 'Generando la imagen…';
   @override
   String get imageNeedsKey =>
-      'Falta la llave de imágenes. Se pone en Ajustes → Imágenes.';
+      'Falta la llave de imágenes. Se pone en Ajustes › Llaves.';
   @override
   String get noImageToEdit =>
       'No hay ninguna imagen que editar en esta conversación. Pide una con '
@@ -948,7 +951,7 @@ mixin NucleoStringsEs implements NucleoStrings {
       : 'No se pudo generar la imagen: $motivo';
   @override
   String get imagesExplainer =>
-      'La llave con la que se generan las imágenes. Va aparte de la de voz '
+      'Las imágenes se generan con una llave propia, aparte de la de voz, '
       'porque su proyecto necesita '
       'facturación: con una sola, encender las imágenes empezaría a cobrar '
       'también las conversaciones.\n\nY hay una por cuenta de Claude: el gasto '
@@ -1405,10 +1408,11 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String get asiSeVera => 'How it will look';
   @override
-  String get sinPalabraDeActivacion =>
-      'Naming it does not make it wake on hearing that name: voice still opens '
-      'with ⌥Space. It does understand you are addressing it when you write '
-      'the name.';
+  String get suNombreLaDespierta =>
+      'With hearing on, saying her name wakes her and opens voice without '
+      'touching anything. A short name like “Ciel” gets confused with other '
+      'words: better one of three syllables or more. In writing, naming her '
+      'also tells her you are talking to her.';
   @override
   String ejemploDeLoQuePides(String agente) =>
       '$agente, what meetings do I have today?';
@@ -1529,7 +1533,7 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get drawingIt => 'Generating the image…';
   @override
   String get imageNeedsKey =>
-      'The image key is missing. Set it in Settings → Images.';
+      'The image key is missing. Set it in Settings › Keys.';
   @override
   String get noImageToEdit =>
       'There is no image to edit in this conversation. Ask for one with '
@@ -1545,8 +1549,8 @@ mixin NucleoStringsEn implements NucleoStrings {
       : 'Could not generate the image: $motivo';
   @override
   String get imagesExplainer =>
-      'The key images are generated with. It is separate from the voice one '
-      'because its project needs '
+      'Images are generated with a key of their own, separate from the voice '
+      'one because its project needs '
       'billing: with a single key, turning images on would start charging for '
       'conversations too.\n\nAnd there is one per Claude account: the spend '
       'comes out of a specific pocket, so setting it on one account only is how '

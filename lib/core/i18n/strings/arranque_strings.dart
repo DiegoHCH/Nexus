@@ -439,7 +439,7 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   String get sectionExits => 'Qué sale';
   @override
   String get exitsExplainer =>
-      'Las cuatro puertas por las que algo puede salir de este Mac, con lo que '
+      'Las cinco puertas por las que algo puede salir de este Mac, con lo que '
       'viaja por cada una y si está saliendo ahora. Aquí no se configura nada: '
       'cada puerta se decide en su propio ajuste. Esto es para poder mirarlas '
       'juntas.';
@@ -814,7 +814,7 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   String get sectionExits => 'What leaves';
   @override
   String get exitsExplainer =>
-      'The four doors anything can leave this Mac through, what travels out of '
+      'The five doors anything can leave this Mac through, what travels out of '
       'each and whether it is leaving right now. Nothing is configured here: '
       'each door is decided in its own setting. This is for seeing them '
       'together.';

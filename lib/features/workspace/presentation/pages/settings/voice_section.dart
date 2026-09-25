@@ -2,18 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/settings_chooser.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
-import 'package:nexus/features/oido/domain/usecases/como_se_le_llama.dart';
-import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
-import 'package:nexus/features/oido/presentation/providers/el_oido_que_espera.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/assistant/domain/entities/el_acento.dart';
 import 'package:nexus/features/assistant/domain/entities/nexus_voice.dart';
 import 'package:nexus/features/assistant/presentation/providers/audio_output_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/voice_preference_providers.dart';
 import 'package:nexus/features/assistant/presentation/widgets/microphone_tester.dart';
-import 'package:nexus/features/onboarding/presentation/providers/onboarding_providers.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/salidas_section.dart';
+import 'package:nexus/features/workspace/presentation/pages/settings/secciones_de_ajustes.dart';
 
 /// La sección de Voz de Ajustes.
 ///
@@ -99,12 +95,10 @@ class VoiceSection extends ConsumerWidget {
             onSelected: ref.read(elAcentoProvider.notifier).select,
           ),
           const SizedBox(height: NexusSpacing.s6),
-          // La llave. Aquí y no solo en el primer arranque, porque hasta ahora la
-          // pantalla de configuración prometía «puedes cambiar esto después en
-          // Ajustes» y **no había dónde**: una llave mal escrita solo se arreglaba
-          // tocando el llavero a mano. Y desde que la llave dejó de ser
-          // obligatoria para entrar, este es el sitio donde se enciende la voz.
-          const _GeminiKeyRow(),
+          // La llave se pone en «Llaves», con las demás; aquí se dice si hay y
+          // se enlaza. Sin la frase de si hay, quien viene porque la voz no se
+          // abre tendría que adivinar que el motivo vive en otra sección.
+          const _LaLlaveDeVoz(),
           const SizedBox(height: NexusSpacing.s6),
           const _AudioOutputPicker(),
           const SizedBox(height: NexusSpacing.s6),
@@ -119,48 +113,19 @@ class VoiceSection extends ConsumerWidget {
   }
 }
 
-/// La llave del servicio de voz: si hay una guardada, y cómo cambiarla.
+/// Si hay llave de voz, y el camino a «Llaves», que es donde se pone.
 ///
-/// **No se enseña la llave guardada**, ni recortada. Enseñarla no sirve para
-/// nada —no se compara a ojo— y la deja en pantalla a la vista de cualquiera que
-/// pase por detrás, en la única pantalla que alguien abre cuando está enseñando
-/// la app. Lo único que hace falta saber es si hay una, y eso cabe en una
-/// palabra.
-class _GeminiKeyRow extends ConsumerStatefulWidget {
-  const _GeminiKeyRow();
+/// **No se enseña la llave guardada**, ni recortada: lo único que hace falta
+/// saber es si hay una, y eso cabe en una frase.
+class _LaLlaveDeVoz extends ConsumerWidget {
+  const _LaLlaveDeVoz();
 
   @override
-  ConsumerState<_GeminiKeyRow> createState() => _GeminiKeyRowState();
-}
-
-class _GeminiKeyRowState extends ConsumerState<_GeminiKeyRow> {
-  final _controller = TextEditingController();
-  bool _guardando = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _guardar() async {
-    final llave = _controller.text.trim();
-    if (llave.isEmpty || _guardando) return;
-    setState(() => _guardando = true);
-    await ref.read(saveGeminiKeyProvider)(llave);
-    if (!mounted) return;
-    _controller.clear();
-    setState(() => _guardando = false);
-    // Para que la pantalla de salidas y la sesión de voz vean la nueva sin
-    // reiniciar: las dos leen del llavero por su cuenta.
-    ref.invalidate(geminiKeyStoreProvider);
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final strings = context.strings;
     final hay = ref.watch(hayLlaveDeGeminiProvider).value ?? false;
+    final ir = IrASeccionDeAjustes.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,25 +141,19 @@ class _GeminiKeyRowState extends ConsumerState<_GeminiKeyRow> {
             color: hay ? colors.ok : colors.warn,
           ),
         ),
-        const SizedBox(height: NexusSpacing.s3),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                obscureText: true,
-                onSubmitted: (_) => _guardar(),
-                style: NexusTypography.mono.copyWith(color: colors.ink),
-                decoration: InputDecoration(hintText: strings.geminiKeyHint),
-              ),
-            ),
-            const SizedBox(width: NexusSpacing.s3),
-            OutlinedButton(
-              onPressed: _guardando ? null : _guardar,
-              child: Text(strings.geminiKeySave),
-            ),
-          ],
+        const SizedBox(height: NexusSpacing.s2),
+        Text(
+          strings.llaveDeVozEnLlaves,
+          style: NexusTypography.nota.copyWith(color: colors.mute),
         ),
+        if (ir != null) ...[
+          const SizedBox(height: NexusSpacing.s3),
+          OutlinedButton(
+            key: const ValueKey('ir-a-llaves'),
+            onPressed: () => ir(SeccionDeAjustes.llaves),
+            child: Text(strings.irALlaves),
+          ),
+        ],
       ],
     );
   }
@@ -245,36 +204,6 @@ class _AudioOutputPicker extends ConsumerWidget {
         Text(
           strings.audioOutputExplainer,
           style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
-        // 🔴 **Y va al final, no al principio.** Lo puse arriba —es lo
-        // único de aquí que decide si el micrófono está abierto cuando no le
-        // hablas— y empujó la llave de Gemini fuera de la pantalla: la
-        // prueba de la puerta de entrada dejó de poder escribirla. La llave
-        // es lo que hace que la voz exista; el oído es lo que se le añade
-        // encima, así que este es su sitio.
-        Text(
-          context.strings.elOidoExplainer(
-            ComoSeLeLlama.lasPalabras(
-              ref.watch(losNombresProvider).agente,
-            ).first,
-          ),
-          style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          value: ref.watch(elOidoEstaEncendidoProvider).value ?? false,
-          onChanged: (on) async {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setBool(ElOidoQueEspera.encendido, on);
-            ref.invalidate(elOidoEstaEncendidoProvider);
-            // Y se cuadra ya: encender un interruptor que no hace nada hasta
-            // reiniciar la app es un interruptor que no se cree nadie.
-            await ref.read(elOidoQueEsperaProvider).cuadrar();
-          },
-          title: Text(
-            context.strings.elOidoOn,
-            style: NexusTypography.body.copyWith(color: colors.ink),
-          ),
         ),
       ],
     );

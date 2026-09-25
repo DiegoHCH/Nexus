@@ -200,7 +200,7 @@ class _McpPanelState extends ConsumerState<McpPanel> {
       children: [
         Text(
           strings.mcpExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s5),
 
@@ -210,7 +210,7 @@ class _McpPanelState extends ConsumerState<McpPanel> {
             padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s3),
             child: Text(
               strings.mcpNone,
-              style: NexusTypography.mono.copyWith(color: colors.faint),
+              style: NexusTypography.nota.copyWith(color: colors.faint),
             ),
           ),
         for (final server in installed)
@@ -259,11 +259,11 @@ class _McpPanelState extends ConsumerState<McpPanel> {
           switch (health) {
             AsyncLoading() => Text(
               strings.mcpChecking,
-              style: NexusTypography.mono.copyWith(color: colors.faint),
+              style: NexusTypography.nota.copyWith(color: colors.faint),
             ),
             AsyncData(value: null) || AsyncError() => Text(
               strings.mcpCheckFailed,
-              style: NexusTypography.mono.copyWith(color: colors.warn),
+              style: NexusTypography.nota.copyWith(color: colors.warn),
             ),
             _ => const SizedBox.shrink(),
           },
@@ -294,11 +294,11 @@ class _McpPanelState extends ConsumerState<McpPanel> {
           switch (ref.watch(elUsoDeFigmaProvider(widget.configDir))) {
             AsyncLoading() => Text(
               strings.figmaUsoContando,
-              style: NexusTypography.mono.copyWith(color: colors.faint),
+              style: NexusTypography.nota.copyWith(color: colors.faint),
             ),
             AsyncError() => Text(
               strings.figmaUsoNoSePudo,
-              style: NexusTypography.mono.copyWith(color: colors.warn),
+              style: NexusTypography.nota.copyWith(color: colors.warn),
             ),
             AsyncData(:final value) => _ElUso(uso: value),
           },
@@ -461,7 +461,7 @@ class _CatalogRow extends StatelessWidget {
               entry.what,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: NexusTypography.mono.copyWith(color: colors.faint),
+              style: NexusTypography.nota.copyWith(color: colors.faint),
             ),
           ),
           const SizedBox(width: NexusSpacing.s3),
@@ -547,7 +547,7 @@ class _ElUso extends StatelessWidget {
     if (!uso.hayAlgo) {
       return Text(
         strings.figmaUsoNinguna,
-        style: NexusTypography.mono.copyWith(color: colors.faint),
+        style: NexusTypography.nota.copyWith(color: colors.faint),
       );
     }
     return Column(
@@ -555,7 +555,7 @@ class _ElUso extends StatelessWidget {
       children: [
         Text(
           strings.figmaUsoGastadas(uso.gastadas),
-          style: NexusTypography.mono.copyWith(color: colors.ink),
+          style: NexusTypography.nota.copyWith(color: colors.ink),
         ),
         for (final entrada in uso.porHerramienta.entries)
           Padding(

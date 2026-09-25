@@ -157,7 +157,7 @@ class _DispositivosPanelState extends ConsumerState<DispositivosPanel> {
           const SizedBox(height: NexusSpacing.s2),
           Text(
             strings.emulatorsExplainer,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           ),
         ],
         SizedBox(height: widget.compacto ? NexusSpacing.s3 : NexusSpacing.s5),
@@ -166,7 +166,7 @@ class _DispositivosPanelState extends ConsumerState<DispositivosPanel> {
           // Solo la primera vez de la sesión: después siempre hay algo puesto.
           Text(
             strings.emulatorsRefresh,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           )
         else if (valor.error case final mensaje?)
           // El error de la herramienta va **literal**: «No se encontró Flutter…»
@@ -176,7 +176,7 @@ class _DispositivosPanelState extends ConsumerState<DispositivosPanel> {
         else if (valor.emuladores.isEmpty)
           Text(
             strings.emulatorsEmpty,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           )
         else ...[
           for (final emulador in valor.emuladores)
@@ -449,7 +449,7 @@ class _FilaDeEmulador extends StatelessWidget {
                 onPressed: puede ? onLanzarEnFrio : null,
                 child: Text(
                   strings.emulatorsColdBoot,
-                  style: NexusTypography.mono.copyWith(color: colors.faint),
+                  style: NexusTypography.control.copyWith(color: colors.faint),
                 ),
               ),
             TextButton(

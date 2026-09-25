@@ -51,7 +51,7 @@ class VoiceSection extends ConsumerWidget {
           const SizedBox(height: NexusSpacing.s2),
           Text(
             context.strings.voiceExplainer,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           ),
           const SizedBox(height: NexusSpacing.s5),
           const SizedBox(height: NexusSpacing.s5),
@@ -88,7 +88,7 @@ class VoiceSection extends ConsumerWidget {
           const SizedBox(height: NexusSpacing.s2),
           Text(
             context.strings.elAcentoExplainer,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           ),
           const SizedBox(height: NexusSpacing.s3),
           SettingsChooser<ElAcento>(
@@ -172,7 +172,7 @@ class _GeminiKeyRowState extends ConsumerState<_GeminiKeyRow> {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           hay ? strings.geminiKeySaved : strings.geminiKeyMissing,
-          style: NexusTypography.mono.copyWith(
+          style: NexusTypography.nota.copyWith(
             color: hay ? colors.ok : colors.warn,
           ),
         ),
@@ -244,7 +244,7 @@ class _AudioOutputPicker extends ConsumerWidget {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           strings.audioOutputExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         // 🔴 **Y va al final, no al principio.** Lo puse arriba —es lo
         // único de aquí que decide si el micrófono está abierto cuando no le
@@ -258,7 +258,7 @@ class _AudioOutputPicker extends ConsumerWidget {
               ref.watch(losNombresProvider).agente,
             ).first,
           ),
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,

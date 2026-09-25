@@ -207,7 +207,7 @@ class AvisoChip extends StatelessWidget {
                 Flexible(
                   child: Text(
                     message,
-                    style: NexusTypography.mono.copyWith(
+                    style: NexusTypography.nota.copyWith(
                       color: color,
                       height: 1.4,
                     ),
@@ -219,7 +219,7 @@ class AvisoChip extends StatelessWidget {
                     onTap: accion.alPulsar,
                     child: Text(
                       accion.texto,
-                      style: NexusTypography.mono.copyWith(
+                      style: NexusTypography.control.copyWith(
                         color: color,
                         fontWeight: FontWeight.w600,
                         decoration: TextDecoration.underline,

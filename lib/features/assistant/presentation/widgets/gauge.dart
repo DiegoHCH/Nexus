@@ -48,7 +48,7 @@ class Gauge extends StatelessWidget {
         Text(
           label,
           overflow: TextOverflow.ellipsis,
-          style: NexusTypography.mono.copyWith(color: colors.mute),
+          style: NexusTypography.control.copyWith(color: colors.mute),
         ),
         const SizedBox(height: 2),
         Text(

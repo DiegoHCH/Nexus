@@ -58,7 +58,7 @@ class _PruebasSectionState extends ConsumerState<PruebasSection> {
       children: [
         Text(
           strings.flowsRootExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s4),
         Row(
@@ -108,7 +108,7 @@ class _PruebasSectionState extends ConsumerState<PruebasSection> {
         if (carpetas.isEmpty)
           Text(
             strings.flowsNoProjects,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           )
         else
           for (final carpeta in carpetas)

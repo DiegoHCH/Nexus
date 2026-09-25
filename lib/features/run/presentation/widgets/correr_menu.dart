@@ -208,7 +208,7 @@ class _PanelState extends ConsumerState<_Panel> {
     if (proyecto == null) {
       return Text(
         strings.runNoProject,
-        style: NexusTypography.mono.copyWith(color: colors.faint),
+        style: NexusTypography.nota.copyWith(color: colors.faint),
       );
     }
 
@@ -228,7 +228,7 @@ class _PanelState extends ConsumerState<_Panel> {
         if (configs.isEmpty)
           Text(
             strings.runNoConfigs,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           )
         else ...[
           // Los dos desplegables y el botón **en una línea**. Apilados hacían

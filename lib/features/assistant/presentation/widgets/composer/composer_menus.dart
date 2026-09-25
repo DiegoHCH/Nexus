@@ -117,7 +117,7 @@ class MoreMenu extends ConsumerWidget {
       children: [
         Icon(icon, size: 14, color: colors.faint),
         const SizedBox(width: NexusSpacing.s3),
-        Text(label, style: NexusTypography.data.copyWith(color: colors.ink)),
+        Text(label, style: NexusTypography.control.copyWith(color: colors.ink)),
       ],
     ),
   );
@@ -227,7 +227,7 @@ class ModelMenu extends ConsumerWidget {
             children: [
               Text(
                 etiqueta,
-                style: NexusTypography.data.copyWith(color: colors.ink),
+                style: NexusTypography.control.copyWith(color: colors.ink),
               ),
               if (valor == (pedido ?? _porDefecto)) ...[
                 const SizedBox(width: NexusSpacing.s3),
@@ -263,7 +263,7 @@ class ModelMenu extends ConsumerWidget {
           height: 28,
           child: Text(
             strings.modelVersionesAnteriores,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.control.copyWith(color: colors.faint),
           ),
         ),
         for (final modelo in versionesAnteriores)
@@ -331,7 +331,7 @@ class EffortMenu extends ConsumerWidget {
               children: [
                 Text(
                   option.flag,
-                  style: NexusTypography.data.copyWith(color: colors.ink),
+                  style: NexusTypography.control.copyWith(color: colors.ink),
                 ),
                 const SizedBox(width: NexusSpacing.s3),
                 // Los extremos se nombran, porque «xhigh» no dice por sí solo
@@ -339,12 +339,12 @@ class EffortMenu extends ConsumerWidget {
                 if (option == ClaudeEffort.low)
                   Text(
                     strings.effortFaster,
-                    style: NexusTypography.mono.copyWith(color: colors.faint),
+                    style: NexusTypography.nota.copyWith(color: colors.faint),
                   ),
                 if (option == ClaudeEffort.max)
                   Text(
                     strings.effortSmarter,
-                    style: NexusTypography.mono.copyWith(color: colors.faint),
+                    style: NexusTypography.nota.copyWith(color: colors.faint),
                   ),
                 if (option == vigente) ...[
                   const SizedBox(width: NexusSpacing.s3),

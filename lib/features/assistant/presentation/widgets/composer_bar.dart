@@ -461,17 +461,22 @@ class _Controls extends ConsumerWidget {
                     // textos existían traducidos y sin usar desde antes, hechos
                     // para esto: eran deuda esperando a que la decisión
                     // existiera.
-                    Text(switch ((option.canWrite, carpeta?.name)) {
-                      (true, final donde?) => strings.canEditFilesIn(donde),
-                      (false, final donde?) => strings.readOnlyIn(donde),
-                      (true, _) => strings.canEdit,
-                      (false, _) => strings.readOnly,
-                    }, style: NexusTypography.data.copyWith(color: colors.ink)),
+                    Text(
+                      switch ((option.canWrite, carpeta?.name)) {
+                        (true, final donde?) => strings.canEditFilesIn(donde),
+                        (false, final donde?) => strings.readOnlyIn(donde),
+                        (true, _) => strings.canEdit,
+                        (false, _) => strings.readOnly,
+                      },
+                      style: NexusTypography.control.copyWith(
+                        color: colors.ink,
+                      ),
+                    ),
                     Text(
                       option.canWrite
                           ? strings.canEditExplainer
                           : strings.readOnlyExplainer,
-                      style: NexusTypography.mono.copyWith(color: colors.faint),
+                      style: NexusTypography.nota.copyWith(color: colors.faint),
                     ),
                     // Lo que además va a pasar, dicho **antes** de elegir: para
                     // eso este control es un menú con explicaciones y no un
@@ -479,7 +484,7 @@ class _Controls extends ConsumerWidget {
                     if (option.canWrite && subeElTope)
                       Text(
                         strings.tambienSubeElTope,
-                        style: NexusTypography.mono.copyWith(
+                        style: NexusTypography.nota.copyWith(
                           color: colors.warn,
                         ),
                       ),

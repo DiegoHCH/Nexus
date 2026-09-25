@@ -69,7 +69,7 @@ class _SuperpowersSectionState extends ConsumerState<SuperpowersSection> {
     if (profiles.isEmpty) {
       return Text(
         strings.statsNoAccounts,
-        style: NexusTypography.mono.copyWith(color: colors.faint),
+        style: NexusTypography.nota.copyWith(color: colors.faint),
       );
     }
 
@@ -333,7 +333,7 @@ class _AvisoDeCuenta extends StatelessWidget {
         if (!enTodas)
           Text(
             strings.superpowersOnlyHere,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           ),
       ],
     );

@@ -31,7 +31,7 @@ class LlavesSection extends ConsumerWidget {
       children: [
         Text(
           strings.keysExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s5),
         // Mientras se lee el llavero no se pinta nada: decir «sin poner» sin
@@ -82,7 +82,7 @@ class _Fila extends ConsumerWidget {
           ),
           Text(
             hay ? strings.keyIsSaved : strings.keyIsMissing,
-            style: NexusTypography.data.copyWith(color: colors.faint),
+            style: NexusTypography.control.copyWith(color: colors.faint),
           ),
           // El botón solo si hay algo que quitar. Uno que a veces no hace nada
           // enseña a no pulsarlo, y entonces tampoco se pulsa el día que sí.
@@ -124,7 +124,7 @@ class _Fila extends ConsumerWidget {
         ),
         content: Text(
           strings.keyForgetWarning,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         actions: [
           TextButton(

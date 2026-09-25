@@ -53,7 +53,7 @@ class PermissionsSection extends ConsumerWidget {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           context.strings.filePermissionsExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         if (manda != null &&
             (manda.declaraAlgo || manda.avisos.isNotEmpty)) ...[
@@ -70,7 +70,7 @@ class PermissionsSection extends ConsumerWidget {
         if (workspace.isEmpty)
           Text(
             context.strings.noFoldersYet,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           )
         else
           for (final folder in workspace.folders)
@@ -105,7 +105,7 @@ class PermissionsSection extends ConsumerWidget {
           // `--add-dir` se quitó. Un ajuste que explica algo que el código ya no
           // hace es peor que no explicar nada.
           context.strings.foldersExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         // De la carpeta activa: lo que tarda en un repo no tarda en otro, así
         // que una lista global bloquearía en un proyecto lo que en otro es
@@ -264,7 +264,7 @@ class _BlockedCommandsState extends ConsumerState<_BlockedCommands> {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           strings.blockedExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s3),
         TextField(
@@ -353,7 +353,7 @@ class _AllowedCommandsState extends ConsumerState<_AllowedCommands> {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           strings.allowedExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s3),
         TextField(
@@ -420,25 +420,25 @@ class _LoQueDeclaraElRepo extends StatelessWidget {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           strings.repoDeclaraExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         for (final linea in dice) ...[
           const SizedBox(height: NexusSpacing.s2),
           Text(
             '· $linea',
-            style: NexusTypography.mono.copyWith(color: colors.ink),
+            style: NexusTypography.nota.copyWith(color: colors.ink),
           ),
         ],
         if (config.avisos.isNotEmpty) ...[
           const SizedBox(height: NexusSpacing.s3),
           Text(
             strings.repoAvisosTitle,
-            style: NexusTypography.mono.copyWith(color: colors.warn),
+            style: NexusTypography.nota.copyWith(color: colors.warn),
           ),
           for (final aviso in config.avisos)
             Text(
               '· $aviso',
-              style: NexusTypography.mono.copyWith(color: colors.warn),
+              style: NexusTypography.nota.copyWith(color: colors.warn),
             ),
         ],
       ],
@@ -484,7 +484,7 @@ class _AccountPicker extends ConsumerWidget {
           PopupMenuItem<String?>(
             child: Text(
               strings.claudeAccountDefault,
-              style: NexusTypography.mono.copyWith(color: colors.mute),
+              style: NexusTypography.control.copyWith(color: colors.mute),
             ),
           ),
           for (final profile in profiles)
@@ -496,7 +496,7 @@ class _AccountPicker extends ConsumerWidget {
                 profile.signedIn
                     ? profile.name
                     : strings.claudeAccountSignedOut(profile.name),
-                style: NexusTypography.mono.copyWith(
+                style: NexusTypography.control.copyWith(
                   color: profile.signedIn ? colors.ink : colors.warn,
                 ),
               ),
@@ -506,7 +506,7 @@ class _AccountPicker extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: NexusSpacing.s3),
           child: Text(
             current?.name ?? strings.claudeAccountDefault,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.control.copyWith(color: colors.faint),
           ),
         ),
       ),

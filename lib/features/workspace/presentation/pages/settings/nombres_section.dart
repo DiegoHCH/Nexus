@@ -27,7 +27,7 @@ class NombresSection extends ConsumerWidget {
         children: [
           Text(
             strings.nombresExplainer,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           ),
           const SizedBox(height: NexusSpacing.s5),
           _UnNombre(
@@ -57,7 +57,7 @@ class NombresSection extends ConsumerWidget {
           const SizedBox(height: NexusSpacing.s5),
           Text(
             strings.sinPalabraDeActivacion,
-            style: NexusTypography.mono.copyWith(color: colors.warn),
+            style: NexusTypography.nota.copyWith(color: colors.warn),
           ),
         ],
       ),

@@ -887,7 +887,7 @@ class _Boton extends StatelessWidget {
       icon: Icon(icono, size: 13, color: colors.accent),
       label: Text(
         texto,
-        style: NexusTypography.mono.copyWith(color: colors.accent),
+        style: NexusTypography.control.copyWith(color: colors.accent),
       ),
       style: TextButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1275,7 +1275,7 @@ class _LaPreguntaCitada extends StatelessWidget {
             pregunta,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: NexusTypography.mono.copyWith(color: colors.faint),
+            style: NexusTypography.nota.copyWith(color: colors.faint),
           ),
         ],
       ),
@@ -1393,7 +1393,7 @@ class _LaPropuesta extends StatelessWidget {
                 // Qué se repetiría, con sus palabras y no con un resumen.
                 Text(
                   encargo.tarea,
-                  style: NexusTypography.mono.copyWith(color: colors.ink),
+                  style: NexusTypography.nota.copyWith(color: colors.ink),
                 ),
                 const SizedBox(height: 6),
                 Row(
@@ -1516,7 +1516,7 @@ class _LasProgramadas extends ConsumerWidget {
         padding: const EdgeInsets.only(top: 6),
         child: Text(
           strings.ningunaProgramada,
-          style: NexusTypography.mono.copyWith(color: colors.mute),
+          style: NexusTypography.nota.copyWith(color: colors.mute),
         ),
       );
     }
@@ -1584,7 +1584,7 @@ class _UnaProgramada extends ConsumerWidget {
                 child: Text(
                   encargo.tarea,
                   overflow: TextOverflow.ellipsis,
-                  style: NexusTypography.mono.copyWith(
+                  style: NexusTypography.nota.copyWith(
                     color: encargo.activo ? colors.ink : colors.mute,
                   ),
                 ),

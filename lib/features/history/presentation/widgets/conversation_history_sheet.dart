@@ -92,7 +92,7 @@ class _ConversationHistorySheetState
               const SizedBox(height: NexusSpacing.s2),
               Text(
                 strings.historyExplainer,
-                style: NexusTypography.mono.copyWith(color: colors.faint),
+                style: NexusTypography.nota.copyWith(color: colors.faint),
               ),
               const SizedBox(height: NexusSpacing.s5),
               Flexible(
@@ -154,7 +154,7 @@ class _ConversationHistorySheetState
     if (records.isEmpty) {
       return Text(
         context.strings.nothingAskedYet,
-        style: NexusTypography.mono.copyWith(color: colors.faint),
+        style: NexusTypography.nota.copyWith(color: colors.faint),
       );
     }
 

@@ -51,7 +51,7 @@ class HistorySection extends ConsumerWidget {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           strings.archiveExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s5),
         for (final option in ArchiveDestination.values)
@@ -78,7 +78,7 @@ class HistorySection extends ConsumerWidget {
                       children: [
                         Text(
                           label(option),
-                          style: NexusTypography.data.copyWith(
+                          style: NexusTypography.control.copyWith(
                             color: option == settings.destination
                                 ? colors.ink
                                 : colors.mute,
@@ -86,7 +86,7 @@ class HistorySection extends ConsumerWidget {
                         ),
                         Text(
                           hint(option),
-                          style: NexusTypography.mono.copyWith(
+                          style: NexusTypography.nota.copyWith(
                             color: colors.faint,
                           ),
                         ),
@@ -132,7 +132,7 @@ class HistorySection extends ConsumerWidget {
             settings.isReady
                 ? strings.archiveLayout(settings.folderPath!)
                 : strings.archiveNoFolderYet,
-            style: NexusTypography.mono.copyWith(
+            style: NexusTypography.nota.copyWith(
               color: settings.isReady ? colors.faint : colors.warn,
             ),
           ),
@@ -206,12 +206,12 @@ class _ParteAlSlackState extends ConsumerState<_ParteAlSlack> {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           strings.slackExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s4),
         Text(
           slack.hayToken ? strings.slackConToken : strings.slackSinToken,
-          style: NexusTypography.mono.copyWith(
+          style: NexusTypography.nota.copyWith(
             color: slack.hayToken ? colors.ok : colors.warn,
           ),
         ),
@@ -254,7 +254,7 @@ class _ParteAlSlackState extends ConsumerState<_ParteAlSlack> {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           strings.slackDestinoExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s4),
         // De qué proyecto se cuenta el trabajo. **Sin esto el parte mezclaría**
@@ -284,7 +284,7 @@ class _ParteAlSlackState extends ConsumerState<_ParteAlSlack> {
                   carpeta == null
                       ? strings.slackTodos
                       : carpeta.split('/').last,
-                  style: NexusTypography.mono.copyWith(
+                  style: NexusTypography.control.copyWith(
                     color: carpeta == slack.proyecto
                         ? colors.accent
                         : colors.mute,
@@ -307,7 +307,7 @@ class _ParteAlSlackState extends ConsumerState<_ParteAlSlack> {
               Expanded(
                 child: Text(
                   dicho,
-                  style: NexusTypography.mono.copyWith(
+                  style: NexusTypography.nota.copyWith(
                     color: dicho == strings.slackLlego ? colors.ok : colors.err,
                   ),
                 ),
@@ -367,7 +367,7 @@ class _NotionFieldsState extends State<_NotionFields> {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           strings.notionTokenExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s5),
         Text(
@@ -384,12 +384,12 @@ class _NotionFieldsState extends State<_NotionFields> {
         const SizedBox(height: NexusSpacing.s2),
         Text(
           strings.notionPageExplainer,
-          style: NexusTypography.mono.copyWith(color: colors.faint),
+          style: NexusTypography.nota.copyWith(color: colors.faint),
         ),
         const SizedBox(height: NexusSpacing.s4),
         Text(
           settings.isReady ? strings.notionReady : strings.notionMissing,
-          style: NexusTypography.mono.copyWith(
+          style: NexusTypography.nota.copyWith(
             color: settings.isReady ? colors.ok : colors.warn,
           ),
         ),

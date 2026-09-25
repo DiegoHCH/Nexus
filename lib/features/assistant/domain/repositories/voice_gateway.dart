@@ -70,7 +70,12 @@ sealed class PerfilDeVoz {
 
 /// La de siempre: la conversación entera, con su persona y sus herramientas.
 final class ComoUnaConversacion extends PerfilDeVoz {
-  const ComoUnaConversacion();
+  const ComoUnaConversacion({this.saludo});
+
+  /// Lo que dice al abrirse, **literal**, cuando se abrió llamándola por su
+  /// nombre. `null` abre en silencio, que es lo de siempre con el atajo o el
+  /// orbe: ahí ya sabes que te oye porque acabas de pulsar.
+  final String? saludo;
 }
 
 /// La puerta del arranque: saluda, pregunta dónde se trabaja, y nada más.

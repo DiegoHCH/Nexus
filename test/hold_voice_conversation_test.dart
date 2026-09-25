@@ -81,6 +81,10 @@ class _Mic implements VoiceInput {
 
   /// Y esto es el flujo terminándose, que es otra cosa.
   Future<void> cerrar() => _frames.close();
+
+  /// Un trozo de audio, como el que manda el micro cada 100 ms.
+  void hablar() =>
+      _frames.add(AudioFrame(pcm: Uint8List.fromList([1]), amplitude: 0.5));
 }
 
 /// La sesión de voz, movida a mano desde la prueba.
@@ -96,8 +100,11 @@ class _Session implements VoiceSession {
   @override
   String? endReason;
 
+  /// Cuántos trozos de micro le llegaron.
+  var audios = 0;
+
   @override
-  void sendAudio(Uint8List pcm) {}
+  void sendAudio(Uint8List pcm) => audios++;
 
   /// Cuántas veces se dijo que el audio terminó. Es lo que hace que el servicio cierre
   /// el turno cuando el micrófono se cierra de golpe, como hace el del teléfono.
@@ -131,10 +138,16 @@ class _Gateway implements VoiceGateway {
   _Gateway(this.session);
   final _Session session;
 
+  /// Con qué perfil se abrió la última vez.
+  PerfilDeVoz? perfil;
+
   @override
   Future<VoiceSession> connect({
     PerfilDeVoz perfil = const ComoUnaConversacion(),
-  }) async => session;
+  }) async {
+    this.perfil = perfil;
+    return session;
+  }
 
   @override
   Future<VoiceSession> resume() async => session;
@@ -279,9 +292,11 @@ HoldVoiceConversation _conversation(
   bool laCarpetaDeja = false,
   String? agente,
   AudioOutput? altavoz,
+  _Mic? mic,
+  _Gateway? gateway,
 }) => HoldVoiceConversation(
-  _Mic(),
-  _Gateway(session),
+  mic ?? _Mic(),
+  gateway ?? _Gateway(session),
   altavoz ?? _Speaker(),
   _askClaude(bridge, canEdit: laCarpetaDeja),
   log ?? (_) {},
@@ -1700,6 +1715,103 @@ void _elAudioAjeno() {
           contains('historial de git'),
           reason: 'solo lo primero fue a Claude',
         );
+
+        await subscription.cancel();
+      },
+    );
+  });
+
+  // Llamarla por su nombre abre la voz contestando: «¿Sí, Argonauta?». Sin eso
+  // el silencio no decía si te oyó ni cuándo empezar a hablar.
+  group('el saludo al llamarla', () {
+    test('la frase va en el perfil y por el socket solo la señal', () async {
+      final session = _Session();
+      final gateway = _Gateway(session);
+      final conversation = _conversation(session, _Bridge(), gateway: gateway);
+
+      final subscription = conversation(
+        saludo: '¿Sí, Argonauta?',
+      ).listen((_) {});
+      await Future<void>.delayed(Duration.zero);
+      session.emit(const VoiceSessionReady());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(
+        (gateway.perfil! as ComoUnaConversacion).saludo,
+        '¿Sí, Argonauta?',
+      );
+      // 🔴 Mandada como turno, el modelo comentaba que se la pidieron: por
+      // aquí va la señal y nada más. Ver `LaVozDelAviso`.
+      expect(session.notes, ['(inicio)']);
+
+      await subscription.cancel();
+    });
+
+    test('mientras saluda el micro no sale, y al acabar sí', () async {
+      final session = _Session();
+      final mic = _Mic();
+      final conversation = _conversation(session, _Bridge(), mic: mic);
+
+      final subscription = conversation(saludo: '¿Sí?').listen((_) {});
+      await Future<void>.delayed(Duration.zero);
+      session.emit(const VoiceSessionReady());
+      await Future<void>.delayed(Duration.zero);
+
+      // Suena la habitación mientras saluda: no se le manda.
+      session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
+      mic.hablar();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(session.audios, 0);
+
+      // Acabó de saludar —y el altavoz no tiene nada pendiente—: ahora sí.
+      session.emit(const VoiceTurnCompleted());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      mic.hablar();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(session.audios, 1);
+
+      await subscription.cancel();
+    });
+
+    test('lo primero que dices después se atiende, no es ajeno', () async {
+      final session = _Session();
+      final bridge = _Bridge();
+      final conversation = _conversation(session, bridge);
+
+      final vistos = <VoiceEvent>[];
+      final subscription = conversation(saludo: '¿Sí?').listen(vistos.add);
+      await Future<void>.delayed(Duration.zero);
+      session.emit(const VoiceSessionReady());
+      session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
+      session.emit(const VoiceTurnCompleted());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      session.emit(const VoiceUserTranscript('mira el historial de git'));
+      session.emit(VoiceReplyAudio(Uint8List.fromList([2])));
+      session.emit(const VoiceTurnCompleted());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(vistos.whereType<VoiceIgnorado>(), isEmpty);
+      expect(bridge.asked.single, contains('historial de git'));
+
+      await subscription.cancel();
+    });
+
+    test(
+      'sin saludo abre como siempre: callada y con el micro abierto',
+      () async {
+        final session = _Session();
+        final mic = _Mic();
+        final conversation = _conversation(session, _Bridge(), mic: mic);
+
+        final subscription = conversation().listen((_) {});
+        await Future<void>.delayed(Duration.zero);
+        session.emit(const VoiceSessionReady());
+        mic.hablar();
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+
+        expect(session.notes, isEmpty);
+        expect(session.audios, 1);
 
         await subscription.cancel();
       },

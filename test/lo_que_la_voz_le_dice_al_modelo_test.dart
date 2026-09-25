@@ -105,4 +105,14 @@ void main() {
       );
     });
   });
+
+  // Llamarla por su nombre abre la voz con un saludo. Va en la instrucción,
+  // literal, y se dispara con la señal: como la puerta y el aviso.
+  test('al llamarla, la instrucción trae el saludo literal y la señal', () {
+    final texto = GeminiVoiceGateway.alLlamarla('¿Sí, Argonauta?');
+
+    expect(texto, contains('"¿Sí, Argonauta?"'));
+    expect(texto, contains('"(inicio)"'));
+    expect(texto, contains('no lo menciones'));
+  });
 }

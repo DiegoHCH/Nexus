@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/design_system/la_entrada_de_la_hoja.dart';
 import 'package:nexus/features/memoria/presentation/pages/memoria_section.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/nombres_section.dart';
 import 'package:nexus/core/design_system/design_system.dart';
@@ -62,7 +63,11 @@ class SettingsPage extends ConsumerStatefulWidget {
     _isOpen = true;
     try {
       await Navigator.of(context).push(
-        _LaHoja(abreEn: en ?? _dondeSeQuedo ?? SeccionDeAjustes.permissions),
+        RutaDeLaHoja<void>(
+          builder: (_) => SettingsPage(
+            abreEn: en ?? _dondeSeQuedo ?? SeccionDeAjustes.permissions,
+          ),
+        ),
       );
     } finally {
       _isOpen = false;
@@ -84,33 +89,6 @@ class SettingsPage extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<SettingsPage> createState() => _SettingsPageState();
-}
-
-/// La ruta de la hoja: transparente, para que la sala se siga pintando detrás.
-class _LaHoja extends PageRouteBuilder<void> {
-  _LaHoja({required SeccionDeAjustes abreEn})
-    : super(
-        opaque: false,
-        transitionDuration: const Duration(milliseconds: 220),
-        reverseTransitionDuration: const Duration(milliseconds: 160),
-        pageBuilder: (_, _, _) => SettingsPage(abreEn: abreEn),
-        transitionsBuilder: (_, animacion, _, child) {
-          final curva = CurvedAnimation(
-            parent: animacion,
-            curve: Curves.easeOutCubic,
-          );
-          return FadeTransition(
-            opacity: curva,
-            child: SlideTransition(
-              position: Tween(
-                begin: const Offset(0.03, 0),
-                end: Offset.zero,
-              ).animate(curva),
-              child: child,
-            ),
-          );
-        },
-      );
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
@@ -155,7 +133,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             // su propio estado: dos barras, y la de la izquierda diciendo
             // «dormido» mientras se estaba en Ajustes. Esta ocupa su sitio y
             // dice dónde se está.
-            _SettingsTopBar(onClose: _cerrar),
+            ElVeloEntra(child: _SettingsTopBar(onClose: _cerrar)),
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) => Row(
@@ -172,51 +150,57 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         key: const ValueKey('la-sala-detras'),
                         behavior: HitTestBehavior.opaque,
                         onTap: _cerrar,
-                        child: ColoredBox(
-                          color: colors.scrim.withValues(alpha: 0.45),
+                        child: ElVeloEntra(
+                          child: ColoredBox(
+                            color: colors.scrim.withValues(alpha: 0.45),
+                          ),
                         ),
                       ),
                     ),
-                    SizedBox(
-                      width: SettingsPage.anchoDeLaHoja(constraints.maxWidth),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          border: Border(left: BorderSide(color: colors.rule2)),
-                        ),
-                        child: Scaffold(
-                          backgroundColor: colors.deep,
-                          body: IrASeccionDeAjustes(
-                            ir: _ir,
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                // El índice con su línea a la derecha: es lo
-                                // que lo separa de la sección sin un fondo
-                                // distinto, que lo haría parecer otro panel.
-                                Container(
-                                  width: 210,
-                                  decoration: BoxDecoration(
-                                    border: Border(
-                                      right: BorderSide(color: colors.rule),
+                    LaHojaEntra(
+                      child: SizedBox(
+                        width: SettingsPage.anchoDeLaHoja(constraints.maxWidth),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              left: BorderSide(color: colors.rule2),
+                            ),
+                          ),
+                          child: Scaffold(
+                            backgroundColor: colors.deep,
+                            body: IrASeccionDeAjustes(
+                              ir: _ir,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  // El índice con su línea a la derecha: es lo
+                                  // que lo separa de la sección sin un fondo
+                                  // distinto, que lo haría parecer otro panel.
+                                  Container(
+                                    width: 210,
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                        right: BorderSide(color: colors.rule),
+                                      ),
+                                    ),
+                                    child: _ElIndice(
+                                      actual: _section,
+                                      onElegir: _ir,
                                     ),
                                   ),
-                                  child: _ElIndice(
-                                    actual: _section,
-                                    onElegir: _ir,
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      44,
-                                      30,
-                                      44,
-                                      0,
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        44,
+                                        30,
+                                        44,
+                                        0,
+                                      ),
+                                      child: _LaSeccion(_section),
                                     ),
-                                    child: _LaSeccion(_section),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),

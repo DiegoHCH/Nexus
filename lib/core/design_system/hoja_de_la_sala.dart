@@ -1,3 +1,4 @@
+import 'package:nexus/core/design_system/la_entrada_de_la_hoja.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nexus/core/design_system/boton_de_fila.dart';
@@ -42,7 +43,7 @@ class HojaDeLaSala extends StatelessWidget {
   /// Abre [hoja] como ruta transparente, para que la sala se siga pintando
   /// detrás.
   static Future<void> abrir(BuildContext context, Widget hoja) =>
-      Navigator.of(context).push(_LaRuta(hoja));
+      Navigator.of(context).push(RutaDeLaHoja<void>(builder: (_) => hoja));
 
   /// El ancho de la hoja para una ventana dada.
   ///
@@ -78,7 +79,12 @@ class HojaDeLaSala extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _LaBarra(rotulo: rotulo, onCerrar: () => _cerrar(context)),
+              ElVeloEntra(
+                child: _LaBarra(
+                  rotulo: rotulo,
+                  onCerrar: () => _cerrar(context),
+                ),
+              ),
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, caja) => Row(
@@ -92,40 +98,44 @@ class HojaDeLaSala extends StatelessWidget {
                           key: const ValueKey('la-sala-detras'),
                           behavior: HitTestBehavior.opaque,
                           onTap: () => _cerrar(context),
-                          child: ColoredBox(
-                            color: colors.scrim.withValues(alpha: 0.45),
+                          child: ElVeloEntra(
+                            child: ColoredBox(
+                              color: colors.scrim.withValues(alpha: 0.45),
+                            ),
                           ),
                         ),
                       ),
-                      SizedBox(
-                        width: anchoDeLaHoja(caja.maxWidth),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            // Casi opaca, como el `deep 97 %` del mockup: la
-                            // sala se adivina detrás sin ensuciar lo que se lee.
-                            color: colors.deep.withValues(alpha: 0.97),
-                            border: Border(
-                              left: BorderSide(color: colors.rule2),
-                            ),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Container(
-                                width: anchoDelLado,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 22,
-                                ),
-                                decoration: BoxDecoration(
-                                  border: Border(
-                                    right: BorderSide(color: colors.rule),
-                                  ),
-                                ),
-                                child: lado,
+                      LaHojaEntra(
+                        child: SizedBox(
+                          width: anchoDeLaHoja(caja.maxWidth),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              // Casi opaca, como el `deep 97 %` del mockup: la
+                              // sala se adivina detrás sin ensuciar lo que se lee.
+                              color: colors.deep.withValues(alpha: 0.97),
+                              border: Border(
+                                left: BorderSide(color: colors.rule2),
                               ),
-                              Expanded(child: vista),
-                            ],
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Container(
+                                  width: anchoDelLado,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 22,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    border: Border(
+                                      right: BorderSide(color: colors.rule),
+                                    ),
+                                  ),
+                                  child: lado,
+                                ),
+                                Expanded(child: vista),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -343,32 +353,4 @@ class _LaBarra extends StatelessWidget {
       ),
     );
   }
-}
-
-/// La ruta de la hoja: transparente, para que la sala se siga pintando detrás,
-/// y con la misma entrada que Ajustes —un poco de la derecha y fundiéndose—.
-class _LaRuta extends PageRouteBuilder<void> {
-  _LaRuta(Widget hoja)
-    : super(
-        opaque: false,
-        transitionDuration: const Duration(milliseconds: 220),
-        reverseTransitionDuration: const Duration(milliseconds: 160),
-        pageBuilder: (_, _, _) => hoja,
-        transitionsBuilder: (_, animacion, _, child) {
-          final curva = CurvedAnimation(
-            parent: animacion,
-            curve: Curves.easeOutCubic,
-          );
-          return FadeTransition(
-            opacity: curva,
-            child: SlideTransition(
-              position: Tween(
-                begin: const Offset(0.03, 0),
-                end: Offset.zero,
-              ).animate(curva),
-              child: child,
-            ),
-          );
-        },
-      );
 }

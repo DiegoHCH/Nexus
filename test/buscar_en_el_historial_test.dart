@@ -325,7 +325,7 @@ void main() {
       );
       await tester.tap(find.text('abrir'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 700));
     }
 
     final oido = _ficha(
@@ -417,7 +417,7 @@ void main() {
       );
       await tester.tap(find.text('abrir'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 700));
 
       await tester.tap(find.text(strings.historialBorrar.toUpperCase()));
       await tester.pump();

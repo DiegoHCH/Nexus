@@ -150,7 +150,7 @@ void main() {
     ) async {
       await abrir(tester);
       await tester.tap(find.byKey(const ValueKey('seccion-avisos')));
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 700));
 
       // Una vez en el índice y otra encima del título.
       expect(find.text(es.preguntaQueTeCuenta.toUpperCase()), findsNWidgets(2));
@@ -178,7 +178,7 @@ void main() {
       );
 
       await tester.tap(find.byKey(const ValueKey('seccion-oido')));
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 700));
 
       expect(find.byType(ApagadoOEncendido), findsOne);
       expect(find.byKey(const ValueKey('oido-apagado')), findsOne);
@@ -191,7 +191,7 @@ void main() {
     testWidgets('y ya no vive dentro de la voz', (tester) async {
       await abrir(tester);
       await tester.tap(find.byKey(const ValueKey('seccion-voice')));
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 700));
 
       expect(find.byKey(const ValueKey('oido-encendido')), findsNothing);
       expect(find.byType(Switch), findsNothing);
@@ -202,7 +202,7 @@ void main() {
     ) async {
       await abrir(tester);
       await tester.tap(find.byKey(const ValueKey('seccion-avisos')));
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 700));
 
       expect(find.byType(Switch), findsNothing);
       // Tres «Apagado · Encendido» —reuniones, PR y con ella delante— y la
@@ -251,7 +251,7 @@ void main() {
 
     Future<void> asentar(WidgetTester tester) async {
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 700));
     }
 
     testWidgets('la sala sigue pintándose detrás, y pulsarla cierra', (

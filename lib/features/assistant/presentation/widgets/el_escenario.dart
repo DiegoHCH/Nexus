@@ -86,7 +86,17 @@ class ElEscenario extends ConsumerWidget {
             ? (h * 0.62).clamp(0.0, w * 0.40)
             : (h * 0.66).clamp(0.0, w * 0.60);
         final izquierda = trabajando ? w * 0.03 : (w - lado) / 2;
-        final arriba = trabajando ? (h - lado) * 0.35 : (h - lado) * 0.18;
+        // **Centrado a lo alto**, el orbe junto con lo que va debajo de él —la
+        // hora, «escuchando», el subtítulo—: el grupo entero, no el dibujo
+        // solo, para que el texto no acabe pegado a las esquinas de abajo.
+        // Trabajando el registro va al lado, así que se centra el orbe.
+        //
+        // 🔴 Antes subía a un 18 % del hueco. Con la sala a lo ancho casi no
+        // se notaba, pero con la conversación abierta la sala se estrecha, el
+        // orbe se encoge por el ancho y quedaba arriba con media sala vacía
+        // debajo.
+        final debajo = trabajando ? 0.0 : _loQueVaDebajo;
+        final arriba = ((h - lado - debajo) / 2).clamp(0.0, double.infinity);
 
         return Stack(
           children: [
@@ -142,6 +152,10 @@ class ElEscenario extends ConsumerWidget {
     );
   }
 }
+
+/// Lo que se le deja al texto de debajo del orbe al centrarlo: la hora,
+/// «escuchando» o un par de líneas de subtítulo.
+const _loQueVaDebajo = 120.0;
 
 /// Lo que ocupa la sala en cada estado. Una sola cosa por estado: si todo está
 /// a la vez, no se lee nada.

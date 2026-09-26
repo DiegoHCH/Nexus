@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nexus/features/assistant/domain/entities/conversation.dart';
 import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
 import 'package:nexus/features/assistant/domain/usecases/la_puerta_de_la_voz.dart';
 import 'package:nexus/core/design_system/accent_preference.dart';
@@ -194,14 +193,11 @@ class ElOidoQueEspera {
   /// después, y ese camino no recoge el orbe: se quedaba fuera en
   /// «escuchando» con la app sin hacer nada (visto el 25 sep).
   void _teOyo() {
-    final conversaciones = _ref.read(conversationsProvider);
-    final cual = conversaciones.focused?.id;
+    final cual = _ref.read(conversationsProvider).focused?.id;
     if (cual == null ||
         _llamando ||
         _ref.read(assistantControllerProvider(cual)).voiceActive ||
-        // Sale si esta llamada va a abrir algo: la de delante, o la que habla
-        // a la que se pasará. Ver [_teLlamaron].
-        conversaciones.items.every((c) => _porQueNoHabla(c) != null)) {
+        _laCarpetaQueNoHabla() != null) {
       return;
     }
     unawaited(
@@ -219,7 +215,7 @@ class ElOidoQueEspera {
   /// contesta, no se recibe con un «¿Sí?» que te obligaría a repetirlo.
   void _teLlamaron(String resto) {
     _puesto = false;
-    var cual = _ref.read(conversationsProvider).focused?.id;
+    final cual = _ref.read(conversationsProvider).focused?.id;
     // Una llamada con la voz ya abierta no la cierra: `toggleVoice` es un
     // interruptor, y oír el nombre otra vez no es pedir que cuelgue.
     if (_llamando ||
@@ -228,29 +224,13 @@ class ElOidoQueEspera {
       debugPrint('escucha · te llamaron con la voz ya abierta: se ignora');
       return;
     }
-    // 🔴 **Con delante una conversación de solo texto la voz no se abre.**
-    // Antes el orbe salía igual y se quedaba fuera quince segundos sin decir
-    // por qué. Ahora, si hay otra abierta que sí habla, **se pasa a ella** y
-    // contesta ahí: llamarla es querer hablar, y la de delante no puede. El
-    // permiso de la carpeta no se toca —solo texto es una decisión tuya—.
-    // Sin ninguna que hable, dice qué pasa y qué hacer.
-    if (_porQueNoHabla(_ref.read(conversationsProvider).focused)
-        case final carpeta?) {
-      final otra = _ref
-          .read(conversationsProvider)
-          .items
-          .where((c) => _porQueNoHabla(c) == null)
-          .firstOrNull;
-      if (otra == null) {
-        debugPrint('escucha · te llamaron en una carpeta de solo texto');
-        unawaited(_decirQueEsDeSoloTexto(carpeta));
-        return;
-      }
-      debugPrint(
-        'escucha · $carpeta es de solo texto: se pasa a ${otra.folderPath}',
-      );
-      unawaited(_ref.read(conversationsProvider.notifier).focus(otra.id));
-      cual = otra.id;
+    // 🔴 **Con delante una conversación de solo texto la voz no se abre**, y
+    // antes el orbe salía igual y se quedaba fuera quince segundos sin decir
+    // por qué. Ahora no sale, y ella dice qué pasa y qué hacer.
+    if (_laCarpetaQueNoHabla() case final carpeta?) {
+      debugPrint('escucha · te llamaron en una carpeta de solo texto');
+      unawaited(_decirQueEsDeSoloTexto(carpeta));
+      return;
     }
     if (cual == null) {
       // 🔴 **Antes no pasaba nada**: un `debugPrint` y a seguir esperando. La
@@ -297,16 +277,17 @@ class ElOidoQueEspera {
     );
   }
 
-  /// El nombre de la carpeta que no deja abrir la voz en [conversacion] —la
-  /// suya, o la emparejada donde cae el cajón de documentos—, o `null` si ahí
-  /// se puede hablar. La misma regla que usa `toggleVoice`: ver
-  /// [SiSePuedeAbrirLaVoz].
-  String? _porQueNoHabla(Conversation? conversacion) {
-    if (conversacion == null) return null;
+  /// El nombre de la carpeta que no deja abrir la voz en la conversación que
+  /// tienes delante —la suya, o la emparejada donde cae el cajón de
+  /// documentos—, o `null` si se puede hablar. La misma regla que usa
+  /// `toggleVoice`: ver [SiSePuedeAbrirLaVoz].
+  String? _laCarpetaQueNoHabla() {
+    final enFoco = _ref.read(conversationsProvider).focused;
+    if (enFoco == null) return null;
     final workspace = _ref.read(workspaceControllerProvider);
     final estorba = SiSePuedeAbrirLaVoz.loQueEstorba(
       carpeta: workspace.folders
-          .where((f) => f.path == conversacion.folderPath)
+          .where((f) => f.path == enFoco.folderPath)
           .firstOrNull,
       duenoDelCajon: workspace.textOnlyOwnerOf(
         _ref.read(artifactsFolderProvider),

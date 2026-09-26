@@ -17,6 +17,61 @@ mixin DocumentosStrings {
   String get artifactsReveal;
   String get artifactsTrash;
 
+  /// La caja de buscar y los filtros por tipo.
+  String get artifactsBuscar;
+  String artifactsTodos(int cuantos);
+
+  /// Los tipos **con nombre de persona**, en plural para los filtros y en
+  /// singular para cada fila: «Páginas», no «html». Ver `TipoDeDocumento`.
+  String get artifactsFiltroPaginas;
+  String get artifactsFiltroTexto;
+  String get artifactsFiltroImagenes;
+  String get artifactsFiltroPdf;
+  String get artifactsTipoPagina;
+  String get artifactsTipoTexto;
+  String get artifactsTipoImagen;
+  String get artifactsTipoPdf;
+
+  /// La cabecera de un grupo: «De:» y el nombre de la conversación, o el grupo
+  /// de los que no se sabe de dónde salieron.
+  String get artifactsDe;
+  String get artifactsSinConversacion;
+
+  /// Lo que se dice cuando la búsqueda o el filtro no dejan nada.
+  String artifactsNadaQueSeLlame(String busqueda);
+  String get artifactsNingunoDeEseTipo;
+
+  /// La confirmación de la papelera, **en la propia fila**: la pregunta, lo que
+  /// tranquiliza —se puede sacar— y el botón que la confirma.
+  String get artifactsTrashPregunta;
+  String get artifactsTrashSeRecupera;
+  String get artifactsTrashMover;
+
+  /// El pie: dónde se guardan.
+  String get artifactsDondeSeGuardan;
+
+  /// Cuando un texto no se puede leer al abrirlo.
+  String get artifactsNoSePudoLeer;
+
+  /// La vista previa de un documento: la línea de arriba dice de qué cuenta
+  /// es —«cuenta work»—, el bloque «Salió de» nombra la conversación, y las
+  /// tres acciones van debajo.
+  String artifactsCuenta(String cuenta);
+  String get artifactsSalioDe;
+  String get artifactsAbrir;
+  String get artifactsRetomar;
+
+  /// Lo que se avisa de una página antes de abrirla: que se abre con los
+  /// scripts y la red apagados. Es verdad del visor —ver `NexusArtifacts`— y
+  /// decirlo antes evita el «está rota» de una página que solo está quieta.
+  String get artifactsNotaDelVisor;
+
+  /// Cuando retomar desde un documento no sale: el muelle está lleno, o la
+  /// conversación ya no está donde se guardó. Callar se leería como que el
+  /// botón no hace nada.
+  String artifactsRetomarNoCabe(int maximo);
+  String get artifactsRetomarNoEsta;
+
   /// Lo que se lee mientras se arrastra un archivo por encima del compositor.
   String get dropHere;
 
@@ -27,8 +82,26 @@ mixin DocumentosStrings {
   String changedFiles(int count);
   String get changesTitle;
   String get newFile;
+
+  /// Los tres grupos del visor de cambios, y lo que dice cada archivo nuevo.
+  /// Ver `ElDiffComoHtml`.
+  String get cambiosEnEstaTarea;
+  String get cambiosConElArchivoEntero;
+  String get cambiosSinComitear;
+  String get cambiosSinComitearNota;
+  String get cambiosNinguno;
+  String get cambiosNingunoEnLaTarea;
+  String get cambiosImagen;
+  String get cambiosBinario;
+  String cambiosLineas(int lineas);
+  String cambiosRecortado(int vistas, int total);
+  String get cambiosBinarioExplica;
+  String get cambiosSinLeer;
+
+  /// El rótulo de la ventana de cambios en su barra, y su botón de cerrar.
+  String get cambiosRotulo;
+  String get cambiosCerrar;
   String blockedTitle(String folder);
-  String get blockedExplainer;
   String get blockedHint;
   String allowedTitle(String folder);
   String get allowedExplainer;
@@ -73,9 +146,32 @@ mixin DocumentosStrings {
   String get effortFaster;
   String get effortSmarter;
   String get contextWindow;
-  String get usageLimits;
+
+  /// La cabecera del cupo: «Tu cupo · cuenta work». La cuenta solo cuando
+  /// hay más de una en el Mac; con una, decirla no distingue nada.
+  String tuCupo(String? cuenta);
   String get usageFiveHour;
   String get usageWeekly;
+
+  /// Lo que dice cada menú del compositor encima y debajo de sus opciones:
+  /// qué implica elegir, para no descubrirlo después.
+  String permisoEn(String? carpeta);
+
+  /// Las dos opciones del permiso **dentro del menú**, en frase: «Solo leer».
+  /// Las de [readOnly] y [canEdit] van en mayúsculas porque son el rótulo del
+  /// chip del compositor; en el menú son opciones con nombre y se leen como
+  /// tales, igual que en el mockup.
+  String get permisoOpcionSoloLeer;
+  String get permisoOpcionPuedeEditar;
+  String get permisoSoloLeerImplica;
+  String permisoEditarImplica(String? carpeta);
+  String modeloDelPerfil(String? perfil);
+  String get modeloComoEnLaConsola;
+  String esfuerzoDelModelo(String? modelo);
+  String get esfuerzoComoEnLaConsola;
+  String get contextoYCupo;
+  String get nuevaConversacionTitulo;
+  String cabenAbiertas(int caben, int abiertas);
   String get usageUnavailable;
 
   /// Hay sesión: lo que caducó es el acceso, y lo renueva el CLI en cuanto
@@ -93,7 +189,17 @@ mixin DocumentosStrings {
   /// la sesión de la cuenta en el medidor de la ventana de contexto, donde
   /// lo único cierto es que todavía no ha habido turno.
   String get noReadingYet;
-  String resetsIn(String when);
+
+  /// Cuándo vuelven los cupos, en una frase al pie: «Se renueva el lunes a
+  /// las 09:00». Una sola frase y no una nota bajo cada barra, como en el
+  /// mockup; con las dos fechas cuando se saben las dos.
+  String seRenuevan(String? cincoHoras, String? semanal);
+
+  /// Un plazo corto, contado: «en 2 h 10 min».
+  String dentroDe(int horas, int minutos);
+
+  /// Un plazo largo, con su día: «el lunes a las 09:00», «mañana a las 09:00».
+  String elDiaALas(DateTime cuando, DateTime ahora);
   String get sayStopToInterrupt;
   String get stopWithShortcut;
   String get workingCancelHint;
@@ -121,11 +227,72 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   @override
   String get artifactsChoose => 'Elegir carpeta';
   @override
-  String get artifactsChange => 'Cambiar de carpeta';
+  // «Cambiar» a secas: va al lado de la ruta y debajo de «Dónde se guardan»,
+  // así que ya se sabe qué se cambia.
+  String get artifactsChange => 'Cambiar';
   @override
   String get artifactsReveal => 'Enseñar en el Finder';
   @override
   String get artifactsTrash => 'Mover a la papelera';
+  @override
+  String get artifactsBuscar => 'Buscar por nombre';
+  @override
+  String artifactsTodos(int cuantos) => 'Todos · $cuantos';
+  @override
+  String get artifactsFiltroPaginas => 'Páginas';
+  @override
+  String get artifactsFiltroTexto => 'Texto';
+  @override
+  String get artifactsFiltroImagenes => 'Imágenes';
+  @override
+  String get artifactsFiltroPdf => 'PDF';
+  @override
+  String get artifactsTipoPagina => 'Página';
+  @override
+  String get artifactsTipoTexto => 'Texto';
+  @override
+  String get artifactsTipoImagen => 'Imagen';
+  @override
+  String get artifactsTipoPdf => 'PDF';
+  @override
+  String get artifactsDe => 'De:';
+  @override
+  String get artifactsSinConversacion => 'Sin conversación';
+  @override
+  String artifactsNadaQueSeLlame(String busqueda) =>
+      'Ningún documento se llama «$busqueda».';
+  @override
+  String get artifactsNingunoDeEseTipo =>
+      'Ningún documento de ese tipo todavía. Claude los deja aquí cuando un '
+      'encargo los produce.';
+  @override
+  String get artifactsTrashPregunta => '¿A la papelera?';
+  @override
+  String get artifactsTrashSeRecupera => 'Se puede sacar desde el Finder.';
+  @override
+  String get artifactsTrashMover => 'Mover';
+  @override
+  String get artifactsDondeSeGuardan => 'Dónde se guardan';
+  @override
+  String get artifactsNoSePudoLeer => 'No se pudo leer.';
+  @override
+  String artifactsCuenta(String cuenta) => 'cuenta $cuenta';
+  @override
+  String get artifactsSalioDe => 'Salió de';
+  @override
+  String get artifactsAbrir => 'Abrir';
+  @override
+  String get artifactsRetomar => 'Retomar la conversación';
+  @override
+  String get artifactsNotaDelVisor =>
+      'Se abre en el visor de Nexus con scripts y red apagados; se encienden '
+      'desde su barra si hace falta.';
+  @override
+  String artifactsRetomarNoCabe(int maximo) =>
+      'Ya hay $maximo conversaciones abiertas. Cierra una para retomar esta.';
+  @override
+  String get artifactsRetomarNoEsta =>
+      'Esa conversación ya no está donde se guardó.';
   @override
   String get dropHere => 'Suéltalo aquí';
   @override
@@ -143,25 +310,50 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   @override
   String get newFile => 'nuevo';
   @override
-  String blockedTitle(String folder) => 'COMANDOS BLOQUEADOS EN $folder';
+  String get cambiosEnEstaTarea => 'En esta tarea';
   @override
-  String get blockedExplainer =>
-      'Uno por línea, y basta con un trozo del comando. No es un ruego: el CLI '
-      'los deniega, así que no hay rodeo. Claude hará todo lo demás y terminará '
-      'diciéndote el comando exacto para que lo lances tú. Con # se comenta.';
+  String get cambiosConElArchivoEntero => 'Con el archivo entero';
   @override
-  String get blockedHint => 'build_runner\npod install\nmake generate';
+  String get cambiosSinComitear => 'Todo lo no comiteado';
   @override
-  String allowedTitle(String folder) => 'COMANDOS PERMITIDOS EN $folder';
+  String get cambiosSinComitearNota =>
+      'Incluye lo que ya había antes de esta tarea.';
+  @override
+  String get cambiosNinguno => 'Sin cambios';
+  @override
+  String get cambiosNingunoEnLaTarea => 'Esta tarea no dejó ningún cambio.';
+  @override
+  String get cambiosImagen => 'imagen';
+  @override
+  String get cambiosBinario => 'binario';
+  @override
+  String cambiosLineas(int lineas) =>
+      lineas == 1 ? '1 línea' : '$lineas líneas';
+  @override
+  String cambiosRecortado(int vistas, int total) =>
+      'Se enseñan las primeras $vistas de $total líneas: el resto sigue en '
+      'el archivo.';
+  @override
+  String get cambiosBinarioExplica =>
+      'Es un archivo nuevo que no es texto: no hay líneas que enseñar.';
+  @override
+  String get cambiosSinLeer =>
+      'Archivo nuevo. No se pudo leer desde aquí: puede que ya no esté.';
+  @override
+  String get cambiosRotulo => 'Cambios';
+  @override
+  String get cambiosCerrar => 'Cerrar · Esc';
+  @override
+  String blockedTitle(String folder) => 'Comandos vetados en $folder';
+  @override
+  String get blockedHint => 'build_runner · pod install · make generate';
+  @override
+  String allowedTitle(String folder) => 'Comandos permitidos en $folder';
   @override
   String get allowedExplainer =>
-      'Poder editar no incluye ejecutar: sin esto, Claude escribe archivos pero '
-      'no corre nada. Aquí se autoriza lo que quieras, uno por línea, y solo '
-      'cuenta mientras la carpeta pueda escribir. Descargar con «curl -o» ya '
-      'viene autorizado. Escribe el principio del comando, no un trozo suelto: '
-      'lo que se permite es lo que empiece por eso.';
+      'Poder editar no incluye ejecutar: lo que no está aquí, se pregunta.';
   @override
-  String get allowedHint => 'magick\nffmpeg\nnpm run build';
+  String get allowedHint => 'magick · ffmpeg · npm run build';
   @override
   String get addFolderShort => 'Emparejar otra carpeta';
   @override
@@ -209,11 +401,45 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   @override
   String get contextWindow => 'Ventana de contexto';
   @override
-  String get usageLimits => 'Tu cupo de la suscripción';
+  String tuCupo(String? cuenta) =>
+      cuenta == null ? 'Tu cupo' : 'Tu cupo · cuenta $cuenta';
   @override
   String get usageFiveHour => 'Límite de 5 horas';
   @override
   String get usageWeekly => 'Semanal';
+  @override
+  String permisoEn(String? carpeta) =>
+      carpeta == null ? 'Permiso' : 'Permiso en $carpeta';
+  @override
+  String get permisoOpcionSoloLeer => 'Solo leer';
+  @override
+  String get permisoOpcionPuedeEditar => 'Puede editar';
+  @override
+  String get permisoSoloLeerImplica => 'Lee y responde; no escribe nada aquí.';
+  @override
+  String permisoEditarImplica(String? carpeta) =>
+      'Escribe en ${carpeta ?? 'esta carpeta'}. Ejecutar sigue pidiendo '
+      'permiso.';
+  @override
+  String modeloDelPerfil(String? perfil) =>
+      perfil == null ? 'Modelo' : 'Modelo · perfil $perfil';
+  @override
+  String get modeloComoEnLaConsola =>
+      'Es el de tu perfil de Claude: cambiarlo aquí es /model en la consola.';
+  @override
+  String esfuerzoDelModelo(String? modelo) =>
+      modelo == null ? 'Esfuerzo' : 'Esfuerzo · $modelo';
+  @override
+  String get esfuerzoComoEnLaConsola =>
+      'Se guarda para este modelo, como /effort.';
+  @override
+  String get contextoYCupo => 'Contexto y cupo';
+  @override
+  String get nuevaConversacionTitulo => 'Nueva conversación';
+  @override
+  String cabenAbiertas(int caben, int abiertas) => abiertas < caben
+      ? 'Caben $caben abiertas a la vez; llevas $abiertas.'
+      : 'Caben $caben abiertas a la vez: cierra una para abrir otra.';
   @override
   String get usageUnavailable =>
       'Sin dato: esa cuenta no tiene sesión abierta.';
@@ -226,7 +452,43 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   @override
   String get noReadingYet => 'Sin dato';
   @override
-  String resetsIn(String when) => 'Se renueva $when';
+  String seRenuevan(String? cincoHoras, String? semanal) =>
+      cincoHoras != null && semanal != null
+      ? 'El de 5 horas se renueva $cincoHoras; el semanal, $semanal.'
+      : semanal != null
+      ? 'Se renueva $semanal.'
+      : cincoHoras != null
+      ? 'El de 5 horas se renueva $cincoHoras.'
+      : '';
+  @override
+  String dentroDe(int horas, int minutos) =>
+      horas > 0 ? 'en $horas h $minutos min' : 'en $minutos min';
+  @override
+  String elDiaALas(DateTime cuando, DateTime ahora) {
+    final hora =
+        '${cuando.hour.toString().padLeft(2, '0')}:'
+        '${cuando.minute.toString().padLeft(2, '0')}';
+    final dias = DateTime(
+      cuando.year,
+      cuando.month,
+      cuando.day,
+    ).difference(DateTime(ahora.year, ahora.month, ahora.day)).inDays;
+    const semana = [
+      'lunes',
+      'martes',
+      'miércoles',
+      'jueves',
+      'viernes',
+      'sábado',
+      'domingo',
+    ];
+    return switch (dias) {
+      0 => 'hoy a las $hora',
+      1 => 'mañana a las $hora',
+      _ => 'el ${semana[cuando.weekday - 1]} a las $hora',
+    };
+  }
+
   @override
   String get sayStopToInterrupt => 'Di «para» para interrumpir';
   @override
@@ -262,11 +524,71 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   @override
   String get artifactsChoose => 'Pick a folder';
   @override
-  String get artifactsChange => 'Change folder';
+  String get artifactsChange => 'Change';
   @override
   String get artifactsReveal => 'Show in Finder';
   @override
   String get artifactsTrash => 'Move to trash';
+  @override
+  String get artifactsBuscar => 'Search by name';
+  @override
+  String artifactsTodos(int cuantos) => 'All · $cuantos';
+  @override
+  String get artifactsFiltroPaginas => 'Pages';
+  @override
+  String get artifactsFiltroTexto => 'Text';
+  @override
+  String get artifactsFiltroImagenes => 'Images';
+  @override
+  String get artifactsFiltroPdf => 'PDF';
+  @override
+  String get artifactsTipoPagina => 'Page';
+  @override
+  String get artifactsTipoTexto => 'Text';
+  @override
+  String get artifactsTipoImagen => 'Image';
+  @override
+  String get artifactsTipoPdf => 'PDF';
+  @override
+  String get artifactsDe => 'From:';
+  @override
+  String get artifactsSinConversacion => 'No conversation';
+  @override
+  String artifactsNadaQueSeLlame(String busqueda) =>
+      'No document is called “$busqueda”.';
+  @override
+  String get artifactsNingunoDeEseTipo =>
+      'No documents of that type yet. Claude leaves them here when a task '
+      'produces them.';
+  @override
+  String get artifactsTrashPregunta => 'Move to trash?';
+  @override
+  String get artifactsTrashSeRecupera => 'You can take it back out in Finder.';
+  @override
+  String get artifactsTrashMover => 'Move';
+  @override
+  String get artifactsDondeSeGuardan => 'Where they are kept';
+  @override
+  String get artifactsNoSePudoLeer => 'Could not be read.';
+  @override
+  String artifactsCuenta(String cuenta) => '$cuenta account';
+  @override
+  String get artifactsSalioDe => 'Came from';
+  @override
+  String get artifactsAbrir => 'Open';
+  @override
+  String get artifactsRetomar => 'Resume the conversation';
+  @override
+  String get artifactsNotaDelVisor =>
+      'Opens in the Nexus viewer with scripts and network off; turn them on '
+      'from its bar if needed.';
+  @override
+  String artifactsRetomarNoCabe(int maximo) =>
+      'There are already $maximo conversations open. Close one to resume this '
+      'one.';
+  @override
+  String get artifactsRetomarNoEsta =>
+      'That conversation is no longer where it was saved.';
   @override
   String get dropHere => 'Drop it here';
   @override
@@ -284,25 +606,50 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   @override
   String get newFile => 'new';
   @override
-  String blockedTitle(String folder) => 'COMMANDS BLOCKED IN $folder';
+  String get cambiosEnEstaTarea => 'In this task';
   @override
-  String get blockedExplainer =>
-      'One per line, and a fragment of the command is enough. Not a plea: the '
-      'CLI denies them, so there is no way around it. Claude will do everything '
-      'else and finish by telling you the exact command to run. # comments.';
+  String get cambiosConElArchivoEntero => 'With the whole file';
   @override
-  String get blockedHint => 'build_runner\npod install\nmake generate';
+  String get cambiosSinComitear => 'Everything uncommitted';
   @override
-  String allowedTitle(String folder) => 'COMMANDS ALLOWED IN $folder';
+  String get cambiosSinComitearNota =>
+      'Includes what was already there before this task.';
+  @override
+  String get cambiosNinguno => 'No changes';
+  @override
+  String get cambiosNingunoEnLaTarea => 'This task left no changes.';
+  @override
+  String get cambiosImagen => 'image';
+  @override
+  String get cambiosBinario => 'binary';
+  @override
+  String cambiosLineas(int lineas) => lineas == 1 ? '1 line' : '$lineas lines';
+  @override
+  String cambiosRecortado(int vistas, int total) =>
+      'Showing the first $vistas of $total lines: the rest is still in the '
+      'file.';
+  @override
+  String get cambiosBinarioExplica =>
+      'It is a new file that is not text: there are no lines to show.';
+  @override
+  String get cambiosSinLeer =>
+      'New file. It could not be read from here: it may be gone.';
+  @override
+  String get cambiosRotulo => 'Changes';
+  @override
+  String get cambiosCerrar => 'Close · Esc';
+  @override
+  String blockedTitle(String folder) => 'Commands blocked in $folder';
+  @override
+  String get blockedHint => 'build_runner · pod install · make generate';
+  @override
+  String allowedTitle(String folder) => 'Commands allowed in $folder';
   @override
   String get allowedExplainer =>
-      'Being able to edit does not include running: without this, Claude writes '
-      'files but runs nothing. Allow what you want here, one per line, and it '
-      'only counts while the folder can write. Downloading with «curl -o» is '
-      'already allowed. Write the start of the command, not a loose fragment: '
-      'what is allowed is whatever begins with it.';
+      'Being able to edit does not include running: anything not here is '
+      'asked first.';
   @override
-  String get allowedHint => 'magick\nffmpeg\nnpm run build';
+  String get allowedHint => 'magick · ffmpeg · npm run build';
   @override
   String get addFolderShort => 'Pair another folder';
   @override
@@ -350,11 +697,46 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   @override
   String get contextWindow => 'Context window';
   @override
-  String get usageLimits => 'Your subscription limits';
+  String tuCupo(String? cuenta) =>
+      cuenta == null ? 'Your limits' : 'Your limits · $cuenta account';
   @override
   String get usageFiveHour => '5-hour limit';
   @override
   String get usageWeekly => 'Weekly';
+  @override
+  String permisoEn(String? carpeta) =>
+      carpeta == null ? 'Permission' : 'Permission in $carpeta';
+  @override
+  String get permisoOpcionSoloLeer => 'Read only';
+  @override
+  String get permisoOpcionPuedeEditar => 'Can edit';
+  @override
+  String get permisoSoloLeerImplica =>
+      'Reads and answers; writes nothing here.';
+  @override
+  String permisoEditarImplica(String? carpeta) =>
+      'Writes in ${carpeta ?? 'this folder'}. Running commands still asks '
+      'first.';
+  @override
+  String modeloDelPerfil(String? perfil) =>
+      perfil == null ? 'Model' : 'Model · $perfil profile';
+  @override
+  String get modeloComoEnLaConsola =>
+      "It is your Claude profile's model: changing it here is /model in the "
+      'console.';
+  @override
+  String esfuerzoDelModelo(String? modelo) =>
+      modelo == null ? 'Effort' : 'Effort · $modelo';
+  @override
+  String get esfuerzoComoEnLaConsola => 'Saved for this model, like /effort.';
+  @override
+  String get contextoYCupo => 'Context and limits';
+  @override
+  String get nuevaConversacionTitulo => 'New conversation';
+  @override
+  String cabenAbiertas(int caben, int abiertas) => abiertas < caben
+      ? '$caben can be open at once; you have $abiertas.'
+      : '$caben can be open at once: close one to open another.';
   @override
   String get usageUnavailable =>
       'No reading: that account has no session open.';
@@ -368,7 +750,43 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   @override
   String get noReadingYet => 'No reading';
   @override
-  String resetsIn(String when) => 'Resets $when';
+  String seRenuevan(String? cincoHoras, String? semanal) =>
+      cincoHoras != null && semanal != null
+      ? 'The 5-hour one resets $cincoHoras; the weekly one, $semanal.'
+      : semanal != null
+      ? 'Resets $semanal.'
+      : cincoHoras != null
+      ? 'The 5-hour one resets $cincoHoras.'
+      : '';
+  @override
+  String dentroDe(int horas, int minutos) =>
+      horas > 0 ? 'in $horas h $minutos min' : 'in $minutos min';
+  @override
+  String elDiaALas(DateTime cuando, DateTime ahora) {
+    final hora =
+        '${cuando.hour.toString().padLeft(2, '0')}:'
+        '${cuando.minute.toString().padLeft(2, '0')}';
+    final dias = DateTime(
+      cuando.year,
+      cuando.month,
+      cuando.day,
+    ).difference(DateTime(ahora.year, ahora.month, ahora.day)).inDays;
+    const semana = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    return switch (dias) {
+      0 => 'today at $hora',
+      1 => 'tomorrow at $hora',
+      _ => 'on ${semana[cuando.weekday - 1]} at $hora',
+    };
+  }
+
   @override
   String get sayStopToInterrupt => 'Say “stop” to interrupt';
   @override

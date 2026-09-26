@@ -119,17 +119,29 @@ class _DispositivosPanelState extends ConsumerState<DispositivosPanel> {
     final valor = lista.value;
     final refrescando = lista.isLoading || fisicos.isLoading;
 
+    // En Ajustes, con la gramática de la hoja —como el mockup—: la frase, los
+    // de la máquina y los enchufados en **una sola lista de filas** con su
+    // punto y su acción, y «Comprobar» al pie. El menú del compositor sigue
+    // con su versión compacta; el estado y las acciones son los mismos, que
+    // es lo que importa de tener un solo widget.
+    if (!widget.compacto) {
+      return _enAjustes(context, valor: valor, refrescando: refrescando);
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Expanded(
+              // En mayúsculas y en `mute`, como los rótulos del mockup: dicen
+              // qué es lo de debajo, y en `faint` se perdían al lado del botón.
               child: Text(
-                widget.compacto
-                    ? strings.sectionEmulators
-                    : strings.emulatorsTitle,
-                style: NexusTypography.label.copyWith(color: colors.faint),
+                (widget.compacto
+                        ? strings.sectionEmulators
+                        : strings.emulatorsTitle)
+                    .toUpperCase(),
+                style: NexusTypography.label.copyWith(color: colors.mute),
               ),
             ),
             if (refrescando)
@@ -142,14 +154,14 @@ class _DispositivosPanelState extends ConsumerState<DispositivosPanel> {
                 ),
               )
             else
-              OutlinedButton(
-                onPressed: _ocupado != null
+              BotonDeFila(
+                texto: strings.emulatorsRefresh,
+                onPulsar: _ocupado != null
                     ? null
                     : () {
                         ref.invalidate(emuladoresProvider);
                         ref.invalidate(dispositivosProvider);
                       },
-                child: Text(strings.emulatorsRefresh),
               ),
           ],
         ),
@@ -179,14 +191,17 @@ class _DispositivosPanelState extends ConsumerState<DispositivosPanel> {
             style: NexusTypography.nota.copyWith(color: colors.faint),
           )
         else ...[
-          for (final emulador in valor.emuladores)
-            _FilaDeEmulador(
-              emulador: emulador,
-              ocupado: _ocupado == emulador.id,
-              apagado: _ocupado != null,
-              onLanzar: () => _lanzar(emulador),
-              onLanzarEnFrio: () => _lanzar(emulador, frio: true),
-              onCerrar: () => _cerrar(emulador),
+          for (final (i, emulador) in valor.emuladores.indexed)
+            _Fila(
+              primera: i == 0,
+              child: _FilaDeEmulador(
+                emulador: emulador,
+                ocupado: _ocupado == emulador.id,
+                apagado: _ocupado != null,
+                onLanzar: () => _lanzar(emulador),
+                onLanzarEnFrio: () => _lanzar(emulador, frio: true),
+                onCerrar: () => _cerrar(emulador),
+              ),
             ),
 
           // **Los teléfonos de verdad, en su propio grupo y sin botón.**
@@ -200,21 +215,24 @@ class _DispositivosPanelState extends ConsumerState<DispositivosPanel> {
           // de arriba. La cabecera se pinta ya con su indicador para que no
           // aparezcan de golpe sin avisar.
           if (fisicos.value case final lista? when lista.isNotEmpty) ...[
-            const SizedBox(height: NexusSpacing.s5),
+            const SizedBox(height: NexusSpacing.s4),
             Text(
-              strings.emulatorsConnected,
-              style: NexusTypography.label.copyWith(color: colors.faint),
+              strings.emulatorsConnected.toUpperCase(),
+              style: NexusTypography.label.copyWith(color: colors.mute),
             ),
             const SizedBox(height: NexusSpacing.s2),
-            for (final dispositivo in lista)
-              _FilaDeDispositivo(dispositivo: dispositivo),
+            for (final (i, dispositivo) in lista.indexed)
+              _Fila(
+                primera: i == 0,
+                child: _FilaDeDispositivo(dispositivo: dispositivo),
+              ),
           ] else if (fisicos.isLoading) ...[
             const SizedBox(height: NexusSpacing.s5),
             Row(
               children: [
                 Text(
-                  strings.emulatorsConnected,
-                  style: NexusTypography.label.copyWith(color: colors.faint),
+                  strings.emulatorsConnected.toUpperCase(),
+                  style: NexusTypography.label.copyWith(color: colors.mute),
                 ),
                 const SizedBox(width: NexusSpacing.s3),
                 SizedBox(
@@ -237,34 +255,128 @@ class _DispositivosPanelState extends ConsumerState<DispositivosPanel> {
             style: NexusTypography.mono.copyWith(color: colors.err),
           ),
         ],
+
+        // En el compacto no cabe la explicación entera, pero esto sí hace
+        // falta decirlo: sin ello, cerrar Nexus parece que se lleva el
+        // emulador por delante y nadie se atreve a cerrarlo con uno arriba.
+        if (widget.compacto &&
+            valor != null &&
+            valor.emuladores.isNotEmpty) ...[
+          const SizedBox(height: NexusSpacing.s3),
+          Text(
+            strings.emulatorsSiguenVivos,
+            style: NexusTypography.nota.copyWith(
+              color: colors.mute,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _enAjustes(
+    BuildContext context, {
+    required ({List<Emulador> emuladores, String? error})? valor,
+    required bool refrescando,
+  }) {
+    final colors = context.colors;
+    final strings = context.strings;
+    final fisicos = ref.watch(dispositivosProvider).value ?? const [];
+
+    return BloquesDeAjustes(
+      bloques: [
+        BloqueDeAjustes(
+          hijos: [
+            TextoDeAjustes(strings.emulatorsExplainer),
+            if (valor == null)
+              // Solo la primera vez de la sesión: después siempre hay algo.
+              EstadoDeAjustes(
+                tono: TonoDeAjustes.apagado,
+                texto: strings.emulatorsChecking,
+              )
+            else if (valor.error case final mensaje?)
+              // El error de la herramienta va **literal**: «No se encontró
+              // Flutter…» dice qué hacer, y taparlo con un «no se pudo» obliga a
+              // abrir la terminal para averiguarlo.
+              Text(
+                mensaje,
+                style: NexusTypography.mono.copyWith(color: colors.err),
+              )
+            else if (valor.emuladores.isEmpty && fisicos.isEmpty)
+              TextoDeAjustes(strings.emulatorsEmpty)
+            else
+              FilasDeAjustes(
+                filas: [
+                  for (final emulador in valor.emuladores)
+                    _FilaDeAjustesDeEmulador(
+                      emulador: emulador,
+                      ocupado: _ocupado == emulador.id,
+                      apagado: _ocupado != null,
+                      onLanzar: () => _lanzar(emulador),
+                      onLanzarEnFrio: () => _lanzar(emulador, frio: true),
+                      onCerrar: () => _cerrar(emulador),
+                    ),
+                  // Los teléfonos de verdad, en la misma lista y con su verbo:
+                  // uno de estos ya está, así que su acción es mirarlo.
+                  for (final dispositivo in fisicos)
+                    _FilaDeAjustesDeDispositivo(dispositivo: dispositivo),
+                ],
+              ),
+            if (_error case final mensaje?)
+              Text(
+                mensaje,
+                style: NexusTypography.mono.copyWith(color: colors.err),
+              ),
+            AccionesDeAjustes(
+              botones: [
+                BotonDeAjustes(
+                  texto: refrescando
+                      ? strings.emulatorsChecking
+                      : strings.emulatorsRefresh,
+                  tono: TonoDeBoton.principal,
+                  onPulsar: _ocupado != null || refrescando
+                      ? null
+                      : () {
+                          ref.invalidate(emuladoresProvider);
+                          ref.invalidate(dispositivosProvider);
+                        },
+                ),
+              ],
+            ),
+          ],
+        ),
       ],
     );
   }
 }
 
-/// Los botones de una fila, apretados.
+/// Una fila de la lista, con la raya de arriba salvo la primera del grupo.
 ///
-/// **Un `TextButton` de fábrica no cabe aquí.** Con el relleno por defecto de
-/// Material —16 px a cada lado y 64 de ancho mínimo— dos botones en la misma fila
-/// desbordaban el panel del compositor por 9 px, y eso lo destapó una prueba de
-/// widget y no la vista: en Ajustes hay sitio de sobra y no se veía.
-///
-/// Nota sobre ese número, porque el diagnóstico de entonces era incompleto: los
-/// 9 px eran contra **280**, no contra los 360 que el panel creía tener. Material
-/// recorta cualquier menú a `_kMenuMaxWidth` si no se le pasan `constraints`, y
-/// hasta que se descubrió, el panel medía 280 dijera lo que dijera su `SizedBox`.
-/// Con el ancho de verdad ya cabrían las palabras; se quedan apretados igual
-/// porque en un HUD donde un punto de estado mide 7 px, el área de un botón de
-/// formulario web se ve enorme.
-///
-/// Apretarlos no es solo para que caber: en un HUD con tipografía mono y filas de
-/// 7 px de punto, el área de toque de un botón de formulario web se ve enorme.
-final _botonApretado = TextButton.styleFrom(
-  padding: const EdgeInsets.symmetric(horizontal: NexusSpacing.s2),
-  minimumSize: Size.zero,
-  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-  visualDensity: VisualDensity.compact,
-);
+/// Como las filas del mockup: sin la raya, cada nombre con su segunda línea y
+/// sus botones se juntaba con el de debajo y no se sabía de quién era cada
+/// «Cerrar».
+class _Fila extends StatelessWidget {
+  const _Fila({required this.primera, required this.child});
+
+  final bool primera;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      border: primera
+          ? null
+          : Border(top: BorderSide(color: context.colors.rule)),
+    ),
+    child: child,
+  );
+}
+
+/// El nombre de un aparato: un nombre, no un dato. En la voz de lo que se dice
+/// y a 13,5, como el mockup; en mono se leía como un identificador.
+TextStyle _elNombre(NexusColors colors) =>
+    NexusTypography.body.copyWith(fontSize: 13.5, color: colors.ink);
 
 /// Un teléfono enchufado.
 ///
@@ -283,38 +395,39 @@ class _FilaDeDispositivo extends ConsumerWidget {
     final strings = context.strings;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: 9),
       child: Row(
         children: [
           // El punto va siempre encendido: si está en la lista, está enchufado.
           // No hay estado intermedio que enseñar.
-          Container(
-            width: 7,
-            height: 7,
-            margin: const EdgeInsets.only(right: NexusSpacing.s3),
-            decoration: BoxDecoration(shape: BoxShape.circle, color: colors.ok),
+          Padding(
+            padding: const EdgeInsets.only(right: NexusSpacing.s3),
+            child: PuntoDeEstado(color: colors.ok),
           ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  dispositivo.nombre,
-                  style: NexusTypography.data.copyWith(color: colors.ink),
-                ),
+                Text(dispositivo.nombre, style: _elNombre(colors)),
                 Text(
                   // El id detrás porque es lo que hace falta para `-d`, y en
                   // Android el nombre es el código de modelo —`24069PC21G`— que
                   // no dice nada por sí solo.
                   '${dispositivo.plataforma.name} · ${dispositivo.id}',
-                  style: NexusTypography.mono.copyWith(color: colors.faint),
+                  style: NexusTypography.data.copyWith(color: colors.mute),
                 ),
               ],
             ),
           ),
+          // **Escrito y como acción principal**, que es lo que dice el
+          // mockup: es lo único que se puede hacer con un teléfono enchufado, y
+          // un icono de móvil al lado de un móvil no decía que se podía mirar.
           if (ref.watch(sePuedeVerLaPantallaProvider(dispositivo.id)))
-            IconButton(
-              onPressed: () => ref
+            BotonDeFila(
+              texto: strings.verLaPantallaCorto,
+              tooltip: strings.verLaPantalla,
+              tono: TonoDeBoton.principal,
+              onPulsar: () => ref
                   .read(emuladoresDataSourceProvider)
                   .verLaPantalla(
                     deviceId: dispositivo.id,
@@ -324,14 +437,6 @@ class _FilaDeDispositivo extends ConsumerWidget {
                     // una corrida viva.
                     conControl: true,
                   ),
-              tooltip: strings.verLaPantalla,
-              iconSize: 15,
-              splashRadius: 15,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              constraints: const BoxConstraints(),
-              visualDensity: VisualDensity.compact,
-              color: colors.faint,
-              icon: const Icon(Icons.smartphone_outlined),
             ),
           // **Un iPhone físico se mira con lo que trae macOS**, y con las dos
           // formas porque se complementan: Duplicado da control pero exige Apple
@@ -389,18 +494,15 @@ class _FilaDeEmulador extends StatelessWidget {
     final puede = !apagado;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: 9),
       child: Row(
         children: [
           // El punto de estado antes del nombre: se lee de un barrido, sin
           // tener que llegar al botón para saber cuál está vivo.
-          Container(
-            width: 7,
-            height: 7,
-            margin: const EdgeInsets.only(right: NexusSpacing.s3),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: emulador.corriendo ? colors.ok : colors.rule,
+          Padding(
+            padding: const EdgeInsets.only(right: NexusSpacing.s3),
+            child: PuntoDeEstado(
+              color: emulador.corriendo ? colors.ok : colors.faint,
             ),
           ),
           Expanded(
@@ -411,13 +513,15 @@ class _FilaDeEmulador extends StatelessWidget {
                   emulador.nombre,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: NexusTypography.data.copyWith(color: colors.ink),
+                  style: _elNombre(colors),
                 ),
+                // **El estado se dice también apagado**: «android · apagado».
+                // Antes solo se escribía «arriba», y el apagado quedaba en un
+                // punto gris, que es decir el estado solo con el color.
                 Text(
-                  emulador.corriendo
-                      ? '${emulador.plataforma.name} · ${strings.emulatorsRunning}'
-                      : emulador.plataforma.name,
-                  style: NexusTypography.mono.copyWith(color: colors.faint),
+                  '${emulador.plataforma.name} · '
+                  '${emulador.corriendo ? strings.emulatorsRunning : strings.emulatorsOff}',
+                  style: NexusTypography.data.copyWith(color: colors.mute),
                 ),
               ],
             ),
@@ -435,31 +539,156 @@ class _FilaDeEmulador extends StatelessWidget {
               ),
             )
           else if (emulador.corriendo)
-            TextButton(
-              style: _botonApretado,
-              onPressed: puede ? onCerrar : null,
-              child: Text(strings.emulatorsClose),
+            BotonDeFila(
+              texto: strings.emulatorsClose,
+              onPulsar: puede ? onCerrar : null,
             )
           else ...[
+            // **Arrancar primero y como principal**, que es a lo que se viene;
+            // el arranque en frío es el plan B de cuando el normal se atasca.
+            BotonDeFila(
+              texto: strings.emulatorsLaunch,
+              tono: TonoDeBoton.principal,
+              onPulsar: puede ? onLanzar : null,
+            ),
             // El arranque en frío solo existe en Android; en iOS no se ofrece
             // para no poner un botón que no hace nada distinto.
-            if (emulador.plataforma == PlataformaEmulador.android)
-              TextButton(
-                style: _botonApretado,
-                onPressed: puede ? onLanzarEnFrio : null,
-                child: Text(
-                  strings.emulatorsColdBoot,
-                  style: NexusTypography.control.copyWith(color: colors.faint),
-                ),
+            if (emulador.plataforma == PlataformaEmulador.android) ...[
+              const SizedBox(width: 5),
+              BotonDeFila(
+                texto: strings.emulatorsColdBoot,
+                onPulsar: puede ? onLanzarEnFrio : null,
               ),
-            TextButton(
-              style: _botonApretado,
-              onPressed: puede ? onLanzar : null,
-              child: Text(strings.emulatorsLaunch),
-            ),
+            ],
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Un emulador, como fila de Ajustes: el que está arriba con el punto de
+/// acento —es lo que está pasando— y su verbo a la derecha.
+class _FilaDeAjustesDeEmulador extends StatelessWidget {
+  const _FilaDeAjustesDeEmulador({
+    required this.emulador,
+    required this.ocupado,
+    required this.apagado,
+    required this.onLanzar,
+    required this.onLanzarEnFrio,
+    required this.onCerrar,
+  });
+
+  final Emulador emulador;
+  final bool ocupado;
+  final bool apagado;
+  final VoidCallback onLanzar;
+  final VoidCallback onLanzarEnFrio;
+  final VoidCallback onCerrar;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final strings = context.strings;
+    final puede = !apagado;
+
+    return FilaDeAjustes(
+      tono: emulador.corriendo ? TonoDeAjustes.activo : TonoDeAjustes.apagado,
+      titulo: emulador.nombre,
+      // **El estado se dice también apagado**: «android · apagado». Decirlo
+      // solo con el punto sería decir el estado solo con el color.
+      dato:
+          '${emulador.plataforma.name} · '
+          '${emulador.corriendo ? strings.emulatorsRunning : strings.emulatorsOff}',
+      accion: ocupado
+          ? SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: colors.accent,
+              ),
+            )
+          // **El botón dice «cerrar» cuando ya está arriba**, en vez de ofrecer
+          // arrancar algo que corre.
+          : emulador.corriendo
+          ? BotonDeAjustes(
+              texto: strings.emulatorsClose,
+              onPulsar: puede ? onCerrar : null,
+            )
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // El arranque en frío es el plan B de cuando el normal se
+                // atasca, y solo existe en Android.
+                if (emulador.plataforma == PlataformaEmulador.android) ...[
+                  BotonDeAjustes(
+                    texto: strings.emulatorsColdBoot,
+                    onPulsar: puede ? onLanzarEnFrio : null,
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                BotonDeAjustes(
+                  texto: strings.emulatorsLaunch,
+                  onPulsar: puede ? onLanzar : null,
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+/// Un teléfono enchufado, como fila de Ajustes: siempre en verde —si está en
+/// la lista, está enchufado— y con la única acción que tiene, mirarlo.
+class _FilaDeAjustesDeDispositivo extends ConsumerWidget {
+  const _FilaDeAjustesDeDispositivo({required this.dispositivo});
+
+  final DispositivoConectado dispositivo;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = context.strings;
+    final comoIphone = ref.watch(comoVerElIphoneProvider(dispositivo.id));
+
+    return FilaDeAjustes(
+      tono: TonoDeAjustes.bien,
+      titulo: dispositivo.nombre,
+      // El id detrás porque es lo que hace falta para `-d`, y en Android el
+      // nombre es el código de modelo, que no dice nada por sí solo.
+      dato: '${dispositivo.plataforma.name} · ${dispositivo.id}',
+      accion: ref.watch(sePuedeVerLaPantallaProvider(dispositivo.id))
+          ? BotonDeAjustes(
+              texto: strings.verLaPantallaCorto,
+              tooltip: strings.verLaPantalla,
+              onPulsar: () => ref
+                  .read(emuladoresDataSourceProvider)
+                  .verLaPantalla(
+                    deviceId: dispositivo.id,
+                    titulo: dispositivo.nombre,
+                    conControl: true,
+                  ),
+            )
+          : comoIphone.isEmpty
+          ? null
+          // Un iPhone físico se mira con lo que trae macOS; cada forma solo
+          // si su app está en la máquina.
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final (i, como) in comoIphone.indexed) ...[
+                  if (i > 0) const SizedBox(width: 6),
+                  BotonDeAjustes(
+                    texto: switch (como) {
+                      ComoVerElIphone.duplicado => strings.verElIphoneDuplicado,
+                      ComoVerElIphone.quickTime => strings.verElIphoneQuickTime,
+                    },
+                    onPulsar: () => ref
+                        .read(emuladoresDataSourceProvider)
+                        .verElIphone(como),
+                  ),
+                ],
+              ],
+            ),
     );
   }
 }

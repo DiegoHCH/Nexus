@@ -17,50 +17,43 @@ class NombresSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final strings = context.strings;
     final nombres = ref.watch(losNombresProvider);
 
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            strings.nombresExplainer,
-            style: NexusTypography.nota.copyWith(color: colors.faint),
-          ),
-          const SizedBox(height: NexusSpacing.s5),
-          _UnNombre(
-            etiqueta: strings.comoSeLlamaElAgente,
-            pista: strings.comoSeLlamaElAgentePista,
-            valor: nombres.agente,
-            onGuardar: (valor) =>
-                ref.read(losNombresProvider.notifier).cambiar(agente: valor),
-          ),
-          const SizedBox(height: NexusSpacing.s6),
-          _UnNombre(
-            etiqueta: strings.comoTeLlamas,
-            pista: strings.comoTeLlamasPista,
-            valor: nombres.tuyo,
-            onGuardar: (valor) =>
-                ref.read(losNombresProvider.notifier).cambiar(tuyo: valor),
-          ),
-          const SizedBox(height: NexusSpacing.s6),
-          // La vista previa: es lo único que convierte «te llamas Patricia» en
-          // algo comprobable sin cerrar Ajustes y mandar un encargo.
-          Text(
-            strings.asiSeVera,
-            style: NexusTypography.label.copyWith(color: colors.faint),
-          ),
-          const SizedBox(height: NexusSpacing.s2),
-          _ComoSeVera(nombres: nombres),
-          const SizedBox(height: NexusSpacing.s5),
-          Text(
-            strings.sinPalabraDeActivacion,
-            style: NexusTypography.nota.copyWith(color: colors.warn),
-          ),
-        ],
-      ),
+    return BloquesDeAjustes(
+      bloques: [
+        TextoDeAjustes(strings.nombresExplainer),
+        BloqueDeAjustes(
+          rotulo: strings.comoSeLlamaElAgente,
+          hijos: [
+            _UnNombre(
+              pista: strings.comoSeLlamaElAgentePista,
+              valor: nombres.agente,
+              onGuardar: (valor) =>
+                  ref.read(losNombresProvider.notifier).cambiar(agente: valor),
+            ),
+          ],
+        ),
+        BloqueDeAjustes(
+          rotulo: strings.comoTeLlamas,
+          hijos: [
+            _UnNombre(
+              pista: strings.comoTeLlamasPista,
+              valor: nombres.tuyo,
+              onGuardar: (valor) =>
+                  ref.read(losNombresProvider.notifier).cambiar(tuyo: valor),
+            ),
+            // La vista previa: es lo único que convierte «te llamas Patricia»
+            // en algo comprobable sin cerrar Ajustes y mandar un encargo.
+            _ComoSeVera(nombres: nombres),
+            // Decía que ponerle nombre no la despertaba, y desde que existe el
+            // oído sí: el aviso en ámbar contaba una limitación que ya no
+            // está. Ahora es una explicación, y va en el tono de las
+            // explicaciones.
+            TextoDeAjustes(strings.suNombreLaDespierta),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -72,13 +65,11 @@ class NombresSection extends ConsumerWidget {
 /// letra, que es ruido en el disco por nada.
 class _UnNombre extends StatefulWidget {
   const _UnNombre({
-    required this.etiqueta,
     required this.pista,
     required this.valor,
     required this.onGuardar,
   });
 
-  final String etiqueta;
   final String pista;
   final String? valor;
 
@@ -115,41 +106,16 @@ class _UnNombreState extends State<_UnNombre> {
     widget.onGuardar(escrito.isEmpty ? null : escrito);
   }
 
+  // Una línea que se rellena y no una caja: el rótulo lo pone el bloque, y el
+  // nombre es un dato —en mono, como en el mockup—.
   @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          widget.etiqueta,
-          style: NexusTypography.label.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s2),
-        TextField(
-          controller: _controller,
-          focusNode: _foco,
-          style: NexusTypography.body.copyWith(color: colors.ink),
-          onSubmitted: (_) => _guardar(),
-          decoration: InputDecoration(
-            hintText: widget.pista,
-            hintStyle: NexusTypography.body.copyWith(color: colors.faint),
-            filled: true,
-            fillColor: colors.void_.withValues(alpha: 0.5),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(NexusRadius.sm),
-              borderSide: BorderSide(color: colors.rule),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(NexusRadius.sm),
-              borderSide: BorderSide(color: colors.rule),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => TextField(
+    controller: _controller,
+    focusNode: _foco,
+    style: estiloDeCampoDeAjustes(context),
+    onSubmitted: (_) => _guardar(),
+    decoration: decoracionDeCampoDeAjustes(context, hint: widget.pista),
+  );
 }
 
 /// Un turno de mentira con los nombres puestos.
@@ -163,32 +129,23 @@ class _ComoSeVera extends StatelessWidget {
     final colors = context.colors;
     final strings = context.strings;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(NexusSpacing.s3),
-      decoration: BoxDecoration(
-        color: colors.void_.withValues(alpha: 0.5),
-        border: Border.all(color: colors.rule),
-        borderRadius: BorderRadius.circular(NexusRadius.sm),
-      ),
+    // Con los rótulos de siempre —«TÚ», «HESTIA»— y dentro de su caja, que
+    // es lo que dice que esto se mira y no se toca.
+    return CajaDeAjustes(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            strings.you,
-            style: NexusTypography.label.copyWith(color: colors.faint),
-          ),
-          const SizedBox(height: 2),
+          RotuloDeAjustes(strings.asiSeVera),
+          const SizedBox(height: 8),
+          RotuloDeAjustes(strings.you),
+          const SizedBox(height: 4),
           Text(
             strings.ejemploDeLoQuePides(nombres.agente ?? strings.nexus),
             style: NexusTypography.body.copyWith(color: colors.ink),
           ),
-          const SizedBox(height: NexusSpacing.s3),
-          Text(
-            nombres.etiqueta(strings.nexus),
-            style: NexusTypography.label.copyWith(color: colors.accent),
-          ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 8),
+          RotuloDeAjustes(nombres.etiqueta(strings.nexus)),
+          const SizedBox(height: 4),
           Text(
             strings.ejemploDeLoQueContesta(nombres.vocativo),
             style: NexusTypography.body.copyWith(color: colors.mute),

@@ -77,11 +77,18 @@ void main() {
   test('los botones del sistema son enlaces que la app sabe atender', () {
     final html = pagina(
       const [],
-      textos: const TextosDelRegistro(
+      textos: TextosDelRegistro(
         titulo: 'Registro del sistema',
         dispositivo: 'Medium Phone API 36.1',
         vacio: 'Escuchando…',
-        nivel: 'Desde avisos',
+        niveles: const [
+          EnlaceDelRegistro(texto: 'Todo', ruta: 'nivel/info'),
+          EnlaceDelRegistro(
+            texto: 'Desde avisos',
+            ruta: 'nivel/aviso',
+            marcado: true,
+          ),
+        ],
         escucha: 'Registro del sistema',
       ),
       escuchandoEn: 'emulator-5554',
@@ -89,10 +96,58 @@ void main() {
     );
 
     expect(html, contains('href="nexus://registro/escucha/emulator-5554"'));
-    expect(html, contains('href="nexus://registro/nivel"'));
-    expect(html, contains('Desde avisos'));
+    // El filtro, como opciones con nombre y la elegida marcada: un solo chip
+    // que cambiaba de texto obligaba a adivinar cuántas veces pulsarlo.
+    expect(
+      html,
+      contains('<a class="op" href="nexus://registro/nivel/info">Todo</a>'),
+    );
+    expect(
+      html,
+      contains(
+        '<a class="op on" href="nexus://registro/nivel/aviso">Desde avisos</a>',
+      ),
+    );
     // Escuchando se ve, o no se sabe si el botón enciende o apaga.
     expect(html, contains('class="chip vivo"'));
+  });
+
+  // «Pasarle el error a Claude» también aquí, donde se lee el error, y marcada
+  // como la que toca; «Copiar» detrás.
+  test('las acciones van debajo del rollo, la que toca primero', () {
+    final html = pagina(
+      const [LineaDeLaVentana('boom', tono: TonoDeLinea.error)],
+      textos: const TextosDelRegistro(
+        titulo: 'Registro',
+        dispositivo: 'ci · POCO F6',
+        vacio: '',
+        acciones: [
+          EnlaceDelRegistro(
+            texto: 'Pasarle el error a Claude',
+            ruta: 'pasar/emulator-5554',
+            marcado: true,
+          ),
+          EnlaceDelRegistro(texto: 'Copiar', ruta: 'copiar/registro-x'),
+        ],
+      ),
+    );
+
+    final pasar = html.indexOf('class="btn on" href="nexus://registro/pasar/');
+    final copiar = html.indexOf('class="btn" href="nexus://registro/copiar/');
+    expect(pasar, greaterThan(html.indexOf('boom')));
+    expect(copiar, greaterThan(pasar));
+    // Y el título de la ventana es el de la página: «Registro · ci · POCO F6».
+    expect(html, contains('<title>Registro · ci · POCO F6</title>'));
+  });
+
+  test('lo que se copia es lo que se lee, con su etiqueta', () {
+    expect(
+      ElRegistroComoHtml.comoTexto(const [
+        LineaDeLaVentana('Fatal signal 11', etiqueta: 'libc'),
+        LineaDeLaVentana('sin etiqueta'),
+      ]),
+      'libc Fatal signal 11\nsin etiqueta',
+    );
   });
 
   test('parada, la página lo dice: sin indicador de que algo pasa', () {

@@ -98,7 +98,9 @@ void main() {
     });
 
     test('el interruptor se ve, y no está escondido en un menú', () {
-      expect(pagina, contains('rotulo: strings.allowScriptsShort'));
+      // La correa va en la fila del nombre, a la vista, con su palabra.
+      expect(pagina, contains('texto: context.strings.allowScriptsShort'));
+      expect(pagina, contains('_Correa('));
     });
   });
 

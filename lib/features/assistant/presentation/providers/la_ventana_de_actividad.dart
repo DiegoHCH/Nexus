@@ -1,10 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/design_system/la_hoja_viva_de_las_paginas.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
+import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/platform/lo_que_pide_la_pagina.dart';
 import 'package:nexus/core/platform/ventana_del_visor.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_verbo_de_un_paso.dart';
 import 'package:nexus/features/assistant/domain/usecases/la_actividad_como_html.dart';
+import 'package:nexus/features/assistant/presentation/orb/nexus_orb_layers_painter.dart';
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
 import 'package:nexus/features/assistant/presentation/state/activity_layout.dart';
 import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
@@ -166,35 +170,65 @@ class LaVentanaDeActividad {
     // acabaría contándose a sí misma.
     final soporte = await getApplicationSupportDirectory();
     final s = _ref.read(stringsProvider);
+    final hoja = await laHojaViva(_ref);
 
     await pinta(
       raiz: soporte.path,
       nombre: nombre,
       primeraVez: primeraVez,
-      // Estrecha y alta: lo que se enseña es una columna de pasos.
-      ancho: 520,
-      alto: 820,
+      // La pantalla del mockup, con el orbe a la izquierda y los pasos a la
+      // derecha, **en pequeño**: el mockup la dibuja a 1280 × 800, y a ese
+      // tamaño taparía la app que se quiere seguir usando al lado. La página
+      // se reparte igual a este ancho y, si se estrecha, pone el orbe encima.
+      ancho: 1040,
+      alto: 680,
       html: LaActividadComoHtml.escribe(
         filas: layoutActivity(pasos),
-        terminados: pasos.where((paso) => paso.done).length,
+        // El mismo aro que el orbe trabajando, con su mismo reparto: lo que se
+        // ve de lejos en la sala y de cerca en esta ventana tiene que coincidir.
+        reactor: _elReactor(pasos),
         viva: viva,
         detenerEn: detenerEn,
-        textos: TextosDeActividad(
-          titulo: s.rightNow,
-          progreso: s.stepsProgress,
-          trabajando: s.working,
-          escribe: s.writesTag,
-          seEjecuto: s.ranLabel,
-          devolvio: s.returnedLabel,
-          todaviaCorriendo: s.stillRunning,
-          sinPasos: s.noStepsYet,
-          detener: s.stopNow,
-        ),
+        textos: textosDeActividad(s),
+        hoja: hoja,
       ),
     );
+  }
+
+  static ({int total, int encendidos}) _elReactor(List<ActivityItem> pasos) {
+    final cuenta = laCuentaDelTurno(pasos);
+    final aro = reactorEncendido(pasos: cuenta.pasos, hechos: cuenta.hechos);
+    return (total: aro.total, encendidos: aro.encendidos);
   }
 
   /// El nombre va a una ruta de archivo, así que lo que no sea seguro se cae.
   static String _limpio(String crudo) =>
       crudo.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
 }
+
+/// Los textos de la ventana en el idioma elegido. Aparte para que las pruebas
+/// pinten la página con los mismos que la app.
+TextosDeActividad textosDeActividad(NexusStrings s) => TextosDeActividad(
+  titulo: s.rightNow,
+  rotulo: s.actividadRotulo,
+  paso: s.pasoDeTotal,
+  verbo: (verbo, {required hecho}) {
+    final par = switch (verbo) {
+      VerboDelPaso.lee => s.verboLee,
+      VerboDelPaso.escribe => s.verboEscribe,
+      VerboDelPaso.edita => s.verboEdita,
+      VerboDelPaso.ejecuta => s.verboEjecuta,
+      VerboDelPaso.busca => s.verboBusca,
+      VerboDelPaso.delega => s.verboDelega,
+      VerboDelPaso.consulta => s.verboConsulta,
+      VerboDelPaso.otro => s.verboOtro,
+    };
+    return hecho ? par.hecho : par.ahora;
+  },
+  seEjecuto: s.ranLabel,
+  devolvio: s.returnedLabel,
+  todaviaCorriendo: s.stillRunning,
+  sinPasos: s.noStepsYet,
+  detener: s.stopNow,
+  espera: s.pasoEspera,
+);

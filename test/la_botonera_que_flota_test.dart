@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nexus/core/design_system/nexus_colors.dart';
-import 'package:nexus/core/design_system/nexus_theme.dart';
+import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
@@ -10,6 +9,7 @@ import 'package:nexus/features/assistant/domain/repositories/el_despacho_de_carp
 import 'package:nexus/features/assistant/presentation/providers/el_despacho_de_carpeta_impl.dart';
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
 import 'package:nexus/features/run/domain/entities/corrida.dart';
+import 'package:nexus/features/run/domain/usecases/el_freno_de_la_app.dart';
 import 'package:nexus/features/run/presentation/providers/corridas_providers.dart';
 import 'package:nexus/features/run/presentation/providers/donde_flota_la_botonera.dart';
 import 'package:nexus/features/run/presentation/providers/la_consola_que_se_abre.dart';
@@ -34,8 +34,9 @@ Corrida _corrida({
   String? progreso,
   int? consola,
   int errores = 0,
+  String deviceId = _deviceId,
 }) => Corrida(
-  deviceId: _deviceId,
+  deviceId: deviceId,
   dispositivo: 'Medium Phone API 36.1',
   proyecto: '/casa/tienda',
   configuracion: 'Tienda (dev)',
@@ -179,36 +180,93 @@ void main() {
     );
   }
 
+  /// El color del punto de la única corrida montada.
+  Color? elPunto(WidgetTester tester) {
+    final punto = tester.widget<PuntoDeEstado>(
+      find.byKey(LaBotoneraDeCorridas.elPunto),
+    );
+    return punto.color;
+  }
+
+  /// El texto de un botón de la fila, para mirar su color.
+  Color? colorDe(WidgetTester tester, String texto) => tester
+      .widget<Text>(
+        find.descendant(
+          of: find.byType(BotonDeFila),
+          matching: find.text(texto),
+        ),
+      )
+      .style
+      ?.color;
+
+  /// Los botones de la fila, en el orden en que se leen.
+  List<String> losBotones(WidgetTester tester) {
+    final botones = find.byType(BotonDeFila).evaluate().toList()
+      ..sort((a, b) {
+        final pa = (a.renderObject! as RenderBox).localToGlobal(Offset.zero);
+        final pb = (b.renderObject! as RenderBox).localToGlobal(Offset.zero);
+        // Por líneas y, dentro de cada una, de izquierda a derecha: el `Wrap`
+        // parte las acciones y el orden de lectura es ése.
+        final fila = pa.dy.round().compareTo(pb.dy.round());
+        return fila != 0 ? fila : pa.dx.compareTo(pb.dx);
+      });
+    return [for (final b in botones) (b.widget as BotonDeFila).texto];
+  }
+
   // 🔴 **El aviso que faltaba, y de dónde sale.** Lo reportado no fue «falta
   // una línea en el registro», fue que el error **no saltó** al correr la app
   // desde Nexus, y sí desde VS Code. El registro es una ventana que se abre a
   // mano: un error que solo vive ahí es un error que nadie mira.
   group('los errores de la app se ven sin abrir nada', () {
-    testWidgets('con errores, se dice cuántos', (tester) async {
+    testWidgets('con errores, se dice cuántos, en su línea', (tester) async {
       await montar(tester, conCorridas: {_deviceId: _corrida(errores: 3)});
 
-      expect(find.text('3'), findsOneWidget);
-      expect(find.byTooltip(strings.runAppErrors(3)), findsOneWidget);
+      expect(find.text(strings.runErroresDesdeLaRecarga(3)), findsOneWidget);
     });
 
-    // Un aviso que está siempre puesto no avisa de nada.
-    testWidgets('sin errores no ocupa sitio', (tester) async {
+    // El punto dice lo mismo que la frase: rojo con errores. Antes seguía verde
+    // con la app rompiéndose, porque solo sabía de verde y ámbar.
+    testWidgets('y el punto se pone rojo', (tester) async {
+      await montar(tester, conCorridas: {_deviceId: _corrida(errores: 3)});
+
+      expect(elPunto(tester), NexusColors.dark.err);
+    });
+
+    testWidgets('sin errores el punto es verde y lo dice', (tester) async {
       await montar(tester, conCorridas: {_deviceId: _corrida()});
 
-      expect(find.byIcon(Icons.error_outline), findsNothing);
+      expect(elPunto(tester), NexusColors.dark.ok);
+      expect(find.text(strings.runRunning), findsOneWidget);
+      expect(find.textContaining('errores desde'), findsNothing);
     });
 
-    testWidgets('y pulsarlo abre el registro de esa corrida', (tester) async {
+    // **La acción que toca va primero**: con errores, llevarle el error a
+    // quien lo puede arreglar. Es lo que fija el mockup.
+    testWidgets('con errores, «Pasarle el error a Claude» va primero', (
+      tester,
+    ) async {
+      await montar(tester, conCorridas: {_deviceId: _corrida(errores: 2)});
+
+      final botones = losBotones(tester);
+      expect(botones.first, strings.runPasarloAClaude);
+      // Y marcada como la que toca: con el acento, no gris como el resto.
+      expect(
+        colorDe(tester, strings.runPasarloAClaude.toUpperCase()),
+        NexusColors.dark.accent,
+      );
+      // El registro sube con él: es donde se lee el error que se va a pasar.
+      expect(botones[1], strings.runLogs);
+    });
+
+    testWidgets('el registro se abre desde la fila', (tester) async {
       await montar(tester, conCorridas: {_deviceId: _corrida(errores: 1)});
 
-      await tester.tap(find.byIcon(Icons.error_outline));
+      await tester.tap(find.text(strings.runLogs.toUpperCase()));
       await tester.pumpAndSettle();
 
       expect(pintor.paginas, contains('registro-emulator-5554'));
     });
 
-    // Con la app rompiéndose en cada fotograma esto llega a los miles, y el
-    // número entero ensancha la fila hasta empujar los botones fuera.
     // 🔴 **El puente que faltaba, y en el sentido que faltaba.** Al terminar un
     // encargo la app se recarga sola; al revés no había nada, así que un error
     // se veía y arreglarlo pasaba por copiar el bloque a mano — donde se pierde
@@ -230,11 +288,7 @@ void main() {
           );
       await tester.pumpAndSettle();
 
-      // El tooltip sale del ámbito del widget y el texto del encargo del
-      // proveedor: **los dos existen y pueden discrepar**, y el que manda en lo
-      // que se ve es el que envuelve a esta pantalla. Está dicho en el código
-      // de la casa desde que una prueba los pilló en dos idiomas.
-      await tester.tap(find.byTooltip(strings.runPasarloAClaude));
+      await tester.tap(find.text(strings.runPasarloAClaude.toUpperCase()));
       await tester.pumpAndSettle();
 
       expect(despacho.llevados, hasLength(1));
@@ -271,13 +325,13 @@ void main() {
     testWidgets('sin errores no hay botón que lo pase', (tester) async {
       await montar(tester, conCorridas: {_deviceId: _corrida()});
 
-      expect(find.byTooltip(strings.runPasarloAClaude), findsNothing);
+      expect(find.text(strings.runPasarloAClaude.toUpperCase()), findsNothing);
     });
 
     testWidgets('mil errores no ensanchan la fila', (tester) async {
       await montar(tester, conCorridas: {_deviceId: _corrida(errores: 4212)});
 
-      expect(find.text('999+'), findsOneWidget);
+      expect(find.text(strings.runErroresDesdeLaRecarga(4212)), findsOneWidget);
       expect(tester.takeException(), isNull, reason: 'desbordó');
     });
   });
@@ -285,8 +339,27 @@ void main() {
   testWidgets('sin nada corriendo no hay botonera', (tester) async {
     await montar(tester);
 
-    expect(find.text(strings.runToolbarDrag), findsNothing);
-    expect(find.byTooltip(strings.runStop), findsNothing);
+    expect(
+      find.textContaining(strings.runToolbarDrag.toUpperCase()),
+      findsNothing,
+    );
+    expect(find.text(strings.runStop.toUpperCase()), findsNothing);
+  });
+
+  // «Corriendo · 2» dice sin contar filas cuántas cosas hay vivas.
+  testWidgets('el asa dice cuántas corren', (tester) async {
+    await montar(
+      tester,
+      conCorridas: {
+        _deviceId: _corrida(),
+        'otro': _corrida(deviceId: 'otro'),
+      },
+    );
+
+    expect(
+      find.text('${strings.runToolbarDrag} · 2'.toUpperCase()),
+      findsOneWidget,
+    );
   });
 
   testWidgets('mientras compila dice qué compila, y solo ofrece parar', (
@@ -306,29 +379,34 @@ void main() {
       },
     );
 
-    expect(find.byTooltip(strings.runReload), findsNothing);
+    expect(find.text(strings.runReload.toUpperCase()), findsNothing);
     // **En su propia línea**, no pegado al dispositivo: ahí se cortaba en una
     // letra —«Medium Phone API 36.1 · R…»— y era lo único que decía que algo
     // estaba pasando.
     expect(find.text('Compilando lib/main.dart'), findsOneWidget);
-    expect(find.text('Medium Phone API 36.1'), findsOneWidget);
-    expect(find.byTooltip(strings.runStop), findsOneWidget);
+    // Con qué y dónde, como el mockup: «ci · POCO F6».
+    expect(find.text('Tienda (dev) · Medium Phone API 36.1'), findsOneWidget);
+    expect(find.text(strings.runStop.toUpperCase()), findsOneWidget);
+    // Compilar no es «atención»: el acento, no el ámbar de una app parada.
+    expect(elPunto(tester), NexusColors.dark.accent);
   });
 
   testWidgets('corriendo ofrece recargar, reiniciar y parar', (tester) async {
     await montar(tester, conCorridas: {_deviceId: _corrida()});
 
-    expect(find.byTooltip(strings.runReload), findsOneWidget);
-    expect(find.byTooltip(strings.runRestart), findsOneWidget);
-    expect(find.byTooltip(strings.runStop), findsOneWidget);
+    expect(find.text(strings.runReload.toUpperCase()), findsOneWidget);
+    expect(find.text(strings.runRestart.toUpperCase()), findsOneWidget);
+    expect(find.text(strings.runStop.toUpperCase()), findsOneWidget);
+    // Sin errores, lo primero es recargar: es lo que se pulsa a diario.
+    expect(losBotones(tester).first, strings.runReload);
   });
 
   testWidgets('y cada botón pide lo suyo', (tester) async {
     await montar(tester, conCorridas: {_deviceId: _corrida()});
 
-    await tester.tap(find.byTooltip(strings.runReload));
-    await tester.tap(find.byTooltip(strings.runRestart));
-    await tester.tap(find.byTooltip(strings.runStop));
+    await tester.tap(find.text(strings.runReload.toUpperCase()));
+    await tester.tap(find.text(strings.runRestart.toUpperCase()));
+    await tester.tap(find.text(strings.runStop.toUpperCase()));
     await tester.pump();
 
     expect(corridas.pedidos, ['recarga', 'reinicio', 'parar']);
@@ -342,28 +420,31 @@ void main() {
       conCorridas: {_deviceId: _corrida(estado: EstadoDeCorrida.parando)},
     );
 
-    expect(find.byTooltip(strings.runStop), findsNothing);
+    expect(find.text(strings.runStop.toUpperCase()), findsNothing);
     expect(find.text(strings.runStopping), findsOneWidget);
   });
 
   // El reinicio en verde y el parar en rojo, como cualquier barra de
-  // depuración: cuatro siluetas grises seguidas se pulsan a ciegas.
+  // depuración: dos botones del mismo gris se pulsan a ciegas.
   testWidgets('el reinicio y el parar se distinguen por color', (tester) async {
     await montar(tester, conCorridas: {_deviceId: _corrida()});
 
-    IconButton boton(IconData icono) =>
-        tester.widget<IconButton>(find.widgetWithIcon(IconButton, icono));
-
-    expect(boton(Icons.restart_alt).color, NexusColors.dark.ok);
-    expect(boton(Icons.stop_rounded).color, NexusColors.dark.err);
+    expect(
+      colorDe(tester, strings.runRestart.toUpperCase()),
+      NexusColors.dark.ok,
+    );
+    expect(
+      colorDe(tester, strings.runStop.toUpperCase()),
+      NexusColors.dark.err,
+    );
   });
 
   testWidgets('los registros se abren desde aquí', (tester) async {
     await montar(tester, conCorridas: {_deviceId: _corrida()});
 
-    await tester.tap(find.byTooltip(strings.runLogs));
+    await tester.tap(find.text(strings.runLogs.toUpperCase()));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip(strings.runSystemLog));
+    await tester.tap(find.text(strings.runSystemLogCorto.toUpperCase()));
     await tester.pumpAndSettle();
 
     expect(pintor.paginas, ['registro-emulator-5554', 'sistema-emulator-5554']);
@@ -375,7 +456,7 @@ void main() {
     testWidgets('se puede volver a abrir desde aquí', (tester) async {
       await montar(tester, conCorridas: {_deviceId: _corrida(consola: 9777)});
 
-      await tester.tap(find.byTooltip(strings.runConsole));
+      await tester.tap(find.text(strings.runConsoleCorto.toUpperCase()));
       await tester.pump();
 
       expect(consolas, ['http://localhost:9777']);
@@ -386,21 +467,23 @@ void main() {
     testWidgets('y sin consola declarada, no hay botón', (tester) async {
       await montar(tester, conCorridas: {_deviceId: _corrida()});
 
-      expect(find.byTooltip(strings.runConsole), findsNothing);
+      expect(find.text(strings.runConsoleCorto.toUpperCase()), findsNothing);
     });
   });
 
   group('la recarga automática', () {
-    testWidgets('viene apagada de fábrica', (tester) async {
+    Filtro laOpcion(WidgetTester tester) =>
+        tester.widget<Filtro>(find.byKey(LaBotoneraDeCorridas.laRecargaSola));
+
+    testWidgets('viene apagada de fábrica, y lo dice con su nombre', (
+      tester,
+    ) async {
       // Recargar la app sin que nadie lo pida es una sorpresa la primera vez.
+      // Y es una opción con nombre, no un rayo suelto que hay que sobrevolar.
       await montar(tester, conCorridas: {_deviceId: _corrida()});
 
-      expect(
-        tester
-            .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.bolt))
-            .color,
-        isNot(NexusColors.dark.accent),
-      );
+      expect(laOpcion(tester).activo, isFalse);
+      expect(laOpcion(tester).texto, contains(strings.runAutoCorto));
     });
 
     testWidgets('encendida se ve marcada', (tester) async {
@@ -408,13 +491,33 @@ void main() {
       await montar(tester, conCorridas: {_deviceId: _corrida()});
       await tester.pump();
 
-      expect(
-        tester
-            .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.bolt))
-            .color,
-        NexusColors.dark.accent,
-      );
+      expect(laOpcion(tester).activo, isTrue);
     });
+  });
+
+  // Ámbar parada, y lo que toca es soltarla: los pasos del depurador van
+  // primero y «Seguir» se marca como la acción principal.
+  testWidgets('parada, el punto es ámbar y «Seguir» va primero', (
+    tester,
+  ) async {
+    await montar(
+      tester,
+      conCorridas: {
+        _deviceId: _corrida(
+          errores: 1,
+        ).copyWith(parada: const LaParadaDeLaApp(isolate: 'isolates/1')),
+      },
+    );
+
+    expect(elPunto(tester), NexusColors.dark.warn);
+    expect(find.text(strings.runParadaSinSitio), findsOneWidget);
+    expect(losBotones(tester).first, strings.runSeguir);
+    expect(
+      colorDe(tester, strings.runSeguir.toUpperCase()),
+      NexusColors.dark.accent,
+    );
+    // Recargar con la app detenida no recarga nada.
+    expect(find.text(strings.runReload.toUpperCase()), findsNothing);
   });
 
   group('el sitio donde flota', () {

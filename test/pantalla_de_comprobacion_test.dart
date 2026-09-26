@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/core/design_system/design_system.dart';
+import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
 import 'package:nexus/features/onboarding/domain/entities/readiness.dart';
 import 'package:nexus/features/onboarding/presentation/pages/readiness_page.dart';
 
@@ -65,12 +66,30 @@ void main() {
     expect(find.textContaining('no está instalado'), findsNothing);
   });
 
+  // Lo que sí está se enseña también, con su punto: así se ve cuál de las dos
+  // falla sin tener que leer la explicación.
+  testWidgets('lo que está bien sale en su fila', (tester) async {
+    await pumpScreen(tester, const ReadinessPage(readiness: sinSesion));
+
+    expect(find.text('Claude Code está instalado'), findsOne);
+  });
+
+  // El primer cuadro del mockup: gris y casi quieto mientras falta algo, el
+  // mismo estado que «sin conexión» en el móvil.
+  testWidgets('el orbe está apagado mientras falta algo', (tester) async {
+    await pumpScreen(tester, const ReadinessPage(readiness: sinCli));
+
+    final orbe = tester.widget<NexusOrb>(find.byType(NexusOrb));
+    expect(orbe.apagado, isTrue);
+    expect(find.text('FALTA ALGO'), findsOne, reason: 'y la barra lo dice');
+  });
+
   testWidgets('las dos salidas están siempre', (tester) async {
     // Una pantalla que informa y no deja salir es una pantalla que encierra.
     await pumpScreen(tester, const ReadinessPage(readiness: sinCli));
 
-    expect(find.text('Comprobar de nuevo'), findsOne);
-    expect(find.text('Entrar de todas formas'), findsOne);
+    expect(find.text('COMPROBAR DE NUEVO'), findsOne);
+    expect(find.text('ENTRAR DE TODAS FORMAS'), findsOne);
   });
 
   /// No es una aserción: deja la pantalla en PNG para poder **mirarla**, que es

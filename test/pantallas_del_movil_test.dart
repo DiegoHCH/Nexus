@@ -1,8 +1,11 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/core/design_system/nexus_theme.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
@@ -20,6 +23,13 @@ import 'package:nexus_protocol/nexus_protocol.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nexus/features/remote/presentation/widgets/mobile_chrome.dart';
 import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
+import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
+import 'package:nexus/features/remote/data/altavoz_del_movil.dart';
+import 'package:nexus/features/remote/presentation/pages/connecting_page.dart';
+import 'package:nexus/features/remote/presentation/pages/sin_mac_page.dart';
+import 'package:nexus/features/remote/presentation/providers/reproduccion_providers.dart';
+import 'package:nexus/main_movil.dart';
+import 'package:nexus/core/i18n/language_preference.dart';
 
 // Las pantallas del teléfono, contra un socket falso.
 //
@@ -103,6 +113,21 @@ class _SinCache implements MirrorCache {
   Future<void> clear() async {}
 }
 
+/// El altavoz, sin altavoz: aquí se mira qué hace la pantalla con la voz, no cómo
+/// suena.
+class _AltavozCallado implements Altavoz {
+  @override
+  void Function()? alVaciarse;
+  @override
+  Future<void> preparar() async {}
+  @override
+  Future<void> encolar(Uint8List pcm) async {}
+  @override
+  Future<void> tirar() async {}
+  @override
+  Future<void> soltar() async {}
+}
+
 class _Emparejado implements PairingStore {
   @override
   Future<Pairing?> read() async => Pairing(
@@ -135,9 +160,11 @@ void main() {
       isNot(contains('MediaQuery')),
       reason: 'el alto del orbe volvio a depender del de la pantalla',
     );
-    // Orbe **en el flujo** y entre espaciadores, igual que la de conectar.
-    expect(fuente, contains('height: 260'));
-    expect(fuente.split('Spacer()').length - 1, 2);
+    // Orbe **en el flujo** y con el bloque centrado en el alto, igual que la de
+    // conectar: con el orbe en un `Flexible` y sin centrar, el sitio que no usaba iba
+    // a parar al fondo y el bloque quedaba pegado arriba.
+    expect(fuente, contains('height: ladoDelOrbe'));
+    expect(fuente, contains('mainAxisAlignment: MainAxisAlignment.center'));
   });
 
   late _SocketFalso socket;
@@ -149,6 +176,7 @@ void main() {
     WidgetTester tester, {
     Map<String, Map<String, Object?>> respuestas = const {},
     Set<String> sinContestar = const {},
+    List<Override> extra = const [],
   }) async {
     socket = _SocketFalso()
       ..respuestas.addAll(respuestas)
@@ -163,6 +191,7 @@ void main() {
         // Ids fijos: la prueba de que **el mismo id sobrevive al reintento** no se
         // puede escribir contra un generador que cambia solo.
         clientMsgIdProvider.overrideWithValue(() => 'enc-1'),
+        ...extra,
       ],
     );
     addTearDown(c.dispose);
@@ -280,8 +309,9 @@ void main() {
       await tester.pump();
 
       // **Esto es lo que la fase entera venía a conseguir**: la pantalla se mueve
-      // sola, sin que el teléfono pregunte.
-      expect(find.text('leyendo el repo'), findsOneWidget);
+      // sola, sin que el teléfono pregunte. Y con el paso contado, que es lo mismo
+      // que cuentan los segmentos del miniorbe.
+      expect(find.text('Paso 1 de 1 · leyendo el repo'), findsOneWidget);
     });
   });
 
@@ -524,8 +554,14 @@ void main() {
 
       expect(find.text('ya está ordenado'), findsOneWidget);
       // 25 y no un número recalculado aquí: la ventana depende de la variante del
-      // modelo, y calcularlo en el teléfono es repetir el error del escritorio.
-      expect(find.text('25 %'), findsOneWidget);
+      // modelo, y calcularlo en el teléfono es repetir el error del escritorio. La
+      // cifra no se pinta —el mockup dibuja la raya sola— pero se dice: es lo que
+      // lee quien no ve la raya.
+      final semantica = tester.ensureSemantics();
+      final medidor = find.bySemanticsLabel('Ventana de contexto');
+      expect(medidor, findsOne);
+      expect(tester.getSemantics(medidor).value, '25 %');
+      semantica.dispose();
     });
 
     testWidgets('el permiso se pregunta al abrir', (tester) async {
@@ -699,6 +735,326 @@ void main() {
         findsOneWidget,
       );
       expect(c.read(mirrorProvider).vacio, isTrue);
+    });
+  });
+
+  group('el orbe en la lista', () {
+    testWidgets('cada fila lleva su miniorbe, en su estado', (tester) async {
+      // De un vistazo, cuál habla, cuál trabaja y cuál piensa — sin leer ninguna fila.
+      final c = await conectado(
+        tester,
+        respuestas: {
+          'conversations': {
+            'conversations': [
+              {'id': 'a', 'folder': '/Users/alguien/personal/nexus'},
+              {'id': 'b', 'folder': '/Users/alguien/trabajo/front'},
+              {'id': 'p', 'folder': '/Users/alguien/personal/directorio'},
+            ],
+          },
+        },
+      );
+      await tester.pumpWidget(app(c, const ConversationsPage()));
+      await tester.pump();
+      await tester.pump();
+
+      var seq = 0;
+      void evento(String kind, Map<String, Object?> data) =>
+          socket.recibe(Event(seq: ++seq, kind: kind, data: data));
+      evento('orb', {'conversation': 'a', 'state': 'speak'});
+      evento('text', {
+        'conversation': 'a',
+        'append': 'El golden cambió. ¿Lo regenero?',
+      });
+      evento('orb', {'conversation': 'b', 'state': 'think'});
+      evento('activity', {
+        'conversation': 'b',
+        'steps': [
+          {'id': '1', 'text': 'gh run list', 'done': true},
+          {'id': '2', 'text': 'leyendo el test'},
+        ],
+      });
+      evento('orb', {'conversation': 'p', 'state': 'ponder'});
+      await tester.pump();
+      await tester.pump();
+
+      NexusOrb mini(String id) =>
+          tester.widget<NexusOrb>(find.byKey(ValueKey('miniorbe-$id')));
+      expect(mini('a').state, NexusOrbState.speak);
+      expect(mini('b').state, NexusOrbState.think);
+      expect(mini('p').state, NexusOrbState.ponder);
+      // El reactor del miniorbe cuenta los mismos pasos que dice la fila.
+      expect((mini('b').pasos, mini('b').hechos), (2, 1));
+
+      expect(find.text('ABIERTAS EN EL MAC · 3'), findsOne);
+      expect(find.text('Hablando: «¿Lo regenero?»'), findsOne);
+      expect(find.text('Paso 2 de 2 · leyendo el test'), findsOne);
+      expect(find.text('Pensando'), findsOne);
+      // Y empezar otra, abajo y a la vista: no escondida detrás del menú.
+      expect(find.byKey(const ValueKey('conversacion-nueva')), findsOne);
+    });
+  });
+
+  group('la conversación con su orbe', () {
+    Future<ProviderContainer> abierta(
+      WidgetTester tester,
+      Map<String, Object?> conversacion,
+    ) async {
+      final c = await conectado(
+        tester,
+        extra: [altavozProvider.overrideWithValue(_AltavozCallado())],
+      );
+      await tester.pumpWidget(
+        app(c, const ConversationPage(conversationId: 'a')),
+      );
+      socket.recibe(
+        Snapshot(
+          seq: 5,
+          data: {
+            'conversations': [
+              {'id': 'a', 'folder': '/tmp/repo', ...conversacion},
+            ],
+          },
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      return c;
+    }
+
+    String subtitulo(WidgetTester tester) => tester
+        .widget<Text>(find.byKey(const ValueKey('subtitulo')))
+        .textSpan!
+        .toPlainText();
+
+    TextSpan loQueFalta(WidgetTester tester) =>
+        (tester.widget<Text>(find.byKey(const ValueKey('subtitulo'))).textSpan!
+                    as TextSpan)
+                .children!
+                .last
+            as TextSpan;
+
+    testWidgets('hablando, el orbe es el contenido y debajo va el subtítulo', (
+      tester,
+    ) async {
+      await abierta(tester, {
+        'reply': 'Falló el test del resumen. ¿Lo regenero?',
+        'orb': 'speak',
+      });
+
+      // El mockup: el orbe grande con el anillo y la frase debajo, a letra grande.
+      expect(find.byKey(const ValueKey('subtitulo')), findsOne);
+      expect(subtitulo(tester), contains('¿Lo regenero?'));
+      final pantalla = tester.getSize(find.byType(ConversationPage)).height;
+      expect(
+        tester.getSize(find.byType(NexusOrb)).height,
+        greaterThan(pantalla * 0.35),
+      );
+      // La voz sale por el Mac: aquí no se sabe por dónde va, así que no se pinta
+      // nada en gris ni se late con un silencio que no es tal.
+      expect(loQueFalta(tester).text, isEmpty);
+      expect(tester.widget<NexusOrb>(find.byType(NexusOrb)).nivelVivo, isNull);
+    });
+
+    testWidgets(
+      'si la voz suena aquí, el orbe late con ella y el subtítulo la sigue',
+      (tester) async {
+        final c = await abierta(tester, {
+          'reply': 'Falló el test del resumen. ¿Lo regenero?',
+          'orb': 'speak',
+        });
+
+        final voz = Uint8List.view(
+          Int16List.fromList([
+            for (var i = 0; i < 4800; i++) i.isEven ? 8000 : -8000,
+          ]).buffer,
+        );
+        socket.recibe(Audio(seq: 0, pcmBase64: base64Encode(voz)));
+        await tester.pump();
+        await tester.pump();
+
+        expect(
+          tester.widget<NexusOrb>(find.byType(NexusOrb)).nivelVivo,
+          same(c.read(compasProvider).nivel),
+          reason: 'el orbe tiene que latir con lo que sale del altavoz',
+        );
+        // Antes del colchón todavía no suena nada: todo lo que falta, en gris.
+        expect(loQueFalta(tester).text, isNotEmpty);
+
+        // Y cuando ya sonó, lo dicho va en blanco.
+        await tester.pump(const Duration(milliseconds: 800));
+        expect(loQueFalta(tester).text, isEmpty);
+        expect(subtitulo(tester), contains('¿Lo regenero?'));
+      },
+    );
+
+    testWidgets('trabajando, el orbe baja a una banda con el paso al lado', (
+      tester,
+    ) async {
+      await abierta(tester, {
+        'orb': 'think',
+        'streaming': true,
+        'ask': 'revisa por qué falló el CI',
+        'steps': [
+          {'id': '1', 'text': 'gh run list', 'done': true},
+          {'id': '2', 'text': 'gh run view', 'done': true},
+          {'id': '3', 'text': 'leyendo el test'},
+          {'id': '4', 'text': 'proponer el arreglo'},
+        ],
+      });
+
+      expect(find.byKey(const ValueKey('banda-trabajando')), findsOne);
+      expect(find.text('PASO 3 DE 4'), findsOne);
+      final orbe = tester.widget<NexusOrb>(find.byType(NexusOrb));
+      // Los segmentos del reactor y el «paso 3 de 4» cuentan lo mismo.
+      expect(
+        (orbe.state, orbe.pasos, orbe.hechos),
+        (NexusOrbState.think, 4, 2),
+      );
+      expect(tester.getSize(find.byType(NexusOrb)).height, 120);
+    });
+  });
+
+  group('buscar y no llegar', () {
+    test('un fallo se queda mientras se reintenta; buscar de cero no', () {
+      // Sin esto la pantalla saltaba de «no llego» al reactor y de vuelta en cada
+      // peldaño de la escalera de reintentos.
+      expect(sinMacPara(LinkState.noSeLlega, SinMac.buscando), SinMac.noLlego);
+      expect(
+        sinMacPara(LinkState.reconectando, SinMac.noLlego),
+        SinMac.noLlego,
+      );
+      expect(
+        sinMacPara(LinkState.reconectando, SinMac.rechazado),
+        SinMac.rechazado,
+      );
+      expect(
+        sinMacPara(LinkState.reconectando, SinMac.buscando),
+        SinMac.buscando,
+      );
+      expect(sinMacPara(LinkState.conectando, SinMac.noLlego), SinMac.buscando);
+      expect(sinMacPara(LinkState.conectado, SinMac.noLlego), SinMac.buscando);
+      expect(sinMacPara(LinkState.rechazado, SinMac.noLlego), SinMac.rechazado);
+      expect(
+        sinMacPara(LinkState.hayQueActualizar, SinMac.buscando),
+        SinMac.actualizar,
+      );
+    });
+
+    /// El arranque de verdad —`NexusMovil`— con un enlace que no llega.
+    ///
+    /// `dormir` no vuelve nunca: la escalera de reintentos se queda esperando hasta
+    /// que alguien la despierta, que es justo lo que hace «volver a intentar». Así la
+    /// prueba decide cuándo se reintenta, y no deja temporizadores colgando.
+    Future<(ProviderContainer, Completer<ChannelSocket> Function())> sinLlegar(
+      WidgetTester tester, {
+      Object fallo = const ChannelUnreachable(),
+    }) async {
+      final esperas = <Completer<ChannelSocket>>[];
+      var intentos = 0;
+      final enlace = ChannelLink(
+        abrir: () {
+          intentos++;
+          if (intentos == 1) return Future.error(fallo);
+          final espera = Completer<ChannelSocket>();
+          esperas.add(espera);
+          return espera.future;
+        },
+        appVersion: '0.0.0',
+        dormir: (_) => Completer<void>().future,
+      );
+      final c = ProviderContainer(
+        overrides: [
+          pairingStoreProvider.overrideWithValue(_Emparejado()),
+          channelLinkProvider.overrideWithValue(enlace),
+          outboxStoreProvider.overrideWithValue(_ColaEnMemoria()),
+          mirrorCacheProvider.overrideWithValue(_SinCache()),
+          // En español, que es el idioma por defecto: el del sistema de pruebas es
+          // inglés y la app lo seguiría.
+          localeProvider.overrideWithValue(const Locale('es')),
+        ],
+      );
+      addTearDown(c.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(container: c, child: const NexusMovil()),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      return (c, () => esperas.last);
+    }
+
+    testWidgets('conectando, el orbe trabaja con el reactor', (tester) async {
+      final c = await conectado(tester);
+      await tester.pumpWidget(app(c, const ConnectingPage()));
+      await tester.pump();
+
+      final orbe = tester.widget<NexusOrb>(
+        find.byKey(const ValueKey('orbe-buscando')),
+      );
+      expect(orbe.state, NexusOrbState.think);
+      // Tantos segmentos como peldaños tiene la escalera de reintentos.
+      expect(orbe.pasos, c.read(channelLinkProvider).esperas.length);
+      expect(find.text('BUSCANDO TU MAC'), findsOne);
+      expect(find.text('100.64.0.1:7845'), findsOne);
+    });
+
+    testWidgets('sin llegar, el orbe se apaga y se dice qué hacer', (
+      tester,
+    ) async {
+      final (_, ultima) = await sinLlegar(tester);
+
+      expect(find.text('No llego a tu Mac'), findsOne);
+      expect(find.textContaining('fuera de Tailscale'), findsOne);
+      expect(find.byKey(const ValueKey('reintentar-la-conexion')), findsOne);
+      expect(find.byKey(const ValueKey('ver-lo-guardado')), findsOne);
+
+      // Apagado y no dormido: sin color, casi quieto y sin el anillo del oído. Es
+      // el mismo orbe con `apagado`, no una copia suya: la copia del móvil se
+      // separaba del orbe de verdad cada vez que este cambiaba.
+      final orbe = tester.widget<NexusOrb>(find.byType(NexusOrb));
+      expect(orbe.apagado, isTrue);
+      expect(orbe.state, NexusOrbState.sleep);
+      expect(orbe.oido, isFalse);
+
+      // Volver a intentar trae el reactor, y el reactor ya cuenta el que falló.
+      await tester.tap(find.byKey(const ValueKey('reintentar-la-conexion')));
+      await tester.pump();
+      await tester.pump();
+      final buscando = tester.widget<NexusOrb>(
+        find.byKey(const ValueKey('orbe-buscando')),
+      );
+      expect(buscando.hechos, 1);
+      expect(buscando.apagado, isFalse);
+
+      // Y si vuelve a fallar, vuelve a decirlo.
+      ultima().completeError(const ChannelUnreachable());
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('No llego a tu Mac'), findsOne);
+
+      // El mínimo en pantalla de la de conectar, para no dejar su reloj colgando.
+      await tester.pump(const Duration(seconds: 6));
+    });
+
+    testWidgets('sin llegar, se puede leer lo guardado', (tester) async {
+      await sinLlegar(tester);
+
+      await tester.tap(find.byKey(const ValueKey('ver-lo-guardado')));
+      await tester.pump();
+
+      // Lo que dejaste pedido sigue en el Mac, y lo último que se leyó de ello está
+      // aquí: no llegar no es motivo para no poder leerlo.
+      expect(find.byType(ConversationsPage), findsOne);
+      await tester.pump(const Duration(seconds: 6));
+    });
+
+    testWidgets('un rechazo propone volver a emparejar', (tester) async {
+      await sinLlegar(tester, fallo: const ChannelRefused(403));
+
+      expect(find.text('El Mac no acepta este teléfono'), findsOne);
+      expect(find.byKey(const ValueKey('volver-a-emparejar')), findsOne);
+      expect(tester.widget<NexusOrb>(find.byType(NexusOrb)).apagado, isTrue);
+      await tester.pump(const Duration(seconds: 6));
     });
   });
 

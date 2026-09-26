@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings_page.dart';
+import 'package:nexus/core/design_system/design_system.dart';
+import 'package:nexus/features/workspace/domain/entities/workspace.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:nexus/features/workspace/presentation/widgets/permission_switch.dart';
 
@@ -37,7 +39,7 @@ void main() {
     ) async {
       await abrir(tester);
 
-      // «VOZ» es la corta y «SUPERPODERES» la larga. Antes, apuntar a la corta
+      // «Voz» es la corta y «Superpoderes» la larga. Antes, apuntar a la corta
       // daba tres letras de blanco útil y la larga doce.
       final corta = tester.getRect(find.byKey(const ValueKey('seccion-voice')));
       final larga = tester.getRect(
@@ -47,9 +49,10 @@ void main() {
       expect(corta.width, larga.width, reason: 'todas valen lo mismo');
       expect(
         corta.width,
-        greaterThan(180),
+        greaterThan(160),
         reason:
-            'la columna mide 200: el área útil es la columna, no la palabra',
+            'la columna mide 210 y 18 de margen a cada lado, como el mockup: '
+            'el área útil es la columna, no la palabra',
       );
     });
 
@@ -58,42 +61,44 @@ void main() {
     ) async {
       await abrir(tester);
 
-      // Se recorren en orden y cada una tiene que empezar donde acaba la
-      // anterior: un hueco entre ambas es una franja que no responde al clic y
-      // que no se ve, que es la peor clase de hueco.
-      Rect anterior = tester.getRect(
-        find.byKey(const ValueKey('seccion-voice')),
-      );
-      // El orden es el del enum, escrito a mano a propósito: añadir una sección
-      // obliga a pasar por aquí, y así una pestaña nueva no puede colarse sin que
-      // nadie compruebe que no deja un hueco. «mobile» entró justo así.
-      for (final nombre in [
-        'llaves',
-        'imagenes',
-        'avisos',
-        'nombres',
-        'memoria',
-        'permissions',
-        'mobile',
-        'history',
-        'pruebas',
-        'cuentas',
-        'stats',
-        'superpowers',
-        'emulators',
-        'appearance',
-        'language',
-        'salidas',
-        'help',
+      // Dentro de cada pregunta se recorren en orden y cada una tiene que
+      // empezar donde acaba la anterior: un hueco entre ambas es una franja que
+      // no responde al clic y que no se ve, que es la peor clase de hueco. Entre
+      // una pregunta y la siguiente sí hay aire —el rótulo del grupo—, y eso es
+      // a propósito.
+      //
+      // El orden está escrito a mano a propósito: añadir una sección obliga a
+      // pasar por aquí, y así una pestaña nueva no puede colarse sin que nadie
+      // compruebe que no deja un hueco. «mobile» entró justo así, y «oido»
+      // también.
+      for (final grupo in [
+        ['voice', 'oido', 'nombres', 'memoria', 'appearance', 'language'],
+        ['permissions', 'salidas', 'llaves', 'imagenes', 'superpowers'],
+        ['avisos', 'history'],
+        ['mobile', 'emulators', 'pruebas', 'cuentas'],
+        ['stats', 'help'],
       ]) {
-        final actual = tester.getRect(find.byKey(ValueKey('seccion-$nombre')));
-        expect(
-          actual.top,
-          anterior.bottom,
-          reason: 'hay hueco muerto antes de «$nombre»',
-        );
-        expect(actual.height, greaterThan(30), reason: '«$nombre» es muy baja');
-        anterior = actual;
+        Rect? anterior;
+        for (final nombre in grupo) {
+          final actual = tester.getRect(
+            find.byKey(ValueKey('seccion-$nombre')),
+          );
+          if (anterior != null) {
+            expect(
+              actual.top,
+              anterior.bottom,
+              reason: 'hay hueco muerto antes de «$nombre»',
+            );
+          }
+          // 28 y no 30: el mockup les da 6 px arriba y abajo a un texto de
+          // 13,5, y eso son 30 justos —ni uno de más—.
+          expect(
+            actual.height,
+            greaterThan(28),
+            reason: '«$nombre» es muy baja',
+          );
+          anterior = actual;
+        }
       }
     });
   });
@@ -107,7 +112,7 @@ void main() {
       // Permisos, que tiene su propio interruptor con contexto, y comprobarlo ahí
       // no distinguiría el de la cabecera del de la sección.
       await abrir(tester);
-      // Por llave y no por texto: «VOZ» sale dos veces en esta pantalla —la
+      // Por llave y no por texto: «Voz» sale dos veces en esta pantalla —la
       // pestaña y la modalidad de una carpeta— y por eso las pestañas la llevan.
       await tester.tap(find.byKey(const ValueKey('seccion-voice')));
       await tester.pump(const Duration(milliseconds: 100));
@@ -123,8 +128,10 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('seccion-permissions')));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.byType(PermissionSwitch), findsOne);
-      expect(find.text(strings.filePermissionsTitle), findsOne);
+      // En Permisos va con la gramática de Ajustes —dos opciones con nombre—
+      // y no con el interruptor de la caja de escribir, que es de allí.
+      expect(find.byType(ElegirDeAjustes<FilePermission>), findsOne);
+      expect(find.text(strings.filePermissionsTitle.toUpperCase()), findsOne);
     });
 
     testWidgets('y «Cerrar» está pegado al borde derecho', (tester) async {

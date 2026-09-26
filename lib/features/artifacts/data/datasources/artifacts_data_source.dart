@@ -49,18 +49,26 @@ class ArtifactsDataSource {
           if (entry is File)
             if (!entry.path.split('/').last.startsWith('.') &&
                 Artifact.isListable(entry.path))
-              Artifact(
-                path: entry.path,
-                name: entry.path.split('/').last,
-                at: (await entry.stat()).modified,
-                account: cuenta,
-              ),
+              // Un solo `stat()` para la fecha y el peso: el segundo dato sale
+              // de la misma consulta y no cuesta otra ida al disco.
+              await _elDocumento(entry, cuenta),
       ];
     } on FileSystemException {
       // Una carpeta que no se puede leer no invalida las otras: se enseña lo que
       // haya. Devolver vacío entero por un permiso suelto esconde todo lo demás.
       return const [];
     }
+  }
+
+  static Future<Artifact> _elDocumento(File entry, String? cuenta) async {
+    final stat = await entry.stat();
+    return Artifact(
+      path: entry.path,
+      name: entry.path.split('/').last,
+      at: stat.modified,
+      account: cuenta,
+      bytes: stat.size,
+    );
   }
 
   /// Abre el documento en su propia ventana. Si ya estaba abierto, la trae al
@@ -80,11 +88,19 @@ class ArtifactsDataSource {
   Future<void> textos({
     required String permitir,
     required String permitirAyuda,
+    String? apagado,
+    String? encendido,
+    String? pieDeLaConsola,
   }) async {
     try {
       await _channel.invokeMethod<bool>('textos', {
         'permitir': permitir,
         'permitirAyuda': permitirAyuda,
+        // El estado del permiso, dicho en el botón del título, y el pie de la
+        // consola: textos de ventanas nativas, así que viajan con los demás.
+        'apagado': ?apagado,
+        'encendido': ?encendido,
+        'pieDeLaConsola': ?pieDeLaConsola,
       });
     } on PlatformException {
       // Sin rótulos el visor usa los suyos: se ve en otro idioma, no se rompe.

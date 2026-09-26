@@ -3,12 +3,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nexus/core/design_system/nexus_theme.dart';
-import 'package:nexus/core/design_system/selector_compacto.dart';
+import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/e2e/data/datasources/e2e_data_source.dart';
 import 'package:nexus/features/e2e/domain/entities/pasada_de_prueba.dart';
+import 'package:nexus/features/e2e/domain/usecases/el_numero_de_las_pruebas.dart';
+import 'package:nexus/features/e2e/domain/usecases/la_pasada_como_html.dart';
 import 'package:nexus/features/e2e/domain/usecases/pasos_de_una_prueba.dart';
 import 'package:nexus/features/e2e/domain/usecases/por_que_se_cayo.dart';
 import 'package:nexus/features/e2e/presentation/providers/e2e_providers.dart';
@@ -118,6 +119,8 @@ class _Borrados extends E2eDataSource {
   Future<void> abreElInforme(
     String registro, {
     String Function(PorQueSeCayo)? explica,
+    TextosDeLaPasada textos = TextosDeLaPasada.es,
+    String? hoja,
   }) async => borrados.add('ver:$registro');
 
   @override
@@ -348,7 +351,7 @@ void main() {
     testWidgets('salen las pruebas del proyecto con su botón', (tester) async {
       await _abrir(tester);
       expect(find.text('login'), findsOneWidget);
-      expect(find.text(strings.e2eRun), findsOneWidget);
+      expect(find.text(strings.e2eRun.toUpperCase()), findsOneWidget);
     });
 
     testWidgets('la fila cabe con sus dos botones y los dos se pueden tocar', (
@@ -395,7 +398,7 @@ void main() {
       // hay. Si no hay, no se enseña.
       await _abrir(tester, pruebas: const []);
       expect(find.text(strings.e2eNone), findsNothing);
-      expect(find.text(strings.e2eRun), findsNothing);
+      expect(find.text(strings.e2eRun.toUpperCase()), findsNothing);
     });
 
     testWidgets('sin dispositivo encendido, el botón no deja ni tocarlo', (
@@ -408,11 +411,17 @@ void main() {
       // —un botón muerto sin explicación—.
       await _abrir(tester, encendidos: 0);
 
-      final boton = tester.widget<TextButton>(
-        find.widgetWithText(TextButton, strings.e2eRun),
+      final boton = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, strings.e2eRun.toUpperCase()),
       );
       expect(boton.onPressed, isNull);
       expect(find.byTooltip(strings.e2eNoDevice), findsOneWidget);
+      // Y el motivo de toda la lista se dice también arriba, una vez y con su
+      // punto de atención: un tooltip solo lo lee quien ya sospecha.
+      expect(
+        find.widgetWithText(EstadoConPunto, strings.e2eNoDevice),
+        findsOneWidget,
+      );
     });
 
     testWidgets('con una corriendo no se puede lanzar otra', (tester) async {
@@ -420,13 +429,31 @@ void main() {
       // driver.
       await _abrir(
         tester,
-        enMarcha: PruebaEnMarcha(flow: 'login', delFlow: [_paso('launchApp')]),
+        enMarcha: PruebaEnMarcha(flow: 'otra', delFlow: [_paso('launchApp')]),
       );
 
-      final boton = tester.widget<TextButton>(
-        find.widgetWithText(TextButton, strings.e2eRun),
+      final boton = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, strings.e2eRun.toUpperCase()),
       );
       expect(boton.onPressed, isNull);
+    });
+
+    // La que corre dice por dónde va en su fila y no ofrece correr: su puerta
+    // es «Ver», arriba, y enseñarla dos veces con acciones distintas hace
+    // dudar de cuál es la de verdad.
+    testWidgets('la que corre dice por dónde va, en su fila', (tester) async {
+      await _abrir(
+        tester,
+        enMarcha: PruebaEnMarcha(
+          flow: 'login',
+          delFlow: [_paso('launchApp'), _paso('tapOn: x')],
+          salida: _hecho('Launch app "com.ejemplo"'),
+        ),
+      );
+
+      expect(find.text(strings.e2eCorriendoPasos(1, 2)), findsOneWidget);
+      expect(find.text(strings.e2eRun.toUpperCase()), findsNothing);
+      expect(find.text(strings.e2eSee.toUpperCase()), findsOneWidget);
     });
   });
 
@@ -459,7 +486,7 @@ void main() {
         ],
       );
 
-      expect(find.text(strings.e2eUnattributed), findsOneWidget);
+      expect(find.text(strings.e2eUnattributed.toUpperCase()), findsOneWidget);
       expect(find.text('explora'), findsOneWidget);
     });
 
@@ -473,9 +500,9 @@ void main() {
         borrados: borrados,
       );
 
-      await tester.ensureVisible(find.text(strings.e2eDelete));
+      await tester.ensureVisible(find.text(strings.e2eDelete.toUpperCase()));
       await tester.pump();
-      await tester.tap(find.text(strings.e2eDelete));
+      await tester.tap(find.text(strings.e2eDelete.toUpperCase()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -493,25 +520,45 @@ void main() {
       // dos, y coger el primero era decidir por el usuario en silencio.
       await _abrir(tester, encendidos: 2);
 
-      expect(find.byType(SelectorCompacto), findsOneWidget);
-      expect(find.text(strings.e2eDevice), findsOneWidget);
+      // **A la vista y no en un desplegable**: se ve dónde va a correr antes
+      // de pulsar nada.
+      expect(find.byType(Opcion), findsNWidgets(2));
+      expect(find.text(strings.e2eDevice.toUpperCase()), findsOneWidget);
+      expect(
+        tester.widgetList<Opcion>(find.byType(Opcion)).where((o) => o.elegida),
+        isEmpty,
+        reason: 'con dos, coger el primero sería decidir por el usuario',
+      );
+
+      await tester.tap(find.widgetWithText(Opcion, 'Medium Phone 1'));
+      await tester.pump();
+      expect(
+        tester
+            .widget<Opcion>(find.widgetWithText(Opcion, 'Medium Phone 1'))
+            .elegida,
+        isTrue,
+      );
     });
 
-    testWidgets('con uno solo no se pregunta', (tester) async {
-      // Una pregunta con una sola respuesta no es una pregunta.
+    testWidgets('con uno solo no se pregunta: ya viene elegido', (
+      tester,
+    ) async {
+      // Una pregunta con una sola respuesta no es una pregunta. Pero se dice
+      // dónde va a correr, que antes no se decía.
       await _abrir(tester);
-      expect(find.byType(SelectorCompacto), findsNothing);
+      expect(find.byType(Opcion), findsOneWidget);
+      expect(tester.widget<Opcion>(find.byType(Opcion)).elegida, isTrue);
     });
 
     testWidgets('sin elegir con dos, se pide en vez de adivinar', (
       tester,
     ) async {
       await _abrir(tester, encendidos: 2);
-      await tester.tap(find.text(strings.e2eRun));
+      await tester.tap(find.text(strings.e2eRun.toUpperCase()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text(strings.e2eDevice), findsWidgets);
+      expect(find.text(strings.e2eDevice.toUpperCase()), findsWidgets);
     });
   });
 
@@ -520,7 +567,10 @@ void main() {
       // El historial ya lo decía y la lista no, así que se leía como si las
       // pruebas fueran de nadie.
       await _abrir(tester);
-      expect(find.text('tienda'), findsOneWidget);
+      expect(
+        find.text('${strings.e2eLanzar} · tienda'.toUpperCase()),
+        findsOneWidget,
+      );
     });
   });
 
@@ -568,8 +618,8 @@ void main() {
         ),
       );
 
-      expect(find.textContaining('login · 1/2'), findsOneWidget);
-      expect(find.text(strings.e2eSee), findsOneWidget);
+      expect(find.textContaining('LOGIN · 1/2'), findsOneWidget);
+      expect(find.text(strings.e2eSee.toUpperCase()), findsOneWidget);
       // Los pasos no se pintan aquí ni en ninguna pantalla de la app: van en una
       // ventana del sistema aparte, para no impedir seguir trabajando.
       expect(find.text('launchApp'), findsNothing);
@@ -586,15 +636,15 @@ void main() {
       // las veces.
       await _abrir(tester, encendidos: 0);
 
-      expect(find.text('Medium Phone 0'), findsOneWidget);
-      expect(find.text('Medium Phone 1'), findsOneWidget);
+      expect(find.text('MEDIUM PHONE 0'), findsOneWidget);
+      expect(find.text('MEDIUM PHONE 1'), findsOneWidget);
     });
 
     testWidgets('con uno solo apagado, el botón no pregunta cuál', (
       tester,
     ) async {
       await _abrir(tester, encendidos: 1);
-      expect(find.text(strings.e2eStartDevice), findsOneWidget);
+      expect(find.text(strings.e2eStartDevice.toUpperCase()), findsOneWidget);
     });
 
     testWidgets('con un dispositivo ya presente se sigue ofreciendo', (
@@ -607,15 +657,15 @@ void main() {
       // funciona de verdad.
       await _abrir(tester, encendidos: 0, conIphone: true);
 
-      expect(find.text('Medium Phone 0'), findsOneWidget);
+      expect(find.text('MEDIUM PHONE 0'), findsOneWidget);
     });
 
     testWidgets('sin ninguno apagado no se ofrece nada', (tester) async {
       // Con los dos arriba no hay nada que encender, y un botón que no puede hacer
       // nada es peor que ninguno: se traga la pulsación y no lo dice.
       await _abrir(tester, encendidos: 2);
-      expect(find.text(strings.e2eStartDevice), findsNothing);
-      expect(find.text('Medium Phone 0'), findsNothing);
+      expect(find.text(strings.e2eStartDevice.toUpperCase()), findsNothing);
+      expect(find.widgetWithText(BotonDeFila, 'MEDIUM PHONE 0'), findsNothing);
     });
   });
 
@@ -643,7 +693,7 @@ void main() {
         tester,
         enMarcha: PruebaEnMarcha(flow: 'login', delFlow: [_paso('launchApp')]),
       );
-      expect(find.textContaining('login · 0/1'), findsOneWidget);
+      expect(find.textContaining('LOGIN · 0/1'), findsOneWidget);
     });
 
     testWidgets('la fila del historial tiene ver y borrar', (tester) async {
@@ -654,41 +704,40 @@ void main() {
         borrados: borrados,
       );
 
-      expect(find.text(strings.e2eSee), findsOneWidget);
-      expect(find.text(strings.e2eDelete), findsOneWidget);
+      expect(find.text(strings.e2eSee.toUpperCase()), findsOneWidget);
+      expect(find.text(strings.e2eDelete.toUpperCase()), findsOneWidget);
 
       // Ver abre su informe en la misma ventana aparte, no una segunda forma de
       // enseñar lo mismo.
-      await tester.ensureVisible(find.text(strings.e2eSee));
+      await tester.ensureVisible(find.text(strings.e2eSee.toUpperCase()));
       await tester.pump();
-      await tester.tap(find.text(strings.e2eSee));
+      await tester.tap(find.text(strings.e2eSee.toUpperCase()));
       await tester.pump();
       expect(borrados, ['ver:/donde/sea/login.json']);
     });
   });
 
   group('los nombres de los dispositivos', () {
-    testWidgets('**el desplegable enseña nombres, no ids**', (tester) async {
+    testWidgets('**las opciones enseñan nombres, no ids**', (tester) async {
       // Lo reportado dos veces: `36c56d94` y `00008030-000C390C1AC0C02E` no dicen
       // cuál es cuál. Los nombres ya los traía el data source; lo que faltaba era
       // enseñarlos, que era un fallo mío en la UI y no en la lectura.
       await _abrir(tester, encendidos: 1, conIphone: true);
-      await tester.tap(find.byType(SelectorCompacto));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
 
-      expect(find.textContaining('iPhone 11'), findsWidgets);
-      expect(find.textContaining('Medium Phone 0'), findsWidgets);
+      expect(find.widgetWithText(Opcion, 'iPhone 11'), findsOneWidget);
+      expect(find.widgetWithText(Opcion, 'Medium Phone 0'), findsOneWidget);
     });
 
     testWidgets('el id va detrás, que es lo que pide --device', (tester) async {
       // Y porque puede haber dos aparatos con el mismo nombre.
       await _abrir(tester, encendidos: 1, conIphone: true);
-      await tester.tap(find.byType(SelectorCompacto));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
 
-      expect(find.textContaining('emulator-5550'), findsWidgets);
+      expect(
+        tester
+            .widget<Opcion>(find.widgetWithText(Opcion, 'Medium Phone 0'))
+            .detalle,
+        'emulator-5550',
+      );
     });
   });
 
@@ -707,7 +756,7 @@ void main() {
         pasadas: [_corrida(dispositivo: 'emulator-5551')],
       );
 
-      await _tocarYEsperar(tester, find.byIcon(Icons.replay));
+      await _tocarYEsperar(tester, find.text(strings.e2eRepeat.toUpperCase()));
 
       expect(lanzados, ['login@emulator-5551']);
     });
@@ -724,7 +773,7 @@ void main() {
         pasadas: [_corrida(dispositivo: 'emulator-9999')],
       );
 
-      await _tocarYEsperar(tester, find.byIcon(Icons.replay));
+      await _tocarYEsperar(tester, find.text(strings.e2eRepeat.toUpperCase()));
 
       expect(lanzados, ['login@emulator-5550']);
     });
@@ -743,7 +792,7 @@ void main() {
         pasadas: [_corrida(dispositivo: 'emulator-5550')],
       );
 
-      await tester.tap(find.byIcon(Icons.replay));
+      await tester.tap(find.text(strings.e2eRepeat.toUpperCase()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -755,7 +804,7 @@ void main() {
       // Sin saber en qué repo vive el flow, el botón solo podría contestar «no sé
       // de dónde salió esto», y eso es peor que no ofrecerlo.
       await _abrir(tester, pasadas: [_corrida(proyecto: null)]);
-      expect(find.byIcon(Icons.replay), findsNothing);
+      expect(find.text(strings.e2eRepeat.toUpperCase()), findsNothing);
     });
 
     testWidgets('sin nada encendido, repetir tampoco se deja tocar', (
@@ -773,11 +822,11 @@ void main() {
         pasadas: [_corrida(dispositivo: 'emulator-5550')],
       );
 
-      final icono = tester.widget<IconButton>(
-        find.widgetWithIcon(IconButton, Icons.replay),
+      final boton = tester.widget<BotonDeFila>(
+        find.widgetWithText(BotonDeFila, strings.e2eRepeat.toUpperCase()),
       );
-      expect(icono.onPressed, isNull);
-      expect(icono.tooltip, strings.e2eNoDevice);
+      expect(boton.onPulsar, isNull);
+      expect(boton.tooltip, strings.e2eNoDevice);
       expect(lanzados, isEmpty);
     });
   });
@@ -860,7 +909,7 @@ void main() {
       pasadas: [_corrida(flow: 'un_nombre_de_prueba_bastante_largo_de_verdad')],
     );
 
-    expect(find.byIcon(Icons.replay), findsOneWidget);
+    expect(find.text(strings.e2eRepeat.toUpperCase()), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -938,11 +987,15 @@ void main() {
       expect(find.text(strings.e2eEnvInGit), findsOneWidget);
     });
 
-    testWidgets('una variable que falta se dice antes de correr', (
+    testWidgets('una variable que falta se dice en su fila, antes del botón', (
       tester,
     ) async {
       // Sin esto, Maestro escribe el literal `${CORREO}` en el campo y la prueba
       // muere tres pasos después, en un sitio que no tiene que ver con la causa.
+      //
+      // 🔴 **Y se dice antes de tocar**, que es lo que pide el mockup: antes el
+      // botón se veía encendido y el motivo salía al pulsarlo, debajo de la
+      // lista. Ahora va en la fila de la prueba y el botón queda apagado.
       final lanzados = <String>[];
       await _abrir(
         tester,
@@ -950,19 +1003,30 @@ void main() {
         lanzados: lanzados,
       );
 
-      // Se espera al aviso, que es lo que esta prueba afirma. Y lo de «no
-      // lanzó» se comprueba después: para eso un reloj sí vale —una máquina
-      // lenta hace que pasen menos cosas, no más—, pero solo una vez que
-      // consta que el intento llegó a su final.
-      await _tocarYEsperar(
-        tester,
-        find.text(strings.e2eRun),
-        hasta: () =>
-            find.text(strings.e2eMissingVars('CORREO')).evaluate().isNotEmpty,
-      );
+      // El `.yaml` se lee del disco de verdad, y en tiempo falso esa lectura no
+      // acaba nunca: se le da tiempo real hasta que el motivo aparece.
+      final motivo = find.text(strings.e2eFaltaEnEnv('CORREO'));
+      final desde = DateTime.now();
+      while (motivo.evaluate().isEmpty) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump();
+        if (DateTime.now().difference(desde) > const Duration(seconds: 15)) {
+          fail('el motivo no llegó a la fila');
+        }
+      }
 
-      expect(find.text(strings.e2eMissingVars('CORREO')), findsOneWidget);
-      expect(lanzados, isEmpty, reason: 'lanzó sin la credencial');
+      expect(motivo, findsOneWidget);
+      final boton = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, strings.e2eRun.toUpperCase()),
+      );
+      expect(
+        boton.onPressed,
+        isNull,
+        reason: 'se dejó correr sin la credencial',
+      );
+      expect(lanzados, isEmpty);
     });
 
     testWidgets('con la variable puesta, se lanza', (tester) async {
@@ -976,7 +1040,7 @@ void main() {
 
       await _tocarYEsperar(
         tester,
-        find.text(strings.e2eRun),
+        find.text(strings.e2eRun.toUpperCase()),
         hasta: () => lanzados.isNotEmpty,
       );
 
@@ -995,7 +1059,7 @@ void main() {
       // Y al acabar la búsqueda, el selector aparece y el aviso se va.
       await tester.pump(const Duration(seconds: 2));
       expect(find.text(strings.e2eSearchingDevices), findsNothing);
-      expect(find.byType(SelectorCompacto), findsOneWidget);
+      expect(find.byType(Opcion), findsNWidgets(2));
     });
 
     testWidgets('no se ofrece arrancar un emulador mientras no se sabe', (
@@ -1005,20 +1069,20 @@ void main() {
       // segundo después se lee como un parpadeo, no como una opción.
       await _abrir(tester, encendidos: 2, demora: const Duration(seconds: 1));
 
-      expect(find.text(strings.e2eStartDevice), findsNothing);
+      expect(find.text(strings.e2eStartDevice.toUpperCase()), findsNothing);
 
       // Y al acabar tampoco, porque con los dos arriba no hay nada que encender.
       await tester.pump(const Duration(seconds: 2));
-      expect(find.text(strings.e2eStartDevice), findsNothing);
+      expect(find.text(strings.e2eStartDevice.toUpperCase()), findsNothing);
     });
 
     testWidgets('sin ninguno, al acabar sí se ofrece', (tester) async {
       await _abrir(tester, encendidos: 1, demora: const Duration(seconds: 1));
 
-      expect(find.text(strings.e2eStartDevice), findsNothing);
+      expect(find.text(strings.e2eStartDevice.toUpperCase()), findsNothing);
 
       await tester.pump(const Duration(seconds: 2));
-      expect(find.text(strings.e2eStartDevice), findsOneWidget);
+      expect(find.text(strings.e2eStartDevice.toUpperCase()), findsOneWidget);
     });
   });
 
@@ -1067,6 +1131,96 @@ void main() {
       // Un selector de una sola opción es pedir una decisión que no existe.
       await _abrir(tester);
       expect(find.byKey(const ValueKey('de-que-proyecto')), findsNothing);
+    });
+  });
+
+  // 🔴 **Tres columnas, tres preguntas**: «qué lanzo», «qué hay en el repo» y
+  // «cómo han ido». Era una hoja larga que se leía de arriba abajo, con el
+  // historial a setenta filas de distancia en cuanto el repo traía sus flows.
+  group('en ancho, la hoja va en tres columnas', () {
+    void ancho(WidgetTester tester) {
+      tester.view.physicalSize = const Size(2800, 1800);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+    }
+
+    testWidgets('lanzar, el repo y el historial, lado a lado y en ese orden', (
+      tester,
+    ) async {
+      ancho(tester);
+      await _abrir(tester, pasadas: [_corrida()]);
+
+      final lanzar = tester.getRect(find.byKey(PruebasSheet.laDeLanzar));
+      final repo = tester.getRect(find.byKey(PruebasSheet.laDelRepo));
+      final historial = tester.getRect(find.byKey(PruebasSheet.laDelHistorial));
+
+      expect(lanzar.right, lessThanOrEqualTo(repo.left));
+      expect(repo.right, lessThanOrEqualTo(historial.left));
+      // A la misma altura: son columnas, no secciones apiladas.
+      expect(lanzar.top, closeTo(repo.top, 1));
+      expect(repo.top, closeTo(historial.top, 1));
+      expect(find.text(strings.e2eHistorial.toUpperCase()), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('el historial abre con sus tres cifras', (tester) async {
+      ancho(tester);
+      final pasadas = [
+        _corrida(),
+        _corrida(como: ComoAcabo.mal, carpeta: '/donde/sea/otra'),
+      ];
+      await _abrir(tester, pasadas: pasadas);
+
+      // Las cifras salen del mismo cálculo que ya tiene sus pruebas; aquí se
+      // mira que cada una vaya en su casilla, con lo que mide debajo.
+      final n = ElNumeroDeLasPruebas.de(pasadas, ahora: DateTime.now());
+      final numero = find.byKey(const ValueKey('el-numero'));
+      expect(numero, findsOneWidget);
+      expect(
+        find.descendant(of: numero, matching: find.text('${n.ultimos30}')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: numero,
+          matching: find.text('${n.bien} · ${n.mal}'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text(strings.e2eCifraPasadas.toUpperCase()), findsOneWidget);
+      expect(
+        find.text(strings.e2eCifraResultado.toUpperCase()),
+        findsOneWidget,
+      );
+      // **El número, honesto**: la frase de lo que no se sabe se queda.
+      expect(find.text(strings.e2eNumeroLimite), findsOneWidget);
+    });
+
+    testWidgets('en estrecho se apilan, en el mismo orden', (tester) async {
+      await _abrir(tester, pasadas: [_corrida()]);
+
+      final lanzar = tester.getRect(find.byKey(PruebasSheet.laDeLanzar));
+      final historial = tester.getRect(find.byKey(PruebasSheet.laDelHistorial));
+      expect(lanzar.bottom, lessThanOrEqualTo(historial.top));
+    });
+
+    // Si cayó, «Repetir» es lo que toca, y se marca; si pasó, sigue estando pero
+    // sin acento: ahí lo normal es mirarla.
+    testWidgets('una pasada que cayó marca «Repetir» como lo que toca', (
+      tester,
+    ) async {
+      ancho(tester);
+      await _abrir(tester, pasadas: [_corrida(como: ComoAcabo.mal)]);
+
+      expect(
+        tester
+            .widget<BotonDeFila>(
+              find.widgetWithText(BotonDeFila, strings.e2eRepeat.toUpperCase()),
+            )
+            .tono,
+        TonoDeBoton.principal,
+      );
     });
   });
 }

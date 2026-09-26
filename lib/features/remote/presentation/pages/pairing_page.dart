@@ -67,95 +67,114 @@ class _PairingPageState extends ConsumerState<PairingPage> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final strings = context.strings;
+    final problema = _problema;
+    // Cada error **debajo del campo que lo tiene**: el del token bajo el token, y los
+    // de la dirección bajo la dirección. En una caja al final había que adivinar de
+    // cuál de los dos hablaba.
+    final delToken = problema == PairingProblem.tokenCorto;
 
     return Scaffold(
       backgroundColor: colors.void_,
       body: SafeArea(
-        child: SingleChildScrollView(
-          // Con scroll: al abrir el teclado, dos campos y un botón no caben en una
-          // pantalla de 390 y el aviso de Tailscale se quedaba fuera justo cuando
-          // aparecía.
-          padding: const EdgeInsets.symmetric(
-            horizontal: NexusSpacing.s5,
-            vertical: NexusSpacing.s4,
-          ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight:
-                  MediaQuery.of(context).size.height -
-                  MediaQuery.of(context).padding.vertical -
-                  NexusSpacing.s8,
+        child: Column(
+          children: [
+            MobileChrome(
+              alVolver: () => Navigator.of(context).maybePop(),
+              sinEmparejar: true,
             ),
-            child: Column(
-              children: [
-                const SizedBox(height: NexusSpacing.s5),
-                Text(
-                  strings.mobileManualTitle,
-                  style: NexusTypography.label.copyWith(color: colors.mute),
-                ),
-                const SizedBox(height: NexusSpacing.s5),
-                Text(
-                  strings.mobileManualExplainer,
-                  textAlign: TextAlign.center,
-                  style: NexusTypography.subtitleMobile.copyWith(
-                    color: colors.ink,
+            Expanded(
+              // Con scroll: al abrir el teclado, dos campos y un botón no caben en una
+              // pantalla de 390 y el aviso de Tailscale se quedaba fuera justo cuando
+              // aparecía. Y el botón **abajo del todo** cuando sí cabe, como el mockup:
+              // `SliverFillRemaining` le da el alto que sobra sin meter un `Spacer`
+              // dentro de un scroll —la contradicción que ya rompió Ajustes y esta
+              // misma pantalla—.
+              child: CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: MedidasDelMovil.margen,
+                    ),
+                    sliver: SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: NexusSpacing.s4),
+                          Text(
+                            strings.mobileManualTitle,
+                            style: NexusTypography.label.copyWith(
+                              color: colors.mute,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          // Una indicación y no un titular: dice dónde se copia, y
+                          // en letra grande la ruta de Ajustes ocupaba media
+                          // pantalla antes del primer campo.
+                          Text(
+                            strings.mobileManualExplainer,
+                            style: NexusTypography.nota.copyWith(
+                              color: colors.mute,
+                              fontSize: 13.5,
+                            ),
+                          ),
+                          const SizedBox(height: NexusSpacing.s3),
+                          MobileField(
+                            key: const ValueKey('campo-url'),
+                            etiqueta: strings.mobileAddressLabel,
+                            pista: '100.x.y.z:7845',
+                            controlador: _url,
+                            alEscribir: () => setState(() => _problema = null),
+                            error: problema != null && !delToken
+                                ? _decir(strings, problema)
+                                : null,
+                            // Avisa y **no bloquea**: el Mac solo escucha en
+                            // Tailscale, así que esta dirección probablemente no
+                            // conecte — pero quien tenga otro montaje sabe más que
+                            // esta comprobación.
+                            aviso: problema == null && _avisoDeTailscale
+                                ? strings.mobileNotTailscaleWarning
+                                : null,
+                          ),
+                          const SizedBox(height: NexusSpacing.s3),
+                          MobileField(
+                            key: const ValueKey('campo-token'),
+                            etiqueta: strings.mobileTokenLabel,
+                            pista: strings.mobileTokenHint,
+                            controlador: _token,
+                            alEscribir: () => setState(() => _problema = null),
+                            error: delToken ? _decir(strings, problema!) : null,
+                          ),
+                          const SizedBox(height: NexusSpacing.s6),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: NexusSpacing.s7),
-                MobileField(
-                  key: const ValueKey('campo-url'),
-                  etiqueta: strings.mobileAddressLabel,
-                  pista: '100.x.y.z:7845',
-                  controlador: _url,
-                  alEscribir: () => setState(() => _problema = null),
-                ),
-                const SizedBox(height: NexusSpacing.s5),
-                MobileField(
-                  key: const ValueKey('campo-token'),
-                  etiqueta: strings.mobileTokenLabel,
-                  pista: strings.mobileTokenHint,
-                  controlador: _token,
-                  alEscribir: () => setState(() => _problema = null),
-                ),
-                if (_problema != null) ...[
-                  const SizedBox(height: NexusSpacing.s4),
-                  _Aviso(
-                    key: const ValueKey('problema'),
-                    color: colors.err,
-                    texto: _decir(strings, _problema!),
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          MedidasDelMovil.margen,
+                          0,
+                          MedidasDelMovil.margen,
+                          MedidasDelMovil.pie,
+                        ),
+                        child: WideAction(
+                          key: const ValueKey('emparejar'),
+                          texto: _guardando
+                              ? strings.mobileSaving
+                              : strings.mobilePair,
+                          principal: true,
+                          alTocar: _guardando ? null : _emparejar,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
-                if (_problema == null && _avisoDeTailscale) ...[
-                  const SizedBox(height: NexusSpacing.s4),
-                  _Aviso(
-                    key: const ValueKey('aviso-tailscale'),
-                    color: colors.warn,
-                    // Avisa y **no bloquea**: el Mac solo escucha en Tailscale, así
-                    // que esta dirección probablemente no conecte — pero quien tenga
-                    // otro montaje sabe más que esta comprobación.
-                    texto: strings.mobileNotTailscaleWarning,
-                  ),
-                ],
-                // **Sin `Spacer` aquí.** Es un `Expanded`, y un `Expanded` dentro de
-                // algo que hace scroll es una contradicción: el scroll ofrece altura
-                // infinita y el flex quiere repartir la que sobra. Es el mismo fallo
-                // que rompió la pantalla de Ajustes hace un rato — y lo repetí.
-                const SizedBox(height: NexusSpacing.s8),
-                WideAction(
-                  key: const ValueKey('emparejar'),
-                  texto: _guardando ? strings.mobileSaving : strings.mobilePair,
-                  principal: true,
-                  alTocar: _guardando ? null : _emparejar,
-                ),
-                const SizedBox(height: NexusSpacing.s4),
-                Text(
-                  strings.mobilePhoneRunsNothing,
-                  textAlign: TextAlign.center,
-                  style: NexusTypography.mono.copyWith(color: colors.faint),
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -174,27 +193,4 @@ class _PairingPageState extends ConsumerState<PairingPage> {
     // caer en un «error» genérico que nadie escribió.
     PairingProblem.noEsDeNexus => strings.mobileNotNexusCode,
   };
-}
-
-class _Aviso extends StatelessWidget {
-  const _Aviso({super.key, required this.color, required this.texto});
-
-  final Color color;
-  final String texto;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(NexusSpacing.s3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        // 2px como todo lo demás: el radio grande de la primera versión era de
-        // Material y se veía prestado al lado de la pantalla de escanear.
-        borderRadius: BorderRadius.circular(2),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Text(texto, style: NexusTypography.mono.copyWith(color: color)),
-    );
-  }
 }

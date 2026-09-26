@@ -7,6 +7,7 @@ import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/assistant/presentation/providers/las_tareas_de_fondo.dart';
 import 'package:nexus/features/assistant/presentation/providers/los_trabajos_providers.dart';
 import 'package:nexus/features/run/domain/entities/corrida.dart';
+import 'package:nexus/features/run/domain/usecases/como_va_la_corrida.dart';
 import 'package:nexus/features/run/domain/usecases/el_freno_de_la_app.dart';
 import 'package:nexus/features/run/presentation/providers/corridas_providers.dart';
 import 'package:nexus/features/run/presentation/providers/donde_flota_la_botonera.dart';
@@ -35,18 +36,32 @@ import 'package:nexus/features/run/presentation/providers/run_providers.dart';
 /// arrastra desde cualquier parte, el primer clic torcido sobre «parar» mueve
 /// la barra en vez de parar, y lo que se busca es lo contrario.
 ///
-/// De los ocho iconos de la referencia solo hay cuatro **porque solo hay cuatro
-/// con plomería**: el daemon expone `app.restart` —con `fullRestart` para el
-/// reinicio— y `app.stop`, y nada más. Pausa, pasos e inspector piden hablar
-/// con la VM service, que es su propia tarea; poner el icono antes que la
-/// tubería sería enseñar un botón que no hace nada.
+/// **Solo se ofrece lo que tiene plomería**: un botón antes que su tubería
+/// sería enseñar algo que no hace nada. Qué se ofrece y en qué orden lo decide
+/// [ComoVaLaCorridaDe], que es donde está la regla del mockup —la acción que
+/// toca, primero—.
 class LaBotoneraDeCorridas extends ConsumerStatefulWidget {
-  const LaBotoneraDeCorridas({super.key});
+  const LaBotoneraDeCorridas({super.key, this.reservaDerecha = 0});
+
+  /// Lo que tiene que dejar libre a la derecha al nacer: la conversación
+  /// abierta y el riel, que tienen debajo la caja de escribir.
+  final double reservaDerecha;
 
   /// Ancho fijo y no el del contenido: con el ancho al gusto, la barra cambia
   /// de tamaño al cambiar el texto del progreso —«Running Gradle task…»— y se
   /// mueve sola debajo del ratón.
-  static const ancho = 380.0;
+  ///
+  /// 430 y no los 380 de antes: es la medida del mockup, y la que deja caber
+  /// «Corriendo · 2» y «Recargar sola al terminar» en el asa sin cortar
+  /// ninguna de las dos. Las acciones ya no cuentan, que van debajo y se parten
+  /// en líneas.
+  static const ancho = 430.0;
+
+  /// El punto de estado de cada corrida, para que las pruebas miren su color.
+  static const elPunto = ValueKey('el-punto-de-la-corrida');
+
+  /// La opción de recargar sola, en el asa.
+  static const laRecargaSola = ValueKey('recargar-sola');
 
   /// La barra en sí, para poder medir **dónde acabó** y no solo el cristal que
   /// la sostiene: lo que hay que comprobar es que caiga dentro de su caja, que
@@ -75,8 +90,10 @@ class LaBotoneraDeCorridas extends ConsumerStatefulWidget {
   /// contada desde arriba una segunda corrida la asoma por el borde de abajo y
   /// el `Stack` se la come. Anclada al suelo crece hacia arriba, que además es
   /// lo que hace cualquier barra de estado.
-  static Offset dondeNace(Size caja) =>
-      Offset(caja.width - ancho - NexusSpacing.s6, alDelSuelo);
+  static Offset dondeNace(Size caja, {double reservaDerecha = 0}) => Offset(
+    math.max(0, caja.width - reservaDerecha - ancho - NexusSpacing.s6),
+    alDelSuelo,
+  );
 
   /// La deja **entera** dentro de la ventana siempre que quepa, y agarrable
   /// cuando no. `dy` se cuenta **desde el suelo**; ver [dondeNace].
@@ -200,7 +217,10 @@ class _LaBotoneraDeCorridasState extends ConsumerState<LaBotoneraDeCorridas> {
             caja.biggest,
             _arrastrando ??
                 ref.watch(dondeFlotaLaBotoneraProvider) ??
-                LaBotoneraDeCorridas.dondeNace(caja.biggest),
+                LaBotoneraDeCorridas.dondeNace(
+                  caja.biggest,
+                  reservaDerecha: widget.reservaDerecha,
+                ),
             alto: _alto,
           );
 
@@ -243,7 +263,8 @@ class _LaBotoneraDeCorridasState extends ConsumerState<LaBotoneraDeCorridas> {
           width: LaBotoneraDeCorridas.ancho,
           decoration: BoxDecoration(
             color: colors.deep,
-            border: Border.all(color: colors.rule),
+            // `rule2`, el filo de lo que va encima, como el panel de correr.
+            border: Border.all(color: colors.rule2),
             borderRadius: BorderRadius.circular(NexusRadius.md),
             boxShadow: [
               // Despegada del fondo: es lo único que dice que está encima y no
@@ -259,6 +280,7 @@ class _LaBotoneraDeCorridasState extends ConsumerState<LaBotoneraDeCorridas> {
             mainAxisSize: MainAxisSize.min,
             children: [
               _ElAsa(
+                cuantas: corridas.length + trabajos.length + deFondo.length,
                 onArrastrar: (delta) => _mueve(delta, donde),
                 onSoltar: () => _suelta(caja, donde),
               ),
@@ -336,10 +358,19 @@ class _UnaTareaDeFondo extends StatelessWidget {
   }
 }
 
-/// El asa, con lo que vale para todas las corridas a la vez.
+/// El asa, con cuántas cosas corren y lo que vale para todas a la vez.
+///
+/// **«Corriendo · 2» y no solo «Corriendo»**, como el mockup: el número dice sin
+/// contar filas si lo que tienes delante es una corrida o tres, y es lo primero
+/// que se mira al volver a la ventana.
 class _ElAsa extends ConsumerWidget {
-  const _ElAsa({required this.onArrastrar, required this.onSoltar});
+  const _ElAsa({
+    required this.cuantas,
+    required this.onArrastrar,
+    required this.onSoltar,
+  });
 
+  final int cuantas;
   final void Function(Offset delta) onArrastrar;
   final VoidCallback onSoltar;
 
@@ -347,63 +378,108 @@ class _ElAsa extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final strings = context.strings;
+    final auto = ref.watch(autoRecargaProvider);
 
-    return Row(
-      children: [
-        Expanded(
-          child: MouseRegion(
-            cursor: SystemMouseCursors.grab,
-            child: GestureDetector(
-              onPanUpdate: (detalle) => onArrastrar(detalle.delta),
-              onPanEnd: (_) => onSoltar(),
-              // Sin esto el asa solo agarra donde hay tinta, que son cuatro
-              // puntos de un icono de 14 px.
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: NexusSpacing.s3,
-                  vertical: NexusSpacing.s2,
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.drag_indicator, size: 14, color: colors.faint),
-                    const SizedBox(width: NexusSpacing.s2),
-                    Text(
-                      strings.runToolbarDrag,
-                      style: NexusTypography.label.copyWith(
-                        color: colors.faint,
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: colors.rule)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: MouseRegion(
+              cursor: SystemMouseCursors.grab,
+              child: GestureDetector(
+                onPanUpdate: (detalle) => onArrastrar(detalle.delta),
+                onPanEnd: (_) => onSoltar(),
+                // Sin esto el asa solo agarra donde hay tinta, que son cuatro
+                // puntos de un icono de 14 px.
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: NexusSpacing.s3,
+                    vertical: NexusSpacing.s2,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.drag_indicator, size: 14, color: colors.faint),
+                      const SizedBox(width: NexusSpacing.s2),
+                      Flexible(
+                        child: Text(
+                          '${strings.runToolbarDrag} · $cuantas'.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: NexusTypography.label.copyWith(
+                            color: colors.mute,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        // **Apagado de fábrica.** Recargar la app sin que nadie lo pida es una
-        // sorpresa la primera vez, y aquí no se enciende por defecto lo que
-        // reinicia algo. Y va en el asa y no en cada fila: es una preferencia de
-        // quien mira, no una propiedad de una corrida.
-        Padding(
-          padding: const EdgeInsets.only(right: NexusSpacing.s2),
-          child: BotonMini(
-            icono: Icons.bolt,
-            titulo: strings.runAuto,
-            activo: ref.watch(autoRecargaProvider),
-            onPulsar: () => ref.read(autoRecargaProvider.notifier).cambiar(),
+          // **Una opción con nombre y no un rayo suelto.** El icono solo no decía
+          // qué hacía ni si estaba encendido: había que pararse encima. Ahora se
+          // lee, y el relleno de acento dice si está puesta. **Apagada de
+          // fábrica**: recargar sin que nadie lo pida es una sorpresa la primera
+          // vez. Va en el asa y no en cada fila porque es una preferencia de
+          // quien mira, no una propiedad de una corrida.
+          //
+          // Flexible y no a su ancho: si el nombre no cabe se corta él, y el asa
+          // —que es por donde se agarra la barra— nunca se queda sin sitio.
+          Flexible(
+            flex: 2,
+            child: Padding(
+              padding: const EdgeInsets.only(right: NexusSpacing.s2),
+              child: Tooltip(
+                message: strings.runAuto,
+                child: Filtro(
+                  key: LaBotoneraDeCorridas.laRecargaSola,
+                  texto: '⚡ ${strings.runAutoCorto}',
+                  activo: auto,
+                  onPulsar: () =>
+                      ref.read(autoRecargaProvider.notifier).cambiar(),
+                ),
+              ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-/// Una corrida: qué es, qué está haciendo y qué se le puede pedir.
+/// El color del punto de una corrida. Va con su frase al lado, nunca solo.
+Color colorDeLaCorrida(ComoVaLaCorrida como, NexusColors colors) =>
+    switch (como) {
+      ComoVaLaCorrida.corriendo => colors.ok,
+      ComoVaLaCorrida.conErrores => colors.err,
+      ComoVaLaCorrida.parada => colors.warn,
+      // El acento y no el ámbar: compilar no es «atención», es «está
+      // pasando». Antes salía ámbar y se confundía con la app parada en un
+      // punto de ruptura.
+      ComoVaLaCorrida.arrancando => colors.accent,
+      ComoVaLaCorrida.parando => colors.faint,
+    };
+
+/// Una corrida: qué es, cómo va y qué se le puede pedir.
 ///
 /// Una fila por corrida y no una barra que apunte a la elegida: el código ya
 /// contempla varias a la vez, y con una sola barra el botón de parar es una
-/// ruleta salvo que se añada un selector — que es más interfaz para decidir
-/// algo que la fila ya dice sola.
+/// ruleta salvo que se añada un selector.
+///
+/// 🔴 **El estado va en el punto, y el punto dice la verdad.** Antes solo sabía
+/// de verde y ámbar: una app rompiéndose en cada fotograma salía verde, con el
+/// contador rojo escondido entre los iconos, y una compilando salía del mismo
+/// ámbar que una parada en un punto de ruptura. Ahora son los tres del mockup
+/// —verde corriendo, rojo con errores, ámbar parada— y la segunda línea lo dice
+/// con palabras. Ver [ComoVaLaCorridaDe].
+///
+/// **Las acciones van debajo del nombre, escritas**, y la que toca primero. Al
+/// lado del nombre solo cabían iconos, y ocho iconos grises seguidos se pulsan a
+/// ciegas.
 class _Corrida extends ConsumerWidget {
   const _Corrida({required this.corrida});
 
@@ -413,265 +489,229 @@ class _Corrida extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final strings = context.strings;
-    final controller = ref.read(corridasProvider.notifier);
-    final ventanas = ref.watch(lasVentanasDelRegistroProvider);
-    final registros = ref.read(lasVentanasDelRegistroProvider.notifier);
-    bool abierta({required bool sistema}) => ventanas.contains(
-      LasVentanasDelRegistro.nombreDe(corrida.deviceId, sistema: sistema),
-    );
+    final como = ComoVaLaCorridaDe.de(corrida);
 
-    // 🔴 **La parada manda sobre el estado**, y esa es toda la gracia: una app
-    // detenida en una excepción sigue estando «corriendo» para el daemon, así
-    // que sin esto la fila diría «Ejecutando» con la app congelada delante.
-    final detalle = switch (corrida.parada) {
-      final parada? =>
-        parada.donde == null
-            ? strings.runParadaSinSitio
-            : strings.runParadaEn(parada.donde!),
-      null => switch (corrida.estado) {
-        EstadoDeCorrida.arrancando => corrida.progreso ?? strings.runCompiling,
-        EstadoDeCorrida.corriendo => strings.runRunning,
-        EstadoDeCorrida.parando => strings.runStopping,
+    final detalle = switch (como) {
+      ComoVaLaCorrida.parada => switch (corrida.parada?.donde) {
+        final donde? => strings.runParadaEn(donde),
+        null => strings.runParadaSinSitio,
       },
+      ComoVaLaCorrida.arrancando => corrida.progreso ?? strings.runCompiling,
+      ComoVaLaCorrida.conErrores => strings.runErroresDesdeLaRecarga(
+        corrida.errores,
+      ),
+      ComoVaLaCorrida.corriendo => strings.runRunning,
+      ComoVaLaCorrida.parando => strings.runStopping,
     };
+    // El progreso de Gradle es un dato —«Running Gradle task
+    // 'assembleCiDebug'…»— y se lee en mono; el resto es una frase de estado.
+    final comoDato =
+        como == ComoVaLaCorrida.arrancando && corrida.progreso != null;
 
     return Container(
+      key: ValueKey('corrida-${corrida.deviceId}'),
       padding: const EdgeInsets.fromLTRB(
         NexusSpacing.s3,
         NexusSpacing.s2,
-        NexusSpacing.s2,
-        NexusSpacing.s2,
+        NexusSpacing.s3,
+        NexusSpacing.s3,
       ),
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: colors.rule)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 7,
-            height: 7,
-            margin: const EdgeInsets.only(right: NexusSpacing.s3),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color:
-                  corrida.estado == EstadoDeCorrida.corriendo &&
-                      corrida.parada == null
-                  ? colors.ok
-                  : colors.warn,
+          Padding(
+            padding: const EdgeInsets.only(top: 4, right: NexusSpacing.s3),
+            child: PuntoDeEstado(
+              key: LaBotoneraDeCorridas.elPunto,
+              color: colorDeLaCorrida(como, colors),
             ),
           ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // **Con qué y dónde**, como el mockup: «ci · POCO F6». Solo el
+                // dispositivo no contestaba «¿esto es ci o preprod?», que es lo
+                // que se pregunta con dos corridas a la vez.
+                //
+                // En la voz de lo que se dice y no en mono: son dos nombres, y
+                // en mono se leían como un identificador.
                 Text(
-                  corrida.dispositivo,
+                  '${corrida.configuracion} · ${corrida.dispositivo}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: NexusTypography.data.copyWith(color: colors.ink),
+                  style: NexusTypography.body.copyWith(
+                    fontSize: 13,
+                    color: colors.ink,
+                  ),
                 ),
-                // **El progreso en su propia línea.** Detrás del nombre se
-                // corta —«Medium Phone API 36.1 · R…», con la R de «Running
-                // Gradle task 'assembleCiDebug'…»— y es lo único que dice que
-                // algo está pasando mientras compila.
+                // **El estado en su propia línea.** Detrás del nombre se cortaba
+                // —«Medium Phone API 36.1 · R…», con la R de «Running Gradle
+                // task»— y es lo único que dice que algo está pasando.
                 Text(
                   detalle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: NexusTypography.mono.copyWith(
-                    color:
-                        corrida.estado == EstadoDeCorrida.corriendo &&
-                            corrida.parada == null
-                        ? colors.ok
-                        : colors.warn,
-                  ),
+                  style:
+                      (comoDato
+                              ? NexusTypography.data
+                              : NexusTypography.nota.copyWith(fontSize: 12))
+                          .copyWith(color: colors.mute),
+                ),
+                const SizedBox(height: NexusSpacing.s2),
+                Wrap(
+                  spacing: 5,
+                  runSpacing: 5,
+                  children: [
+                    for (final accion in ComoVaLaCorridaDe.acciones(corrida))
+                      _LaAccion(corrida: corrida, accion: accion),
+                  ],
                 ),
               ],
             ),
           ),
-          // 🔴 **El aviso que faltaba.** Lo reportado no fue «falta una línea
-          // en el registro», fue que el error **no saltó**: el registro es una
-          // ventana que se abre a mano, y lo que no se anuncia no se mira. Esto
-          // se ve sin abrir nada, dice cuántos son y lleva al registro de un
-          // toque. Solo cuando hay: un aviso que está siempre puesto no avisa.
-          if (corrida.errores > 0) ...[
-            _ElAviso(
-              cuantos: corrida.errores,
-              onPulsar: () => registros.abre(corrida, sistema: false),
-            ),
-            // 🔴 **El puente que faltaba, y en el sentido que faltaba.** Al
-            // terminar un encargo la app se recarga sola; al revés no había
-            // nada, así que un error se veía y arreglarlo pasaba por copiar el
-            // bloque a mano — donde se pierde justo lo que importa: medido dos
-            // días seguidos con un `git push` mal retranscrito. Ahora el error,
-            // su traza y la corrida donde pasó se van de un toque a la carpeta
-            // de ese proyecto. Ver [ElErrorQueSeLePasa].
-            BotonMini(
-              icono: Icons.bolt_outlined,
-              titulo: strings.runPasarloAClaude,
-              color: colors.err,
-              onPulsar: () => ref.read(pasarleElErrorAClaudeProvider)(corrida),
-            ),
-          ],
-          // 🔴 **Los pasos solo cuando está parada.** Un «entrar en la llamada»
-          // con la app corriendo no tiene a dónde entrar: el VM service
-          // contesta un error que nadie ve y el botón enseña a no pulsarlo.
-          if (corrida.parada != null) ...[
-            BotonMini(
-              icono: Icons.play_arrow_rounded,
-              titulo: strings.runSeguir,
-              color: colors.ok,
-              onPulsar: () => controller.seguir(corrida.deviceId),
-            ),
-            BotonMini(
-              icono: Icons.redo_rounded,
-              titulo: strings.runPasoSiguiente,
-              onPulsar: () => controller.seguir(
-                corrida.deviceId,
-                paso: PasoDelDepurador.siguiente,
-              ),
-            ),
-            BotonMini(
-              icono: Icons.subdirectory_arrow_right_rounded,
-              titulo: strings.runPasoEntrar,
-              onPulsar: () => controller.seguir(
-                corrida.deviceId,
-                paso: PasoDelDepurador.entrar,
-              ),
-            ),
-            BotonMini(
-              icono: Icons.subdirectory_arrow_left_rounded,
-              titulo: strings.runPasoSalir,
-              onPulsar: () => controller.seguir(
-                corrida.deviceId,
-                paso: PasoDelDepurador.salir,
-              ),
-            ),
-          ],
-          // 🔴 **El freno se pide, no viene puesto.** Pararse solo es lo que
-          // hace un depurador conectado, y una app que se congela sin haberlo
-          // pedido se lee como que se colgó. Solo se ofrece cuando hay VM
-          // service al que hablarle y la app está arriba: antes de
-          // `app.started` no hay isolates a los que ponerle nada.
-          //
-          // Y no mientras está parada: ahí el freno ya está puesto y quitarlo
-          // es soltarla, que es lo que hace «Seguir» con su nombre.
-          if (corrida.sePuedeFrenar && corrida.parada == null)
-            BotonMini(
-              icono: Icons.pause_circle_outline,
-              titulo: strings.runFreno,
-              activo: corrida.freno != ModoDePausa.ninguna,
-              onPulsar: () => controller.frenar(corrida.deviceId),
-            ),
-          // 🔴 **Con la app parada no se ofrece recargar, y la prueba de la fila
-          // es lo que obligó a decidirlo:** con los cuatro pasos puestos, la
-          // barra —que mide 380 px fijos, y los mide para no bailar— se pasaba
-          // **61 px**. La respuesta no es apretar los iconos: es que recargar
-          // con la app detenida no recarga nada, primero hay que soltarla. Así
-          // que se enseña lo que sirve ahora y cabe sin recortar nada.
-          if (corrida.puedeRecargar && corrida.parada == null) ...[
-            BotonMini(
-              icono: Icons.refresh,
-              titulo: strings.runReload,
-              onPulsar: () => controller.recargar(deviceId: corrida.deviceId),
-            ),
-            // En verde, como en la referencia: reiniciar es lo que se pulsa
-            // cuando la recarga no bastó, y distinguirlo de un vistazo evita
-            // pulsar el de al lado.
-            BotonMini(
-              icono: Icons.restart_alt,
-              titulo: strings.runRestart,
-              color: colors.ok,
-              onPulsar: () => controller.recargar(
-                deviceId: corrida.deviceId,
-                completa: true,
-              ),
-            ),
-          ],
-          // Solo si esta corrida declaró consola: la mayoría no la traen, y un
-          // botón que no lleva a ninguna parte enseña a no pulsarlo. La ventana
-          // se abre sola al arrancar —ver [LaConsolaQueSeAbre]—, así que esto es
-          // para volver a ella cuando se cerró.
-          if (corrida.consola case final puerto?)
-            BotonMini(
-              icono: Icons.dashboard_customize_outlined,
-              titulo: strings.runConsole,
-              onPulsar: () => ref.read(abreLaConsolaProvider)(
-                url: LaConsolaDeLaApp.urlDe(puerto),
-                titulo: '${corrida.configuracion} · ${corrida.dispositivo}',
-              ),
-            ),
-          BotonMini(
-            icono: Icons.article_outlined,
-            titulo: strings.runLogs,
-            activo: abierta(sistema: false),
-            onPulsar: () => registros.alterna(corrida, sistema: false),
-          ),
-          // 🔴 **Aparte del registro de la corrida, y no dentro.** Aquél es lo
-          // que imprime la app; este es lo que dice el sistema del teléfono: el
-          // crash nativo, el ANR, el `Fatal signal 11`.
-          BotonMini(
-            icono: Icons.phonelink_ring_outlined,
-            titulo: strings.runSystemLog,
-            activo: abierta(sistema: true),
-            onPulsar: () => registros.alterna(corrida, sistema: true),
-          ),
-          if (corrida.estado != EstadoDeCorrida.parando)
-            BotonMini(
-              icono: Icons.stop_rounded,
-              titulo: strings.runStop,
-              color: colors.err,
-              onPulsar: () => controller.parar(corrida.deviceId),
-            ),
         ],
       ),
     );
   }
 }
 
-/// Los errores de la app, a la vista y con su número.
+/// Un botón de la fila de una corrida, con lo que hace al pulsarlo.
 ///
-/// **Número y no un punto rojo**, porque el número es el mensaje: uno se mira
-/// luego y catorce se miran ahora. Y en rojo, como el botón de parar: es el
-/// mismo rojo del registro, así que lo que se ve aquí y lo que se lee allí se
-/// reconocen como lo mismo.
-class _ElAviso extends StatelessWidget {
-  const _ElAviso({required this.cuantos, required this.onPulsar});
+/// Aparte de la fila para que el orden —que decide [ComoVaLaCorridaDe]— y lo
+/// que hace cada uno no vivan mezclados: el orden cambia con el estado, lo que
+/// hace cada botón no.
+class _LaAccion extends ConsumerWidget {
+  const _LaAccion({required this.corrida, required this.accion});
 
-  final int cuantos;
-  final VoidCallback onPulsar;
+  final Corrida corrida;
+  final AccionDeCorrida accion;
 
   @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
+  Widget build(BuildContext context, WidgetRef ref) {
     final strings = context.strings;
+    final controller = ref.read(corridasProvider.notifier);
+    final registros = ref.read(lasVentanasDelRegistroProvider.notifier);
+    final abiertas = ref.watch(lasVentanasDelRegistroProvider);
+    bool abierta({required bool sistema}) => abiertas.contains(
+      LasVentanasDelRegistro.nombreDe(corrida.deviceId, sistema: sistema),
+    );
+    // La primera de la fila es la que toca, y se marca con el acento: «esto es
+    // lo que hay que hacer ahora». Solo la del error y la de seguir, que son
+    // las dos que el estado pide; el resto son disponibles.
+    final esLaQueToca =
+        ComoVaLaCorridaDe.acciones(corrida).firstOrNull == accion &&
+        (accion == AccionDeCorrida.pasarleElError ||
+            accion == AccionDeCorrida.seguir);
 
-    return Tooltip(
-      message: strings.runAppErrors(cuantos),
-      child: InkWell(
-        onTap: onPulsar,
-        borderRadius: BorderRadius.circular(NexusRadius.sm),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: NexusSpacing.s2,
-            vertical: 2,
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.error_outline, size: 14, color: colors.err),
-              const SizedBox(width: 3),
-              Text(
-                // Tres dígitos como tope: con la app rompiéndose en cada
-                // fotograma esto llega a los miles, y el número entero
-                // ensancharía la fila hasta empujar los botones fuera.
-                cuantos > 999 ? '999+' : '$cuantos',
-                style: NexusTypography.label.copyWith(color: colors.err),
-              ),
-            ],
-          ),
+    BotonDeFila boton(
+      String texto,
+      VoidCallback onPulsar, {
+      TonoDeBoton tono = TonoDeBoton.neutro,
+      bool activo = false,
+      String? tooltip,
+    }) => BotonDeFila(
+      key: ValueKey('accion-${accion.name}'),
+      texto: texto,
+      onPulsar: onPulsar,
+      tono: esLaQueToca ? TonoDeBoton.principal : tono,
+      activo: activo,
+      tooltip: tooltip,
+    );
+
+    return switch (accion) {
+      // 🔴 **El puente que faltaba, y en el sentido que faltaba.** Al terminar
+      // un encargo la app se recarga sola; al revés no había nada, así que un
+      // error se veía y arreglarlo pasaba por copiar el bloque a mano. Ahora el
+      // error, su traza y la corrida donde pasó se van de un toque a la carpeta
+      // de ese proyecto. Ver [ElErrorQueSeLePasa].
+      AccionDeCorrida.pasarleElError => boton(
+        strings.runPasarloAClaude,
+        () => ref.read(pasarleElErrorAClaudeProvider)(corrida),
+      ),
+      AccionDeCorrida.seguir => boton(
+        strings.runSeguir,
+        () => controller.seguir(corrida.deviceId),
+      ),
+      AccionDeCorrida.siguienteLinea => boton(
+        strings.runPasoSiguiente,
+        () => controller.seguir(
+          corrida.deviceId,
+          paso: PasoDelDepurador.siguiente,
         ),
       ),
-    );
+      AccionDeCorrida.entrar => boton(
+        strings.runPasoEntrarCorto,
+        () =>
+            controller.seguir(corrida.deviceId, paso: PasoDelDepurador.entrar),
+        tooltip: strings.runPasoEntrar,
+      ),
+      AccionDeCorrida.salir => boton(
+        strings.runPasoSalirCorto,
+        () => controller.seguir(corrida.deviceId, paso: PasoDelDepurador.salir),
+        tooltip: strings.runPasoSalir,
+      ),
+      AccionDeCorrida.recargar => boton(
+        strings.runReload,
+        () => controller.recargar(deviceId: corrida.deviceId),
+      ),
+      // En verde, como en la referencia: reiniciar es lo que se pulsa cuando la
+      // recarga no bastó, y distinguirlo de un vistazo evita pulsar el de al
+      // lado.
+      AccionDeCorrida.reiniciar => boton(
+        strings.runRestart,
+        () => controller.recargar(deviceId: corrida.deviceId, completa: true),
+        tono: TonoDeBoton.bien,
+      ),
+      // 🔴 **El freno se pide, no viene puesto.** Pararse solo es lo que hace
+      // un depurador conectado, y una app que se congela sin haberlo pedido se
+      // lee como que se colgó.
+      AccionDeCorrida.freno => boton(
+        strings.runFreno,
+        () => controller.frenar(corrida.deviceId),
+        activo: corrida.freno != ModoDePausa.ninguna,
+      ),
+      // Solo si esta corrida declaró consola; la ventana se abre sola al
+      // arrancar —ver [LaConsolaQueSeAbre]—, así que esto es para volver a ella.
+      AccionDeCorrida.consola => boton(
+        strings.runConsoleCorto,
+        () => ref.read(abreLaConsolaProvider)(
+          url: LaConsolaDeLaApp.urlDe(corrida.consola!),
+          // «Consola · ci · POCO F6», como el mockup: la barra de la ventana
+          // dice qué es antes que de dónde.
+          titulo:
+              '${strings.runConsoleCorto} · ${corrida.configuracion} · '
+              '${corrida.dispositivo}',
+        ),
+        tooltip: strings.runConsole,
+      ),
+      // Con errores, **abrir** y no alternar: quien viene del aviso quiere leer
+      // el error, y un segundo toque que la cierra sería esconderlo.
+      AccionDeCorrida.registro => boton(
+        strings.runLogs,
+        () => corrida.errores > 0
+            ? registros.abre(corrida, sistema: false)
+            : registros.alterna(corrida, sistema: false),
+        activo: abierta(sistema: false),
+      ),
+      // 🔴 **Aparte del registro de la corrida, y no dentro.** Aquél es lo que
+      // imprime la app; este es lo que dice el sistema del teléfono: el crash
+      // nativo, el ANR, el `Fatal signal 11`.
+      AccionDeCorrida.registroDelSistema => boton(
+        strings.runSystemLogCorto,
+        () => registros.alterna(corrida, sistema: true),
+        activo: abierta(sistema: true),
+        tooltip: strings.runSystemLog,
+      ),
+      AccionDeCorrida.parar => boton(
+        strings.runStop,
+        () => controller.parar(corrida.deviceId),
+        tono: TonoDeBoton.peligro,
+      ),
+    };
   }
 }
 

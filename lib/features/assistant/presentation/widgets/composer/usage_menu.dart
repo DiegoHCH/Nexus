@@ -10,6 +10,13 @@ import 'package:nexus/features/assistant/presentation/widgets/gauge.dart';
 import 'package:nexus/features/assistant/presentation/state/session_meter.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
+/// Desde qué porcentaje el cupo se pinta en ámbar.
+///
+/// **Sesenta y no noventa**, que es lo que vale para el contexto: el semanal
+/// tiene que verse antes de que falte, no cuando ya se acabó. Al 90 % de la
+/// semana ya no queda margen para cambiar de plan; al 60 % sí.
+const cupoEnAmbarDesde = 60;
+
 /// El cupo y la ventana de contexto.
 ///
 /// Aparte de los otros menús porque no es un menú de elegir: es un panel de
@@ -45,84 +52,101 @@ class UsageMenu extends ConsumerWidget {
       button: true,
       label: strings.contextWindow,
       value: meter.contextLabel ?? strings.noReadingYet,
-      child: PopupMenuButton<void>(
-        color: colors.deep,
-        tooltip: '',
+      child: MenuDelCompositor<void>(
+        ancho: 330,
         onOpened: () => ref.invalidate(claudeUsageProvider(claudeProfile)),
         itemBuilder: (context) => [
+          cabeceraDelMenu(context, strings.contextoYCupo),
           PopupMenuItem<void>(
             enabled: false,
-            child: SizedBox(
-              width: 300,
-              child: Consumer(
-                builder: (context, ref, _) {
-                  final leido = ref.watch(claudeUsageProvider(claudeProfile));
-                  final usage = leido.value?.usage;
-                  final estado = leido.value?.state;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Gauge(
-                        label: strings.contextWindow,
-                        percent: context_,
-                        // Sin turno todavía no hay medida: se dice, en vez de
-                        // enseñar «0 / 1,0M», que se leería como una ventana
-                        // vacía comprobada y no como una que nadie ha mirado.
-                        //
-                        // Corto, y no la frase de la cuenta: esa habla de una
-                        // sesión caducada, que aquí ni viene a cuento —esto mide
-                        // la ventana de contexto— y además desbordaba el panel.
-                        value: meter.contextLabel ?? strings.noReadingYet,
-                        warnAt: 85,
-                      ),
-                      const SizedBox(height: NexusSpacing.s4),
+            padding: EdgeInsets.zero,
+            child: Consumer(
+              builder: (context, ref, _) {
+                final leido = ref.watch(claudeUsageProvider(claudeProfile));
+                final usage = leido.value?.usage;
+                final estado = leido.value?.state;
+                final variasCuentas =
+                    (ref.watch(claudeProfilesProvider).value ?? const [])
+                        .length >
+                    1;
+                final pie = usage == null ? null : _seRenuevan(strings, usage);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Gauge(
+                      label: strings.contextWindow,
+                      percent: context_,
+                      // Con porcentaje, **solo el porcentaje** y en la fila del
+                      // nombre, como en el mockup: las cifras de tokens
+                      // siguen en el globo del círculo y en lo que lee el
+                      // lector de pantalla, que es donde se buscan.
+                      //
+                      // Sin él —sin turno todavía, o con una ventana que no
+                      // se conoce— se dice lo que hay en su propia fila, en
+                      // vez de enseñar «0 %», que se leería como una ventana
+                      // vacía comprobada y no como una que nadie ha mirado.
+                      value: meter.contextPercent == null
+                          ? meter.contextLabel ?? strings.noReadingYet
+                          : null,
+                      warnAt: 85,
+                    ),
+                    const SizedBox(height: NexusSpacing.s4),
+                    Text(
+                      strings
+                          .tuCupo(variasCuentas ? usage?.account : null)
+                          .toUpperCase(),
+                      style: NexusTypography.label.copyWith(color: colors.mute),
+                    ),
+                    const SizedBox(height: NexusSpacing.s3),
+                    if (usage == null)
+                      // Sin dato no se dibuja una barra a cero: se leería como
+                      // «no has gastado nada», que es lo contrario de «no se
+                      // sabe». Y **el motivo importa**: que no haya sesión y
+                      // que la lectura esté caducada piden cosas distintas de
+                      // quien lo lee — iniciar sesión, o nada en absoluto.
                       Text(
-                        usage == null ||
-                                (ref.watch(claudeProfilesProvider).value ??
-                                            const [])
-                                        .length <
-                                    2
-                            ? strings.usageLimits
-                            : '${strings.usageLimits} · ${usage.account}',
-                        style: NexusTypography.label.copyWith(
-                          color: colors.faint,
+                        switch (estado) {
+                          UsageState.staleReading => strings.usageStale,
+                          UsageState.unreachable => strings.usageUnreachable,
+                          _ => strings.usageUnavailable,
+                        },
+                        style: NexusTypography.nota.copyWith(
+                          color: colors.mute,
+                          fontSize: 12,
                         ),
+                      )
+                    else ...[
+                      Gauge(
+                        label: strings.usageFiveHour,
+                        percent: usage.fiveHourPercent,
+                        warnAt: cupoEnAmbarDesde,
                       ),
                       const SizedBox(height: NexusSpacing.s3),
-                      if (usage == null)
-                        // Sin dato no se dibuja una barra a cero: se leería como
-                        // «no has gastado nada», que es lo contrario de «no se
-                        // sabe». Y **el motivo importa**: que no haya sesión y
-                        // que la lectura esté caducada piden cosas distintas de
-                        // quien lo lee — iniciar sesión, o nada en absoluto.
-                        Text(
-                          switch (estado) {
-                            UsageState.staleReading => strings.usageStale,
-                            UsageState.unreachable => strings.usageUnreachable,
-                            _ => strings.usageUnavailable,
-                          },
-                          style: NexusTypography.nota.copyWith(
-                            color: colors.faint,
-                          ),
-                        )
-                      else ...[
-                        Gauge(
-                          label: strings.usageFiveHour,
-                          percent: usage.fiveHourPercent,
-                          note: _resets(strings, usage.fiveHourResetsAt),
-                        ),
-                        const SizedBox(height: NexusSpacing.s3),
-                        Gauge(
-                          label: strings.usageWeekly,
-                          percent: usage.weeklyPercent,
-                          note: _resets(strings, usage.weeklyResetsAt),
-                        ),
-                      ],
+                      Gauge(
+                        label: strings.usageWeekly,
+                        percent: usage.weeklyPercent,
+                        warnAt: cupoEnAmbarDesde,
+                      ),
                     ],
-                  );
-                },
-              ),
+                    // Cuándo vuelven, **una vez y al pie**: debajo de cada
+                    // barra repetía «Se renueva» dos veces en mono grande y
+                    // pesaba más que las propias cifras.
+                    if (pie case final texto? when texto.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: NexusSpacing.s3),
+                        child: Text(
+                          texto,
+                          style: NexusTypography.nota.copyWith(
+                            color: colors.mute,
+                            fontSize: 12,
+                            height: 1.45,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -143,14 +167,25 @@ class UsageMenu extends ConsumerWidget {
     );
   }
 
-  static String? _resets(NexusStrings strings, DateTime? when) {
-    if (when == null) return null;
-    final falta = when.difference(DateTime.now());
-    if (falta.isNegative) return null;
-    final horas = falta.inHours;
-    final minutos = falta.inMinutes % 60;
-    return strings.resetsIn(
-      horas > 0 ? 'en ${horas}h ${minutos}m' : 'en ${minutos}m',
+  /// La frase del pie con las dos renovaciones. Un plazo de menos de un día
+  /// se cuenta —«en 2 h 10 min»—; uno más largo se dice con su día —«el
+  /// lunes a las 09:00»—, que es como se piensa en una semana: nadie
+  /// traduce «71 h 59 m» a un día de la semana de cabeza.
+  static String _seRenuevan(NexusStrings strings, ClaudeUsage usage) {
+    final ahora = DateTime.now();
+    String? cuando(DateTime? fecha) {
+      if (fecha == null) return null;
+      final falta = fecha.difference(ahora);
+      if (falta.isNegative) return null;
+      if (falta.inHours < 24) {
+        return strings.dentroDe(falta.inHours, falta.inMinutes % 60);
+      }
+      return strings.elDiaALas(fecha.toLocal(), ahora);
+    }
+
+    return strings.seRenuevan(
+      cuando(usage.fiveHourResetsAt),
+      cuando(usage.weeklyResetsAt),
     );
   }
 }

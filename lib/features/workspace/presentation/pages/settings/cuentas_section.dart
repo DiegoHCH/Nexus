@@ -13,85 +13,67 @@ import 'package:nexus/features/workspace/presentation/providers/workspace_provid
 /// distintas y la segunda trae un formulario con contraseñas dentro, que no es algo
 /// que uno quiera encontrarse de paso.
 ///
-/// 🔴 **Un proyecto sin cuentas no se lista.** Enseñar los seis emparejados con
-/// «ninguna» al lado convierte la sección en un inventario de vacíos: lo que se
-/// viene a ver es lo que hay configurado. Los que no tienen se alcanzan por el
-/// desplegable de abajo, que es donde la ausencia sí es la respuesta.
+/// 🔴 **Una sola lista, como el mockup, y el proyecto en cada fila.** Iban
+/// agrupadas bajo el nombre y la ruta de cada repo, y con una o dos cuentas por
+/// proyecto la cabecera pesaba más que lo que agrupaba. Un proyecto sin cuentas
+/// no sale: lo que se viene a ver es lo que hay configurado, y los demás se
+/// alcanzan desde «Añadir cuenta», donde el proyecto se elige.
 class CuentasSection extends ConsumerWidget {
   const CuentasSection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final strings = context.strings;
     final carpetas = ref.watch(workspaceControllerProvider).folders;
 
-    final conCuentas = [
+    final filas = [
       for (final carpeta in carpetas)
-        if (ref
-            .watch(cuentasDePruebaProvider(carpeta.workingDirectory))
-            .isNotEmpty)
-          carpeta,
+        for (final (i, cuenta)
+            in ref
+                .watch(cuentasDePruebaProvider(carpeta.workingDirectory))
+                .indexed)
+          FilaDeCuentaDePruebas(
+            cuenta: cuenta,
+            proyecto: carpeta.workingDirectory,
+            porDefecto: i == 0,
+          ),
     ];
 
-    return ListView(
-      children: [
-        Text(
-          strings.e2eAccountsWhere,
-          style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s4),
-
-        if (conCuentas.isEmpty)
-          Text(
-            strings.e2eAccountsNoneAnywhere,
-            style: NexusTypography.body.copyWith(color: colors.mute),
-          ),
-
-        for (final carpeta in conCuentas)
-          Padding(
-            padding: const EdgeInsets.only(bottom: NexusSpacing.s5),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  carpeta.nombreDelRepo,
-                  style: NexusTypography.data.copyWith(color: colors.ink),
-                ),
-                Text(
-                  carpeta.workingDirectory,
-                  style: NexusTypography.mono.copyWith(color: colors.rule2),
-                ),
-                const SizedBox(height: NexusSpacing.s2),
-                CuentasDeUnProyecto(proyecto: carpeta.workingDirectory),
-              ],
-            ),
-          ),
-
-        // **Una sola acción, y el proyecto se elige dentro.** Antes había un botón
-        // por proyecto sin cuentas: una lista que crece con el workspace y en la
-        // que cada botón dice el nombre de un repo pero no qué va a pasar al
-        // pulsarlo. La pregunta «¿de qué proyecto es?» es parte de crear la
-        // cuenta, así que se hace en el formulario.
-        if (carpetas.isNotEmpty) ...[
-          const Divider(),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: () => editarCuenta(
-                context,
-                // El emparejado arranca elegido: es el proyecto en el que estás.
-                ref
-                        .read(workspaceControllerProvider)
-                        .active
-                        ?.workingDirectory ??
-                    carpetas.first.workingDirectory,
-                null,
+    return BloquesDeAjustes(
+      bloques: [
+        BloqueDeAjustes(
+          hijos: [
+            TextoDeAjustes(strings.e2eAccountsWhere),
+            if (filas.isEmpty)
+              TextoDeAjustes(strings.e2eAccountsNoneAnywhere)
+            else
+              FilasDeAjustes(filas: filas),
+            // **Una sola acción, y el proyecto se elige dentro.** Antes había
+            // un botón por proyecto sin cuentas: una lista que crece con el
+            // workspace y en la que cada botón dice el nombre de un repo pero
+            // no qué va a pasar al pulsarlo.
+            if (carpetas.isNotEmpty)
+              AccionesDeAjustes(
+                botones: [
+                  BotonDeAjustes(
+                    texto: strings.e2eAccountAdd,
+                    tono: TonoDeBoton.principal,
+                    onPulsar: () => editarCuenta(
+                      context,
+                      // El emparejado arranca elegido: es el proyecto en el que
+                      // estás.
+                      ref
+                              .read(workspaceControllerProvider)
+                              .active
+                              ?.workingDirectory ??
+                          carpetas.first.workingDirectory,
+                      null,
+                    ),
+                  ),
+                ],
               ),
-              child: Text(strings.e2eAccountAdd),
-            ),
-          ),
-        ],
+          ],
+        ),
       ],
     );
   }

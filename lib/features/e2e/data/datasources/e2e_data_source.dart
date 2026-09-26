@@ -469,7 +469,9 @@ class E2eDataSource {
   /// ventanas por archivo, así que reescribir la misma ruta actualiza la que ya
   /// está delante en vez de abrir otra en cada paso.
   ///
-  /// Estrecha y alta —440 × 900— porque lo que se enseña es una columna de pasos.
+  /// Apaisada —1040 × 680— como la pantalla del mockup: el orbe, los pasos y las
+  /// capturas al lado. Estrechándola, la página pone el orbe encima y vuelve a
+  /// ser una columna.
   Future<void> pintaLaPasada({
     required String flow,
     required String html,
@@ -483,10 +485,14 @@ class E2eDataSource {
     nombre: flow,
     html: html,
     primeraVez: primeraVez,
-    // Estrecha y alta porque lo que se enseña es una columna de pasos.
-    ancho: 440,
-    alto: 900,
+    ancho: _anchoDeLaVentana,
+    alto: _altoDeLaVentana,
   );
+
+  /// La medida de la ventana de una pasada, en vivo o ya terminada: la misma
+  /// página, así que la misma ventana.
+  static const _anchoDeLaVentana = 1040.0;
+  static const _altoDeLaVentana = 680.0;
 
   /// El mismo canal que el visor de documentos: es literalmente el mismo visor.
   static const _visor = MethodChannel('com.katanalabs.nexus/artifacts');
@@ -501,9 +507,14 @@ class E2eDataSource {
   /// **Se recibe en vez de leerse**: un data source no lee proveedores, y los
   /// textos son del idioma elegido. Quien llama —una pantalla— sí tiene los dos, así
   /// que la traducción entra por la puerta en vez de que esto se salte una capa.
+  ///
+  /// [textos] y [hoja] entran por lo mismo: son del idioma y del aspecto que
+  /// eligió quien mira.
   Future<void> abreElInforme(
     String registro, {
     String Function(PorQueSeCayo)? explica,
+    TextosDeLaPasada textos = TextosDeLaPasada.es,
+    String? hoja,
   }) async {
     final archivo = File(registro);
     if (!archivo.existsSync()) return;
@@ -594,6 +605,8 @@ class E2eDataSource {
       // Las capturas de aquella pasada, si su carpeta sigue estando. Un registro
       // viejo no la guarda y entonces no hay imágenes: el informe se abre igual.
       capturas: capturasDe(leido['artefactos'] as String?),
+      textos: textos,
+      hoja: hoja,
       diagnostico: !fallo || explica == null
           ? null
           : switch (PorQueSeCayoLaPasada.de(lineas.join('\n'))) {
@@ -619,8 +632,12 @@ class E2eDataSource {
     try {
       await _visor.invokeMethod<bool>('open', {
         'path': pagina,
-        'width': 440.0,
-        'height': 900.0,
+        'width': _anchoDeLaVentana,
+        'height': _altoDeLaVentana,
+        // La escribe Nexus, no Claude: sin la casilla de permitir scripts, que
+        // aquí no tiene nada que permitir. El título sí sigue siendo el del
+        // archivo, que es el que lleva la fecha de la pasada.
+        'propia': true,
       });
     } on PlatformException {
       return;

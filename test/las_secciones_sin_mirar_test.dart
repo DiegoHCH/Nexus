@@ -111,15 +111,17 @@ void main() {
     testWidgets('con una cuenta no hay pestañas', (tester) async {
       await abrir(tester, cuentas: const [_work]);
 
-      expect(find.text('WORK'), findsNothing);
+      expect(find.text('work'), findsNothing);
       sinDesbordar(tester);
     });
 
     testWidgets('con dos, sí, y se ven las dos', (tester) async {
       await abrir(tester, cuentas: const [_work, _private]);
 
-      expect(find.text('WORK'), findsOneWidget);
-      expect(find.text('PRIVATE'), findsOneWidget);
+      // Como opciones con nombre, en minúscula de frase: son nombres que se
+      // eligen, no rótulos.
+      expect(find.text('work'), findsOneWidget);
+      expect(find.text('private'), findsOneWidget);
       sinDesbordar(tester);
     });
 
@@ -187,15 +189,16 @@ void main() {
       await abrir(tester, cuentas: const [_siempre]);
 
       expect(find.text(textos.statsNoAccounts), findsNothing);
-      expect(find.text(textos.superpowersMcp), findsOneWidget);
+      // Con cuántos hay detrás, como el mockup: «Servidores MCP · 0».
+      expect(find.textContaining(textos.superpowersMcp), findsOneWidget);
       // Y se dice de qué cuenta es lo que se mira, que sin pestañas no lo dice
       // nadie: quien no ha creado perfiles no tiene por qué saber que existen.
       // Con el correo detrás, que es mejor nombre que cualquiera inventado:
       // quien mira esto reconoce su cuenta sin saber qué es un perfil.
       expect(
         find.text(
-          '${textos.superpowersDeLaCuenta(textos.cuentaGeneral)} · '
-          'alguien@empresa.com',
+          '${textos.superpowersDeLaCuenta(textos.cuentaGeneral).toUpperCase()} '
+          '· alguien@empresa.com',
         ),
         findsOneWidget,
       );
@@ -204,19 +207,21 @@ void main() {
     testWidgets('con una cuenta no hay pestañas', (tester) async {
       await abrir(tester, cuentas: const [_work]);
 
-      expect(find.text('WORK'), findsNothing);
+      expect(find.text('work'), findsNothing);
       sinDesbordar(tester);
     });
 
     testWidgets('con dos, cada cuenta tiene la suya', (tester) async {
       await abrir(tester, cuentas: const [_work, _siempre]);
 
-      expect(find.text('WORK'), findsOneWidget);
+      // Como opciones con nombre, en minúscula de frase: son nombres que se
+      // eligen, no rótulos.
+      expect(find.text('work'), findsOneWidget);
       // **A la de siempre la nombra la interfaz**, no el dato: quien la produce
       // la deja sin nombre —no tiene uno propio— y aquí se le pone el del
       // idioma elegido. Antes decía «POR DEFECTO» porque ese texto venía en el
       // dato de esta prueba, y ningún sitio de la app producía esa cuenta.
-      expect(find.text(textos.cuentaGeneral.toUpperCase()), findsOneWidget);
+      expect(find.text(textos.cuentaGeneral), findsOneWidget);
       sinDesbordar(tester);
     });
 

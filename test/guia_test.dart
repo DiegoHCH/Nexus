@@ -37,8 +37,9 @@ void main() {
         ),
       ],
     );
-    // Las pestañas se pintan en mayúsculas; se transforma igual que la pantalla
-    // para que un cambio de texto no rompa la prueba por el lado equivocado.
+    // Por llave y no por texto: «Ayuda» sale dos veces en cuanto se abre —el
+    // enlace del índice y el título de la sección— y un cambio de texto no
+    // debería romper la prueba por el lado equivocado.
     //
     // 🔴 **Y se desplaza hasta ella antes de pulsar.** «Ayuda» es la última de
     // la lista y la columna dejó de caber en el alto al pasar de dieciséis
@@ -46,11 +47,11 @@ void main() {
     // sin desplazar daba en el vacío, y el test fallaba tres veces por no
     // encontrar los textos de una guía que nunca se había abierto.
     await tester.scrollUntilVisible(
-      find.text(es.sectionHelp.toUpperCase()),
+      find.byKey(const ValueKey('seccion-help')),
       100,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(find.text(es.sectionHelp.toUpperCase()));
+    await tester.tap(find.byKey(const ValueKey('seccion-help')));
     await tester.pump(const Duration(milliseconds: 100));
   }
 
@@ -95,12 +96,20 @@ void main() {
     testWidgets('y en claro', (tester) async {
       await abrirAyuda(tester, tema: NexusTheme.light());
       expect(tester.takeException(), isNull);
+      // Desplazándose, como arriba: desde que Ajustes es una hoja la columna
+      // es más estrecha, los textos de encima ocupan más líneas y el primer
+      // bloque ya no cae dentro de lo que el `ListView` construye de salida.
+      await tester.scrollUntilVisible(
+        find.text(es.guideNeedsTitle),
+        200,
+        scrollable: find.byType(Scrollable).last,
+      );
       expect(find.text(es.guideNeedsTitle), findsOne);
     });
 
     testWidgets('con el tour a mano, que es lo que ya existía', (tester) async {
       await abrirAyuda(tester);
-      expect(find.text(es.helpTourAction), findsOne);
+      expect(find.text(es.helpTourAction.toUpperCase()), findsOne);
     });
   });
 

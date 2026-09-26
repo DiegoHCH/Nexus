@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:nexus/core/design_system/design_system.dart';
@@ -30,10 +31,12 @@ class NexusOrb extends StatefulWidget {
     this.showHorizon = false,
     this.fillsBox = false,
     this.nivel,
+    this.nivelVivo,
     this.pasos,
     this.hechos,
     this.pensandoDesde,
     this.oido = true,
+    this.apagado = false,
   });
 
   final NexusOrbState state;
@@ -45,9 +48,13 @@ class NexusOrb extends StatefulWidget {
 
   /// El nivel de voz, de 0 a 1: el del micrófono al escuchar y al dormir con
   /// el oído puesto, el del altavoz al hablar. Con `null` late con la voz
-  /// simulada de siempre, que es lo que hace hoy en todas partes: los niveles
-  /// reales llegan con el paso 03 del plan.
+  /// simulada de siempre.
   final double? nivel;
+
+  /// Lo mismo que [nivel], pero vivo: se lee en cada fotograma sin
+  /// reconstruir el widget. Es como llega el de verdad —ver `ElNivelDeLaVoz`—,
+  /// que cambia cincuenta veces por segundo. Si está, manda sobre [nivel].
+  final ValueListenable<double>? nivelVivo;
 
   /// Cuántos pasos lleva el turno de Claude y cuántos ha terminado, para el
   /// reactor de trabajando. Saldrán de la cuenta de pasos de la actividad
@@ -64,8 +71,26 @@ class NexusOrb extends StatefulWidget {
   /// dices su nombre. Sin oído no hay anillo.
   final bool oido;
 
+  /// Apagado: gris, tenue y casi quieto. Es el orbe **mientras falta algo** —la
+  /// comprobación del arranque, sin Claude Code— y el mismo que dice «sin
+  /// conexión» en el móvil.
+  ///
+  /// 🔴 **No es un sexto estado, y a propósito.** Un estado nuevo en
+  /// [NexusOrbState] obligaría a darle movimiento propio en las dos formas y en
+  /// cada capa, y a contestarlo en cada `switch` de la app, para algo que no
+  /// cambia nunca mientras se ve. Aquí se toma el reposo y se le quita lo que
+  /// dice «estoy»: el color —se pasa a grises, con la luminancia del propio
+  /// dibujo, así que vale igual en claro y en oscuro sin fijar ningún tono—, la
+  /// mitad de la luz y dos tercios del ritmo. Es lo que hace el mockup: el
+  /// mismo orbe, en gris, girando a un tercio.
+  final bool apagado;
+
   @override
   State<NexusOrb> createState() => _NexusOrbState();
+}
+
+extension on State<NexusOrb> {
+  double? get _nivel => widget.nivelVivo?.value ?? widget.nivel;
 }
 
 class _NexusOrbState extends State<NexusOrb>
@@ -150,19 +175,22 @@ class _NexusOrbState extends State<NexusOrb>
   bool get _dePuntos =>
       _estilo.forma != FormaDelOrbe.plasma || PlasmaDelOrbe.programa == null;
 
+  /// Apagado va a un tercio del ritmo: la cifra del mockup, que gira a 0,02
+  /// donde el reposo gira a 0,055. Ver [NexusOrb.apagado].
+  static const _ritmoApagado = 0.36;
+
   void _onTick(Duration elapsed) {
-    final dt = ((elapsed - _anterior).inMicroseconds / 1e6).clamp(0.0, 0.1);
+    final ritmo = widget.apagado ? _ritmoApagado : 1.0;
+    final dt =
+        ((elapsed - _anterior).inMicroseconds / 1e6).clamp(0.0, 0.1) * ritmo;
     _anterior = elapsed;
-    final t = _phaseOffset + elapsed.inMicroseconds / 1e6;
+    final t = _phaseOffset + elapsed.inMicroseconds / 1e6 * ritmo;
     _plasma.avanzar(dt, widget.state, _estilo);
     _capas.avanzar(
       dt,
       t: t,
       estado: widget.state,
-      env: vozDelOrbe(
-        widget.nivel,
-        t * NexusOrbPainter.ritmoDeVoz(widget.state),
-      ),
+      env: vozDelOrbe(_nivel, t * NexusOrbPainter.ritmoDeVoz(widget.state)),
       puntos: _dePuntos,
     );
     _time.value = t;
@@ -183,7 +211,7 @@ class _NexusOrbState extends State<NexusOrb>
     final onLight = Theme.of(context).brightness == Brightness.light;
     final programa = PlasmaDelOrbe.programa;
     final puntos = _dePuntos;
-    return ValueListenableBuilder<double>(
+    final orbe = ValueListenableBuilder<double>(
       valueListenable: _time,
       builder: (context, t, _) => CustomPaint(
         size: Size.infinite,
@@ -195,7 +223,7 @@ class _NexusOrbState extends State<NexusOrb>
                 showHorizon: widget.showHorizon,
                 onLight: onLight,
                 fillsBox: widget.fillsBox,
-                nivel: widget.nivel,
+                nivel: _nivel,
                 profundo: _capas.profundo,
                 encoge: _capas.encoge,
               )
@@ -208,7 +236,7 @@ class _NexusOrbState extends State<NexusOrb>
                 accent: accent,
                 onLight: onLight,
                 fillsBox: widget.fillsBox,
-                nivel: widget.nivel,
+                nivel: _nivel,
                 profundo: _capas.profundo,
               ),
         foregroundPainter: NexusOrbLayersPainter(
@@ -220,12 +248,27 @@ class _NexusOrbState extends State<NexusOrb>
           puntos: puntos,
           tamano: _estilo.tamano,
           fillsBox: widget.fillsBox,
-          nivel: widget.nivel,
+          nivel: _nivel,
           pasos: widget.pasos,
           hechos: widget.hechos,
-          oido: widget.oido,
+          // Apagado no oye: el anillo del oído diría lo contrario.
+          oido: widget.oido && !widget.apagado,
         ),
       ),
     );
+    if (!widget.apagado) return orbe;
+    return Opacity(
+      opacity: 0.5,
+      child: ColorFiltered(colorFilter: _enGrises, child: orbe),
+    );
   }
+
+  /// La matriz de luminancia de siempre (Rec. 709): cada canal pasa a ser el
+  /// brillo del píxel. No es un color, es quitarlo — por eso no va en el tema.
+  static const _enGrises = ColorFilter.matrix([
+    0.2126, 0.7152, 0.0722, 0, 0, //
+    0.2126, 0.7152, 0.0722, 0, 0, //
+    0.2126, 0.7152, 0.0722, 0, 0, //
+    0, 0, 0, 1, 0, //
+  ]);
 }

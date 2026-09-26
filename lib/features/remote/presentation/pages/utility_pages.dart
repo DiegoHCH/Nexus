@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/artifacts/domain/usecases/html_del_visor.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
@@ -12,38 +13,52 @@ import 'package:nexus/features/remote/presentation/pages/conversation_page.dart'
 import 'package:nexus/features/remote/presentation/providers/utility_providers.dart';
 import 'package:nexus/features/remote/presentation/widgets/mobile_chrome.dart';
 
-/// El molde de las tres pantallas del menú.
+/// El molde de las pantallas del menú.
 ///
 /// **Sin orbe.** El orbe es la presencia del asistente, y estas no son el asistente
 /// haciendo algo: son un archivo, unos documentos y un selector. Ponerle uno lo
 /// convertiría en decoración.
 ///
-/// Y las tres tienen la misma forma porque hacen lo mismo: pedir una lista, enseñarla,
+/// Y todas tienen la misma forma porque hacen lo mismo: pedir una lista, enseñarla,
 /// y dejar elegir. Un molde común es lo que hace que la tercera no se parezca a otra
 /// app — es lo que faltó la primera vez que se escribieron estas pantallas.
+///
+/// **La cabecera de siempre y no un `AppBar`**, con la vuelta `‹` del mockup: el
+/// `AppBar` traía su flecha, su alto y su margen, y la cabecera cambiaba de sitio al
+/// entrar. Y la nota de abajo **pegada al fondo**, como el mockup: debajo de la lista
+/// se leía como una fila más.
 class _ListaDeUtilidad extends StatelessWidget {
   const _ListaDeUtilidad({
-    required this.rotulo,
     required this.cuerpo,
     required this.pie,
+    this.rotulo,
+    this.titulo,
     this.alRefrescar,
     this.arriba,
   });
 
-  final String rotulo;
+  /// El rótulo encima de la lista, cuando la lista necesita decir qué es: «Sobre qué
+  /// carpeta». `null` donde lo que hay arriba ya lo dice —el buscador del historial—
+  /// o donde lo dice la cabecera.
+  final String? rotulo;
+
+  /// El nombre del sitio en la cabecera, con la letra del wordmark: «DOCUMENTOS».
+  /// `null` deja `NEXUS`, como el mockup en el historial y en conversación nueva.
+  final String? titulo;
+
   final Widget cuerpo;
 
-  /// La nota de abajo. **Obligatoria**: en las tres hay algo que conviene saber antes
-  /// de tocar —qué pasa al retomar, qué pesa un artifact, por qué una carpeta está
-  /// ocupada— y dejarlo a la intuición es lo que hace que la gente toque y se
+  /// La nota de abajo. **Obligatoria**: en todas hay algo que conviene saber antes
+  /// de tocar —qué pasa al retomar, qué pesa un documento, dónde se empareja una
+  /// carpeta— y dejarlo a la intuición es lo que hace que la gente toque y se
   /// arrepienta.
   final String pie;
 
   final Future<void> Function()? alRefrescar;
 
-  /// Lo que va **entre el rótulo y la lista**: hoy, los botones de cuenta. Va en el
-  /// molde y no en cada pantalla para que estén a la misma altura en las dos: el
-  /// archivo y las carpetas se recorren seguidas, y un filtro que salta de sitio se
+  /// Lo que va **entre el rótulo y la lista**: el buscador, los botones de cuenta.
+  /// Va en el molde y no en cada pantalla para que estén a la misma altura en todas:
+  /// el archivo y las carpetas se recorren seguidas, y un filtro que salta de sitio se
   /// vuelve a buscar cada vez.
   final Widget? arriba;
 
@@ -51,54 +66,84 @@ class _ListaDeUtilidad extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    final columna = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: NexusSpacing.s6),
-        Text(
-          rotulo.toUpperCase(),
-          style: NexusTypography.label.copyWith(color: colors.mute),
+    // `SliverFillRemaining` para la nota: le da el alto que sobra y la deja abajo
+    // cuando la lista es corta, y detrás de la lista cuando es larga — sin meter un
+    // `Spacer` dentro de un scroll, que es la contradicción que ya rompió tres
+    // pantallas de esta app.
+    final lista = CustomScrollView(
+      // Siempre desplazable, o el tirón para refrescar no funciona cuando la lista es
+      // corta — que es justo cuando más se tira.
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: MedidasDelMovil.margen,
+          ),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (rotulo case final rotulo?) ...[
+                  const SizedBox(height: 14),
+                  Text(
+                    rotulo.toUpperCase(),
+                    style: NexusTypography.label.copyWith(color: colors.mute),
+                  ),
+                  const SizedBox(height: NexusSpacing.s1),
+                ],
+                if (arriba case final fila?)
+                  Padding(padding: const EdgeInsets.only(top: 10), child: fila),
+                cuerpo,
+              ],
+            ),
+          ),
         ),
-        const SizedBox(height: NexusSpacing.s4),
-        if (arriba case final fila?) ...[
-          fila,
-          const SizedBox(height: NexusSpacing.s4),
-        ],
-        cuerpo,
-        const SizedBox(height: NexusSpacing.s6),
-        Text(pie, style: NexusTypography.mono.copyWith(color: colors.faint)),
-        const SizedBox(height: NexusSpacing.s6),
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Align(
+            alignment: Alignment.bottomLeft,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                MedidasDelMovil.margen,
+                NexusSpacing.s5,
+                MedidasDelMovil.margen,
+                MedidasDelMovil.pie,
+              ),
+              // En sans y `mute`: es una explicación, y en mono tenue no pasaba AA.
+              child: Text(
+                pie,
+                style: NexusTypography.nota.copyWith(
+                  color: colors.mute,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
 
     return Scaffold(
       backgroundColor: colors.void_,
-      appBar: AppBar(
-        backgroundColor: colors.void_,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        // La cabecera de siempre, sin hamburguesa: desde aquí se vuelve, no se abre
-        // otro menú.
-        title: const MobileChrome(),
-        titleSpacing: NexusSpacing.s3,
-      ),
       body: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: NexusSpacing.s5),
-          child: alRefrescar == null
-              ? SingleChildScrollView(child: columna)
-              : RefreshIndicator(
-                  onRefresh: alRefrescar!,
-                  color: colors.accent,
-                  backgroundColor: colors.deep,
-                  child: SingleChildScrollView(
-                    // Siempre desplazable, o el tirón para refrescar no funciona
-                    // cuando la lista es corta — que es justo cuando más se tira.
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    child: columna,
-                  ),
-                ),
+        child: Column(
+          children: [
+            // Sin hamburguesa: desde aquí se vuelve, no se abre otro menú.
+            MobileChrome(
+              alVolver: () => Navigator.of(context).maybePop(),
+              titulo: titulo,
+            ),
+            Expanded(
+              child: alRefrescar == null
+                  ? lista
+                  : RefreshIndicator(
+                      onRefresh: alRefrescar!,
+                      color: colors.accent,
+                      backgroundColor: colors.deep,
+                      child: lista,
+                    ),
+            ),
+          ],
         ),
       ),
     );
@@ -206,22 +251,17 @@ class _Boton extends StatelessWidget {
     required this.rotulo,
     required this.activo,
     required this.alTocar,
-    this.color,
   });
 
   final String rotulo;
   final bool activo;
   final VoidCallback alTocar;
 
-  /// Con qué se marca estando activo. Por defecto el acento, que es lo que
-  /// quiere decir «esta es la opción elegida»; se cambia cuando lo activo no es
-  /// lo bueno —soltarle la correa a un documento, por ejemplo—.
-  final Color? color;
-
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final marca = color ?? colors.accent;
+    // El acento, que es lo que quiere decir «esta es la opción elegida».
+    final marca = colors.accent;
 
     return InkWell(
       onTap: alTocar,
@@ -251,6 +291,7 @@ class _Fila extends StatelessWidget {
     super.key,
     required this.titulo,
     required this.dato,
+    this.delante,
     this.chip,
     this.chipVivo = false,
     this.alTocar,
@@ -259,6 +300,10 @@ class _Fila extends StatelessWidget {
 
   final String titulo;
   final String dato;
+
+  /// Lo que va a la izquierda, cuando hace falta: el tipo de un documento.
+  final Widget? delante;
+
   final String? chip;
   final bool chipVivo;
   final VoidCallback? alTocar;
@@ -273,44 +318,236 @@ class _Fila extends StatelessWidget {
 
     return InkWell(
       onTap: apagada ? null : alTocar,
-      child: Container(
-        width: double.infinity,
-        // s3 y no s4: en una lista de teléfono, 16 px arriba y abajo por fila
-        // convierten cuatro elementos en una pantalla entera. Con 12 caben seis sin
-        // que se toquen.
-        padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s3),
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: colors.rule)),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    titulo,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: NexusTypography.lead.copyWith(
-                      color: apagada ? colors.mute : colors.ink,
+      child: Opacity(
+        // Tenue como el mockup, y no solo el título en gris: la fila entera dice «esto
+        // está, pero aquí no se abre».
+        opacity: apagada ? 0.55 : 1,
+        child: Container(
+          width: double.infinity,
+          // s3 y no s4: en una lista de teléfono, 16 px arriba y abajo por fila
+          // convierten cuatro elementos en una pantalla entera. Con 12 caben seis sin
+          // que se toquen.
+          padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s3),
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: colors.rule)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (delante case final algo?) ...[
+                algo,
+                const SizedBox(width: NexusSpacing.s3),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Lo que se lee, en sans y a tamaño de fila: con `lead` cuatro
+                    // filas ya llenaban la pantalla.
+                    Text(
+                      titulo,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: NexusTypography.body.copyWith(
+                        color: colors.ink,
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    dato,
-                    style: NexusTypography.data.copyWith(color: colors.faint),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    // Y el dato en mono, en `mute`: en `faint` sobre el fondo no pasaba
+                    // AA, y es lo que distingue una fila de su vecina.
+                    Text(
+                      dato,
+                      style: NexusTypography.data.copyWith(color: colors.mute),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            if (chip != null) ...[
-              const SizedBox(width: NexusSpacing.s3),
-              StateChip(texto: chip!, vivo: chipVivo),
+              if (chip != null) ...[
+                const SizedBox(width: NexusSpacing.s3),
+                StateChip(texto: chip!, vivo: chipVivo),
+              ],
             ],
-          ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+/// La caja de buscar del teléfono: el campo del compositor, con su pista.
+///
+/// **No la del Mac** (`CampoDeBusqueda`): aquella lleva el atajo `⌘F` al lado, que en
+/// un teléfono es una tecla que no existe. Lo que se comparte con el Mac es lo que
+/// dice —«Buscar en lo que se habló»— y cómo busca, no el dibujo.
+class _Buscador extends StatelessWidget {
+  const _Buscador({required this.pista, required this.alCambiar});
+
+  final String pista;
+  final ValueChanged<String> alCambiar;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 44),
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: NexusSpacing.s3),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(color: colors.rule2),
+      ),
+      child: TextField(
+        key: const ValueKey('buscar-en-el-historial'),
+        onChanged: alCambiar,
+        style: NexusTypography.body.copyWith(color: colors.ink, fontSize: 14),
+        cursorColor: colors.accent,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: pista,
+          hintStyle: NexusTypography.body.copyWith(
+            color: colors.faint,
+            fontSize: 14,
+          ),
+          // Sin el relleno del tema: dentro de la caja salía un segundo
+          // rectángulo más claro, un campo dentro de otro.
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          filled: false,
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+        ),
+      ),
+    );
+  }
+}
+
+/// El rótulo de un grupo: «Hoy», «Ayer», «De: CRED-310 · desenlaces».
+class _Grupo extends StatelessWidget {
+  const _Grupo(this.texto);
+
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 14, bottom: NexusSpacing.s1),
+    child: Text(
+      texto.toUpperCase(),
+      style: NexusTypography.label.copyWith(color: context.colors.mute),
+    ),
+  );
+}
+
+/// Las del archivo que casan con lo buscado, **con la misma regla que el Mac**: todas
+/// las palabras, en el título, la carpeta o la cuenta, sin mayúsculas.
+///
+/// Lo que el Mac busca además —lo último que se pidió y se contestó— no viaja con la
+/// lista del teléfono: traerlo sería mandar por 4G el final de treinta conversaciones
+/// para buscar en una.
+List<ArchiveEntry> _buscadas(List<ArchiveEntry> todas, String busqueda) {
+  final palabras = busqueda
+      .toLowerCase()
+      .split(RegExp(r'\s+'))
+      .where((p) => p.isNotEmpty)
+      .toList();
+  if (palabras.isEmpty) return todas;
+  return [
+    for (final c in todas)
+      if (palabras.every(
+        '${c.title} ${c.folder} ${c.account ?? ''}'.toLowerCase().contains,
+      ))
+        c,
+  ];
+}
+
+/// El archivo por días, del más reciente al más viejo: la misma forma que el
+/// historial del Mac, donde el día se dice **una vez** en su cabecera.
+///
+/// Las que no traen fecha —un Mac de antes— van al final y sin cabecera: ponerlas en
+/// «hoy» sería mentir sobre cuándo fueron.
+List<(DateTime?, List<ArchiveEntry>)> _porDias(List<ArchiveEntry> entradas) {
+  final dias = <DateTime, List<ArchiveEntry>>{};
+  final sinDia = <ArchiveEntry>[];
+  for (final e in entradas) {
+    final cuando = e.when;
+    if (cuando == null) {
+      sinDia.add(e);
+      continue;
+    }
+    dias
+        .putIfAbsent(DateTime(cuando.year, cuando.month, cuando.day), () => [])
+        .add(e);
+  }
+  final orden = dias.keys.toList()..sort((a, b) => b.compareTo(a));
+  return [
+    for (final dia in orden)
+      (dia, dias[dia]!..sort((a, b) => b.when!.compareTo(a.when!))),
+    if (sinDia.isNotEmpty) (null, sinDia),
+  ];
+}
+
+/// «Hoy», «Ayer» o la fecha, con las mismas palabras que el historial del Mac.
+String _nombreDelDia(NexusStrings strings, DateTime dia, DateTime ahora) {
+  final hoy = DateTime(ahora.year, ahora.month, ahora.day);
+  if (dia == hoy) return strings.historialHoy;
+  // Con el constructor y no restando 24 h: el día que cambia la hora, ayer a las
+  // 00:00 está a 23 o 25 horas.
+  if (dia == DateTime(ahora.year, ahora.month, ahora.day - 1)) {
+    return strings.historialAyer;
+  }
+  return strings.historialDia(dia, conElAno: dia.year != ahora.year);
+}
+
+/// Los documentos **por la conversación que los produjo**, como el Mac: del grupo con
+/// el documento más reciente al más viejo, y «Sin conversación» siempre al final —
+/// no es una conversación, es lo que no se sabe de dónde vino—.
+List<(String?, List<ArtifactEntry>)> _porConversacion(
+  List<ArtifactEntry> documentos,
+) {
+  final epoca = DateTime.fromMillisecondsSinceEpoch(0);
+  final ordenados = [...documentos]
+    ..sort((a, b) => (b.when ?? epoca).compareTo(a.when ?? epoca));
+  final grupos = <String, List<ArtifactEntry>>{};
+  final titulos = <String, String>{};
+  final sueltos = <ArtifactEntry>[];
+  for (final d in ordenados) {
+    final id = d.conversation;
+    if (id == null) {
+      sueltos.add(d);
+      continue;
+    }
+    grupos.putIfAbsent(id, () => []).add(d);
+    titulos.putIfAbsent(id, () => d.conversationTitle ?? '');
+  }
+  return [
+    for (final id in grupos.keys) (titulos[id], grupos[id]!),
+    if (sueltos.isNotEmpty) (null, sueltos),
+  ];
+}
+
+/// El tipo de un documento, en la caja de la izquierda: su extensión, que es un dato.
+class _Tipo extends StatelessWidget {
+  const _Tipo(this.nombre);
+
+  final String nombre;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final punto = nombre.lastIndexOf('.');
+    final extension = punto == -1 ? '' : nombre.substring(punto + 1);
+    return Container(
+      width: 34,
+      height: 34,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(border: Border.all(color: colors.rule2)),
+      child: Text(
+        extension.toUpperCase(),
+        maxLines: 1,
+        overflow: TextOverflow.clip,
+        style: NexusTypography.data.copyWith(color: colors.mute, fontSize: 8),
       ),
     );
   }
@@ -334,6 +571,9 @@ class _ArchivePageState extends ConsumerState<ArchivePage> {
   /// verdad** —«general»— y por tanto no puede significar también «sin elegir».
   bool _elegido = false;
 
+  /// Lo que se busca. Tampoco se guarda, por lo mismo que la cuenta.
+  var _busqueda = '';
+
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
@@ -343,16 +583,29 @@ class _ArchivePageState extends ConsumerState<ArchivePage> {
         ? _cuenta
         : _cuboDePartida(archivo.value, (e) => e.account, cubos);
 
+    // Sin rótulo, como el mockup: el buscador de arriba —«Buscar en lo que se
+    // habló»— ya dice qué es esto, y un «HISTORIAL» encima era decirlo dos veces.
     return _ListaDeUtilidad(
-      rotulo: strings.mobileHistory,
       alRefrescar: () => ref.refresh(archiveProvider.future),
-      arriba: _CuentasArriba(
-        cubos: cubos,
-        elegida: cuenta,
-        alElegir: (cubo) => setState(() {
-          _cuenta = cubo;
-          _elegido = true;
-        }),
+      // El buscador **antes** que las cuentas, como el mockup: se viene a buscar una
+      // concreta, y la cuenta es un filtro que se toca después si hace falta.
+      arriba: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _Buscador(
+            pista: strings.historialBuscar,
+            alCambiar: (texto) => setState(() => _busqueda = texto),
+          ),
+          if (cubos.length > 1) const SizedBox(height: NexusSpacing.s3),
+          _CuentasArriba(
+            cubos: cubos,
+            elegida: cuenta,
+            alElegir: (cubo) => setState(() {
+              _cuenta = cubo;
+              _elegido = true;
+            }),
+          ),
+        ],
       ),
       pie: strings.mobileHistoryFooter,
       cuerpo: switch (archivo) {
@@ -366,39 +619,24 @@ class _ArchivePageState extends ConsumerState<ArchivePage> {
               cuenta ?? strings.mobileGeneral,
             ),
           ),
+        // Sin resultados se dice **qué se buscó**, con la frase del Mac: una lista
+        // vacía a secas se lee como «no hay historial», y lo hay.
+        AsyncData(:final value)
+            when _buscadas(
+              _soloDe(value, cuenta, (c) => c.account),
+              _busqueda,
+            ).isEmpty =>
+          _Vacia(texto: strings.historialNadaDe(_busqueda.trim())),
         AsyncData(:final value) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final c in _soloDe(value, cuenta, (e) => e.account))
-              _Fila(
-                key: ValueKey('archivada-${c.id}'),
-                titulo: c.title,
-                // La cuenta primero cuando la hay: en un archivo con veintitrés
-                // de `private` y siete de `work`, la carpeta sola no distingue —dos
-                // cuentas pueden trabajar sobre el mismo repo—. El escritorio lo
-                // resuelve con pestanas; aqui, sin sitio para pestanas, va en la
-                // propia fila.
-                dato: [
-                  ?c.account,
-                  _cola(c.folder),
-                  strings.mobileTurns(c.turns),
-                ].join('  ·  '),
-                // Se dice cuál está viva para no ofrecer «retomar» algo que ya lo
-                // está — y se deja tocar igual, porque llevar a la abierta es
-                // exactamente lo correcto.
-                chip: c.open ? strings.mobileOpenChip : null,
-                chipVivo: c.open,
-                alTocar: () async {
-                  final id = await ref
-                      .read(archiveProvider.notifier)
-                      .retomar(c.id);
-                  if (id == null || !context.mounted) return;
-                  await Navigator.of(context).pushReplacement(
-                    MaterialPageRoute<void>(
-                      builder: (_) => ConversationPage(conversationId: id),
-                    ),
-                  );
-                },
-              ),
+            for (final (dia, fichas) in _porDias(
+              _buscadas(_soloDe(value, cuenta, (c) => c.account), _busqueda),
+            )) ...[
+              if (dia != null)
+                _Grupo(_nombreDelDia(strings, dia, DateTime.now())),
+              for (final c in fichas) _archivada(context, c),
+            ],
           ],
         ),
         AsyncError() => _Vacia(texto: strings.mobileHistoryUnavailable),
@@ -406,9 +644,39 @@ class _ArchivePageState extends ConsumerState<ArchivePage> {
       },
     );
   }
+
+  Widget _archivada(BuildContext context, ArchiveEntry c) {
+    final strings = context.strings;
+    return _Fila(
+      key: ValueKey('archivada-${c.id}'),
+      titulo: c.title,
+      // La cuenta primero cuando la hay: en un archivo con veintitrés de `private` y
+      // siete de `work`, la carpeta sola no distingue —dos cuentas pueden trabajar
+      // sobre el mismo repo—. El escritorio lo resuelve con pestañas; aquí, sin sitio
+      // para pestañas, va en la propia fila.
+      dato: [
+        ?c.account,
+        _cola(c.folder),
+        strings.mobileTurns(c.turns),
+      ].join(' · '),
+      // Se dice cuál está viva para no ofrecer «retomar» algo que ya lo está — y se
+      // deja tocar igual, porque llevar a la abierta es exactamente lo correcto.
+      chip: c.open ? strings.mobileOpenChip : null,
+      chipVivo: c.open,
+      alTocar: () async {
+        final id = await ref.read(archiveProvider.notifier).retomar(c.id);
+        if (id == null || !context.mounted) return;
+        await Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) => ConversationPage(conversationId: id),
+          ),
+        );
+      },
+    );
+  }
 }
 
-/// Los artifacts: lo que produjo Claude.
+/// Los documentos: lo que produjo Claude.
 class ArtifactsPage extends ConsumerStatefulWidget {
   const ArtifactsPage({super.key});
 
@@ -432,8 +700,10 @@ class _ArtifactsPageState extends ConsumerState<ArtifactsPage> {
         ? _cuenta
         : _cuboDePartida(lista.value, (e) => e.account, cubos);
 
+    // El nombre en la cabecera y no encima de la lista, como el mockup: así el
+    // primer grupo —«De: …»— es lo primero que se lee.
     return _ListaDeUtilidad(
-      rotulo: strings.mobileDocuments,
+      titulo: strings.mobileDocuments,
       alRefrescar: () => ref.refresh(artifactsListProvider.future),
       arriba: _CuentasArriba(
         cubos: cubos,
@@ -455,24 +725,23 @@ class _ArtifactsPageState extends ConsumerState<ArtifactsPage> {
               cuenta ?? strings.mobileGeneral,
             ),
           ),
+        // **Cada documento cuelga de la conversación que lo pidió**, con las
+        // palabras del Mac: «De: …» y «Sin conversación». Un Finder no dice de dónde
+        // salió cada cosa, y cinco `mockup-algo.html` seguidos solo se distinguen
+        // por eso.
         AsyncData(:final value) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final a in _soloDe(value, cuenta, (e) => e.account))
-              _Fila(
-                key: ValueKey('artifact-${a.id}'),
-                titulo: a.name,
-                dato: [?a.account, _peso(a.bytes)].join('  ·  '),
-                // Lo que no es texto se dice **en la lista**: un `.png` por un canal
-                // de texto no da una imagen, da un error, y una fila que solo puede
-                // fallar es peor que una fila que avisa.
-                chip: a.text ? null : strings.mobileOnlyOnMac,
-                apagada: !a.text,
-                alTocar: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => ArtifactPage(id: a.id, nombre: a.name),
-                  ),
-                ),
+            for (final (titulo, documentos) in _porConversacion(
+              _soloDe(value, cuenta, (e) => e.account),
+            )) ...[
+              _Grupo(
+                titulo == null
+                    ? strings.artifactsSinConversacion
+                    : '${strings.artifactsDe} $titulo',
               ),
+              for (final a in documentos) _documento(context, a),
+            ],
           ],
         ),
         AsyncError() => _Vacia(texto: strings.mobileDocumentsUnavailable),
@@ -480,6 +749,27 @@ class _ArtifactsPageState extends ConsumerState<ArtifactsPage> {
       },
     );
   }
+
+  Widget _documento(BuildContext context, ArtifactEntry a) => _Fila(
+    key: ValueKey('artifact-${a.id}'),
+    delante: _Tipo(a.name),
+    titulo: a.name,
+    // El peso va delante porque abrir uno grande con datos móviles es una decisión.
+    // Y lo que no es texto se dice **en la misma línea**: un `.png` por un canal de
+    // texto no da una imagen, da un error, y una fila que solo puede fallar es peor
+    // que una fila que avisa.
+    dato: [
+      ?a.account,
+      _peso(a.bytes),
+      if (!a.text) context.strings.mobileOnlyOnMac,
+    ].join(' · '),
+    apagada: !a.text,
+    alTocar: () => Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ArtifactPage(id: a.id, nombre: a.name),
+      ),
+    ),
+  );
 }
 
 /// El contenido de un artifact.
@@ -533,66 +823,69 @@ class _ArtifactPageState extends ConsumerState<ArtifactPage> {
     if (_sePinta) {
       return Scaffold(
         backgroundColor: colors.void_,
-        appBar: AppBar(
-          backgroundColor: colors.void_,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          title: const MobileChrome(),
-          titleSpacing: NexusSpacing.s3,
-        ),
         body: SafeArea(
-          top: false,
           child: Column(
             children: [
+              MobileChrome(alVolver: () => Navigator.of(context).maybePop()),
               // El nombre sigue arriba: en una pila de mockups parecidos es lo único
-              // que dice cuál se está mirando. A su derecha, el candado: la misma
-              // fila dice qué se mira y con cuánta correa.
+              // que dice cuál se está mirando. A su derecha, la correa: la misma fila
+              // dice qué se mira y con cuánta correa.
               Padding(
                 padding: const EdgeInsets.fromLTRB(
-                  NexusSpacing.s5,
+                  MedidasDelMovil.margen,
+                  NexusSpacing.s1,
+                  MedidasDelMovil.margen,
                   0,
-                  NexusSpacing.s3,
-                  NexusSpacing.s3,
                 ),
                 child: Row(
                   children: [
                     Expanded(
                       child: Text(
                         widget.nombre.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: NexusTypography.label.copyWith(
                           color: colors.mute,
                         ),
                       ),
                     ),
-                    // El botón de siempre de estas pantallas y no un icono:
-                    // aquí no hay iconografía de Material, y un candado dibujado
-                    // diría menos que la palabra.
-                    _Boton(
-                      rotulo: strings.allowScriptsShort,
-                      activo: _permitido,
-                      // Ámbar con la correa suelta: no es un error, es un estado
-                      // que conviene ver sin tener que leerlo. El acento diría
-                      // «esta es la opción buena», y no lo es.
-                      color: colors.warn,
+                    _Correa(
+                      suelta: _permitido,
                       alTocar: () => setState(() => _permitido = !_permitido),
                     ),
                   ],
                 ),
               ),
+              // El documento **en su caja**, como el mockup: un marco fino y el
+              // fondo `deep`. Sin él, un mockup oscuro se confundía con la propia
+              // pantalla y no se sabía dónde acababa la app y empezaba el documento.
               Expanded(
-                child: switch (contenido) {
-                  AsyncData(:final value) => _Pintado(
-                    html: value,
-                    permitido: _permitido,
-                    // La llave lleva el permiso: cambiarlo tiene que construir
-                    // un `WebViewController` nuevo, porque el modo de JavaScript
-                    // se fija al crearlo y un documento ya pintado no cambia de
-                    // idea por sí solo.
-                    key: ValueKey('artifact-pintado-$_permitido'),
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(
+                    MedidasDelMovil.margen,
+                    NexusSpacing.s3,
+                    MedidasDelMovil.margen,
+                    MedidasDelMovil.pie,
                   ),
-                  AsyncError() => _Vacia(texto: strings.mobileCouldNotRead),
-                  _ => const _Cargando(),
-                },
+                  decoration: BoxDecoration(
+                    color: colors.deep,
+                    border: Border.all(color: colors.rule),
+                  ),
+                  clipBehavior: Clip.hardEdge,
+                  child: switch (contenido) {
+                    AsyncData(:final value) => _Pintado(
+                      html: value,
+                      permitido: _permitido,
+                      // La llave lleva el permiso: cambiarlo tiene que construir
+                      // un `WebViewController` nuevo, porque el modo de JavaScript
+                      // se fija al crearlo y un documento ya pintado no cambia de
+                      // idea por sí solo.
+                      key: ValueKey('artifact-pintado-$_permitido'),
+                    ),
+                    AsyncError() => _Vacia(texto: strings.mobileCouldNotRead),
+                    _ => const _Cargando(),
+                  },
+                ),
               ),
             ],
           ),
@@ -614,6 +907,47 @@ class _ArtifactPageState extends ConsumerState<ArtifactPage> {
         AsyncError() => _Vacia(texto: strings.mobileCouldNotRead),
         _ => const _Cargando(),
       },
+    );
+  }
+}
+
+/// «Scripts y red»: la correa del documento, **en ámbar y con su punto**, como el
+/// mockup.
+///
+/// Un estado que se toca y no un botón más: el documento se abre con scripts y red
+/// apagados, y lo que hay que ver sin leerlo es **eso** —que hay una correa y en qué
+/// punto está—. Ámbar siempre, porque soltarla no es la opción buena; el acento diría
+/// que sí. Suelta, el punto se enciende y la palabra gana un borde: se ve de lejos que
+/// el documento puede salir a la red.
+class _Correa extends StatelessWidget {
+  const _Correa({required this.suelta, required this.alTocar});
+
+  final bool suelta;
+  final VoidCallback alTocar;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Semantics(
+      button: true,
+      toggled: suelta,
+      child: InkWell(
+        key: const ValueKey('correa-del-documento'),
+        onTap: alTocar,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: suelta ? colors.warn : Colors.transparent,
+            ),
+          ),
+          child: StateChip(
+            texto: context.strings.allowScriptsShort,
+            tono: TonoDelChip.atencion,
+            punto: true,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -719,8 +1053,10 @@ class _FoldersPageState extends ConsumerState<FoldersPage> {
         ? _cuenta
         : _cuboDePartida(carpetas.value, (e) => e.account, cubos);
 
+    // «Sobre qué carpeta» y no «Conversación nueva»: la pantalla pregunta una cosa,
+    // y el rótulo es esa pregunta.
     return _ListaDeUtilidad(
-      rotulo: strings.mobileNewConversation,
+      rotulo: strings.mobileWhichFolder,
       alRefrescar: () => ref.refresh(foldersProvider.future),
       arriba: _CuentasArriba(
         cubos: cubos,
@@ -746,9 +1082,11 @@ class _FoldersPageState extends ConsumerState<FoldersPage> {
               _Fila(
                 key: ValueKey('carpeta-${f.path}'),
                 titulo: _cola(f.path),
-                // La cuenta delante de la ruta: abrir aquí **elige cuenta**, y hasta
-                // ahora se elegía sin verlo.
-                dato: [?f.account, f.path].join('  ·  '),
+                // La cuenta, que es lo que abrir aquí **elige**: hasta ahora se elegía
+                // sin verlo. La ruta entera ya no va debajo, como el mockup: el
+                // título ya dice cuál es, y la cabeza de la ruta es lo que todas
+                // tienen en común. Sin cuenta, la ruta es lo único que distingue.
+                dato: f.account ?? f.path,
                 // Las dos cosas se dicen **antes** de abrir: empezar en una de solo
                 // lectura y descubrirlo al primer encargo es trabajo para tirar, y
                 // una ocupada no se puede abrir dos veces.
@@ -804,9 +1142,10 @@ class _Cargando extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s6),
+    // En sans: es lo que está pasando, no un dato.
     child: Text(
       context.strings.mobileAskingMac,
-      style: NexusTypography.mono.copyWith(color: context.colors.faint),
+      style: NexusTypography.nota.copyWith(color: context.colors.mute),
     ),
   );
 }

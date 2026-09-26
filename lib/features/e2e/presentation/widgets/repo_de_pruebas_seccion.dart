@@ -8,6 +8,7 @@ import 'package:nexus/features/e2e/domain/entities/pasada_de_prueba.dart';
 import 'package:nexus/features/e2e/domain/usecases/como_se_agrupan_los_flows.dart';
 import 'package:nexus/features/e2e/presentation/providers/e2e_providers.dart';
 import 'package:nexus/features/e2e/presentation/providers/repo_de_pruebas_providers.dart';
+import 'package:nexus/features/e2e/presentation/widgets/el_nombre_de_una_prueba.dart';
 
 /// Los flows que viven en el repo de pruebas del equipo.
 ///
@@ -36,12 +37,15 @@ class RepoDePruebasSeccion extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // La pregunta de esta parte de la hoja, en el color de acento como las
+        // otras dos: «qué hay en el repo». Ver [PruebasSheet].
         Text(
-          strings.e2eRepoTitle,
-          style: NexusTypography.label.copyWith(color: colors.faint),
+          strings.e2eRepoTitle.toUpperCase(),
+          style: NexusTypography.label.copyWith(color: colors.accent),
         ),
+        const SizedBox(height: 2),
         Text(slug, style: NexusTypography.data.copyWith(color: colors.mute)),
-        const SizedBox(height: NexusSpacing.s2),
+        const SizedBox(height: NexusSpacing.s3),
 
         sync.when(
           // **Mientras clona no se enseña una lista vacía.** Un «no hay flows» que
@@ -49,7 +53,7 @@ class RepoDePruebasSeccion extends ConsumerWidget {
           // y quien lo lea ya se fue a mirar por qué.
           loading: () => Text(
             strings.e2eRepoUpdating,
-            style: NexusTypography.body.copyWith(color: colors.mute),
+            style: NexusTypography.nota.copyWith(color: colors.mute),
           ),
           error: (e, _) => _Problema(mensaje: '$e'),
           data: (resultado) =>
@@ -152,32 +156,27 @@ class _EstadoState extends ConsumerState<_Estado> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(texto, style: NexusTypography.label.copyWith(color: color)),
-            const SizedBox(width: NexusSpacing.s2),
-            Text(
-              strings.e2eRepoFlows(flows.length),
-              style: NexusTypography.label.copyWith(color: colors.faint),
-            ),
-          ],
+        // **El estado con su punto**, como el mockup: «Al día · 64 flows». Eran
+        // dos rótulos en mayúsculas pegados, y el verde era lo único que decía
+        // que estaba bien.
+        EstadoConPunto(
+          color: color,
+          texto: '$texto · ${strings.e2eRepoFlows(flows.length)}',
         ),
 
+        // Lo que impide correr cualquiera va aquí, una vez y con su punto de
+        // atención; cada fila se calla lo que ya dice la sección.
         if (sinCuentas)
-          Padding(
-            padding: const EdgeInsets.only(top: NexusSpacing.s2),
-            child: Text(
-              strings.e2eAccountsNoneHere,
-              style: NexusTypography.body.copyWith(color: colors.warn),
-            ),
+          EstadoConPunto(
+            color: colors.warn,
+            texto: strings.e2eAccountsNoneHere,
           ),
         if (sinDispositivo)
-          Padding(
-            padding: const EdgeInsets.only(top: NexusSpacing.s2),
-            child: Text(
-              hayDestinos ? strings.e2eRepoNeedsDevice : strings.e2eNoDevice,
-              style: NexusTypography.body.copyWith(color: colors.warn),
-            ),
+          EstadoConPunto(
+            color: colors.warn,
+            texto: hayDestinos
+                ? strings.e2eRepoNeedsDevice
+                : strings.e2eNoDevice,
           ),
 
         if (flows.isEmpty)
@@ -185,7 +184,7 @@ class _EstadoState extends ConsumerState<_Estado> {
             padding: const EdgeInsets.only(top: NexusSpacing.s2),
             child: Text(
               strings.e2eRepoNoFlows,
-              style: NexusTypography.body.copyWith(color: colors.mute),
+              style: NexusTypography.nota.copyWith(color: colors.mute),
             ),
           )
         else ...[
@@ -193,11 +192,20 @@ class _EstadoState extends ConsumerState<_Estado> {
           TextField(
             key: const ValueKey('buscar-una-prueba'),
             controller: _buscar,
-            style: NexusTypography.mono.copyWith(color: colors.ink),
+            // Lo que se escribe es una frase de búsqueda, no un comando: en la
+            // voz de lo que se dice, como el buscador del mockup. Y la pista en
+            // `faint`, que se lee; en `rule2` era un filo, no un texto.
+            style: NexusTypography.body.copyWith(
+              fontSize: 14,
+              color: colors.ink,
+            ),
             decoration: InputDecoration(
               isDense: true,
               hintText: strings.e2eRepoSearch,
-              hintStyle: NexusTypography.mono.copyWith(color: colors.rule2),
+              hintStyle: NexusTypography.body.copyWith(
+                fontSize: 14,
+                color: colors.faint,
+              ),
               prefixIcon: Icon(Icons.search, size: 16, color: colors.faint),
               prefixIconConstraints: const BoxConstraints(minWidth: 28),
               suffixIcon: filtro.isEmpty
@@ -226,19 +234,23 @@ class _EstadoState extends ConsumerState<_Estado> {
                       color: grupo.rutas.isEmpty ? colors.rule2 : colors.faint,
                     ),
                     const SizedBox(width: NexusSpacing.s1),
+                    // El grupo como separador con su línea, igual que los días
+                    // del historial: el nombre en acento y la cuenta detrás.
                     Text(
-                      _titulo(grupo, strings),
+                      _titulo(grupo, strings).toUpperCase(),
                       style: NexusTypography.label.copyWith(
-                        color: grupo.rutas.isEmpty ? colors.rule2 : colors.mute,
+                        color: grupo.rutas.isEmpty
+                            ? colors.faint
+                            : colors.accent,
                       ),
                     ),
                     const SizedBox(width: NexusSpacing.s2),
                     Text(
                       strings.e2eRepoMatches(grupo.rutas.length, grupo.total),
-                      style: NexusTypography.label.copyWith(
-                        color: colors.faint,
-                      ),
+                      style: NexusTypography.label.copyWith(color: colors.mute),
                     ),
+                    const SizedBox(width: NexusSpacing.s2),
+                    Expanded(child: Divider(height: 1, color: colors.rule)),
                   ],
                 ),
               ),
@@ -282,20 +294,22 @@ class _Problema extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          cabecera ?? strings.e2eRepoFailed,
-          style: NexusTypography.label.copyWith(color: colors.err),
+        EstadoConPunto(
+          color: colors.err,
+          texto: cabecera ?? strings.e2eRepoFailed,
         ),
+        // El motivo tal cual —«no hay red», «Permission denied (publickey)»—,
+        // que es lo que dice qué hacer; y justo debajo, el botón para hacerlo.
         if (mensaje.isNotEmpty)
           Text(
             mensaje,
-            style: NexusTypography.body.copyWith(color: colors.mute),
+            style: NexusTypography.data.copyWith(color: colors.mute),
           ),
         TextButton(
           // Invalidar y no reintentar dentro: así el estado de carga vuelve a
           // pasar por el mismo sitio y la UI no tiene dos caminos para lo mismo.
           onPressed: () => ref.invalidate(clonDelRepoProvider),
-          child: Text(strings.e2eRepoRetry),
+          child: Text(strings.e2eRepoRetry.toUpperCase()),
         ),
       ],
     );
@@ -354,29 +368,39 @@ class _FilaDeFlow extends ConsumerWidget {
                   // Sin `flows/` delante: es el prefijo de todas y no distingue
                   // ninguna, así que solo gasta ancho.
                   ruta.startsWith('flows/') ? ruta.substring(6) : ruta,
-                  style: NexusTypography.data.copyWith(color: colors.ink),
+                  style: elNombreDeUnaPrueba(colors),
                 ),
                 // El motivo manda sobre la etiqueta: si no se puede correr, lo
                 // que hace falta saber es por qué, no con qué cuenta iba a ir.
+                //
+                // Y **antes del botón**, en su fila: el mockup lo pide así —«el
+                // motivo, antes que el botón»— para que un «Correr» apagado no
+                // deje mirándolo. Es una frase y va en sans; las cuentas son
+                // datos y van en mono.
                 if (porQueNo != null && !(sinCuentas && cuenta == null))
                   Text(
                     porQueNo,
-                    style: NexusTypography.label.copyWith(color: colors.warn),
+                    style: NexusTypography.nota.copyWith(
+                      color: colors.warn,
+                      fontSize: 12,
+                    ),
                   )
                 else if (cuenta != null)
                   Text(
                     'acct-${(cuenta.tags.toList()..sort()).join(' · acct-')}',
-                    style: NexusTypography.label.copyWith(color: colors.faint),
+                    style: NexusTypography.data.copyWith(color: colors.mute),
                   ),
               ],
             ),
           ),
-          TextButton(
+          BotonDeFila(
+            texto: strings.e2eRun,
+            tono: TonoDeBoton.principal,
             // `sePuede` ya garantiza que hay cuenta y dispositivo, pero el
             // compilador no lo deduce a través de un booleano: se comprueba aquí
             // para que el día que `sePuede` cambie, esto no lance en tiempo de
             // ejecución.
-            onPressed: sePuede && cuenta != null
+            onPulsar: sePuede && cuenta != null
                 ? () => ref
                       .read(pruebaEnMarchaProvider.notifier)
                       .lanzar(
@@ -396,7 +420,6 @@ class _FilaDeFlow extends ConsumerWidget {
                         credenciales: cuenta.variables,
                       )
                 : null,
-            child: Text(strings.e2eRun),
           ),
         ],
       ),

@@ -1,171 +1,69 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/assistant/domain/entities/conversation.dart';
 import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
-import 'package:nexus/features/assistant/presentation/orb/nexus_orb_painter.dart';
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
 import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
-import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
+import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
-/// Las conversaciones abiertas, apiladas en vertical: una esfera por cada una,
-/// **incluida la que tienes delante**, que va marcada.
+/// Las conversaciones abiertas, en fila: un miniorbe por cada una, **incluida
+/// la que tienes delante**, que va marcada con el filo del acento.
 ///
 /// Funciona como pestañas sin serlo. El diseño descarta las pestañas de
 /// navegador y el panel lateral, así que se reutiliza el único sujeto que el
 /// HUD ya tiene —el orbe— y la actual se distingue por marca, no por ausencia:
 /// esconderla dejaba la lista sin decir en cuál estás.
+///
+/// **Orbes vivos y en fila, como en el mockup**: cada uno en su estado, así
+/// que la que trabaja se ve trabajar desde aquí. Antes eran fichas apiladas con
+/// el nombre de la carpeta al lado, y con tres abiertas la columna subía hasta
+/// el orbe grande —hubo que calcular una franja para apartarlo—. En fila y a
+/// 40 px caben las [Conversations.max] bajo el orbe sin tocarlo, y el nombre
+/// no se pierde: va en el tooltip, con la ruta entera.
 class ConversationDock extends ConsumerWidget {
   const ConversationDock({super.key});
 
-  /// Todas las fichas miden lo mismo. Ajustar cada una a su nombre dejaba la
-  /// columna en escalera, y una lista con los bordes desalineados se lee como
-  /// elementos sueltos en vez de como un conjunto entre el que se elige.
-  static const tabWidth = 190.0;
-  static const tabHeight = 50.0;
+  /// El lado de cada miniorbe, y del hueco de «Nueva».
+  static const lado = 40.0;
 
-  /// Lo que separa el muelle del borde de abajo. Vive aquí y no en quien lo
-  /// coloca porque [espacioReservado] cuenta con ello: si se cambian por
-  /// separado, la franja deja de cuadrar con el sitio real del muelle.
+  /// Lo que separa el muelle del borde de abajo.
   static const alDelSuelo = NexusSpacing.s5;
-
-  /// El alto que hay que apartarle al muelle en el HUD, con su aire.
-  ///
-  /// El muelle flota en el mismo `Stack` que el orbe, así que sin reservarle
-  /// esta franja la pila de conversaciones acababa encima del orbe —o el orbe
-  /// encima de ella— en cuanto había más de una abierta. Se calcula en vez de
-  /// medirse porque el muelle es una rejilla de fichas de tamaño fijo: manda
-  /// la columna más alta, y nunca pasa de [Conversations.porColumna] filas.
-  static double espacioReservado(Conversations conversaciones) {
-    final filas = _piezas(conversaciones) < Conversations.porColumna
-        ? _piezas(conversaciones)
-        : Conversations.porColumna;
-    // El `+ s2` es la separación entre fichas, que cada una lleva debajo.
-    // Sobra ese hueco en la última: mejor un pelo de aire de más que un cruce.
-    return alDelSuelo + filas * (tabHeight + NexusSpacing.s2) + NexusSpacing.s5;
-  }
-
-  /// Las fichas que se pintan: las conversaciones más el hueco de «NUEVA»,
-  /// que ocupa sitio como una más y por eso cuenta.
-  static int _piezas(Conversations conversaciones) =>
-      conversaciones.items.length + (conversaciones.isFull ? 0 : 1);
-
-  /// Lo que ocupa el muelle **a lo ancho**.
-  ///
-  /// No es siempre [tabWidth]: en cuanto pasa de [Conversations.porColumna] se
-  /// parte en columnas puestas al lado, y con dos ya llega al doble. Darlo por
-  /// una sola columna dejaba a [franjaQueEstorba] midiendo contra un muelle más
-  /// estrecho que el de verdad, y diciendo que no había cruce donde sí lo hay.
-  static double anchoOcupado(Conversations conversaciones) {
-    final columnas = (_piezas(conversaciones) / Conversations.porColumna)
-        .ceil();
-    return columnas * tabWidth + (columnas - 1) * NexusSpacing.s3;
-  }
-
-  /// Lo que hay que apartarle al muelle **de la caja del orbe**: la franja si
-  /// de verdad se cruzan, y cero si restarla solo encogería el orbe.
-  ///
-  /// [espacioReservado] dice cuánto ocupa el muelle; esto dice si le estorba a
-  /// alguien. Se separan porque la respuesta no es la misma: el muelle ocupa su
-  /// sitio siempre, pero el orbe solo tiene que cederlo cuando de verdad se
-  /// pisan.
-  ///
-  /// **Restarla siempre daba por hecho el cruce, y en la pantalla de arranque
-  /// no lo hay.** Ahí la caja del orbe es la ventana entera, y el orbe llena su
-  /// lado corto —el alto—, así que su borde izquierdo se queda a
-  /// `(ancho − alto) / 2` del margen: en una ventana apaisada eso son cientos
-  /// de píxeles, muy por delante de los [tabWidth] del muelle. La franja no
-  /// evitaba ningún cruce, solo le quitaba tamaño al único sujeto de esa
-  /// pantalla — y crecía con cada conversación abierta, así que el orbe se
-  /// encogía por abrir conversaciones que nunca lo tocaron.
-  ///
-  /// [cajaDelOrbe] es el sitio que tendría el orbe **sin** restar nada: es el
-  /// tamaño que se defiende, y la pregunta es si a ese tamaño hay cruce.
-  static double franjaQueEstorba(
-    Size cajaDelOrbe,
-    Conversations conversaciones,
-  ) {
-    final banda = espacioReservado(conversaciones);
-    // Lo que se compara es **el orbe pintado**, no su caja: la caja puede
-    // solapar el muelle de sobra sin que el círculo lo roce, y dar la caja por
-    // buena medida es exactamente lo que lo encogía.
-    final orbe = NexusOrbPainter.envolventeEn(Offset.zero & cajaDelOrbe);
-    final muelle = Rect.fromLTWH(
-      0,
-      cajaDelOrbe.height - banda,
-      anchoOcupado(conversaciones),
-      banda,
-    );
-    return orbe.overlaps(muelle) ? banda : 0;
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final conversations = ref.watch(conversationsProvider);
-    final all = conversations.items;
     // **Sin conversaciones no desaparece**: se queda el hueco de «NUEVA», que
     // es justo lo que hace falta en la pantalla de arranque. Antes se escondía
     // el dock entero y la única forma de empezar era ponerse a escribir — un
     // botón que existe para crear la primera no puede faltar cuando no hay
     // ninguna.
-
-    // En columnas de tres, y la siguiente **al lado**. Cada ficha es horizontal
-    // —orbe y nombre en línea— así que una columna crece poco; pero con seis en una
-    // sola, la pila llegaba al orbe grande, que es el centro de la pantalla y no se
-    // tapa. Al lado hay sitio de sobra.
-    //
-    // El botón de abrir otra va al final de la última columna, que es donde se busca
-    // después de mirar las que hay.
-    final piezas = <Widget>[
-      for (final conversation in all)
-        _DockOrb(
-          conversation: conversation,
-          isFocused: conversation.id == conversations.focused?.id,
-          onTap: () =>
-              ref.read(conversationsProvider.notifier).focus(conversation.id),
-          // Soltar va con cerrar, siempre: ver [soltarLaConversacionProvider].
-          onClose: () {
-            ref.read(soltarLaConversacionProvider)(conversation.id);
-            unawaited(
-              ref.read(conversationsProvider.notifier).close(conversation.id),
-            );
-          },
-        ),
-      if (!conversations.isFull) const _OpenAnother(),
-    ];
-
     return Row(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
+      spacing: 10,
       children: [
-        for (
-          var desde = 0;
-          desde < piezas.length;
-          desde += Conversations.porColumna
-        )
-          Padding(
-            padding: EdgeInsets.only(left: desde == 0 ? 0 : NexusSpacing.s3),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              // **La separación la pone la columna, no cada pieza.** La ponía
-              // cada ficha con un `Padding` de abajo, y `_OpenAnother` no lo
-              // llevaba: con las columnas alineadas por abajo
-              // (`CrossAxisAlignment.end`), la que acaba en «NUEVA» medía esos
-              // 8 px menos y se hundía enteros — dos columnas de fichas del
-              // mismo alto, desalineadas entre sí. Con un solo dueño no hay
-              // pieza que pueda olvidarse de su hueco.
-              spacing: NexusSpacing.s2,
-              children: piezas
-                  .skip(desde)
-                  .take(Conversations.porColumna)
-                  .toList(),
-            ),
+        for (final conversation in conversations.items)
+          _DockOrb(
+            conversation: conversation,
+            isFocused: conversation.id == conversations.focused?.id,
+            onTap: () =>
+                ref.read(conversationsProvider.notifier).focus(conversation.id),
+            // Soltar va con cerrar, siempre: ver [soltarLaConversacionProvider].
+            onClose: () {
+              ref.read(soltarLaConversacionProvider)(conversation.id);
+              unawaited(
+                ref.read(conversationsProvider.notifier).close(conversation.id),
+              );
+            },
           ),
+        // El botón de abrir otra va al final, que es donde se busca después de
+        // mirar las que hay.
+        if (!conversations.isFull) const AbrirOtraConversacion(),
       ],
     );
   }
@@ -201,104 +99,71 @@ class _DockOrbState extends ConsumerState<_DockOrb> {
     final conversation = widget.conversation;
     final hud = ref.watch(assistantControllerProvider(conversation.id));
     final home = ref.watch(homeDirectoryProvider);
-    final name = conversation.folderPath.split('/').last;
-    final working = hud.orbState == NexusOrbState.think;
 
-    return SizedBox(
-      width: ConversationDock.tabWidth,
-      height: ConversationDock.tabHeight,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovering = true),
-        onExit: (_) => setState(() => _hovering = false),
-        child: Tooltip(
-          message: conversation.folderPath.replaceFirst(home, '~'),
-          child: InkWell(
-            onTap: widget.onTap,
-            child: Container(
-              padding: const EdgeInsets.only(right: NexusSpacing.s3),
-              decoration: BoxDecoration(
-                // La actual se marca con fondo y filo cian; las demás solo se
-                // insinúan al pasar por encima. Es el mismo recurso que el
-                // interruptor de permisos usa para decir cuál está puesta.
-                color: widget.isFocused
-                    ? colors.accent.withValues(alpha: 0.07)
-                    : null,
-                border: Border.all(
-                  color: widget.isFocused
-                      ? colors.accent.withValues(alpha: 0.45)
-                      : (_hovering ? colors.rule2 : Colors.transparent),
-                ),
-                borderRadius: BorderRadius.circular(NexusRadius.sm),
-              ),
-              // En línea, no apilado: el nombre al lado del orbe. Apilados
-              // ocupaban el alto de dos elementos por conversación y con tres
-              // abiertas la esquina se convertía en una torre.
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 46,
-                    height: 46,
-                    child: Stack(
-                      children: [
-                        // Sin horizonte: a este tamaño la línea no se lee y solo
-                        // ensucia. El movimiento del orbe ya distingue el estado.
-                        Positioned.fill(
-                          child: NexusOrb(
-                            state: hud.orbState,
-                            showHorizon: false,
-                          ),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: Tooltip(
+        message: conversation.folderPath.replaceFirst(home, '~'),
+        child: Semantics(
+          button: true,
+          selected: widget.isFocused,
+          label: conversation.folderPath.split('/').last,
+          child: SizedBox(
+            width: ConversationDock.lado,
+            height: ConversationDock.lado,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  child: InkWell(
+                    onTap: widget.onTap,
+                    customBorder: const CircleBorder(),
+                    child: Container(
+                      // La actual con el filo del acento; las demás con el
+                      // filo de siempre, que se aviva al pasar por encima.
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: widget.isFocused
+                              ? colors.accent
+                              : (_hovering ? colors.mute : colors.rule2),
                         ),
-                        // Cerrar tiene que verse. Estaba en el clic derecho, y un
-                        // gesto que nadie descubre equivale a no poder cerrarla:
-                        // las conversaciones parecían aparecidas de la nada y
-                        // fijas para siempre.
-                        if (_hovering)
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            child: InkWell(
-                              onTap: widget.onClose,
-                              child: Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: colors.void_,
-                                  border: Border.all(color: colors.rule2),
-                                ),
-                                child: Icon(
-                                  Icons.close,
-                                  size: 10,
-                                  color: colors.faint,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: NexusSpacing.s2),
-                  // 🔴 **Lo que sobre lo pone el nombre, no la tarjeta.** Era
-                  // un ancho máximo escrito a mano —130— que con el orbe, su
-                  // hueco y el filo sumaba 184 en una tarjeta de 176: un
-                  // `front-mobile-b2c` la desbordaba por 2.8 píxeles y salía la
-                  // franja amarilla y negra encima de la conversación. Con
-                  // `Expanded` el hueco lo dice la tarjeta y el nombre se corta
-                  // con puntos suspensivos, que es lo que ya se quería.
-                  Expanded(
-                    child: Text(
-                      name,
-                      style: NexusTypography.label.copyWith(
-                        color: widget.isFocused
-                            ? colors.ink
-                            : (working ? colors.accent : colors.faint),
                       ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
+                      // Sin horizonte: a este tamaño la línea no se lee y solo
+                      // ensucia. El movimiento del orbe ya distingue el estado.
+                      child: ClipOval(
+                        child: NexusOrb(
+                          state: hud.orbState,
+                          showHorizon: false,
+                        ),
+                      ),
                     ),
                   ),
-                ],
-              ),
+                ),
+                // Cerrar tiene que verse. Estaba en el clic derecho, y un
+                // gesto que nadie descubre equivale a no poder cerrarla: las
+                // conversaciones parecían aparecidas de la nada y fijas para
+                // siempre.
+                if (_hovering)
+                  Positioned(
+                    top: -4,
+                    right: -4,
+                    child: InkWell(
+                      onTap: widget.onClose,
+                      customBorder: const CircleBorder(),
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: colors.void_,
+                          border: Border.all(color: colors.rule2),
+                        ),
+                        child: Icon(Icons.close, size: 10, color: colors.mute),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
@@ -307,11 +172,53 @@ class _DockOrbState extends ConsumerState<_DockOrb> {
   }
 }
 
-/// El hueco de «Nueva», del mismo tamaño que una conversación y justo debajo:
-/// así se ve cuántas caben —hasta tres— sin tener que contarlas ni leer un
-/// aviso. Cuando no quedan carpetas libres o ya hay tres, desaparece.
-class _OpenAnother extends ConsumerWidget {
-  const _OpenAnother();
+/// El filo discontinuo del hueco de «Nueva»: el mismo círculo que un miniorbe,
+/// a medio dibujar — un sitio donde cabe una más.
+class _FiloDiscontinuo extends CustomPainter {
+  const _FiloDiscontinuo(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final pincel = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final radio = size.shortestSide / 2 - 0.5;
+    final centro = size.center(Offset.zero);
+    const trazos = 18;
+    const paso = 2 * math.pi / trazos;
+    for (var i = 0; i < trazos; i++) {
+      canvas.drawArc(
+        Rect.fromCircle(center: centro, radius: radio),
+        i * paso,
+        paso * 0.55,
+        false,
+        pincel,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_FiloDiscontinuo antes) => antes.color != color;
+}
+
+/// El hueco de «Nueva», del mismo tamaño que un miniorbe y al final de la
+/// fila: así se ve cuántas caben sin tener que contarlas. Cuando no quedan carpetas
+/// libres o ya están las [Conversations.max], desaparece.
+///
+/// **Y su menú dice el límite.** Antes se descubría al intentar abrir una de
+/// más: el botón se iba sin decir por qué. Dicho al pie, se sabe antes de
+/// llegar y qué hacer cuando se llega.
+///
+/// Público porque el escenario también abre conversaciones: allí no hay muelle,
+/// solo los miniorbes de la esquina, y el «+» de su lado es este mismo menú.
+/// [compacto] lo pinta como ese «+», del tamaño de un miniorbe.
+class AbrirOtraConversacion extends ConsumerWidget {
+  const AbrirOtraConversacion({super.key, this.compacto = false});
+
+  final bool compacto;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -329,55 +236,98 @@ class _OpenAnother extends ConsumerWidget {
     final documentos = ref.watch(artifactsFolderProvider);
     if (folders.isEmpty && documentos == null) return const SizedBox.shrink();
 
-    return PopupMenuButton<String>(
+    final abiertas = ref.watch(conversationsProvider).items.length;
+    // La cuenta de cada carpeta, solo con más de una en el Mac: con una sola,
+    // decir cuál se usa es contestar una pregunta que nadie tiene. El mismo
+    // criterio que la ficha del compositor.
+    final variasCuentas =
+        (ref.watch(claudeProfilesProvider).value?.length ?? 0) > 1;
+    String? cuentaDe(String? perfil) {
+      final nombre = perfil?.split('/').last;
+      if (!variasCuentas || nombre == null || !nombre.startsWith('.claude-')) {
+        return null;
+      }
+      return nombre.substring('.claude-'.length);
+    }
+
+    // El nombre de la carpeta y no su ruta, como en el mockup: en un globo de
+    // 210 px «~/front-mobile-b2c» se lee peor que «front-mobile-b2c», y la
+    // ruta no dice nada que el nombre no diga. **Salvo que dos se llamen
+    // igual**: entonces el nombre ya no distingue y vuelve la ruta.
+    final nombres = [for (final folder in folders) folder.name];
+    String rotulo(PairedFolder folder) =>
+        nombres.where((n) => n == folder.name).length > 1
+        ? folder.displayPath(home)
+        : folder.name;
+    // En peso medio la de la conversación que tienes delante, como el modelo
+    // en uso lleva el suyo: es «dónde estás», y abrir otra ahí es legítimo.
+    final activa = ref.watch(workspaceControllerProvider).activePath;
+
+    return MenuDelCompositor<String>(
       tooltip: context.strings.openAnotherConversation,
+      ancho: 240,
       onSelected: (path) => ref.read(conversationsProvider.notifier).open(path),
       itemBuilder: (context) => [
+        cabeceraDelMenu(context, context.strings.nuevaConversacionTitulo),
         for (final folder in folders)
-          PopupMenuItem(
+          OpcionDelMenu<String>(
             value: folder.path,
-            child: Text(folder.displayPath(home)),
+            titulo: rotulo(folder),
+            alLado: cuentaDe(folder.claudeProfile),
+            // Negrita sin «✓»: no es una elección hecha, es dónde estás.
+            elegida: false,
+            destacada: folder.path == activa,
           ),
         if (documentos != null)
-          PopupMenuItem(
+          OpcionDelMenu<String>(
             value: documentos,
-            child: Row(
-              children: [
-                Icon(
-                  Icons.auto_awesome_outlined,
-                  size: 14,
-                  color: colors.faint,
-                ),
-                const SizedBox(width: NexusSpacing.s3),
-                Text(context.strings.noProject),
-              ],
-            ),
+            titulo: context.strings.noProject,
           ),
+        pieDelMenu(
+          context,
+          context.strings.cabenAbiertas(Conversations.max, abiertas),
+        ),
       ],
-      child: Container(
-        width: ConversationDock.tabWidth,
-        height: ConversationDock.tabHeight,
-        padding: const EdgeInsets.only(right: NexusSpacing.s3),
-        decoration: BoxDecoration(
-          border: Border.all(color: colors.rule),
-          borderRadius: BorderRadius.circular(NexusRadius.sm),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 46,
-              height: 46,
-              child: Icon(Icons.add, size: 18, color: colors.faint),
+      // Compacto, **en la misma caja que un miniorbe del escenario** —26 con el
+      // círculo de 18 abajo a la izquierda, que es donde la ✕ deja sitio—: si
+      // no, el «+» queda a otra altura que los orbes de su lado.
+      child: compacto
+          ? SizedBox(
+              width: 26,
+              height: 26,
+              child: Align(
+                alignment: Alignment.bottomLeft,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colors.rule2),
+                  ),
+                  child: Icon(Icons.add, size: 12, color: colors.mute),
+                ),
+              ),
+            )
+          // Un círculo discontinuo con «Nueva» dentro, del tamaño de un
+          // miniorbe: el sitio de la siguiente conversación.
+          : SizedBox(
+              width: ConversationDock.lado,
+              height: ConversationDock.lado,
+              child: CustomPaint(
+                painter: _FiloDiscontinuo(colors.rule2),
+                child: Center(
+                  child: Text(
+                    context.strings.newConversation,
+                    style: NexusTypography.label.copyWith(
+                      color: colors.mute,
+                      fontSize: 8,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(width: NexusSpacing.s2),
-            Text(
-              context.strings.newConversation,
-              style: NexusTypography.label.copyWith(color: colors.faint),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

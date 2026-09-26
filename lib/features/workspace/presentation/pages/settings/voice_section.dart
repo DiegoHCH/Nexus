@@ -1,19 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:nexus/features/workspace/presentation/pages/settings/settings_chooser.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
-import 'package:nexus/features/oido/domain/usecases/como_se_le_llama.dart';
-import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
-import 'package:nexus/features/oido/presentation/providers/el_oido_que_espera.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/assistant/domain/entities/el_acento.dart';
 import 'package:nexus/features/assistant/domain/entities/nexus_voice.dart';
 import 'package:nexus/features/assistant/presentation/providers/audio_output_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/voice_preference_providers.dart';
 import 'package:nexus/features/assistant/presentation/widgets/microphone_tester.dart';
-import 'package:nexus/features/onboarding/presentation/providers/onboarding_providers.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/salidas_section.dart';
+import 'package:nexus/features/workspace/presentation/pages/settings/secciones_de_ajustes.dart';
 
 /// La sección de Voz de Ajustes.
 ///
@@ -24,177 +19,134 @@ import 'package:nexus/features/workspace/presentation/pages/settings/salidas_sec
 
 /// La voz con la que responde. Existe porque sin fijarla el servicio elegía
 /// una distinta en cada sesión.
+///
+/// 🔴 **Las voces, los acentos y los altavoces, a la vista.** Eran tres
+/// desplegables: para saber qué voces había o por dónde podía sonar había que
+/// abrirlos. Como en el mockup, son opciones con nombre; las treinta voces se
+/// recortan a las primeras con un «+25 voces» que enseña las demás.
 class VoiceSection extends ConsumerWidget {
   const VoiceSection({super.key});
 
+  /// Las que se ven antes de pedir las demás: una fila, como en el mockup.
+  static const _vocesALaVista = 5;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
+    final strings = context.strings;
     final selected = ref.watch(voicePreferenceProvider);
     final controller = ref.read(voicePreferenceProvider.notifier);
+    final devices = ref.watch(audioOutputDevicesProvider).value ?? const [];
 
-    // 🔴 **Desplaza, como las demás secciones largas.**
-    //
-    // Terminaba en `Expanded(child: MicrophoneTester())`, que absorbía la
-    // holgura y hacía la sección de alto fijo: en cuanto se le añadió el acento
-    // desbordó por 20 px y lo cazó la prueba que abre todas las secciones. El
-    // probador tiene alto propio —48 px de onda y una fila— así que el
-    // `Expanded` no le hacía falta, solo impedía que esto creciera.
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            context.strings.nexusVoice,
-            style: NexusTypography.label.copyWith(color: colors.faint),
-          ),
-          const SizedBox(height: NexusSpacing.s2),
-          Text(
-            context.strings.voiceExplainer,
-            style: NexusTypography.nota.copyWith(color: colors.faint),
-          ),
-          const SizedBox(height: NexusSpacing.s5),
-          const SizedBox(height: NexusSpacing.s5),
-          // 🔴 **Aquí hubo un botón para escuchar la voz, y se quitó midiendo.**
-          //
-          // Sintetizaba una frase con la voz elegida, y funcionaba. El problema
-          // es lo que costaba: el TTS del nivel gratuito da **diez peticiones
-          // al día** —medido en la consola de Google, `RPD 13 / 10`, ya
-          // pasado—, así que escuchar treinta voces no es lento, es imposible.
-          //
-          // Y peor: esas diez son las mismas que necesitan los avisos de
-          // agenda. Probar voces por la mañana te dejaba sin avisos hablados el
-          // resto del día, que es una función que sí hace falta.
-          //
-          // Para comparar voces está AI Studio, que es lo que recomienda la
-          // propia doc de Google y no gasta cuota. Un botón que consume un
-          // recurso escaso sin decirlo es una trampa, y uno que se lo quita a
-          // algo que importa más es peor que no tenerlo.
-          SettingsChooser<NexusVoice>(
-            value: NexusVoice.all.firstWhere(
-              (voice) => voice.name == selected.name,
-              orElse: () => NexusVoice.all.first,
+    return BloquesDeAjustes(
+      bloques: [
+        // 🔴 **Aquí hubo un botón para escuchar la voz, y se quitó midiendo.**
+        //
+        // Sintetizaba una frase con la voz elegida, y funcionaba. El problema
+        // es lo que costaba: el TTS del nivel gratuito da **diez peticiones al
+        // día** —medido en la consola de Google, `RPD 13 / 10`, ya pasado—,
+        // así que escuchar treinta voces no es lento, es imposible.
+        //
+        // Y peor: esas diez son las mismas que necesitan los avisos de agenda.
+        // Probar voces por la mañana te dejaba sin avisos hablados el resto
+        // del día, que es una función que sí hace falta.
+        //
+        // Para comparar voces está AI Studio, que es lo que recomienda la
+        // propia doc de Google y no gasta cuota. Un botón que consume un
+        // recurso escaso sin decirlo es una trampa, y uno que se lo quita a
+        // algo que importa más es peor que no tenerlo.
+        BloqueDeAjustes(
+          rotulo: strings.nexusVoice,
+          hijos: [
+            TextoDeAjustes(strings.voiceExplainer),
+            ElegirDeAjustes<NexusVoice>(
+              llave: 'voz',
+              opciones: NexusVoice.all,
+              elegida: NexusVoice.all.firstWhere(
+                (voice) => voice.name == selected.name,
+                orElse: () => NexusVoice.all.first,
+              ),
+              nombre: (voice) => '${voice.name} · ${voice.character}',
+              cuantasSeVen: _vocesALaVista,
+              masOpciones: strings.masVoces,
+              onElegir: controller.select,
             ),
-            options: NexusVoice.all,
-            label: (voice) => voice.name,
-            detail: (voice) => voice.character,
-            onSelected: controller.select,
+          ],
+        ),
+        BloqueDeAjustes(
+          rotulo: strings.elAcento,
+          hijos: [
+            TextoDeAjustes(strings.elAcentoExplainer),
+            ElegirDeAjustes<ElAcento>(
+              llave: 'acento',
+              opciones: ElAcento.opciones,
+              elegida: ref.watch(elAcentoProvider),
+              // «de Colombia» es como se le dice al modelo; en el botón va con
+              // mayúscula, que es un nombre y no media frase.
+              nombre: (acento) => switch (acento.variante) {
+                null => strings.elAcentoAutomatico,
+                final v => '${v[0].toUpperCase()}${v.substring(1)}',
+              },
+              onElegir: ref.read(elAcentoProvider.notifier).select,
+            ),
+          ],
+        ),
+        // Con un solo aparato no hay nada que elegir, y el bloque entero sobra.
+        // Se decide aquí y no dentro del bloque: un bloque vacío dejaría dos
+        // líneas seguidas.
+        if (devices.length >= 2)
+          BloqueDeAjustes(
+            rotulo: strings.audioOutput,
+            hijos: [_AudioOutputPicker(devices: devices)],
           ),
-          const SizedBox(height: NexusSpacing.s6),
-          Text(
-            context.strings.elAcento,
-            style: NexusTypography.label.copyWith(color: colors.mute),
-          ),
-          const SizedBox(height: NexusSpacing.s2),
-          Text(
-            context.strings.elAcentoExplainer,
-            style: NexusTypography.nota.copyWith(color: colors.faint),
-          ),
-          const SizedBox(height: NexusSpacing.s3),
-          SettingsChooser<ElAcento>(
-            value: ref.watch(elAcentoProvider),
-            options: ElAcento.opciones,
-            label: (acento) =>
-                acento.variante ?? context.strings.elAcentoAutomatico,
-            onSelected: ref.read(elAcentoProvider.notifier).select,
-          ),
-          const SizedBox(height: NexusSpacing.s6),
-          // La llave. Aquí y no solo en el primer arranque, porque hasta ahora la
-          // pantalla de configuración prometía «puedes cambiar esto después en
-          // Ajustes» y **no había dónde**: una llave mal escrita solo se arreglaba
-          // tocando el llavero a mano. Y desde que la llave dejó de ser
-          // obligatoria para entrar, este es el sitio donde se enciende la voz.
-          const _GeminiKeyRow(),
-          const SizedBox(height: NexusSpacing.s6),
-          const _AudioOutputPicker(),
-          const SizedBox(height: NexusSpacing.s6),
-          // El micrófono se prueba aquí y no solo en el primer arranque: es donde
-          // se viene cuando algo no se oye, y hasta ahora esta sección solo
-          // dejaba cambiar la voz con la que Nexus habla, no comprobar la que
-          // escucha.
-          const MicrophoneTester(),
-        ],
-      ),
+        // El micrófono se prueba aquí y no solo en el primer arranque: es donde
+        // se viene cuando algo no se oye, y hasta ahora esta sección solo
+        // dejaba cambiar la voz con la que Nexus habla, no comprobar la que
+        // escucha.
+        BloqueDeAjustes(
+          rotulo: strings.microphone,
+          hijos: const [MicrophoneTester(), _LaLlaveDeVoz()],
+        ),
+      ],
     );
   }
 }
 
-/// La llave del servicio de voz: si hay una guardada, y cómo cambiarla.
+/// Dónde vive la llave de voz y, si falta, qué significa no tenerla.
 ///
-/// **No se enseña la llave guardada**, ni recortada. Enseñarla no sirve para
-/// nada —no se compara a ojo— y la deja en pantalla a la vista de cualquiera que
-/// pase por detrás, en la única pantalla que alguien abre cuando está enseñando
-/// la app. Lo único que hace falta saber es si hay una, y eso cabe en una
-/// palabra.
-class _GeminiKeyRow extends ConsumerStatefulWidget {
-  const _GeminiKeyRow();
+/// **No se enseña la llave guardada**, ni recortada: lo único que hace falta
+/// saber es si hay una. Con llave, basta la frase que dice dónde está; sin
+/// ella, se dice en ámbar lo que cuesta —la voz no se abre— y se ofrece el
+/// camino, porque quien viene aquí porque la voz no se abre tiene que salir
+/// sabiendo por qué.
+class _LaLlaveDeVoz extends ConsumerWidget {
+  const _LaLlaveDeVoz();
 
   @override
-  ConsumerState<_GeminiKeyRow> createState() => _GeminiKeyRowState();
-}
-
-class _GeminiKeyRowState extends ConsumerState<_GeminiKeyRow> {
-  final _controller = TextEditingController();
-  bool _guardando = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _guardar() async {
-    final llave = _controller.text.trim();
-    if (llave.isEmpty || _guardando) return;
-    setState(() => _guardando = true);
-    await ref.read(saveGeminiKeyProvider)(llave);
-    if (!mounted) return;
-    _controller.clear();
-    setState(() => _guardando = false);
-    // Para que la pantalla de salidas y la sesión de voz vean la nueva sin
-    // reiniciar: las dos leen del llavero por su cuenta.
-    ref.invalidate(geminiKeyStoreProvider);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
+  Widget build(BuildContext context, WidgetRef ref) {
     final strings = context.strings;
     final hay = ref.watch(hayLlaveDeGeminiProvider).value ?? false;
+    final ir = IrASeccionDeAjustes.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          strings.geminiKey,
-          style: NexusTypography.label.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s2),
-        Text(
-          hay ? strings.geminiKeySaved : strings.geminiKeyMissing,
-          style: NexusTypography.nota.copyWith(
-            color: hay ? colors.ok : colors.warn,
+        if (!hay) ...[
+          EstadoDeAjustes(
+            tono: TonoDeAjustes.atencion,
+            texto: strings.geminiKeyMissing,
           ),
-        ),
-        const SizedBox(height: NexusSpacing.s3),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                obscureText: true,
-                onSubmitted: (_) => _guardar(),
-                style: NexusTypography.mono.copyWith(color: colors.ink),
-                decoration: InputDecoration(hintText: strings.geminiKeyHint),
-              ),
-            ),
-            const SizedBox(width: NexusSpacing.s3),
-            OutlinedButton(
-              onPressed: _guardando ? null : _guardar,
-              child: Text(strings.geminiKeySave),
-            ),
-          ],
-        ),
+          const SizedBox(height: 9),
+        ],
+        TextoDeAjustes(strings.llaveDeVozEnLlaves),
+        if (!hay && ir != null) ...[
+          const SizedBox(height: 9),
+          BotonDeAjustes(
+            key: const ValueKey('ir-a-llaves'),
+            texto: strings.irALlaves,
+            tono: TonoDeBoton.principal,
+            onPulsar: () => ir(SeccionDeAjustes.llaves),
+          ),
+        ],
       ],
     );
   }
@@ -202,81 +154,35 @@ class _GeminiKeyRowState extends ConsumerState<_GeminiKeyRow> {
 
 /// Por dónde sale la voz de Nexus, cuando hay más de un aparato conectado.
 class _AudioOutputPicker extends ConsumerWidget {
-  const _AudioOutputPicker();
+  const _AudioOutputPicker({required this.devices});
+
+  final List<AudioDeviceOption> devices;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final strings = context.strings;
-    final devices = ref.watch(audioOutputDevicesProvider).value ?? const [];
-    // Con un solo aparato no hay nada que elegir; el desplegable sobra.
-    if (devices.length < 2) return const SizedBox.shrink();
-
     final selected = ref.watch(audioOutputControllerProvider);
     final options = <int?>[null, ...devices.map((device) => device.id)];
+    final delSistema = devices
+        .where((device) => device.isDefault)
+        .firstOrNull
+        ?.name;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          strings.audioOutput,
-          style: NexusTypography.label.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s2),
-        SettingsChooser<int?>(
-          value: options.contains(selected) ? selected : null,
-          options: options,
-          label: (id) {
-            if (id == null) return strings.audioOutputSystem;
-            return devices.firstWhere((device) => device.id == id).name;
-          },
-          // El que usa el sistema se marca, para que elegir «el del sistema» no
-          // sea elegir a ciegas.
-          detail: (id) => id == null
-              ? (devices
-                        .where((device) => device.isDefault)
-                        .firstOrNull
-                        ?.name ??
-                    '')
-              : '',
-          onSelected: ref.read(audioOutputControllerProvider.notifier).select,
-        ),
-        const SizedBox(height: NexusSpacing.s2),
-        Text(
-          strings.audioOutputExplainer,
-          style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
-        // 🔴 **Y va al final, no al principio.** Lo puse arriba —es lo
-        // único de aquí que decide si el micrófono está abierto cuando no le
-        // hablas— y empujó la llave de Gemini fuera de la pantalla: la
-        // prueba de la puerta de entrada dejó de poder escribirla. La llave
-        // es lo que hace que la voz exista; el oído es lo que se le añade
-        // encima, así que este es su sitio.
-        Text(
-          context.strings.elOidoExplainer(
-            ComoSeLeLlama.lasPalabras(
-              ref.watch(losNombresProvider).agente,
-            ).first,
-          ),
-          style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          value: ref.watch(elOidoEstaEncendidoProvider).value ?? false,
-          onChanged: (on) async {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setBool(ElOidoQueEspera.encendido, on);
-            ref.invalidate(elOidoEstaEncendidoProvider);
-            // Y se cuadra ya: encender un interruptor que no hace nada hasta
-            // reiniciar la app es un interruptor que no se cree nadie.
-            await ref.read(elOidoQueEsperaProvider).cuadrar();
-          },
-          title: Text(
-            context.strings.elOidoOn,
-            style: NexusTypography.body.copyWith(color: colors.ink),
-          ),
-        ),
-      ],
+    return ElegirDeAjustes<int?>(
+      llave: 'salida',
+      opciones: options,
+      elegida: options.contains(selected) ? selected : null,
+      // El que usa el sistema va en el nombre de la opción —«El del sistema ·
+      // AirPods Pro»—, para que elegirlo no sea elegir a ciegas.
+      nombre: (id) {
+        if (id == null) {
+          return delSistema == null
+              ? strings.audioOutputSystem
+              : '${strings.audioOutputSystem} · $delSistema';
+        }
+        return devices.firstWhere((device) => device.id == id).name;
+      },
+      onElegir: ref.read(audioOutputControllerProvider.notifier).select,
     );
   }
 }

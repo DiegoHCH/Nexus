@@ -91,18 +91,20 @@ void main() {
       findsNothing,
       reason: 'para el daemon sigue corriendo, y decirlo así sería mentir',
     );
-    // Y los pasos, que solo tienen sentido con la app detenida.
-    expect(find.byTooltip('Seguir'), findsOne);
-    expect(find.byTooltip('Siguiente línea'), findsOne);
+    // Y los pasos, que solo tienen sentido con la app detenida. **Escritos**:
+    // van debajo del nombre y ya no compiten con él por el ancho, así que
+    // dicen lo que hacen; el nombre largo se queda en el tooltip.
+    expect(find.text('Seguir'.toUpperCase()), findsOne);
+    expect(find.text('Siguiente línea'.toUpperCase()), findsOne);
     expect(find.byTooltip('Entrar en la llamada'), findsOne);
     expect(find.byTooltip('Salir de la función'), findsOne);
   });
 
-  // 🔴 **Y esta prueba encontró un desbordamiento de verdad.** La barra mide
-  // 380 px fijos —los mide para no bailar al cambiar el texto— y con los cuatro
-  // pasos puestos se pasaba **61 px**, que en la app es la franja amarilla de
-  // «RenderFlex overflowed». La respuesta no fue apretar los iconos: recargar
-  // con la app detenida no recarga nada, primero hay que soltarla.
+  // 🔴 **Y esta prueba encontró un desbordamiento de verdad.** Con los cuatro
+  // pasos puestos la barra se pasaba **61 px**, que en la app es la franja
+  // amarilla de «RenderFlex overflowed». La respuesta no fue apretar los
+  // botones: recargar con la app detenida no recarga nada, primero hay que
+  // soltarla. Ahora las acciones se parten en líneas, pero la regla se queda.
   //
   // Que esta prueba pase **es** el guardia: un desbordamiento de layout lanza
   // en las pruebas de widget, así que el día que la fila gane otro botón se
@@ -115,9 +117,9 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.byTooltip('Recargar'), findsNothing);
+    expect(find.text('Recargar'.toUpperCase()), findsNothing);
     expect(
-      find.byTooltip('Parar'),
+      find.text('Parar'.toUpperCase()),
       findsOne,
       reason: 'parar sí: es la salida de una app que no quieres soltar',
     );
@@ -131,8 +133,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('corriendo'), findsOne);
-    expect(find.byTooltip('Seguir'), findsNothing);
-    expect(find.byTooltip('Siguiente línea'), findsNothing);
+    expect(find.text('Seguir'.toUpperCase()), findsNothing);
+    expect(find.text('Siguiente línea'.toUpperCase()), findsNothing);
   });
 
   testWidgets('el freno se ofrece con la app arriba y se marca', (
@@ -141,7 +143,7 @@ void main() {
     await pumpScreen(tester, const HomePage(), overrides: _con(_corrida()));
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.byTooltip('Pararse en los errores'), findsOne);
+    expect(find.text('Pararse en los errores'.toUpperCase()), findsOne);
   });
 
   // Antes de `app.started` no hay isolates a los que ponerle nada, y una
@@ -166,6 +168,6 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.byTooltip('Pararse en los errores'), findsNothing);
+    expect(find.text('Pararse en los errores'.toUpperCase()), findsNothing);
   });
 }

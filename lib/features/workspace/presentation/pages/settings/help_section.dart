@@ -7,187 +7,120 @@ import 'package:nexus/core/diagnostico/registro_providers.dart';
 import 'package:nexus/features/onboarding/presentation/providers/tour_providers.dart';
 import 'package:nexus/features/updates/presentation/providers/updates_providers.dart';
 
-/// Ayuda: la guía en frío, el tour otra vez, y la versión con su actualización.
-
-/// Ayuda: por ahora, volver a ver el tour.
+/// Ayuda: la versión con su actualización, el registro y la guía en frío.
 ///
-/// Sección propia y no una fila colgada de otra porque es donde va a vivir la
-/// guía —el «qué necesita Nexus y qué hago con él» en frío—, y meterla ahora
-/// dentro de Apariencia obligaría a mudarla después.
+/// 🔴 **Tres bloques cortos, como el mockup, y la guía como índice.** Eran el
+/// tour, la versión, el registro y los cinco textos de la guía enteros, uno
+/// detrás de otro: la sección más larga de Ajustes con diferencia, y lo que se
+/// viene a buscar —qué versión hay, dónde está el registro— quedaba enterrado
+/// debajo de la prosa. Ahora la guía son cinco filas que se abren al pulsarlas.
 class HelpSection extends ConsumerWidget {
   const HelpSection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final strings = context.strings;
 
-    // Con su propio scroll: el cuerpo de una sección no lo trae, y esto es lo
-    // más largo de todos los ajustes — la guía no cabe en una pantalla y no
-    // debería tener que caber.
-    return ListView(
-      children: [
-        Text(
-          strings.helpTourTitle,
-          style: NexusTypography.label.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s2),
-        Text(
-          strings.helpTourExplainer,
-          style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s5),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: OutlinedButton(
-            onPressed: () {
-              ref.read(tourControllerProvider.notifier).replay();
-              Navigator.of(context).maybePop();
-            },
-            child: Text(strings.helpTourAction),
-          ),
-        ),
-        const SizedBox(height: NexusSpacing.s7),
-        Divider(color: colors.rule, height: 1),
-        const SizedBox(height: NexusSpacing.s6),
-
-        // La versión y, si hay una nueva, el enlace. Aquí y no en un diálogo:
+    return BloquesDeAjustes(
+      bloques: [
+        // La versión y, si hay una nueva, el aviso. Aquí y no en un diálogo:
         // un aviso modal por una actualización interrumpe justo a quien está
         // trabajando, y esto no es urgente — es información.
-        const _VersionRow(),
-        const SizedBox(height: NexusSpacing.s7),
-
+        const _LaVersion(),
         // El registro. Aquí y no en una pantalla propia: se busca el día que
         // algo falla, y ese día se busca en Ayuda.
-        const _RegistroRow(),
-        const SizedBox(height: NexusSpacing.s7),
-
+        const _ElRegistro(),
         // La guía en frío. Cinco bloques y en este orden: qué hace falta, qué
         // sale de tu Mac, qué hace cada pieza, para qué **no** es, y qué hacer
         // cuando algo falla.
         //
-        // El segundo va tan arriba a propósito: es lo único de aquí que **no se
-        // puede deducir mirando la app**, y decidirlo mal tiene consecuencias
-        // fuera de ella.
-        _GuideBlock(
-          title: strings.guideNeedsTitle,
-          body: strings.guideNeedsBody,
-        ),
-        _GuideBlock(
-          title: strings.guidePrivacyTitle,
-          body: strings.guidePrivacyBody,
-        ),
-        _GuideBlock(
-          title: strings.guidePiecesTitle,
-          body: strings.guidePiecesBody,
-        ),
-        // Justo después de qué hace cada pieza y antes de los fallos, porque es
-        // donde encaja leerlo: esto hace cada cosa, esto no lo hace ninguna,
-        // esto es lo que pasa cuando algo se rompe.
-        //
-        // Que exista es la mitad del valor. Una herramienta que se recomienda a
-        // sí misma para todo no se puede comprobar por dentro, así que decir en
-        // qué es peor que el terminal es lo que hace creíble el resto de esta
-        // guía — y quita de la demo la promesa que primero se cae.
-        _GuideBlock(
-          title: strings.guideNotForTitle,
-          body: strings.guideNotForBody,
-        ),
-        _GuideBlock(
-          title: strings.guideTroubleTitle,
-          body: strings.guideTroubleBody,
+        // El segundo va tan arriba a propósito: es lo único de aquí que **no
+        // se puede deducir mirando la app**, y decidirlo mal tiene
+        // consecuencias fuera de ella. Y el cuarto existe porque una
+        // herramienta que se recomienda a sí misma para todo no se puede
+        // comprobar por dentro: decir en qué es peor que el terminal es lo que
+        // hace creíble el resto.
+        BloqueDeAjustes(
+          rotulo: strings.guiaTitle,
+          hijos: [
+            _LaGuia(
+              apartados: [
+                (strings.guideNeedsTitle, strings.guideNeedsBody),
+                (strings.guidePrivacyTitle, strings.guidePrivacyBody),
+                (strings.guidePiecesTitle, strings.guidePiecesBody),
+                (strings.guideNotForTitle, strings.guideNotForBody),
+                (strings.guideTroubleTitle, strings.guideTroubleBody),
+              ],
+            ),
+          ],
         ),
       ],
     );
   }
 }
 
-/// La versión que corre y, si la hay, la que está publicada.
+/// La versión que corre y, si la hay, la que está publicada; y el tour.
 ///
 /// Ya descarga e instala: el motor es Sparkle y la modal es la de la app. Lo que
 /// **no** hace es reiniciarse por su cuenta —eso mataría un `claude -p` a media
 /// escritura—, así que el último paso siempre lo confirma quien está delante.
-class _VersionRow extends ConsumerWidget {
-  const _VersionRow();
+class _LaVersion extends ConsumerWidget {
+  const _LaVersion();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final strings = context.strings;
     final aviso = ref.watch(updatesControllerProvider).notice;
     final actual = aviso?.current ?? ref.watch(currentVersionProvider).value;
+    final hayNueva = aviso != null && aviso.isNewer;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          strings.versionLabel,
-          style: NexusTypography.label.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s2),
-        Text(
-          actual ?? '—',
-          style: NexusTypography.data.copyWith(color: colors.ink),
-        ),
-        const SizedBox(height: NexusSpacing.s3),
-        Align(
-          alignment: Alignment.centerLeft,
-          // Dos botones distintos y no uno que cambia de texto: «comprobar» es
-          // algo que se pulsa sin saber si hay nada, y «actualizar» solo aparece
-          // cuando ya se sabe que sí. Con un solo botón habría que decidir qué
-          // dice mientras no se sabe, y ahí es donde se acaba mintiendo.
-          // Un solo botón, y lo que cambia es lo que dice. Antes eran dos porque
-          // uno abría la modal y el otro preguntaba; ahora los dos hacen lo
-          // mismo —preguntar— y el aviso sale arriba a la derecha por su cuenta,
-          // incluso estando en esta pantalla.
-          child: OutlinedButton(
-            onPressed: ref
-                .read(updatesControllerProvider.notifier)
-                .comprobarAhora,
-            child: Text(
-              aviso != null && aviso.isNewer
-                  ? strings.updateAvailable(aviso.latest ?? '')
-                  : strings.updateCheckNow,
+    return BloqueDeAjustes(
+      rotulo: strings.versionLabel,
+      hijos: [
+        // En verde solo si se sabe que está al día: sin haber preguntado, la
+        // versión va sola y con el punto apagado, porque «al día» sería una
+        // suposición.
+        EstadoDeAjustes(
+          tono: hayNueva
+              ? TonoDeAjustes.atencion
+              : aviso == null
+              ? TonoDeAjustes.apagado
+              : TonoDeAjustes.bien,
+          texto: switch (actual) {
+            null => '—',
+            final version when hayNueva => strings.helpVersionConNueva(
+              version,
+              aviso.latest ?? '',
             ),
-          ),
+            final version when aviso != null => strings.helpVersionAlDia(
+              version,
+            ),
+            final version => strings.helpVersion(version),
+          },
+        ),
+        AccionesDeAjustes(
+          botones: [
+            // Un solo botón para preguntar: el aviso de que hay una nueva sale
+            // arriba a la derecha por su cuenta, incluso estando aquí.
+            BotonDeAjustes(
+              texto: strings.updateCheckNow,
+              tono: TonoDeBoton.principal,
+              onPulsar: ref
+                  .read(updatesControllerProvider.notifier)
+                  .comprobarAhora,
+            ),
+            // El tour, junto a la versión como en el mockup: los dos son «qué
+            // es esto que tengo delante».
+            BotonDeAjustes(
+              texto: strings.helpTourAction,
+              onPulsar: () {
+                ref.read(tourControllerProvider.notifier).replay();
+                Navigator.of(context).maybePop();
+              },
+            ),
+          ],
         ),
       ],
-    );
-  }
-}
-
-/// Un bloque de la guía: un título y su texto.
-///
-/// El cuerpo llega como un solo texto con saltos dobles y se parte aquí. Es a
-/// propósito: un bloque por párrafo multiplicaría por cuatro los textos que hay
-/// que traducir sin añadir nada, y lo que se traduce es prosa, no maquetación.
-class _GuideBlock extends StatelessWidget {
-  const _GuideBlock({required this.title, required this.body});
-
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: NexusSpacing.s7),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: NexusTypography.lead.copyWith(color: colors.ink)),
-          const SizedBox(height: NexusSpacing.s4),
-          for (final parrafo in body.split('\n\n'))
-            Padding(
-              padding: const EdgeInsets.only(bottom: NexusSpacing.s3),
-              child: Text(
-                parrafo,
-                style: NexusTypography.body.copyWith(color: colors.mute),
-              ),
-            ),
-        ],
-      ),
     );
   }
 }
@@ -197,44 +130,86 @@ class _GuideBlock extends StatelessWidget {
 /// La ruta se enseña entera y no se esconde detrás del botón: quien vaya a
 /// pedir ayuda con esto necesita poder copiarla, y quien no tenga Finder a mano
 /// —una sesión por SSH, un `tail -f`— necesita saber dónde mirar.
-class _RegistroRow extends ConsumerWidget {
-  const _RegistroRow();
+class _ElRegistro extends ConsumerWidget {
+  const _ElRegistro();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final strings = context.strings;
-    final ruta = ref.watch(rutaDelRegistroProvider);
+    final ruta = ref.watch(rutaDelRegistroProvider).value;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          strings.logTitle,
-          style: NexusTypography.label.copyWith(color: colors.faint),
+    return BloqueDeAjustes(
+      rotulo: strings.logTitle,
+      hijos: [
+        CampoDeAjustes(ruta, vacio: strings.logMissing),
+        AccionesDeAjustes(
+          botones: [
+            BotonDeAjustes(
+              texto: strings.logAction,
+              tono: TonoDeBoton.principal,
+              // Sin ruta no hay nada que enseñar, y un botón que no hace nada
+              // es peor que uno apagado.
+              onPulsar: ruta == null ? null : () => SystemFiles.revelar(ruta),
+            ),
+          ],
         ),
-        const SizedBox(height: NexusSpacing.s2),
-        Text(
-          strings.logExplainer,
-          style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s4),
-        SelectableText(
-          ruta.value ?? strings.logMissing,
-          style: NexusTypography.mono.copyWith(color: colors.mute),
-        ),
-        const SizedBox(height: NexusSpacing.s4),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: OutlinedButton(
-            // Sin ruta no hay nada que enseñar, y un botón que no hace nada es
-            // peor que uno apagado.
-            onPressed: ruta.value == null
-                ? null
-                : () => SystemFiles.revelar(ruta.value!),
-            child: Text(strings.logAction),
+      ],
+    );
+  }
+}
+
+/// La guía como filas que se abren: el título se ve siempre y el texto al
+/// pulsarlo.
+///
+/// El cuerpo llega como un solo texto con saltos dobles y se parte aquí. Es a
+/// propósito: un bloque por párrafo multiplicaría por cuatro los textos que hay
+/// que traducir sin añadir nada, y lo que se traduce es prosa, no maquetación.
+class _LaGuia extends StatefulWidget {
+  const _LaGuia({required this.apartados});
+
+  final List<(String, String)> apartados;
+
+  @override
+  State<_LaGuia> createState() => _LaGuiaState();
+}
+
+class _LaGuiaState extends State<_LaGuia> {
+  /// Cuál está abierto. Uno a la vez: dos textos largos abiertos a la vez son
+  /// la pared de prosa que esto venía a quitar.
+  int? _abierto;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilasDeAjustes(
+      filas: [
+        for (final (i, (titulo, cuerpo)) in widget.apartados.indexed)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FilaDeAjustes(
+                tono: _abierto == i
+                    ? TonoDeAjustes.activo
+                    : TonoDeAjustes.apagado,
+                titulo: titulo,
+                onPulsar: () =>
+                    setState(() => _abierto = _abierto == i ? null : i),
+              ),
+              if (_abierto == i)
+                Padding(
+                  padding: const EdgeInsets.only(left: 24, bottom: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final parrafo in cuerpo.split('\n\n'))
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 9),
+                          child: TextoDeAjustes(parrafo),
+                        ),
+                    ],
+                  ),
+                ),
+            ],
           ),
-        ),
       ],
     );
   }

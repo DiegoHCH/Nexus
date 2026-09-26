@@ -121,7 +121,7 @@ void main() {
       viva: false,
       fallo: false,
     );
-    expect(html, isNot(contains('salida')));
+    expect(html, isNot(contains('class="salida"')));
   });
 
   test('autocontenida: nada de fuera', () {
@@ -162,7 +162,7 @@ void main() {
       expect(html, contains('Corriendo'));
       // El giro es CSS: la página no lleva una línea de JavaScript, así que no
       // hay estado que sincronizar entre ella y la app.
-      expect(html, contains('class="gira"'));
+      expect(html, contains('class="reactor vivo"'));
       expect(html, isNot(contains('<script')));
     });
 
@@ -170,7 +170,7 @@ void main() {
       final html = pagina(viva: false, fallo: false);
       expect(html, contains('chapa bien'));
       expect(html, contains('Finalizada'));
-      expect(html, isNot(contains('class="gira"')));
+      expect(html, isNot(contains('reactor vivo')));
     });
 
     test('fallada dice Error, no «terminada»', () {
@@ -206,7 +206,7 @@ void main() {
       fallo: false,
     );
     expect(html, contains('li class="curso"'));
-    expect(html, contains('li.curso{background'));
+    expect(html, contains('li.curso{color:var(--accent);background'));
   });
 
   test('el detalle indentado de un paso se enseña con él', () {
@@ -230,30 +230,35 @@ void main() {
     expect(html, contains('title="línea 34"'));
   });
 
-  test('el indicador de un paso es un círculo, no una astilla', () {
-    // A un `span` inline no se le aplican `width` ni `height`: sin
-    // `inline-block`, el círculo del paso en curso se veía como una barra
-    // vertical. En la etiqueta de arriba salía bien porque allí es hijo de un
-    // `inline-flex`, así que el fallo solo aparecía en la lista.
+  // «La pasada, con el reactor»: el orbe trabajando mientras corre, con un
+  // segmento por paso, encendidos los que ya pasaron. El mismo de la sala.
+  test('el orbe cuenta un segmento por paso, encendidos los hechos', () {
     final html = LaPasadaComoHtml.escribe(
       flow: 'login',
       pasos: _pasos(
-        [PasoDelFlow(linea: 1, texto: 'uno')],
-        [EstadoDePaso.enCurso],
+        [
+          PasoDelFlow(linea: 1, texto: 'uno'),
+          PasoDelFlow(linea: 2, texto: 'dos'),
+          PasoDelFlow(linea: 3, texto: 'tres'),
+        ],
+        [EstadoDePaso.hecho, EstadoDePaso.enCurso],
       ),
       lineas: const [],
-      terminados: 0,
+      terminados: 1,
       viva: true,
       fallo: false,
     );
 
-    expect(html, contains('.gira{display:inline-block'));
+    expect('class="seg'.allMatches(html), hasLength(3));
+    expect('class="seg on"'.allMatches(html), hasLength(1));
   });
 
-  test('el paso actual se marca con el fondo y la letra no se apaga', () {
-    // Un gris sobre el fondo oscuro de la ventana cae en el mismo rango de tono
-    // que el resto: no se distinguía dónde iba la prueba. La señal es el fondo
-    // con acento, y el texto se queda en tinta plena en todos los estados.
+  test('el paso actual va en el acento y con fondo; lo que espera, tenue', () {
+    // Un gris sobre el fondo oscuro de la ventana caía en el mismo rango de
+    // tono que el resto y no se distinguía dónde iba la prueba. El mockup lo
+    // resuelve con el acento en la letra **y** de fondo en el que va, tinta en
+    // lo hecho y tenue en lo que espera: el orden de lectura es el de la
+    // pasada.
     final html = LaPasadaComoHtml.escribe(
       flow: 'login',
       pasos: _pasos(
@@ -266,16 +271,38 @@ void main() {
       fallo: false,
     );
 
-    expect(
-      html,
-      contains('li.curso{background:color-mix(in srgb,var(--acento)'),
-    );
     expect(
       html,
       contains(
-        '.texto{white-space:pre-wrap;word-break:break-word;color:var(--ink)}',
+        'li.curso{color:var(--accent);background:color-mix(in srgb,var(--accent)',
       ),
     );
-    expect(html, isNot(contains('.texto{color:var(--faint)}')));
+    expect(html, contains('li.hecho{color:var(--ink)}'));
+  });
+
+  test('las capturas van al lado, con el pie de la última', () {
+    final html = LaPasadaComoHtml.escribe(
+      flow: 'login',
+      pasos: _pasos(
+        [
+          PasoDelFlow(linea: 1, texto: 'Take screenshot uno'),
+          PasoDelFlow(linea: 2, texto: 'Take screenshot dos'),
+          PasoDelFlow(linea: 3, texto: 'Take screenshot tres'),
+        ],
+        [EstadoDePaso.hecho, EstadoDePaso.hecho, EstadoDePaso.hecho],
+      ),
+      lineas: const [],
+      terminados: 3,
+      viva: false,
+      fallo: false,
+      capturas: const {'uno': 'a.png', 'dos': 'b.png', 'tres': 'c.png'},
+    );
+
+    // Las dos últimas: una tira de veinte empujaría la lista fuera de la
+    // vista.
+    expect(html, isNot(contains('src="a.png"')));
+    expect(html, contains('src="b.png"'));
+    expect(html, contains('src="c.png"'));
+    expect(html, contains(TextosDeLaPasada.es.captura('tres', 3)));
   });
 }

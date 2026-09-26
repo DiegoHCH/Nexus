@@ -21,8 +21,10 @@ class Gauge extends StatelessWidget {
   final String label;
   final int percent;
 
-  /// Lo que se escribe a la derecha. Sin él va el porcentaje solo, que es lo
-  /// que basta para una cuota; el contexto necesita las tres cifras.
+  /// Lo que se escribe **debajo del nombre**, en su propia fila. Sin él va el
+  /// porcentaje solo, a la derecha del nombre: es lo que basta para una
+  /// cuota. Con él, el medidor se apila —ver el comentario de `build`—,
+  /// porque lo que llega aquí es largo: las cifras de tokens o un «sin dato».
   final String? value;
 
   final String? note;
@@ -31,6 +33,67 @@ class Gauge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final pasado = percent >= warnAt;
+    final barra = LinearProgressIndicator(
+      value: percent / 100,
+      minHeight: 3,
+      backgroundColor: colors.rule,
+      color: pasado ? colors.warn : colors.accent,
+    );
+
+    // **Con solo el porcentaje, en una fila**: el nombre a la izquierda y la
+    // cifra a la derecha, como la `.medida` del mockup. «Límite de 5 horas ·
+    // 48 %» cabe de sobra en 300 px, y apilarlo gastaba una línea por barra
+    // para decir lo mismo.
+    //
+    // La cifra en la letra del instrumento y con cifras tabulares: es lo que
+    // se lee primero, y al cambiar de 9 a 10 % no baila. Toma el color de la
+    // barra al pasar el umbral, porque una barra ámbar con el número en gris
+    // se mira dos veces.
+    if (value == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: NexusTypography.nota.copyWith(color: colors.ink),
+                ),
+              ),
+              const SizedBox(width: NexusSpacing.s3),
+              Text(
+                '$percent %',
+                style: NexusTypography.control.copyWith(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  fontVariations: const [FontVariation('wght', 500)],
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  color: pasado ? colors.warn : colors.ink,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: NexusSpacing.s1),
+          barra,
+          if (note case final texto?) ...[
+            const SizedBox(height: 3),
+            Text(
+              texto,
+              style: NexusTypography.nota.copyWith(
+                fontSize: 11.5,
+                color: colors.mute,
+              ),
+            ),
+          ],
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,21 +114,18 @@ class Gauge extends StatelessWidget {
           style: NexusTypography.control.copyWith(color: colors.mute),
         ),
         const SizedBox(height: 2),
+        // La cifra toma el color de la barra al pasar el umbral: es lo que se
+        // lee primero, y una barra ámbar con el número en gris se mira dos
+        // veces.
         Text(
           value ?? '$percent %',
           overflow: TextOverflow.ellipsis,
-          style: NexusTypography.data.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(2),
-          child: LinearProgressIndicator(
-            value: percent / 100,
-            minHeight: 3,
-            backgroundColor: colors.rule,
-            color: percent >= warnAt ? colors.warn : colors.accent,
+          style: NexusTypography.data.copyWith(
+            color: percent >= warnAt ? colors.warn : colors.faint,
           ),
         ),
+        const SizedBox(height: 4),
+        barra,
         if (note case final texto?) ...[
           const SizedBox(height: 3),
           Text(

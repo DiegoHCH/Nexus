@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_diff_como_html.dart';
+import 'package:nexus/features/assistant/presentation/providers/el_visor_de_cambios.dart';
 import 'package:nexus/features/workspace/data/datasources/git_data_source.dart';
 
 /// Cuánto se ve alrededor de un cambio.
@@ -39,33 +41,38 @@ void main() {
 
   group('el panel ofrece los tres alcances', () {
     test('cada grupo es una entrada de la navegación', () {
-      final html = ElDiffComoHtml.deGrupos([
-        (
+      final html = ElDiffComoHtml.deGrupos(const [
+        GrupoDelDiff(
           titulo: 'Este encargo',
           diff: 'diff --git a/a.dart b/a.dart\n@@ -1,1 +1,1 @@\n-x\n+y\n',
-          nuevos: const <String>[],
         ),
-        (
+        GrupoDelDiff(
           titulo: 'Con el archivo entero',
           diff: 'diff --git a/a.dart b/a.dart\n@@ -1,9 +1,9 @@\n-x\n+y\n',
-          nuevos: const <String>[],
         ),
-        (
+        GrupoDelDiff(
           titulo: 'Todo lo no comiteado',
           diff: 'diff --git a/b.dart b/b.dart\n@@ -1,1 +1,1 @@\n-p\n+q\n',
-          nuevos: const <String>[],
+          nota: 'Incluye lo de antes.',
         ),
-      ]);
+      ], textos: textosDelDiff(const NexusStringsEs(), titulo: 'Cambios'));
 
       expect(html, contains('Este encargo'));
       expect(html, contains('Con el archivo entero'));
       expect(html, contains('Todo lo no comiteado'));
       // Numerados de corrido: es una sola navegación, no tres páginas.
       expect(html, contains('<section id="f2">'));
+      // Con su cuenta al lado, y la nota del tercero: avisa de que incluye lo
+      // de antes de esta tarea.
+      expect(html, contains('Todo lo no comiteado<span>1</span>'));
+      expect(html, contains('<p class="b-p nota">Incluye lo de antes.</p>'));
     });
 
     test('sin grupos no revienta, y lo dice', () {
-      final html = ElDiffComoHtml.deGrupos(const []);
+      final html = ElDiffComoHtml.deGrupos(
+        const [],
+        textos: textosDelDiff(const NexusStringsEs(), titulo: 'Cambios'),
+      );
       expect(html, contains('no dejó ningún cambio'));
     });
   });

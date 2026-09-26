@@ -4,7 +4,9 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/core/design_system/design_system.dart';
+import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
 import 'package:nexus/features/assistant/presentation/pages/home_page.dart';
+import 'package:nexus/features/onboarding/presentation/widgets/tour_overlay.dart';
 import 'package:nexus/features/onboarding/presentation/providers/tour_providers.dart';
 import 'package:nexus/features/onboarding/presentation/state/tour_state.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
@@ -76,10 +78,53 @@ void main() {
       final container = await abrirCasa(tester);
       final total = container.read(tourControllerProvider).total;
 
-      expect(find.text('paso 1 de $total'), findsOne);
+      expect(find.text('PASO 1 DE $total'), findsOne);
       expect(find.textContaining('Háblale'), findsOne);
-      expect(find.text('Siguiente'), findsOne);
-      expect(find.text('Saltar el tour'), findsOne);
+      expect(find.text('SIGUIENTE'), findsOne);
+      expect(find.text('SALTAR EL TOUR'), findsOne);
+    });
+
+    // La primera parada presenta el orbe **por cómo se mueve**: lo que luego
+    // hay que saber leer. Como en el mockup, lo cuenta la frase —partículas
+    // al oírte, reactor al trabajar— con el orbe de verdad al lado, y no una
+    // tira de orbes pequeños que doblaba el alto de la tarjeta.
+    testWidgets('la primera parada cuenta cómo se mueve el orbe', (
+      tester,
+    ) async {
+      await abrirCasa(tester);
+
+      expect(find.textContaining('partículas'), findsOne);
+      expect(find.textContaining('reactor'), findsOne);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('tour-card')),
+          matching: find.byType(NexusOrb),
+        ),
+        findsNothing,
+      );
+    });
+
+    // El `.pop` del mockup va **al lado** del orbe, y el orbe se señala con un
+    // aro y no con la caja que ocupa: esa caja es media pantalla, y la tarjeta
+    // acababa encima de él, tapando lo que presentaba.
+    testWidgets('y la tarjeta se pone al lado del orbe, sin taparlo', (
+      tester,
+    ) async {
+      final container = await abrirCasa(tester);
+      final caja = tourRectOf(
+        container.read(tourAnchorsProvider),
+        TourStop.orb,
+      )!;
+      final aro = focoDelOrbe(caja);
+      final tarjeta = tester.getRect(find.byKey(const ValueKey('tour-card')));
+
+      expect(tarjeta.left, greaterThan(aro.right));
+      expect(
+        tarjeta.top < aro.bottom && tarjeta.bottom > aro.top,
+        isTrue,
+        reason: 'al lado, a su altura; no debajo ni al pie de la ventana',
+      );
+      expect(aro.width, lessThan(caja.height), reason: 'el aro, no la caja');
     });
 
     testWidgets('«Siguiente» avanza, y el último dice «Entendido»', (
@@ -89,16 +134,16 @@ void main() {
       final total = container.read(tourControllerProvider).total;
 
       for (var paso = 1; paso < total; paso++) {
-        expect(find.text('paso $paso de $total'), findsOne);
-        await tester.tap(find.text('Siguiente'));
+        expect(find.text('PASO $paso DE $total'), findsOne);
+        await tester.tap(find.text('SIGUIENTE'));
         await tester.pump(const Duration(milliseconds: 50));
       }
 
-      expect(find.text('paso $total de $total'), findsOne);
-      expect(find.text('Entendido'), findsOne);
-      expect(find.text('Siguiente'), findsNothing);
+      expect(find.text('PASO $total DE $total'), findsOne);
+      expect(find.text('ENTENDIDO'), findsOne);
+      expect(find.text('SIGUIENTE'), findsNothing);
 
-      await tester.tap(find.text('Entendido'));
+      await tester.tap(find.text('ENTENDIDO'));
       await tester.pump(const Duration(milliseconds: 50));
       expect(container.read(tourControllerProvider).running, isFalse);
     });
@@ -121,7 +166,7 @@ void main() {
       // Quien lo salta no quiere verlo: volver a enseñarlo mañana es ignorar lo
       // que acaba de decir.
       final container = await abrirCasa(tester);
-      await tester.tap(find.text('Saltar el tour'));
+      await tester.tap(find.text('SALTAR EL TOUR'));
       await tester.pump(const Duration(milliseconds: 50));
 
       expect(container.read(tourControllerProvider).running, isFalse);
@@ -196,7 +241,7 @@ void main() {
         TourStop.orb,
         reason: 'empieza otra vez por el principio',
       );
-      expect(find.text('paso 1 de 4'), findsOne);
+      expect(find.text('PASO 1 DE 4'), findsOne);
     });
 
     test('y se olvida la marca de disco, no solo la de esta sesión', () async {

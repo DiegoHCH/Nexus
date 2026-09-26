@@ -41,6 +41,13 @@ class DispositivosMenu extends ConsumerWidget {
     return PopupMenuButton<void>(
       color: colors.deep,
       tooltip: '',
+      // El panel del mockup, igual que el de correr: filo `rule2` y 3 px de
+      // esquina, sin la sombra negra de Material.
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(NexusRadius.md),
+        side: BorderSide(color: colors.rule2),
+      ),
       // Igual que el de correr: sin `constraints`, Material recorta cualquier
       // ancho a 280. El desborde de 9 px que apretó estos botones era contra ese
       // límite y no contra los 360 que este panel creía tener.
@@ -54,11 +61,12 @@ class DispositivosMenu extends ConsumerWidget {
       itemBuilder: (context) => [
         PopupMenuItem<void>(
           enabled: false,
-          child: SizedBox(
-            // 420, y ahora de verdad: el ancho lo fija `constraints` arriba, y
-            // esto solo tiene que coincidir con él.
-            width: 420,
-            child: const DispositivosPanel(compacto: true),
+          // Los 16 del mockup a cada lado, contados dentro de los 420: el
+          // relleno de fábrica del elemento no se descuenta del ancho.
+          padding: const EdgeInsets.all(16),
+          child: const SizedBox(
+            width: 420 - 2 * 16,
+            child: DispositivosPanel(compacto: true),
           ),
         ),
       ],

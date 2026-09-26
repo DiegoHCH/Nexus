@@ -10,6 +10,7 @@ import 'package:nexus/features/onboarding/presentation/pages/initial_setup_page.
 import 'package:nexus/features/onboarding/presentation/state/onboarding_state.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings_page.dart';
+import 'package:nexus/features/workspace/presentation/providers/las_llaves_guardadas.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
 import 'support/screen_harness.dart';
@@ -111,8 +112,10 @@ void main() {
     setUp(() => support = prepareScreenTest());
     tearDown(() => support.deleteSync(recursive: true));
 
-    // La pantalla se desplaza —en 1280×800 sobran unos 500 píxeles— y eso está
-    // bien; lo que no puede ser es que no se note. La barra del sistema no lo
+    // La pantalla se desplaza cuando la ventana es baja, y eso está bien; lo que
+    // no puede ser es que no se note. Con el orbe a la izquierda los tres pasos
+    // caben en 1280×800, así que se mira en una ventana baja —la que queda con
+    // el texto del sistema agrandado, o partida en media pantalla—. La barra del sistema no lo
     // resuelve: en macOS se pinta al desplazar y desaparece sola, o sea que
     // aparece cuando ya sabes que hay más.
     testWidgets('no se anuncia con una barra', (tester) async {
@@ -125,7 +128,11 @@ void main() {
     testWidgets('se anuncia con una flecha, y solo mientras haga falta', (
       tester,
     ) async {
-      await pumpScreen(tester, const InitialSetupPage());
+      await pumpScreen(
+        tester,
+        const InitialSetupPage(),
+        size: const Size(1024, 480),
+      );
       await tester.pump(const Duration(milliseconds: 200));
 
       final flecha = find.byIcon(Icons.keyboard_arrow_down);
@@ -178,6 +185,14 @@ void main() {
         const SettingsPage(),
         overrides: [
           geminiKeyStoreProvider.overrideWithValue(llavero),
+          // El inventario de «Llaves», fijo: leerlo de verdad pasa por las
+          // cuentas de Claude del disco y por el llavero de cada feature, y lo
+          // que aquí se prueba es la llave de voz, no el inventario.
+          lasLlavesGuardadasProvider.overrideWith(
+            (ref) async => const [
+              LlaveEnElLlavero(cual: LlaveDeNexus.voz, hay: false),
+            ],
+          ),
           workspaceControllerProvider.overrideWith(
             // En solo texto a propósito: con la carpeta en voz, su interruptor
             // dice «VOZ» y choca con la pestaña de la sección, que dice lo
@@ -190,14 +205,32 @@ void main() {
         ],
       );
 
-      await tester.tap(find.text(es.sectionVoice.toUpperCase()));
+      // En Voz se dice que falta, y qué significa no tenerla.
+      await tester.tap(find.byKey(const ValueKey('seccion-voice')));
       await tester.pump(const Duration(milliseconds: 100));
-
-      // Sin llave se dice, y se dice qué significa no tenerla.
       expect(find.text(es.geminiKeyMissing), findsOneWidget);
 
+      // Y el enlace lleva a «Llaves», que es donde se ponen todas desde que
+      // dejaron de estar repartidas entre Voz e Imágenes. Se desplaza antes:
+      // la voz rueda y el enlace puede quedar por debajo del borde.
+      //
+      // Y se desplaza **después** de que la sección termine de montarse: el
+      // enlace va al final, debajo de la prueba del micrófono, y el trazo
+      // aparece en cuanto llega el permiso —un `Future`—. Desplazarse antes
+      // dejaba el enlace fuera del borde en cuanto el trazo lo empujaba.
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.ensureVisible(find.byKey(const ValueKey('ir-a-llaves')));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('ir-a-llaves')));
+      await tester.pump(const Duration(milliseconds: 100));
+      // Otro fotograma: el inventario llega en un `Future`, y el que monta la
+      // sección es el que lo pide.
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('poner-voz-')));
+      await tester.pump(const Duration(milliseconds: 100));
+
       await tester.enterText(find.byType(TextField).last, 'la-llave-nueva');
-      await tester.tap(find.text(es.geminiKeySave));
+      await tester.tap(find.text(es.geminiKeySave.toUpperCase()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 

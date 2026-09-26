@@ -66,47 +66,41 @@ class _MicrophoneTesterState extends ConsumerState<MicrophoneTester> {
     final strings = context.strings;
     final granted = _granted;
 
+    // Con la gramática de Ajustes: el estado con su punto —verde si llega,
+    // ámbar si no— y el trazo en su caja. El rótulo «Micrófono» lo pone el
+    // bloque que lo contiene; aquí iba repetido en la misma línea que el
+    // estado, en mayúsculas, y se leían como dos rótulos seguidos.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              strings.microphone,
-              style: NexusTypography.label.copyWith(color: colors.faint),
-            ),
-            const SizedBox(width: NexusSpacing.s3),
-            Text(
-              switch (granted) {
-                null => '…',
-                true => strings.micGranted,
-                false => strings.micDenied,
-              },
-              style: NexusTypography.label.copyWith(
-                color: granted == true ? colors.ok : colors.warn,
-              ),
-            ),
-          ],
+        EstadoDeAjustes(
+          tono: switch (granted) {
+            null => TonoDeAjustes.apagado,
+            true => TonoDeAjustes.bien,
+            false => TonoDeAjustes.atencion,
+          },
+          texto: switch (granted) {
+            null => '…',
+            true => strings.micConcedidoYPrueba,
+            false => strings.micDeniedExplainer,
+          },
         ),
-        const SizedBox(height: NexusSpacing.s2),
-        Text(
-          granted == false
-              ? strings.micDeniedExplainer
-              : strings.micGrantedExplainer,
-          style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s4),
-        if (granted == true)
-          SizedBox(
-            height: 48,
-            child: CustomPaint(
-              painter: _TracePainter(
-                amplitude: _amplitude,
-                color: colors.accent,
+        if (granted == true) ...[
+          const SizedBox(height: 9),
+          CajaDeAjustes(
+            padding: 0,
+            child: SizedBox(
+              height: 46,
+              child: CustomPaint(
+                painter: _TracePainter(
+                  amplitude: _amplitude,
+                  color: colors.accent,
+                ),
+                child: const SizedBox.expand(),
               ),
-              child: const SizedBox.expand(),
             ),
           ),
+        ],
       ],
     );
   }

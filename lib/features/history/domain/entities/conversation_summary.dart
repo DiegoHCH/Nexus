@@ -25,6 +25,9 @@ class ConversationSummary {
     this.sourcePath,
     this.model,
     this.contextTokens,
+    this.loUltimoQuePediste,
+    this.loUltimoQueDijo,
+    this.documentos = const [],
   }) : usadaEn = usadaEn ?? startedAt;
 
   final String id;
@@ -59,6 +62,9 @@ class ConversationSummary {
     sourcePath: sourcePath,
     model: model,
     contextTokens: contextTokens,
+    loUltimoQuePediste: loUltimoQuePediste,
+    loUltimoQueDijo: loUltimoQueDijo,
+    documentos: documentos,
   );
 
   /// Ya resuelto, no deducido al vuelo. Quien escribe la ficha tiene los
@@ -80,6 +86,29 @@ class ConversationSummary {
 
   final String? model;
   final int? contextTokens;
+
+  /// Lo último que se le pidió y lo último que contestó, **recortado**.
+  ///
+  /// Van en la ficha y no se leen al abrir porque el historial busca también
+  /// por lo que se habló, no solo por el título: «la de las pantallas de
+  /// CRED-310» casi nunca es el título, es lo que se dijo dentro. Buscar abriendo
+  /// cada conversación sería devolver el coste que el índice vino a quitar; con
+  /// esto buscar cuesta lo que ya costaba listar, y la vista previa sale sin
+  /// tocar el disco.
+  ///
+  /// `null` en las fichas de antes —y en las del vault, que no lo escriben—: ahí
+  /// la vista previa lee la conversación entera, que es lo único honesto.
+  final String? loUltimoQuePediste;
+  final String? loUltimoQueDijo;
+
+  /// Las rutas de los documentos que salieron de esta conversación, en el orden
+  /// en que salieron.
+  ///
+  /// Es **el origen de cada documento**: la lista de documentos agrupa por aquí.
+  /// El dato ya se guardaba —cada turno lleva su `documento`—, pero dentro del
+  /// JSON de la conversación; aquí se sube a la ficha para que agrupar la
+  /// carpeta entera no obligue a abrir todas las conversaciones.
+  final List<String> documentos;
 
   /// El nombre de la carpeta, que es como se llama el proyecto en todos lados.
   String get projectName => projectNameOf(folderPath);

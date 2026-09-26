@@ -24,6 +24,27 @@ class LineaDeLaVentana {
   final String? etiqueta;
 }
 
+/// Un enlace de la página que la app sabe atender: una opción del filtro o
+/// una acción.
+///
+/// La página no lleva JavaScript, así que **todo lo que se pulsa es un
+/// `nexus://registro/<ruta>`** que el visor reenvía. Ver [LoQuePideLaPagina].
+class EnlaceDelRegistro {
+  const EnlaceDelRegistro({
+    required this.texto,
+    required this.ruta,
+    this.marcado = false,
+  });
+
+  final String texto;
+
+  /// Lo que va detrás de `nexus://registro/`: `nivel/aviso`, `copiar/…`.
+  final String ruta;
+
+  /// En una opción, que es la elegida; en una acción, que es la que toca.
+  final bool marcado;
+}
+
 /// Los textos de la página, que vienen de fuera.
 ///
 /// **Se reciben en vez de escribirse aquí**: el idioma se elige en Ajustes y
@@ -34,8 +55,9 @@ class TextosDelRegistro {
     required this.titulo,
     required this.dispositivo,
     required this.vacio,
-    this.nivel,
+    this.niveles = const [],
     this.escucha,
+    this.acciones = const [],
   });
 
   final String titulo;
@@ -45,15 +67,20 @@ class TextosDelRegistro {
   final String dispositivo;
 
   /// Qué poner cuando todavía no ha llegado nada. Un hueco negro se lee como
-  /// roto, y lo que pasa es que aún no ha escrito nadie.
+  /// roto, y lo que pasa es que aún no ha escrito nadie: esto dice qué pasa y
+  /// qué hacer.
   final String vacio;
 
-  /// El rótulo del botón de nivel, ya resuelto —«desde avisos», «solo
-  /// errores»—. Nulo en el registro de la corrida, que no filtra.
-  final String? nivel;
+  /// Las opciones del filtro de nivel, **las cuatro a la vista** y la elegida
+  /// marcada. Vacío en el registro de la corrida, que no filtra.
+  final List<EnlaceDelRegistro> niveles;
 
   /// El del botón de escuchar o dejar de escuchar.
   final String? escucha;
+
+  /// Lo que se puede hacer con lo que se lee: pasarle el error a Claude,
+  /// copiarlo. La marcada es la que toca, y va primero.
+  final List<EnlaceDelRegistro> acciones;
 }
 
 /// El registro de una corrida, escrito como una página.
@@ -69,12 +96,17 @@ class TextosDelRegistro {
 /// hace falta mientras algo compila: una ventana movible, que se deja al lado,
 /// que se actualiza sola y que **no bloquea la app**.
 ///
+/// **La forma es la del mockup**, en una sola columna: la cabecera con de qué
+/// es, el filtro de nivel como **cuatro opciones con nombre** —era un único
+/// chip que cambiaba de texto al pulsarlo, y para llegar a «solo errores» había
+/// que adivinar cuántas veces—, el rollo en su caja, y debajo lo que se puede
+/// hacer con él: «Pasarle el error a Claude» también aquí, donde se lee el
+/// error.
+///
 /// **Sin una línea de JavaScript**, como sus dos hermanas. Ni siquiera para lo
 /// único que aquí se echaría de menos —quedarse abajo, como una terminal—: eso
 /// sale de un `column-reverse`, donde el principio del rollo es el final del
-/// registro y el desplazamiento en reposo es justo el que se quiere. Con
-/// JavaScript habría además que sincronizarlo tras cada recarga, que es estado
-/// duplicado para conseguir lo mismo.
+/// registro y el desplazamiento en reposo es justo el que se quiere.
 abstract final class ElRegistroComoHtml {
   /// El esquema con el que la página le habla a la app. Ver [LoQuePideLaPagina].
   static const esquema = 'nexus';
@@ -96,19 +128,19 @@ abstract final class ElRegistroComoHtml {
         ? '<p class="vacio">${_e(textos.vacio)}</p>'
         : lineas.reversed.map(_linea).join('\n');
 
-    final botones = StringBuffer();
-    if (escuchandoEn != null) {
-      botones.write(
-        '<a class="chip${escuchando ? ' vivo' : ''}" '
-        'href="$esquema://$que/escucha/${_e(escuchandoEn)}">'
-        '${_e(textos.escucha ?? '')}</a>',
-      );
-    }
-    if (textos.nivel case final nivel?) {
-      botones.write(
-        '<a class="chip" href="$esquema://$que/nivel">${_e(nivel)}</a>',
-      );
-    }
+    final escucha = escuchandoEn == null
+        ? ''
+        : '<a class="chip${escuchando ? ' vivo' : ''}" '
+              'href="$esquema://$que/escucha/${_e(escuchandoEn)}">'
+              '${_e(textos.escucha ?? '')}</a>';
+
+    final niveles = textos.niveles.isEmpty
+        ? ''
+        : '<nav class="elegir">${textos.niveles.map((n) => _enlace(n, clase: 'op')).join()}</nav>';
+
+    final acciones = textos.acciones.isEmpty
+        ? ''
+        : '<footer>${textos.acciones.map((a) => _enlace(a, clase: 'btn')).join()}</footer>';
 
     return '''
 <!doctype html>
@@ -116,72 +148,110 @@ abstract final class ElRegistroComoHtml {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${_e(textos.titulo)} · ${_e(textos.dispositivo)}</title>
 <style>
+  /* 🔴 **Los tokens de la app**, los de `NexusColors`, y no una paleta propia.
+     Esta página traía la suya —un fondo casi negro que no era el `void`, un
+     acento azul que no existe en Nexus— y la ventana se leía como de otra
+     app al lado de la principal. */
   :root{
-    --bg:#0b0d10; --panel:#111419; --ink:#e8eaee; --faint:#6e7683; --line:#22262e;
-    --ok:#6fd39b; --warn:#e0a86a; --acento:#7aa0ff; --err:#f08a8a;
-    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
-    --sans:-apple-system,BlinkMacSystemFont,sans-serif;
+    --bg:#04070D; --panel:#080C15; --ink:#E4EDF6; --mute:#8496AD; --faint:#6E7F96;
+    --line:#17202E; --line2:#222E40;
+    --ok:#57C98A; --warn:#E3B25C; --acento:#56E1EA; --err:#F06A62;
+    --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:"Instrument Sans",-apple-system,BlinkMacSystemFont,sans-serif;
+    --hud:"Oxanium","Geist Mono",ui-monospace,Menlo,monospace;
   }
   @media (prefers-color-scheme:light){
-    :root{ --bg:#f3f2f0; --panel:#fff; --ink:#16181d; --faint:#8b91a0;
-           --line:#e4e2dd; --ok:#1c7a4a; --warn:#8a5a1c; --acento:#2f5bd7;
-           --err:#b02a2a; }
+    :root{ --bg:#E9EEF5; --panel:#FFFFFF; --ink:#08101C; --mute:#4A5768;
+           --faint:#606D80; --line:#DCE4EE; --line2:#C3CEDC; --ok:#1F7D51;
+           --warn:#8A6110; --acento:#0B7480; --err:#B3352C; }
   }
   *{box-sizing:border-box}
-  /* La ventana entera es el registro: cabecera fija arriba y el rollo debajo,
-     con **una sola barra de desplazamiento**. Con el documento rodando por su
-     cuenta salían dos pegadas y la rueda hacía una cosa u otra según dónde
-     estuviera el puntero — ya pasó en la ventana de la actividad. */
+  /* La ventana entera es el registro, en una sola columna: el filtro, el rollo
+     y lo que se hace con él. **Una sola barra de desplazamiento**, la del
+     rollo: con el documento rodando por su cuenta salían dos pegadas y la
+     rueda hacía una cosa u otra según dónde estuviera el puntero. */
   html,body{height:100%}
   body{margin:0;background:var(--bg);font-family:var(--mono);font-size:12px;
-       line-height:1.55;color:var(--ink);display:flex;flex-direction:column;
-       overflow:hidden}
-  header{display:flex;align-items:center;gap:9px;padding:9px 12px;flex:none;
-         background:var(--panel);border-bottom:1px solid var(--line)}
-  h1{font-size:10.5px;margin:0;font-weight:700;letter-spacing:.1em;
-     text-transform:uppercase;color:var(--acento);font-family:var(--sans)}
-  .donde{color:var(--faint);font-size:11px;overflow:hidden;white-space:nowrap;
-         text-overflow:ellipsis}
+       line-height:1.7;color:var(--ink);display:flex;flex-direction:column;
+       gap:8px;padding:20px 24px;overflow:hidden}
+  /* De qué es esto ya lo dice la barra de la ventana —«Registro · ci · POCO
+     F6»—, que la pone esta misma página: repetirlo aquí era el mismo rótulo
+     dos veces. Se queda para el lector de pantalla, y a la vista solo lo que
+     la barra no dice: si sigue vivo —el punto, delante del filtro— y si se
+     está escuchando. */
+  header{display:flex;align-items:center;gap:9px;flex:none}
+  .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);
+      white-space:nowrap}
   .chips{margin-left:auto;display:flex;gap:6px;flex:none}
-  .chip{font-family:var(--sans);font-size:10px;letter-spacing:.04em;
-        padding:2px 7px;border-radius:5px;border:1px solid var(--line);
-        color:var(--faint);text-decoration:none;white-space:nowrap}
+  .chip{font-family:var(--hud);font-size:10px;letter-spacing:.14em;
+        text-transform:uppercase;padding:6px 8px;border-radius:2px;
+        border:1px solid var(--line2);color:var(--mute);text-decoration:none;
+        white-space:nowrap}
   .chip:hover{color:var(--ink);border-color:var(--faint)}
   .chip.vivo{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+
+  /* El filtro, como opciones con nombre: solo contorno es «disponible», el
+     relleno suave de acento es «lo elegido». En mayúsculas y con la letra
+     del instrumento, como todo botón y filtro de la app: es un control, no
+     una frase. */
+  .elegir{display:flex;flex-wrap:wrap;gap:6px;flex:none}
+  .op{font-family:var(--hud);font-size:10px;line-height:1;letter-spacing:.14em;
+      text-transform:uppercase;padding:8px 11px;border-radius:2px;
+      border:1px solid var(--line2);color:var(--mute);text-decoration:none}
+  .op:hover{color:var(--ink)}
+  .op.on{color:var(--ink);border-color:var(--acento);
+         background:color-mix(in srgb,var(--acento) 12%,transparent)}
 
   .gira{display:inline-block;width:9px;height:9px;border-radius:50%;flex:none;
         border:1.5px solid color-mix(in srgb,var(--acento) 30%,transparent);
         border-top-color:var(--acento);animation:vuelta .7s linear infinite}
   @keyframes vuelta{to{transform:rotate(360deg)}}
   .punto{display:inline-block;width:7px;height:7px;border-radius:50%;flex:none;
-         background:var(--line)}
+         background:var(--faint)}
 
   /* 🔴 **Del revés, y por eso se queda abajo.** Una terminal enseña lo último;
      una página recién cargada enseña lo primero. Con `column-reverse` el
      desplazamiento en reposo —el que trae cada recarga— es el final del
      registro, sin una línea de JavaScript que lo empuje. */
   main{flex:1;overflow:auto;display:flex;flex-direction:column-reverse;
-       padding:8px 12px}
-  .l{margin:0;white-space:pre-wrap;word-break:break-word;color:var(--faint)}
+       gap:2px;padding:10px;border:1px solid var(--line);background:var(--bg)}
+  .l{margin:0;white-space:pre-wrap;word-break:break-word;color:var(--mute)}
   .l.aviso{color:var(--warn)}
   .l.error{color:var(--err)}
   .tag{color:var(--acento);opacity:.85}
-  .vacio{color:var(--faint);margin:0}
+  /* Lo que se dice cuando no hay nada es una frase, no un dato: en sans. */
+  .vacio{color:var(--mute);margin:0;font-family:var(--sans);font-size:13px}
+
+  /* Los botones del mockup: rótulo del instrumento, en mayúsculas y con su
+     contorno; el que toca, en acento. */
+  footer{display:flex;flex-wrap:wrap;gap:8px;flex:none}
+  .btn{font-family:var(--hud);font-size:10px;line-height:1;letter-spacing:.14em;
+       text-transform:uppercase;padding:8px 11px;border-radius:2px;
+       border:1px solid var(--line2);color:var(--ink);text-decoration:none;
+       white-space:nowrap}
+  .btn:hover{border-color:var(--faint)}
+  .btn.on{color:var(--acento);border-color:var(--acento)}
   @media (prefers-reduced-motion:reduce){ .gira{animation:none} }
 </style></head>
 <body>
   <header>
     ${viva ? '<span class="gira"></span>' : '<span class="punto"></span>'}
-    <h1>${_e(textos.titulo)}</h1>
-    <span class="donde">${_e(textos.dispositivo)}</span>
-    <span class="chips">$botones</span>
+    <h1 class="vh">${_e(textos.titulo)}</h1>
+    <span class="vh">${_e(textos.dispositivo)}</span>
+    $niveles
+    <span class="chips">$escucha</span>
   </header>
   <main>
 $cuerpo
   </main>
+  $acciones
 </body></html>
 ''';
   }
+
+  static String _enlace(EnlaceDelRegistro enlace, {required String clase}) =>
+      '<a class="$clase${enlace.marcado ? ' on' : ''}" '
+      'href="$esquema://$que/${_e(enlace.ruta)}">${_e(enlace.texto)}</a>';
 
   static String _linea(LineaDeLaVentana linea) {
     final clase = switch (linea.tono) {
@@ -193,6 +263,16 @@ $cuerpo
     final etiqueta = tag.isEmpty ? '' : '<span class="tag">${_e(tag)}</span> ';
     return '<p class="$clase">$etiqueta${_e(linea.texto)}</p>';
   }
+
+  /// Lo que se copia con «Copiar»: las líneas tal cual, con su etiqueta
+  /// delante, en el orden en que llegaron.
+  static String comoTexto(List<LineaDeLaVentana> lineas) => [
+    for (final l in lineas)
+      if (l.etiqueta case final tag? when tag.isNotEmpty)
+        '$tag ${l.texto}'
+      else
+        l.texto,
+  ].join('\n');
 
   /// Una línea de registro **no es HTML**, y aquí se pintaría como si lo fuera:
   /// un volcado con `<` se come el resto de la página. No es teórico — cualquier

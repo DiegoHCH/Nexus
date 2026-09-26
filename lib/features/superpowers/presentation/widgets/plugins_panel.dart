@@ -79,7 +79,7 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(context.strings.close),
+            child: Text(context.strings.close.toUpperCase()),
           ),
         ],
       ),
@@ -103,10 +103,7 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
 
     return ListView(
       children: [
-        Text(
-          strings.pluginsExplainer,
-          style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
+        TextoDeAjustes(strings.pluginsExplainer),
         const SizedBox(height: NexusSpacing.s5),
 
         _Heading(strings.pluginsInstalled),
@@ -216,8 +213,9 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
               ),
             ),
             const SizedBox(width: NexusSpacing.s3),
-            OutlinedButton(
-              onPressed: _busy
+            BotonDeAjustes(
+              texto: strings.pluginsAddMarketplace,
+              onPulsar: _busy
                   ? null
                   : () async {
                       await _act(
@@ -227,7 +225,6 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
                       );
                       if (_error == null) _market.clear();
                     },
-              child: Text(strings.pluginsAddMarketplace),
             ),
           ],
         ),
@@ -388,6 +385,7 @@ class _Action extends StatelessWidget {
   );
 }
 
+/// El rótulo de un bloque del panel, con la voz de los rótulos de Ajustes.
 class _Heading extends StatelessWidget {
   const _Heading(this.text);
 
@@ -396,13 +394,12 @@ class _Heading extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
-    child: Text(
-      text,
-      style: NexusTypography.label.copyWith(color: context.colors.accent),
-    ),
+    child: RotuloDeAjustes(text),
   );
 }
 
+/// Un campo de línea, como los de Ajustes: lo que se escribe aquí es un dato
+/// —un repositorio, un nombre—, y una caja rellena se leía como formulario web.
 class _Field extends StatelessWidget {
   const _Field({required this.controller, required this.hint, this.onChanged});
 
@@ -411,30 +408,10 @@ class _Field extends StatelessWidget {
   final ValueChanged<String>? onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return TextField(
-      controller: controller,
-      onChanged: onChanged,
-      style: NexusTypography.mono.copyWith(color: colors.ink),
-      decoration: InputDecoration(
-        isDense: true,
-        hintText: hint,
-        hintStyle: NexusTypography.mono.copyWith(color: colors.rule2),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: NexusSpacing.s3,
-          vertical: NexusSpacing.s3,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: colors.rule),
-          borderRadius: BorderRadius.circular(NexusRadius.sm),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: colors.accent),
-          borderRadius: BorderRadius.circular(NexusRadius.sm),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => TextField(
+    controller: controller,
+    onChanged: onChanged,
+    style: estiloDeCampoDeAjustes(context),
+    decoration: decoracionDeCampoDeAjustes(context, hint: hint),
+  );
 }

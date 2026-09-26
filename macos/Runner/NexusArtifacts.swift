@@ -28,8 +28,14 @@ final class NexusArtifacts: NSObject {
   /// hay aquí es lo que se ve hasta que Dart hable, que en la práctica es antes
   /// de que se abra ninguna ventana.
   static var etiquetaPermiso = "Permitir scripts y red"
+  /// El estado del permiso, al lado de su nombre: «… · apagado».
+  static var etiquetaApagado = "apagado"
+  static var etiquetaEncendido = "encendido"
+  /// El pie de la ventana de la consola de la app.
+  static var pieDeLaConsola =
+    "Solo con la copia «con la consola» que guarda Nexus: el repo no se toca."
   static var ayudaPermiso =
-    "Este documento lo escribió Claude. Sin esto no ejecuta scripts ni carga nada de internet."
+    "Este documento lo escribió Claude. Sin permiso no ejecuta sus scripts ni carga nada de internet. Se recarga solo si cambia."
 
   /// El canal, guardado para poder hablar **hacia** Flutter.
   ///
@@ -50,6 +56,9 @@ final class NexusArtifacts: NSObject {
         let args = call.arguments as? [String: Any]
         if let etiqueta = args?["permitir"] as? String { etiquetaPermiso = etiqueta }
         if let ayuda = args?["permitirAyuda"] as? String { ayudaPermiso = ayuda }
+        if let apagado = args?["apagado"] as? String { etiquetaApagado = apagado }
+        if let encendido = args?["encendido"] as? String { etiquetaEncendido = encendido }
+        if let pie = args?["pieDeLaConsola"] as? String { pieDeLaConsola = pie }
         result(true)
         return
       }
@@ -87,7 +96,9 @@ final class NexusArtifacts: NSObject {
         show(
           path: path,
           width: args?["width"] as? Double,
-          height: args?["height"] as? Double
+          height: args?["height"] as? Double,
+          propia: args?["propia"] as? Bool ?? false,
+          tituloDeLaPagina: args?["tituloDeLaPagina"] as? Bool ?? false
         )
         result(true)
       case "reveal":
@@ -109,6 +120,44 @@ final class NexusArtifacts: NSObject {
   /// Que el bloqueo de red no se pudo poner. Se anota y se sigue: los scripts
   /// del contenido siguen apagados, que es la mitad que de verdad cierra la
   /// puerta.
+  /// El acento de la paleta por defecto, en el tono de la apariencia de la
+  /// app: el cian en oscuro y el petróleo en claro, los mismos de
+  /// `NexusColors`.
+  static var acento: NSColor {
+    NexusAppearance.isDark
+      ? NSColor(red: 0x56 / 255, green: 0xE1 / 255, blue: 0xEA / 255, alpha: 1)
+      : NSColor(red: 0x0B / 255, green: 0x74 / 255, blue: 0x80 / 255, alpha: 1)
+  }
+
+  /// Una ventana con su contenido arriba y una frase al pie, a 16 px del
+  /// borde y en el gris secundario: lo que explica la ventana, debajo de lo
+  /// que enseña, como el `b-p` del mockup.
+  static func conPie(_ contenido: NSView, texto: String) -> NSView {
+    let raiz = NSView()
+    let pie = NSTextField(wrappingLabelWithString: texto)
+    pie.font = .systemFont(ofSize: 12)
+    pie.textColor = .secondaryLabelColor
+    pie.maximumNumberOfLines = 2
+    pie.lineBreakMode = .byTruncatingTail
+    pie.identifier = NSUserInterfaceItemIdentifier("pie")
+
+    contenido.translatesAutoresizingMaskIntoConstraints = false
+    pie.translatesAutoresizingMaskIntoConstraints = false
+    raiz.addSubview(contenido)
+    raiz.addSubview(pie)
+    NSLayoutConstraint.activate([
+      contenido.topAnchor.constraint(equalTo: raiz.topAnchor),
+      contenido.leadingAnchor.constraint(equalTo: raiz.leadingAnchor),
+      contenido.trailingAnchor.constraint(equalTo: raiz.trailingAnchor),
+      pie.topAnchor.constraint(equalTo: contenido.bottomAnchor, constant: 10),
+      pie.leadingAnchor.constraint(equalTo: raiz.leadingAnchor, constant: 16),
+      pie.trailingAnchor.constraint(lessThanOrEqualTo: raiz.trailingAnchor, constant: -16),
+      pie.widthAnchor.constraint(lessThanOrEqualToConstant: 560),
+      pie.bottomAnchor.constraint(equalTo: raiz.bottomAnchor, constant: -12),
+    ])
+    return raiz
+  }
+
   static func noSePudoBloquear(_ error: Error?) {
     log.error(
       "el visor no pudo bloquear la red: \(error?.localizedDescription ?? "sin motivo", privacy: .public)"
@@ -126,13 +175,25 @@ final class NexusArtifacts: NSObject {
     channel?.invokeMethod("desdeLaPagina", arguments: ["que": que, "ruta": ruta])
   }
 
-  private static func show(path: String, width: Double? = nil, height: Double? = nil) {
+  private static func show(
+    path: String,
+    width: Double? = nil,
+    height: Double? = nil,
+    propia: Bool = false,
+    tituloDeLaPagina: Bool = false
+  ) {
     if let already = open[path], already.window.isVisible {
       already.window.makeKeyAndOrderFront(nil)
       NSApp.activate(ignoringOtherApps: true)
       return
     }
-    let viewer = Viewer(path: path, width: width, height: height) {
+    let viewer = Viewer(
+      path: path,
+      width: width,
+      height: height,
+      propia: propia,
+      tituloDeLaPagina: tituloDeLaPagina
+    ) {
       open.removeValue(forKey: path)
     }
     open[path] = viewer
@@ -146,7 +207,9 @@ final class NexusArtifacts: NSObject {
 /// cómo se cierra. Es justo la parte que no se puede probar desde Dart.
 final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
   let window: NSWindow
-  private let web = WKWebView()
+  /// El documento. Visible para las pruebas: desde que la ventana lleva su
+  /// pie, el contenido de la ventana ya no es el `WKWebView` a secas.
+  let web = WKWebView()
   private let url: URL
   private let onClose: () -> Void
   private var watcher: DispatchSourceFileSystemObject?
@@ -169,19 +232,40 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
   /// permiso cambie desde otro sitio.
   private var casilla: NSButton?
 
+  /// Que la página la escribió Nexus y no Claude: el registro de una corrida,
+  /// una prueba en marcha, la actividad de un encargo.
+  ///
+  /// 🔴 **A esas no se les pone la casilla**, y es corregir una mentira: les
+  /// salía «Permitir scripts y red» con su «Este documento lo escribió Claude»,
+  /// y ni lo escribió Claude ni lleva una línea de JavaScript que permitir. El
+  /// bloqueo de red sigue puesto igual: lo que se quita es la pregunta.
+  let propia: Bool
+
+  /// Que el título de la ventana lo ponga la página —su `<title>`— y no el
+  /// nombre del archivo. «Registro · ci · POCO F6» y no
+  /// `registro-emulator-5554.html`, que es una ruta de trabajo.
+  let tituloDeLaPagina: Bool
+
   /// Dónde estaba el scroll, para devolverlo tras recargar. Sin esto cada
   /// cambio te sube al principio, y en un documento largo eso es peor que no
   /// recargar.
   private var scrollY: Double = 0
 
+  /// Quien escucha el Esc de esta ventana, para soltarlo al cerrarla.
+  private var escucha: Any?
+
   init(
     path: String,
     width: Double? = nil,
     height: Double? = nil,
+    propia: Bool = false,
+    tituloDeLaPagina: Bool = false,
     onClose: @escaping () -> Void
   ) {
     self.url = URL(fileURLWithPath: path)
     self.onClose = onClose
+    self.propia = propia
+    self.tituloDeLaPagina = tituloDeLaPagina
     window = NSWindow(
       // Los mil por setecientos ochenta de siempre cuando nadie dice otra cosa:
       // es la medida de un documento y no hay motivo para cambiarla.
@@ -210,45 +294,94 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
 
     window.title = url.lastPathComponent
     window.center()
-    window.contentView = web
+    // Las páginas de Nexus —un registro, una prueba— ocupan la ventana entera;
+    // los documentos de Claude llevan debajo el porqué del permiso.
+    window.contentView = propia
+      ? web
+      : NexusArtifacts.conPie(web, texto: NexusArtifacts.ayudaPermiso)
     window.delegate = self
     web.navigationDelegate = self
-    ponerLaCasilla()
+    if !propia { ponerLaCasilla() }
+    if propia { cerrarConEsc() }
     load()
     watch()
   }
 
   // MARK: - El permiso, y dónde se pide
 
-  /// La casilla en la barra de título.
+  /// El interruptor, **a la derecha de la barra de título**, y el porqué, al
+  /// pie de la ventana.
   ///
-  /// Ahí y no en un menú porque tiene que verse sin buscarla: es la diferencia
-  /// entre un documento que solo se mira y uno que puede hablar con internet, y
-  /// eso no puede vivir detrás de dos clics.
+  /// Es la forma del mockup (`#ventanas`): «Permitir scripts y red · apagado»
+  /// como una opción con nombre junto al título, y debajo del documento la
+  /// frase que explica el apagado —«Este documento lo escribió Claude…»—.
+  /// Antes iban los dos en una franja bajo la barra, una casilla y la frase
+  /// recortada a una línea: se comían alto al documento y la frase se leía a
+  /// medias.
+  ///
+  /// El estado va **dicho con palabra** —«apagado», «encendido»— y no solo con
+  /// el filo: en la barra del título una casilla se lee como un adorno, y lo
+  /// que decide es si el documento puede hablar con internet.
   private func ponerLaCasilla() {
     let boton = NSButton(
-      checkboxWithTitle: NexusArtifacts.etiquetaPermiso,
+      title: "",
       target: self,
       action: #selector(cambiarPermiso(_:))
     )
-    boton.state = .off
+    boton.setButtonType(.pushOnPushOff)
+    boton.isBordered = false
+    boton.wantsLayer = true
+    boton.layer?.borderWidth = 1
+    boton.layer?.cornerRadius = 2
     boton.toolTip = NexusArtifacts.ayudaPermiso
-    boton.sizeToFit()
+    boton.state = .off
+    casilla = boton
+    pintarLaCasilla()
 
-    let caja = NSView(
-      frame: NSRect(x: 0, y: 0, width: boton.frame.width + 16, height: 28)
-    )
-    boton.frame = NSRect(
-      x: 8, y: (28 - boton.frame.height) / 2,
-      width: boton.frame.width, height: boton.frame.height
-    )
-    caja.addSubview(boton)
+    let contenedor = NSView(frame: NSRect(x: 0, y: 0, width: 280, height: 28))
+    boton.translatesAutoresizingMaskIntoConstraints = false
+    contenedor.addSubview(boton)
+    NSLayoutConstraint.activate([
+      boton.centerYAnchor.constraint(equalTo: contenedor.centerYAnchor),
+      boton.trailingAnchor.constraint(equalTo: contenedor.trailingAnchor, constant: -12),
+      boton.leadingAnchor.constraint(greaterThanOrEqualTo: contenedor.leadingAnchor),
+      boton.heightAnchor.constraint(equalToConstant: 22),
+    ])
 
     let accesorio = NSTitlebarAccessoryViewController()
-    accesorio.layoutAttribute = .right
-    accesorio.view = caja
+    accesorio.layoutAttribute = .trailing
+    accesorio.view = contenedor
     window.addTitlebarAccessoryViewController(accesorio)
-    casilla = boton
+  }
+
+  /// El rótulo y el filo del interruptor según su estado: acento encendido,
+  /// el filo de siempre apagado. Los colores salen de la apariencia que la app
+  /// eligió para esta ventana, no de la del sistema.
+  private func pintarLaCasilla() {
+    guard let boton = casilla else { return }
+    let encendido = permitido
+    let estado = encendido ? NexusArtifacts.etiquetaEncendido : NexusArtifacts.etiquetaApagado
+    // En mayúsculas y con tracking, como todo botón de la app: es un control,
+    // no una frase. La letra del instrumento no está registrada en AppKit, así
+    // que va la mono del sistema, a su mismo tamaño y espaciado.
+    let texto = "  \(NexusArtifacts.etiquetaPermiso) · \(estado)  ".uppercased()
+    let color = encendido ? NexusArtifacts.acento : NSColor.secondaryLabelColor
+    boton.attributedTitle = NSAttributedString(
+      string: texto,
+      attributes: [
+        .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
+        .kern: 1.4,
+        .foregroundColor: color,
+      ]
+    )
+    window.appearance?.performAsCurrentDrawingAppearance {
+      boton.layer?.borderColor = (encendido
+        ? NexusArtifacts.acento
+        : NSColor.separatorColor).cgColor
+      boton.layer?.backgroundColor = encendido
+        ? NexusArtifacts.acento.withAlphaComponent(0.12).cgColor
+        : NSColor.clear.cgColor
+    }
   }
 
   @objc private func cambiarPermiso(_ sender: NSButton) {
@@ -265,6 +398,7 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
     guard nuevo != permitido else { return }
     permitido = nuevo
     casilla?.state = nuevo ? .on : .off
+    pintarLaCasilla()
     load()
   }
 
@@ -430,6 +564,9 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
 
   func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
     if Viewer.isImage(url.path) { frameImage(webView) }
+    if tituloDeLaPagina, let titulo = webView.title, !titulo.isEmpty {
+      window.title = titulo
+    }
     guard scrollY > 0 else { return }
     webView.evaluateJavaScript("window.scrollTo(0, \(scrollY))")
   }
@@ -455,7 +592,13 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
     // app, y eso no es navegar. Antes que el reenvío al navegador, porque
     // `nexus://parar` no es una dirección de internet.
     if let target = navigationAction.request.url, target.scheme == "nexus" {
-      NexusArtifacts.pidieron(target.host ?? "", ruta: target.path)
+      // «Cerrar» lo resuelve la ventana y no la app: es la ventana la que se
+      // va, y un viaje de ida y vuelta por el canal no añade nada.
+      if target.host == "cerrar" {
+        window.performClose(nil)
+      } else {
+        NexusArtifacts.pidieron(target.host ?? "", ruta: target.path)
+      }
       decisionHandler(.cancel, preferences)
       return
     }
@@ -467,7 +610,25 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
     decisionHandler(.allow, preferences)
   }
 
+  /// **Esc cierra las páginas de Nexus**, como dice su botón: «Cerrar · Esc».
+  ///
+  /// Solo las propias: un documento de Claude puede tener sus propios campos,
+  /// y ahí Esc es de quien escribe. Estas no llevan ni un campo ni JavaScript,
+  /// así que Esc no tiene otro dueño. Con un monitor local y no heredando la
+  /// ventana: el `WKWebView` se queda las teclas antes de que lleguen a ella.
+  private func cerrarConEsc() {
+    escucha = NSEvent.addLocalMonitorForEvents(matching: .keyDown) {
+      [weak self] evento in
+      guard let self, evento.keyCode == 53, evento.window === self.window
+      else { return evento }
+      self.window.performClose(nil)
+      return nil
+    }
+  }
+
   func windowWillClose(_ notification: Notification) {
+    if let escucha { NSEvent.removeMonitor(escucha) }
+    escucha = nil
     pending?.cancel()
     watcher?.cancel()
     // **Que se cerró hay que decirlo, o nadie se entera.** Una página que se
@@ -550,7 +711,10 @@ final class Consola: NSObject, NSWindowDelegate {
     window.backgroundColor = NexusAppearance.voidColor
     window.title = titulo ?? url.absoluteString
     window.center()
-    window.contentView = web
+    // Con su pie, como en el mockup: de dónde sale lo que se ve —la copia «con
+    // la consola» que guarda Nexus— y que el repo no se toca. Sin él, una
+    // ventana que enseña el estado de la app parece que se ha metido en ella.
+    window.contentView = NexusArtifacts.conPie(web, texto: NexusArtifacts.pieDeLaConsola)
     window.delegate = self
 
     web.load(URLRequest(url: url))

@@ -44,6 +44,11 @@ class _ElOrbeSoloState extends State<_ElOrbeSolo> {
   /// Plasma o puntos y sus ajustes, que llegan con cada aviso como el acento.
   var _estilo = OrbeEstilo.fabrica;
 
+  /// Si la app está en claro. Llega con cada aviso, como el acento: el mockup
+  /// pide que el de fuera siga **la forma, el color y el tema** que elijas en
+  /// Ajustes, y este motor no puede leer ninguno de los tres por su cuenta.
+  var _claro = false;
+
   @override
   void initState() {
     super.initState();
@@ -53,10 +58,12 @@ class _ElOrbeSoloState extends State<_ElOrbeSolo> {
       final cual = datos?['estado'] as String?;
       final acento = datos?['acento'] as int?;
       final estilo = datos?['estilo'] as Map<Object?, Object?>?;
+      final claro = datos?['claro'] as bool?;
       setState(() {
         _estado = _elEstado(cual);
         if (acento != null) _acento = Color(acento);
         if (estilo != null) _estilo = OrbeEstilo.fromMap(estilo);
+        if (claro != null) _claro = claro;
       });
       return null;
     });
@@ -74,10 +81,17 @@ class _ElOrbeSoloState extends State<_ElOrbeSolo> {
     debugShowCheckedModeBanner: false,
     // 🔴 **Con el tema de la casa, que sin él el orbe no se pinta.** Lanzado y
     // medido: el widget exige los colores de Nexus y revienta con un
-    // `ThemeData` cualquiera —lo dice él mismo al fallar—. Oscuro siempre: esto
-    // se dibuja sobre el escritorio y no sobre una pantalla de la app, así que
-    // el claro no tiene fondo contra el que leerse.
-    theme: NexusTheme.dark(accent: _acento),
+    // `ThemeData` cualquiera —lo dice él mismo al fallar—.
+    //
+    // 🔴 **Y el tema que elegiste, no oscuro siempre.** Era oscuro fijo con el
+    // argumento de que sobre el escritorio el claro no tiene contra qué
+    // leerse; el mockup lo desmiente dibujándolo sobre un escritorio claro:
+    // en claro el orbe se pinta en tinta y no en luz, que es justo lo que se
+    // lee sobre un fondo claro. Un orbe de luz sobre una ventana blanca es el
+    // que no se ve.
+    theme: _claro
+        ? NexusTheme.light(accent: _acento)
+        : NexusTheme.dark(accent: _acento),
     // Sin fondo: la ventana es transparente y lo que se ve es el escritorio.
     // Cualquier color aquí sería un cuadrado flotando sobre tu pantalla.
     // 🔴 **Sin `Scaffold`, y esto es lo que lo hacía un cuadrado negro.** El
@@ -85,12 +99,23 @@ class _ElOrbeSoloState extends State<_ElOrbeSolo> {
     // se ve detrás es su `Material`—, y sobre un escritorio eso es un recuadro
     // opaco flotando. Lo reportó la captura: el orbe bien, el cuadro negro
     // también. Aquí no hace falta ninguna de las cosas que un `Scaffold` trae.
+    //
+    // 🔴 **Dormido se recoge**, como en el mockup: el de fuera solo está
+    // mientras te atiende, y un orbe dormido en la esquina es justo el que
+    // estorba todo el día. La ventana la cierra la app al acabar la sesión;
+    // esto cubre el rato en que la sesión sigue abierta y el orbe se duerme
+    // —entre dos turnos, al cortarse—, fundiéndose en el mismo medio segundo
+    // con que se va la ventana.
     home: ColoredBox(
       color: Colors.transparent,
-      child: Center(
-        child: OrbeEstiloScope(
-          estilo: _estilo,
-          child: NexusOrb(state: _estado),
+      child: AnimatedOpacity(
+        opacity: _estado == NexusOrbState.sleep ? 0 : 1,
+        duration: const Duration(milliseconds: 500),
+        child: Center(
+          child: OrbeEstiloScope(
+            estilo: _estilo,
+            child: NexusOrb(state: _estado),
+          ),
         ),
       ),
     ),

@@ -30,7 +30,6 @@ class SalidasSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final strings = context.strings;
 
     final carpeta = ref.watch(workspaceControllerProvider).active;
@@ -69,94 +68,60 @@ class SalidasSection extends ConsumerWidget {
           : null,
     );
 
-    return ListView(
-      children: [
-        Text(
-          carpeta == null
-              ? strings.exitsNoFolder
-              : strings.exitsForFolder(carpeta.path.split('/').last),
-          style: NexusTypography.label.copyWith(color: colors.faint),
+    // El nombre de la cuenta y no su carpeta: «cuenta work» se lee, y
+    // `/Users/…/.claude-work` es una ruta que no dice de quién es.
+    final perfiles = ref.watch(claudeProfilesProvider).value ?? const [];
+    String? cuenta(String? path) =>
+        perfiles.where((perfil) => perfil.path == path).firstOrNull?.name;
+
+    return BloquesDeAjustes(
+      bloques: [
+        BloqueDeAjustes(
+          hijos: [
+            TextoDeAjustes(strings.exitsExplainer),
+            FilasDeAjustes(
+              filas: [
+                for (final puerta in puertas)
+                  _Puerta(
+                    puerta: puerta,
+                    cuenta: puerta.cual == Salida.anthropic
+                        ? cuenta(puerta.dato)
+                        : null,
+                  ),
+              ],
+            ),
+          ],
         ),
-        const SizedBox(height: NexusSpacing.s2),
-        Text(
-          strings.exitsExplainer,
-          style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s6),
-        for (final puerta in puertas) ...[
-          _Puerta(puerta: puerta),
-          const SizedBox(height: NexusSpacing.s5),
-        ],
       ],
     );
   }
 }
 
+/// Una puerta: a dónde, qué viaja por ella y cómo está ahora.
 class _Puerta extends StatelessWidget {
-  const _Puerta({required this.puerta});
+  const _Puerta({required this.puerta, this.cuenta});
 
   final PuertaDeSalida puerta;
+  final String? cuenta;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final strings = context.strings;
 
-    // Cerrada en gris y no en verde: verde diría «esto está bien», y aquí no hay
-    // bien ni mal — hay lo que pasa. El que sale ahora es el que se marca.
-    final color = switch (puerta.como) {
-      ComoEsta.cerrada => colors.faint,
-      ComoEsta.disponible => colors.mute,
-      ComoEsta.abierta => colors.warn,
+    // Cerrada en gris y no en verde: verde diría «esto está bien», y aquí no
+    // hay bien ni mal — hay lo que pasa. Lo que sale o puede salir va en ámbar,
+    // como en el mockup: es lo que merece que se mire.
+    final tono = switch (puerta.como) {
+      ComoEsta.cerrada => TonoDeAjustes.apagado,
+      ComoEsta.disponible => TonoDeAjustes.atencion,
+      ComoEsta.abierta => TonoDeAjustes.atencion,
     };
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // El punto delante: la fila se lee en vertical y el estado tiene que
-        // verse sin leer el texto.
-        Padding(
-          padding: const EdgeInsets.only(top: 5),
-          child: Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-          ),
-        ),
-        const SizedBox(width: NexusSpacing.s3),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    _nombre(strings),
-                    style: NexusTypography.body.copyWith(color: colors.ink),
-                  ),
-                  const SizedBox(width: NexusSpacing.s3),
-                  Text(
-                    _estado(strings).toUpperCase(),
-                    style: NexusTypography.label.copyWith(color: color),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text(
-                _queViaja(strings),
-                style: NexusTypography.nota.copyWith(color: colors.faint),
-              ),
-              if (puerta.dato case final dato? when dato.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(
-                  dato,
-                  style: NexusTypography.mono.copyWith(color: colors.mute),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
+    return FilaDeAjustes(
+      tono: tono,
+      titulo: _nombre(strings),
+      dato: _queViaja(strings),
+      accion: EtiquetaDeAjustes(_estado(strings)),
     );
   }
 
@@ -168,15 +133,29 @@ class _Puerta extends StatelessWidget {
     Salida.slack => strings.exitSlack,
   };
 
-  /// **Qué viaja, no solo a dónde.** «Gemini: abierta» no dice nada que se pueda
-  /// decidir; «tu micrófono y lo que Claude lea» sí.
-  String _queViaja(NexusStrings strings) => switch (puerta.cual) {
-    Salida.anthropic => strings.exitAnthropicWhat,
-    Salida.gemini => strings.exitGeminiWhat,
-    Salida.notion => strings.exitNotionWhat,
-    Salida.canal => strings.exitChannelWhat,
-    Salida.slack => strings.exitSlackWhat,
-  };
+  /// **Qué viaja, no solo a dónde.** «Gemini: abierta» no dice nada que se
+  /// pueda decidir; «tu voz y lo que ella narra» sí. Con el dato que la
+  /// identifica cuando lo hay: la cuenta, la dirección del canal, a quién va
+  /// el parte.
+  String _queViaja(NexusStrings strings) {
+    final dato = puerta.dato;
+    return switch (puerta.cual) {
+      Salida.anthropic =>
+        cuenta == null
+            ? strings.exitAnthropicWhat
+            : '${strings.exitAnthropicWhat} · ${strings.salidaCuenta(cuenta!)}',
+      Salida.gemini => strings.exitGeminiWhat,
+      Salida.notion => strings.exitNotionWhat,
+      Salida.canal =>
+        dato == null
+            ? strings.exitChannelWhat
+            : '$dato, ${strings.exitChannelWhat}',
+      Salida.slack =>
+        dato == null
+            ? strings.exitSlackWhat
+            : '${strings.exitSlackWhat} · ${strings.salidaA(dato)}',
+    };
+  }
 
   String _estado(NexusStrings strings) => switch (puerta.como) {
     ComoEsta.cerrada => strings.exitClosed,

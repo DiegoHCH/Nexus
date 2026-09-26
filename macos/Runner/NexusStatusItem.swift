@@ -90,35 +90,62 @@ final class NexusStatusItem: NSObject {
   private static func buildMenu(_ labels: [String: Any], channel: FlutterMethodChannel?) {
     let menu = NSMenu()
 
-    func add(_ key: String, _ action: @escaping () -> Void, _ tecla: String = "") {
-      guard let title = labels[key] as? String, !title.isEmpty else { return }
+    @discardableResult
+    func add(
+      _ key: String,
+      _ action: @escaping () -> Void,
+      _ tecla: String = "",
+      _ modificadores: NSEvent.ModifierFlags = [.command]
+    ) -> NSMenuItem? {
+      guard let title = labels[key] as? String, !title.isEmpty else { return nil }
       let item = NSMenuItem(title: title, action: #selector(Trampolin.disparar), keyEquivalent: tecla)
+      item.keyEquivalentModifierMask = modificadores
       item.target = Trampolin.shared
       item.representedObject = action
       menu.addItem(item)
+      return item
     }
 
-    // El aviso de versión nueva va **primero y solo cuando lo hay**: es lo único
-    // del menú que caduca, y enterrarlo debajo de «hablar» sería esconder la
-    // única fila que trae información nueva.
+    // 🔴 **El orden del mockup (`#sistema`)**: hablar primero —es para lo que
+    // existe el menú—, abrir la ventana y ajustes; después, si la hay, la
+    // versión nueva; y salir al final, aparte. Cada entrada **con su atajo**,
+    // que es lo que el mockup pide: «Hablar con Nexus» dice ⌥Espacio aunque
+    // ese atajo sea global y funcione también con el menú cerrado.
     //
-    // Antes esta fila abría la página de la release en el navegador, y la URL
-    // venía resuelta desde Dart para poder abrirla aquí sin dar un salto. Ya no:
-    // la actualización se instala dentro de la app, así que lo que hace esta fila
-    // es sacar la modal — y de eso solo sabe Dart.
-    if let aviso = labels["update"] as? String, !aviso.isEmpty {
-      add("update", { channel?.invokeMethod("update", arguments: nil) })
-      menu.addItem(.separator())
+    // Hablar va en negrita, que en un menú del Mac es «lo que se hace por
+    // defecto aquí».
+    if let hablar = add("talk", { channel?.invokeMethod("talk", arguments: nil) }, " ", [.option]) {
+      hablar.attributedTitle = NSAttributedString(
+        string: hablar.title,
+        attributes: [.font: NSFont.menuFont(ofSize: 0).conNegrita]
+      )
     }
-
-    // Hablar y ajustes los resuelve Dart: son estado de la app, no del sistema.
-    add("talk", { channel?.invokeMethod("talk", arguments: nil) })
     add("show", {
       NSApp.activate(ignoringOtherApps: true)
       NSApp.windows.first { $0.canBecomeMain }?.makeKeyAndOrderFront(nil)
     })
-    menu.addItem(.separator())
     add("settings", { channel?.invokeMethod("settings", arguments: nil) }, ",")
+
+    // El aviso de versión nueva **solo cuando lo hay**, en su propio grupo y
+    // en el color del acento: es lo único del menú que caduca, y el color lo
+    // separa de las acciones de siempre sin tener que ponerlo el primero.
+    // Antes iba arriba del todo y empujaba «Hablar» fuera de su sitio justo
+    // los días en que había algo que anunciar.
+    //
+    // Lo que hace esta fila es sacar el aviso dentro de la app —la
+    // actualización se instala ahí—, y de eso solo sabe Dart.
+    if let aviso = labels["update"] as? String, !aviso.isEmpty {
+      menu.addItem(.separator())
+      if let fila = add("update", { channel?.invokeMethod("update", arguments: nil) }) {
+        fila.attributedTitle = NSAttributedString(
+          string: aviso,
+          attributes: [
+            .font: NSFont.menuFont(ofSize: 0),
+            .foregroundColor: acento,
+          ]
+        )
+      }
+    }
     menu.addItem(.separator())
     add("quit", { NSApp.terminate(nil) }, "q")
 
@@ -237,5 +264,13 @@ final class Trampolin: NSObject {
 
   @objc func disparar(_ sender: NSMenuItem) {
     (sender.representedObject as? () -> Void)?()
+  }
+}
+
+private extension NSFont {
+  /// La misma letra del menú, en negrita. Por descriptor y no con
+  /// `boldSystemFont`: así sigue el tamaño que el sistema dé al menú.
+  var conNegrita: NSFont {
+    NSFont(descriptor: fontDescriptor.withSymbolicTraits(.bold), size: pointSize) ?? self
   }
 }

@@ -439,7 +439,9 @@ void main() {
 
       // Se enseña igual: esconderlo deja preguntandose si falta algo.
       expect(find.text('mockup.png'), findsOne);
-      expect(find.text('SOLO EN EL MAC'), findsOne);
+      // En la línea del dato y no en un chip, como el mockup: «private · 1,4 MB ·
+      // solo en el Mac».
+      expect(find.textContaining('solo en el Mac'), findsOne);
 
       await tester.tap(find.byKey(const ValueKey('artifact-/tmp/mockup.png')));
       await tester.pump();
@@ -581,6 +583,219 @@ void main() {
       expect(find.textContaining('Todo bien.'), findsOne);
     });
   });
+  group('olvidar el Mac', () {
+    Future<ProviderContainer> conElMenu(WidgetTester tester) async {
+      final c = await conectado(tester);
+      await tester.pumpWidget(app(c, const ConversationsPage()));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('abrir-el-menu')));
+      // Dos tiempos: el primero arranca la animación del cajón y el segundo la acaba.
+      // Con uno solo el cajón existe pero sigue fuera de la pantalla, y el toque cae
+      // en el vacío.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      return c;
+    }
+
+    testWidgets('pregunta antes, en la misma fila', (tester) async {
+      // Antes un toque desemparejaba sin preguntar, y deshacerlo cuesta ir al Mac y
+      // volver a escanear. La pregunta va en su sitio, no en un diálogo.
+      final c = await conElMenu(tester);
+
+      await tester.tap(find.byKey(const ValueKey('menu-olvidar')));
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('olvidar-preguntando')), findsOne);
+      expect(find.textContaining('¿Olvidar este Mac?'), findsOne);
+      expect(find.byType(Dialog), findsNothing);
+      expect(
+        c.read(pairingControllerProvider).value,
+        isNotNull,
+        reason: 'tocar la fila todavía no olvida nada',
+      );
+    });
+
+    testWidgets('cancelar deja el Mac donde estaba', (tester) async {
+      final c = await conElMenu(tester);
+      await tester.tap(find.byKey(const ValueKey('menu-olvidar')));
+      await tester.pump();
+
+      await tester.tap(find.byKey(const ValueKey('cancelar-olvidar')));
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('olvidar-preguntando')), findsNothing);
+      expect(find.byKey(const ValueKey('menu-olvidar')), findsOne);
+      expect(c.read(pairingControllerProvider).value, isNotNull);
+    });
+
+    testWidgets('confirmar lo olvida', (tester) async {
+      final c = await conElMenu(tester);
+      await tester.tap(find.byKey(const ValueKey('menu-olvidar')));
+      await tester.pump();
+
+      await tester.tap(find.byKey(const ValueKey('confirmar-olvidar')));
+      // Olvidar cierra el socket antes de borrar, y ese cierre corre fuera del reloj
+      // falso del arnés: se le deja un momento de verdad.
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump();
+
+      expect(c.read(pairingControllerProvider).value, isNull);
+    });
+  });
+
+  group('el historial, como el del Mac', () {
+    Map<String, Map<String, Object?>> conDias() {
+      final ahora = DateTime.now();
+      final hoy = DateTime(ahora.year, ahora.month, ahora.day, 10);
+      final ayer = DateTime(ahora.year, ahora.month, ahora.day - 1, 18);
+      return {
+        'archive': {
+          'conversations': [
+            {
+              'id': 'h1',
+              'folder': '/Users/alguien/personal/nexus',
+              'title': 'Hestia no reconocía la voz',
+              'turns': 42,
+              'open': true,
+              'when': hoy.toIso8601String(),
+            },
+            {
+              'id': 'h2',
+              'folder': '/Users/alguien/trabajo/front-mobile-b2c',
+              'title': 'CRED-310 · pantallas de desenlace',
+              'turns': 27,
+              'when': hoy.subtract(const Duration(hours: 1)).toIso8601String(),
+            },
+            {
+              'id': 'h3',
+              'folder': '/Users/alguien/personal/directory_ipuc',
+              'title': 'Publicar el directorio en Pages',
+              'turns': 9,
+              'when': ayer.toIso8601String(),
+            },
+          ],
+        },
+      };
+    }
+
+    testWidgets('por días, con las palabras del Mac', (tester) async {
+      final c = await conectado(tester, respuestas: conDias());
+      await tester.pumpWidget(app(c, const ArchivePage()));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('HOY'), findsOne);
+      expect(find.text('AYER'), findsOne);
+      // Lo de hoy, antes que lo de ayer.
+      expect(
+        tester.getTopLeft(find.text('Hestia no reconocía la voz')).dy,
+        lessThan(tester.getTopLeft(find.text('AYER')).dy),
+      );
+      expect(
+        tester.getTopLeft(find.text('Publicar el directorio en Pages')).dy,
+        greaterThan(tester.getTopLeft(find.text('AYER')).dy),
+      );
+      expect(find.text('ABIERTA'), findsOne);
+    });
+
+    testWidgets('con buscador, y sin resultados dice qué se buscó', (
+      tester,
+    ) async {
+      final c = await conectado(tester, respuestas: conDias());
+      await tester.pumpWidget(app(c, const ArchivePage()));
+      await tester.pump();
+      await tester.pump();
+
+      // La pista, la misma frase que la caja del Mac.
+      expect(find.text('Buscar en lo que se habló'), findsOne);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('buscar-en-el-historial')),
+        'cred',
+      );
+      await tester.pump();
+      expect(find.text('CRED-310 · pantallas de desenlace'), findsOne);
+      expect(find.text('Hestia no reconocía la voz'), findsNothing);
+
+      // Por la carpeta también, como en el Mac.
+      await tester.enterText(
+        find.byKey(const ValueKey('buscar-en-el-historial')),
+        'directory',
+      );
+      await tester.pump();
+      expect(find.text('Publicar el directorio en Pages'), findsOne);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('buscar-en-el-historial')),
+        'kubernetes',
+      );
+      await tester.pump();
+      expect(find.textContaining('Nada de «kubernetes»'), findsOne);
+    });
+  });
+
+  group('los documentos, como los del Mac', () {
+    testWidgets('cuelgan de la conversación que los pidió', (tester) async {
+      final c = await conectado(
+        tester,
+        respuestas: {
+          'artifacts': {
+            'artifacts': [
+              {
+                'id': '/tmp/viejo.md',
+                'name': 'viejo.md',
+                'bytes': 100,
+                'text': true,
+                'when': '2026-09-01T10:00:00.000',
+              },
+              {
+                'id': '/tmp/informe-ci.html',
+                'name': 'informe-ci.html',
+                'bytes': 12288,
+                'text': true,
+                'when': '2026-09-25T10:00:00.000',
+                'conversation': 'c1',
+                'conversationTitle': 'CRED-310 · desenlaces',
+              },
+              {
+                'id': '/tmp/notas.md',
+                'name': 'notas.md',
+                'bytes': 3072,
+                'text': true,
+                'when': '2026-09-25T09:00:00.000',
+                'conversation': 'c1',
+                'conversationTitle': 'CRED-310 · desenlaces',
+              },
+            ],
+          },
+        },
+      );
+      await tester.pumpWidget(app(c, const ArtifactsPage()));
+      await tester.pump();
+      await tester.pump();
+
+      final grupo = find.text('DE: CRED-310 · DESENLACES');
+      final sueltos = find.text('SIN CONVERSACIÓN');
+      expect(grupo, findsOne);
+      expect(sueltos, findsOne);
+      // «Sin conversación» al final: no es una conversación, es lo que no se sabe de
+      // dónde vino.
+      expect(
+        tester.getTopLeft(sueltos).dy,
+        greaterThan(tester.getTopLeft(find.text('notas.md')).dy),
+      );
+      expect(
+        tester.getTopLeft(find.text('viejo.md')).dy,
+        greaterThan(tester.getTopLeft(sueltos).dy),
+      );
+      // Y el tipo a la izquierda, que es un dato.
+      expect(find.text('HTML'), findsOne);
+      expect(find.text('12 KB'), findsOne);
+    });
+  });
+
   group('el vacío de la pantalla principal', () {
     testWidgets('ofrece empezar, y lleva a elegir carpeta', (tester) async {
       // El fallo que esto ata: la pantalla decia «nada abierto en el Mac» y no ofrecia

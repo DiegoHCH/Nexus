@@ -7,7 +7,6 @@ import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/domain/entities/workspace.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/permissions_section.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
-import 'package:nexus/features/workspace/presentation/widgets/permission_switch.dart';
 
 import 'support/screen_harness.dart';
 
@@ -62,6 +61,21 @@ void main() {
     ],
   );
 
+  // El tope ya no es el interruptor de la caja de escribir: en Ajustes son
+  // dos opciones con nombre, como el resto de la hoja. Se mira la elegida, y
+  // que la otra se pueda pulsar —que es lo que antes decía `bloqueado`—.
+  FilePermission elTope(WidgetTester tester) => tester
+      .widget<ElegirDeAjustes<FilePermission>>(
+        find.byType(ElegirDeAjustes<FilePermission>),
+      )
+      .elegida;
+
+  bool bloqueado(WidgetTester tester) =>
+      tester
+          .widget<OpcionDeAjustes>(find.byKey(const ValueKey('tope-1')))
+          .onPulsar ==
+      null;
+
   void sinDesbordar(WidgetTester tester) {
     expect(tester.takeException(), isNull, reason: 'desbordó o reventó');
   }
@@ -70,24 +84,19 @@ void main() {
     testWidgets('se enseña siempre, y nace en solo lectura', (tester) async {
       await abrir(tester);
 
-      expect(find.text(textos.filePermissionsTitle), findsOneWidget);
-      final interruptor = tester.widget<PermissionSwitch>(
-        find.byType(PermissionSwitch),
+      expect(
+        find.text(textos.filePermissionsTitle.toUpperCase()),
+        findsOneWidget,
       );
-      expect(interruptor.permission, FilePermission.readOnly);
-      expect(interruptor.bloqueado, isFalse);
+      expect(elTope(tester), FilePermission.readOnly);
+      expect(bloqueado(tester), isFalse);
       sinDesbordar(tester);
     });
 
     testWidgets('con edición concedida, se ve concedida', (tester) async {
       await abrir(tester, permiso: FilePermission.canEdit);
 
-      expect(
-        tester
-            .widget<PermissionSwitch>(find.byType(PermissionSwitch))
-            .permission,
-        FilePermission.canEdit,
-      );
+      expect(elTope(tester), FilePermission.canEdit);
     });
 
     // 🔴 **El repositorio ya no bloquea este interruptor, y es una mejora.**
@@ -104,9 +113,7 @@ void main() {
       );
 
       expect(
-        tester
-            .widget<PermissionSwitch>(find.byType(PermissionSwitch))
-            .bloqueado,
+        bloqueado(tester),
         isFalse,
         reason: 'el tope es de la app; la regla del repo vive en su carpeta',
       );
@@ -121,12 +128,7 @@ void main() {
         },
       );
 
-      expect(
-        tester
-            .widget<PermissionSwitch>(find.byType(PermissionSwitch))
-            .bloqueado,
-        isFalse,
-      );
+      expect(bloqueado(tester), isFalse);
     });
 
     // El bloqueo es de **la carpeta activa**: la config de otra no manda aquí.
@@ -137,9 +139,7 @@ void main() {
       );
 
       expect(
-        tester
-            .widget<PermissionSwitch>(find.byType(PermissionSwitch))
-            .bloqueado,
+        bloqueado(tester),
         isFalse,
         reason: 'apretar la de al lado apretaría la carpeta equivocada',
       );
@@ -191,7 +191,10 @@ void main() {
     testWidgets('sin ninguna emparejada no revienta', (tester) async {
       await abrir(tester, carpetas: const [], activa: null);
 
-      expect(find.text(textos.filePermissionsTitle), findsOneWidget);
+      expect(
+        find.text(textos.filePermissionsTitle.toUpperCase()),
+        findsOneWidget,
+      );
       sinDesbordar(tester);
     });
 
@@ -215,7 +218,7 @@ void main() {
 
       // Y que estén de verdad: sin esto la prueba pasaría igual pintando cero
       // filas, que es como pasan en vacío las pruebas de desbordamiento.
-      expect(find.byType(PermissionSwitch), findsOneWidget);
+      expect(find.byType(ElegirDeAjustes<FilePermission>), findsOneWidget);
       expect(find.textContaining('front-mobile-b2c-5'), findsWidgets);
       sinDesbordar(tester);
     });

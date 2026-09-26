@@ -1,3 +1,5 @@
+import 'package:nexus/core/design_system/la_hoja_de_las_paginas.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_verbo_de_un_paso.dart';
 import 'package:nexus/features/assistant/presentation/state/activity_layout.dart';
 
 /// Los textos de la página, que vienen de fuera.
@@ -8,25 +10,40 @@ import 'package:nexus/features/assistant/presentation/state/activity_layout.dart
 class TextosDeActividad {
   const TextosDeActividad({
     required this.titulo,
-    required this.progreso,
-    required this.trabajando,
-    required this.escribe,
+    required this.rotulo,
+    required this.paso,
+    required this.verbo,
     required this.seEjecuto,
     required this.devolvio,
     required this.todaviaCorriendo,
     required this.sinPasos,
     required this.detener,
+    required this.espera,
   });
 
+  /// «Ahora mismo»: el rótulo de la lista.
   final String titulo;
-  final String Function(int hechos, int total) progreso;
-  final String trabajando;
-  final String escribe;
+
+  /// «Actividad»: el de la ventana, en la barra, al lado de la marca.
+  final String rotulo;
+
+  /// «3 de 4»: el que va, de cuántos.
+  final String Function(int paso, int total) paso;
+
+  /// La palabra de la columna de un paso: «Se ejecutó» si ya está, «Lee» si
+  /// está pasando. Ver `ElVerboDeUnPaso`.
+  final String Function(VerboDelPaso verbo, {required bool hecho}) verbo;
+
+  /// El rótulo de lo que se ejecutó, dentro del desplegable.
   final String seEjecuto;
   final String devolvio;
   final String todaviaCorriendo;
   final String sinPasos;
   final String detener;
+
+  /// La palabra del paso que espera: una delegación mientras trabaja su
+  /// subagente.
+  final String espera;
 }
 
 /// Lo que está haciendo el encargo, escrito como una página.
@@ -37,13 +54,19 @@ class TextosDeActividad {
 /// pidió: una ventana movible, que se deja al lado, y que **no impide seguir
 /// trabajando** — que es lo que sí hacía el diálogo que había antes.
 ///
+/// **Se pinta como la pantalla del mockup** («Actividad · los pasos, en
+/// vivo»): la barra con la marca y «Detener el encargo», el orbe trabajando a
+/// la izquierda con su reactor, y los pasos a la derecha con tres palabras
+/// cada uno. Antes era una tarjeta gris con la letra del sistema, y abrirla se
+/// sentía como salir de Nexus.
+///
 /// **Sin una línea de JavaScript.** El giro es una animación de CSS y el
 /// desplegable es `<details>`, que el navegador ya sabe abrir. Así no hay
 /// estado que sincronizar entre la página y la app, que es el error obvio aquí
 /// y el que habría hecho falta depurar en dos sitios.
 ///
-/// Autocontenida: sin fuentes ni hojas de fuera. La ventana carga un archivo
-/// local y cualquier petición a la red sería un hueco en blanco.
+/// Autocontenida: la letra llega incrustada en la hoja. La ventana carga un
+/// archivo local y cualquier petición a la red sería un hueco en blanco.
 abstract final class LaActividadComoHtml {
   /// El esquema con el que la página le habla a la app.
   ///
@@ -52,159 +75,179 @@ abstract final class LaActividadComoHtml {
   /// que el botón de detener funcione desde una página estática.
   static const esquema = 'nexus';
 
+  /// La página entera. [reactor] dice cuántos segmentos tiene el aro y cuántos
+  /// van encendidos.
+  ///
+  /// **Llega hecho y no se calcula aquí**: el reparto de segmentos por paso es
+  /// el del orbe (`reactorEncendido`), y copiarlo dejaría dos reglas que
+  /// acabarían diciendo cosas distintas del mismo turno.
+  ///
+  /// [hoja] es la de todas las ventanas de Nexus (`LaHojaDeLasPaginas`), con
+  /// el acento y la letra de la app; sin ella, la de fábrica.
   static String escribe({
     required List<ActivityRow> filas,
-    required int terminados,
+    required ({int total, int encendidos}) reactor,
     required bool viva,
     required TextosDeActividad textos,
     String? detenerEn,
+    String? hoja,
   }) {
     final cuerpo = filas.isEmpty
-        ? '<p class="vacio">${_e(textos.sinPasos)}</p>'
+        ? '<p class="b-p vacio">${_e(textos.sinPasos)}</p>'
         : filas.map((fila) => _fila(fila, textos)).join('\n');
+
+    // «3 de 4» con la cuenta del orbe: solo los pasos de Claude, y el que
+    // corre ya cuenta como el que va. Terminado, n es lo hecho.
+    final cuenta = laCuentaDelTurno(filas.map((fila) => fila.item));
+    final va = viva && cuenta.hechos < cuenta.pasos
+        ? cuenta.hechos + 1
+        : cuenta.hechos;
+    final rotulo = cuenta.pasos == 0
+        ? textos.titulo
+        : '${textos.titulo} · ${textos.paso(va, cuenta.pasos)}';
 
     return '''
 <!doctype html>
 <html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${_e(textos.titulo)}</title>
-<style>
-  :root{
-    --bg:#0b0d10; --panel:#111419; --ink:#e8eaee; --faint:#6e7683; --line:#22262e;
-    --ok:#6fd39b; --warn:#e0a86a; --acento:#7aa0ff; --err:#f08a8a;
-    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
-    --sans:-apple-system,BlinkMacSystemFont,sans-serif;
-  }
-  @media (prefers-color-scheme:light){
-    :root{ --bg:#f3f2f0; --panel:#fff; --ink:#16181d; --faint:#8b91a0;
-           --line:#e4e2dd; --ok:#1c7a4a; --warn:#8a5a1c; --acento:#2f5bd7;
-           --err:#b02a2a; }
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);font-family:var(--mono);font-size:12.5px;
-       line-height:1.6;color:var(--ink);padding:10px}
-  .tarjeta{background:var(--panel);border:1px solid var(--line);
-           border-radius:10px;overflow:hidden}
-  header{display:flex;align-items:center;gap:10px;padding:12px 14px;
-         border-bottom:1px solid var(--line)}
-  h1{font-size:11px;margin:0;font-weight:700;letter-spacing:.1em;
-     text-transform:uppercase;color:var(--acento);font-family:var(--sans)}
-  .cuenta{margin-left:auto;color:var(--faint);font-size:11px;
-          font-variant-numeric:tabular-nums}
-
-  /* El giro, en CSS: la página no lleva JavaScript.
-     `inline-block` no es decorativo — a un `span` inline no se le aplican
-     `width` ni `height` y el círculo queda en una astilla vertical. */
-  .gira{display:inline-block;width:9px;height:9px;border-radius:50%;flex:none;
-        border:1.5px solid color-mix(in srgb,var(--acento) 30%,transparent);
-        border-top-color:var(--acento);animation:vuelta .7s linear infinite}
-  @keyframes vuelta{to{transform:rotate(360deg)}}
-  .punto{display:inline-block;width:7px;height:7px;border-radius:50%;flex:none}
-  .punto.hecho{background:var(--ok)}
-  .punto.espera{background:var(--line)}
-
-  details{border-bottom:1px solid var(--line)}
-  details:last-child{border-bottom:none}
-  /* El sangrado de lo que hizo un subagente, con su guía: se lee de un vistazo
-     que ese trabajo es de quien recibió el encargo, no de quien lo repartió. */
-  details.hijo{padding-left:18px;
-               border-left:2px solid color-mix(in srgb,var(--acento) 25%,transparent)}
-
-  summary{display:flex;align-items:center;gap:8px;padding:7px 14px;
-          cursor:default;list-style:none}
-  summary::-webkit-details-marker{display:none}
-  details[open] summary{background:color-mix(in srgb,var(--acento) 8%,transparent)}
-  /* 🔴 **Una línea por paso, y punto.** Un comando encadenado ocupaba tres o
-     cuatro y la lista dejaba de ser una lista: para saber por dónde iba había
-     que leerla entera. Lo que no cabe está debajo, al desplegar. */
-  .que{flex:1;min-width:0;white-space:nowrap;overflow:hidden;
-       text-overflow:ellipsis;color:var(--faint)}
-  .curso .que{color:var(--ink)}
-  .chapa{flex:none;font-family:var(--sans);font-size:10px;font-weight:700;
-         letter-spacing:.04em;padding:1px 5px;border-radius:3px;
-         color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
-  .flecha{flex:none;color:var(--line);font-size:10px}
-  details[hasdetalle] summary{cursor:pointer}
-
-  .dentro{padding:0 14px 10px 32px}
-  .caja{background:var(--bg);border:1px solid var(--line);border-radius:6px;
-        padding:9px 11px;margin-top:6px}
-  .rotulo{font-family:var(--sans);font-size:10px;font-weight:700;
-          letter-spacing:.08em;color:var(--faint);margin-bottom:3px}
-  /* Envuelve en vez de rodar: la única barra de la página es la del documento.
-     Con scroll propio salían dos pegadas y la rueda del ratón hacía una cosa u
-     otra según dónde estuviera el puntero. */
-  pre{margin:0;white-space:pre-wrap;word-break:break-word;font-family:var(--mono)}
-  .cmd{color:var(--acento)}
-  .sal{color:var(--faint)}
-  .vacio{color:var(--faint);padding:14px;margin:0}
-  .parar{flex:none;width:22px;height:22px;display:flex;align-items:center;
-         justify-content:center;border-radius:5px;border:1px solid var(--line);
-         color:var(--faint);text-decoration:none}
-  .parar:hover{color:var(--err);border-color:var(--err)}
-  .parar span{width:7px;height:7px;background:currentColor;border-radius:1px}
-  @media (prefers-reduced-motion:reduce){ .gira{animation:none} }
-</style></head>
+<title>${_e(textos.rotulo)}</title>
+<style>${hoja ?? LaHojaDeLasPaginas.hoja()}$_estilo</style></head>
 <body>
-  <div class="tarjeta">
-    <header>
-      ${viva ? '<span class="gira"></span>' : '<span class="punto hecho"></span>'}
-      <h1>${_e(textos.titulo)}</h1>
-      <span class="cuenta">${_e(textos.progreso(terminados, filas.length))}</span>
-      ${viva && detenerEn != null ? _parar(detenerEn, textos.detener) : ''}
-    </header>
-    $cuerpo
-  </div>
+  <header class="barra">
+    <span class="wm">Nexus</span>
+    <span class="rot">${_e(textos.rotulo)}</span>
+    ${viva && detenerEn != null ? _parar(detenerEn, textos.detener) : ''}
+  </header>
+  <main class="sala">
+    ${LaHojaDeLasPaginas.orbe(total: reactor.total, encendidos: reactor.encendidos, viva: viva)}
+    <section class="panel">
+      <span class="sec-q">${_e(rotulo)}</span>
+      $cuerpo
+    </section>
+  </main>
 </body></html>
 ''';
   }
 
-  /// El cuadrado de parar. Es un enlace y no un botón: la página no lleva
+  /// Lo propio de esta ventana; lo común —fondo, barra, rótulos— va en la
+  /// hoja compartida. Medidas del mockup a 1280 px.
+  static const _estilo = '''
+/* El orbe a la izquierda y los pasos a la derecha, en la proporción del
+   mockup (380 y 720 sobre 1280). Estrecha, el orbe sube encima y se achica:
+   la ventana se puede dejar al lado de la app, y ahí es una columna. */
+.sala{display:grid;grid-template-columns:minmax(0,380fr) minmax(0,720fr);gap:60px;
+      padding:28px 60px 48px;align-items:start}
+.reactor{position:sticky;top:122px;margin-top:70px}
+.reactor svg{display:block;width:100%;height:auto;overflow:visible}
+@media (max-width:760px){
+  .sala{grid-template-columns:minmax(0,1fr);gap:8px;padding:20px 24px 40px}
+  .reactor{position:static;margin:0 auto;width:200px}
+}
+
+details{border-top:1px solid var(--rule)}
+/* El sangrado de lo que hizo un subagente, con su guía: se lee de un vistazo
+   que ese trabajo es de quien recibió el encargo, no de quien lo repartió. */
+details.hijo{padding-left:18px;
+             border-left:2px solid color-mix(in srgb,var(--accent) 25%,transparent)}
+/* Lo que todavía espera se ve, pero apagado: está en la lista, no pasando. */
+details.espera{opacity:.55}
+
+/* **Tres palabras por paso**: el verbo en su columna, lo que tocó en mono, y
+   debajo lo que devolvió en una línea. */
+summary{display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:4px 12px;
+        align-items:baseline;padding:12px 0;cursor:default;list-style:none}
+summary::-webkit-details-marker{display:none}
+details[hasdetalle] summary{cursor:pointer}
+details[open] summary .flecha{transform:rotate(180deg)}
+.tipo{font:400 10px/1.6 var(--hud);letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.hecho .tipo{color:var(--ok)} .curso .tipo{color:var(--accent)}
+/* 🔴 **Una línea por paso, y punto.** Un comando encadenado ocupaba tres o
+   cuatro y la lista dejaba de ser una lista: para saber por dónde iba había
+   que leerla entera. Lo que no cabe está debajo, al desplegar. */
+.que{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+     font:400 12.5px/1.6 var(--mono);color:var(--ink)}
+.dev{grid-column:2 / 4;min-width:0;white-space:nowrap;overflow:hidden;
+     text-overflow:ellipsis;font:400 11px/1.5 var(--mono);color:var(--mute)}
+.flecha{color:var(--faint);font-size:10px;transition:transform .15s}
+
+.dentro{padding:0 0 12px 122px}
+.caja{background:var(--void);border:1px solid var(--rule);border-radius:2px;
+      padding:9px 11px;margin-top:6px}
+.caja .b-h{display:block;margin-bottom:6px}
+/* Envuelve en vez de rodar: la única barra de la página es la del documento.
+   Con scroll propio salían dos pegadas y la rueda del ratón hacía una cosa u
+   otra según dónde estuviera el puntero. */
+pre{margin:0;white-space:pre-wrap;word-break:break-word;font:400 12px/1.6 var(--mono)}
+.cmd{color:var(--ink)}
+.sal{color:var(--mute)}
+.vacio{padding:12px 0;border-top:1px solid var(--rule)}
+''';
+
+  /// El botón de parar. Es un enlace y no un botón: la página no lleva
   /// JavaScript, así que lo único que puede hacer es navegar — y el visor
   /// intercepta esa navegación antes de que salga a ninguna parte.
   static String _parar(String conversacion, String titulo) =>
-      '<a class="parar" href="$esquema://detener/${_e(conversacion)}" '
-      'title="${_e(titulo)}"><span></span></a>';
+      '<a class="cerrar" href="$esquema://detener/${_e(conversacion)}">'
+      '${_e(titulo)}</a>';
 
   static String _fila(ActivityRow fila, TextosDeActividad textos) {
     final item = fila.item;
     final hay = item.hasDetail;
-    final marca = item.done
-        ? '<span class="punto hecho"></span>'
-        : (fila.running
-              ? '<span class="gira"></span>'
-              : '<span class="punto espera"></span>');
+    final (:verbo, :objeto) = ElVerboDeUnPaso.de(item.description);
+    final (estado, tipo) = item.done
+        ? ('hecho', textos.verbo(verbo, hecho: true))
+        : fila.running
+        ? ('curso', textos.verbo(verbo, hecho: false))
+        : ('espera', textos.espera);
+
+    // Lo que devolvió, en una línea: la primera que diga algo. Entera va
+    // dentro, al desplegar.
+    final devolvio = item.output
+        ?.split('\n')
+        .map((linea) => linea.trim())
+        .firstWhere((linea) => linea.isNotEmpty, orElse: () => '');
 
     final dentro = StringBuffer('<div class="dentro">');
     if (item.detail case final detalle? when detalle.isNotEmpty) {
       dentro.write(
-        '<div class="caja"><div class="rotulo">${_e(textos.seEjecuto)}</div>'
+        '<div class="caja"><span class="b-h">${_e(textos.seEjecuto)}</span>'
         '<pre class="cmd">${_e(detalle)}</pre></div>',
       );
     }
     if (item.output case final salida? when salida.isNotEmpty) {
       dentro.write(
-        '<div class="caja"><div class="rotulo">${_e(textos.devolvio)}</div>'
+        '<div class="caja"><span class="b-h">${_e(textos.devolvio)}</span>'
         '<pre class="sal">${_e(salida)}</pre></div>',
-      );
-    } else if (!item.done) {
-      dentro.write(
-        '<div class="caja"><pre class="sal">'
-        '${_e(textos.todaviaCorriendo)}</pre></div>',
       );
     }
     dentro.write('</div>');
 
-    return '<details class="${fila.depth > 0 ? 'hijo' : ''}"'
+    // «Devolvió · …» en minúscula de frase, como el mockup: el rótulo en
+    // mayúsculas sirve arriba de una caja; en una línea de mono, grita.
+    final linea = switch (devolvio) {
+      final dicho? when dicho.isNotEmpty =>
+        '<span class="dev">${_e(_frase(textos.devolvio))} · ${_e(dicho)}</span>',
+      _ when fila.running =>
+        '<span class="dev">${_e(textos.todaviaCorriendo)}</span>',
+      _ => '',
+    };
+
+    final clases = [if (fila.depth > 0) 'hijo', if (estado == 'espera') estado];
+    return '<details class="${clases.join(' ')}"'
         '${hay ? ' hasdetalle' : ''}>'
-        '<summary class="${fila.running ? 'curso' : ''}">'
-        '$marca<span class="que">${_e(item.description)}</span>'
-        '${item.writes ? '<span class="chapa">${_e(textos.escribe)}</span>' : ''}'
-        '${hay ? '<span class="flecha">▾</span>' : ''}'
+        '<summary class="$estado">'
+        '<span class="tipo">${_e(tipo)}</span>'
+        '<span class="que">${_e(objeto)}</span>'
+        '<span class="flecha">${hay ? '▾' : ''}</span>'
+        '$linea'
         '</summary>'
-        '${hay || !item.done ? dentro : ''}'
+        '${hay ? dentro : ''}'
         '</details>';
   }
+
+  static String _frase(String texto) => texto.isEmpty
+      ? texto
+      : texto[0].toUpperCase() + texto.substring(1).toLowerCase();
 
   /// Lo que devuelve un comando **no es HTML**, y aquí se pinta como si lo
   /// fuera si no se escapa: una salida con `<` se comería el resto de la

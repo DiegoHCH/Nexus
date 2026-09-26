@@ -101,7 +101,7 @@ class _Attachment extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _Thumbnail(path: path),
+              MiniaturaDelArchivo(path: path),
               const SizedBox(width: NexusSpacing.s3),
               ConstrainedBox(
                 // Un límite, porque los hay larguísimos: se recorta por el final
@@ -135,19 +135,28 @@ class _Attachment extends StatelessWidget {
 /// Es un `StatefulWidget` y no un provider porque la miniatura no es estado de
 /// la app: nace y muere con el chip, y guardarla en un provider global la
 /// dejaría en memoria mucho después de haber enviado el mensaje.
-class _Thumbnail extends StatefulWidget {
-  const _Thumbnail({required this.path});
+///
+/// **Pública desde que el chat la usa suelta**: la imagen que deja un encargo
+/// se enseña en su propia tarjeta —la miniatura grande, lo que dijo y «Abrir»,
+/// como en el mockup— y no en la tira de adjuntos. Es la misma miniatura, con
+/// su mismo camino para pedirla, a otro tamaño.
+class MiniaturaDelArchivo extends StatefulWidget {
+  const MiniaturaDelArchivo({super.key, required this.path, this.lado = 34});
 
   final String path;
 
+  /// El lado del cuadro. 34 en la tira de adjuntos; más grande donde la
+  /// miniatura es lo que se mira.
+  final double lado;
+
   @override
-  State<_Thumbnail> createState() => _ThumbnailState();
+  State<MiniaturaDelArchivo> createState() => _MiniaturaDelArchivoState();
 }
 
-class _ThumbnailState extends State<_Thumbnail> {
+class _MiniaturaDelArchivoState extends State<MiniaturaDelArchivo> {
   Uint8List? _bytes;
 
-  static const _side = 34.0;
+  double get _side => widget.lado;
 
   /// Lo que se pinta sin intermediarios: lo que Flutter sabe decodificar él.
   ///

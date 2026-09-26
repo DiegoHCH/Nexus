@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
+import 'package:nexus/features/assistant/domain/usecases/los_comandos_de_la_casa.dart';
 import 'package:nexus/features/assistant/presentation/providers/model_providers.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings_page.dart';
 import 'package:nexus/features/assistant/presentation/state/session_meter.dart';
@@ -18,9 +19,10 @@ import 'package:nexus/features/workspace/presentation/providers/workspace_provid
 
 /// Los tres menús del compositor: adjuntar y ajustes, el modelo, y el esfuerzo.
 ///
-/// Juntos porque son la misma forma repetida tres veces —un `PopupMenuButton` con
-/// sus filas— y separarlos en tres archivos habría multiplicado los imports sin
-/// que ninguno pese lo suficiente para vivir solo.
+/// Juntos porque son la misma forma repetida tres veces —un
+/// [MenuDelCompositor] con sus [OpcionDelMenu]— y separarlos en tres archivos
+/// habría multiplicado los imports sin que ninguno pese lo suficiente para
+/// vivir solo.
 
 /// El «+»: lo que se añade a lo que estás pidiendo.
 ///
@@ -46,9 +48,8 @@ class MoreMenu extends ConsumerWidget {
     return Semantics(
       button: true,
       label: context.strings.attachFile,
-      child: PopupMenuButton<String>(
-        color: colors.deep,
-        tooltip: '',
+      child: MenuDelCompositor<String>(
+        ancho: 300,
         onSelected: (value) async {
           switch (value) {
             case 'file':
@@ -80,21 +81,26 @@ class MoreMenu extends ConsumerWidget {
               if (context.mounted) await SettingsPage.open(context);
           }
         },
+        // Sin iconos delante, como en el mockup: cada fila ya dice lo que hace
+        // con su nombre, y el icono solo empujaba el texto a una columna que
+        // ningún otro menú tiene.
         itemBuilder: (context) => [
-          _item('file', Icons.attach_file, strings.attachFile, colors),
-          _item(
-            'folder',
-            Icons.create_new_folder_outlined,
-            strings.addFolderShort,
-            colors,
+          cabeceraDelMenu(context, '+'),
+          OpcionDelMenu(value: 'file', titulo: strings.attachFile),
+          OpcionDelMenu(value: 'folder', titulo: strings.addFolderShort),
+          // Con su atajo al lado: lo que se pide desde aquí también se puede
+          // escribir, y así se aprende sin abrir la ayuda.
+          OpcionDelMenu(
+            value: 'parte',
+            titulo: strings.parteDelDia,
+            alLado: ElComandoDeLaCasa.parte.comoSeEscribe,
           ),
-          _item(
-            'parte',
-            Icons.calendar_today_outlined,
-            strings.parteDelDia,
-            colors,
+          rayaDelMenu(),
+          OpcionDelMenu(
+            value: 'settings',
+            titulo: strings.openSettings,
+            alLado: '⌘,',
           ),
-          _item('settings', Icons.tune, strings.openSettings, colors),
         ],
         // Con punto rojo mientras quede una versión sin instalar: Ajustes vive
         // dentro de este menú, así que el aviso va pegado al camino que lleva a
@@ -105,22 +111,6 @@ class MoreMenu extends ConsumerWidget {
       ),
     );
   }
-
-  PopupMenuItem<String> _item(
-    String value,
-    IconData icon,
-    String label,
-    NexusColors colors,
-  ) => PopupMenuItem<String>(
-    value: value,
-    child: Row(
-      children: [
-        Icon(icon, size: 14, color: colors.faint),
-        const SizedBox(width: NexusSpacing.s3),
-        Text(label, style: NexusTypography.control.copyWith(color: colors.ink)),
-      ],
-    ),
-  );
 }
 
 /// El modelo con el que va a trabajar esta carpeta: con el nombre que dio el
@@ -159,6 +149,15 @@ String? _modeloEnUso(WidgetRef ref, PairedFolder? folder, SessionMeter meter) {
   ]..sort();
   if (conocidos.isNotEmpty) return conocidos.last;
   return pedido ?? visto;
+}
+
+/// El nombre corto del perfil de Claude de la carpeta —`work`, `private`—, o
+/// `null` si usa el de siempre. Es lo que se lee en la cabecera del modelo:
+/// elegir aquí cambia **ese** perfil.
+String? _perfil(PairedFolder? folder) {
+  final nombre = folder?.claudeProfile?.split('/').last;
+  if (nombre == null || !nombre.startsWith('.claude-')) return null;
+  return nombre.substring('.claude-'.length);
 }
 
 /// Qué modelo usa Claude **en este perfil**.
@@ -220,26 +219,16 @@ class ModelMenu extends ConsumerWidget {
       return suyos.isEmpty ? alias.label : modelLabel(suyos.last);
     }
 
-    PopupMenuItem<String> opcion(String valor, String etiqueta) =>
-        PopupMenuItem<String>(
+    final elegido = pedido ?? _porDefecto;
+    OpcionDelMenu<String> opcion(String valor, String etiqueta) =>
+        OpcionDelMenu<String>(
           value: valor,
-          child: Row(
-            children: [
-              Text(
-                etiqueta,
-                style: NexusTypography.control.copyWith(color: colors.ink),
-              ),
-              if (valor == (pedido ?? _porDefecto)) ...[
-                const SizedBox(width: NexusSpacing.s3),
-                Icon(Icons.check, size: 13, color: colors.accent),
-              ],
-            ],
-          ),
+          titulo: etiqueta,
+          elegida: valor == elegido,
         );
 
-    return PopupMenuButton<String>(
-      color: colors.deep,
-      tooltip: '',
+    return MenuDelCompositor<String>(
+      ancho: 330,
       onSelected: (valor) => unawaited(
         elegirModelo(
           ref,
@@ -255,19 +244,24 @@ class ModelMenu extends ConsumerWidget {
       // las versiones anteriores por su nombre entero. Con solo los alias, lo
       // que la consola ofrecía no se podía elegir aquí.
       itemBuilder: (context) => [
+        cabeceraDelMenu(context, strings.modeloDelPerfil(_perfil(folder))),
         opcion(_porDefecto, strings.modelPorDefecto),
         for (final alias in _alias) opcion(alias.alias, etiquetaDe(alias)),
-        const PopupMenuDivider(),
-        PopupMenuItem<String>(
-          enabled: false,
-          height: 28,
-          child: Text(
-            strings.modelVersionesAnteriores,
-            style: NexusTypography.control.copyWith(color: colors.faint),
-          ),
-        ),
-        for (final modelo in versionesAnteriores)
-          opcion(modelo, modelLabel(modelo)),
+        rayaDelMenu(),
+        // Rotulado como un apartado y no como una opción apagada: es el
+        // nombre de lo que viene debajo, con la misma voz que la cabecera.
+        cabeceraDelMenu(context, strings.modelVersionesAnteriores),
+        // Las de la misma familia seguidas, en una fila —«Opus 4.8 · 4.7 ·
+        // 4.6»—, como en el mockup: son la misma cosa en tres fechas, y en
+        // tres filas alargaban el menú hasta salirse de la ventana.
+        for (final grupo in _porFamilia(versionesAnteriores))
+          if (grupo.length == 1)
+            opcion(grupo.single, modelLabel(grupo.single))
+          else
+            _FilaDeVersiones(versiones: grupo, elegida: elegido),
+        // Lo que implica elegir aquí, que no es obvio: cambia el perfil, no
+        // esta conversación. Ver el 🔴 de arriba.
+        pieDelMenu(context, strings.modeloComoEnLaConsola),
       ],
       child: Text(
         nombre ?? strings.modelTitle,
@@ -309,9 +303,8 @@ class EffortMenu extends ConsumerWidget {
       folder?.claudeEffort ?? perfil?.esfuerzoPara(modelo),
     );
 
-    return PopupMenuButton<ClaudeEffort>(
-      color: colors.deep,
-      tooltip: '',
+    return MenuDelCompositor<ClaudeEffort>(
+      ancho: 300,
       onSelected: (option) => unawaited(
         elegirEsfuerzo(
           ref,
@@ -324,41 +317,133 @@ class EffortMenu extends ConsumerWidget {
         ),
       ),
       itemBuilder: (context) => [
+        cabeceraDelMenu(
+          context,
+          strings.esfuerzoDelModelo(modelo == null ? null : modelLabel(modelo)),
+        ),
         for (final option in ClaudeEffort.values)
-          PopupMenuItem<ClaudeEffort>(
+          OpcionDelMenu<ClaudeEffort>(
             value: option,
-            child: Row(
-              children: [
-                Text(
-                  option.flag,
-                  style: NexusTypography.control.copyWith(color: colors.ink),
-                ),
-                const SizedBox(width: NexusSpacing.s3),
-                // Los extremos se nombran, porque «xhigh» no dice por sí solo
-                // hacia qué lado tira.
-                if (option == ClaudeEffort.low)
-                  Text(
-                    strings.effortFaster,
-                    style: NexusTypography.nota.copyWith(color: colors.faint),
-                  ),
-                if (option == ClaudeEffort.max)
-                  Text(
-                    strings.effortSmarter,
-                    style: NexusTypography.nota.copyWith(color: colors.faint),
-                  ),
-                if (option == vigente) ...[
-                  const SizedBox(width: NexusSpacing.s3),
-                  Icon(Icons.check, size: 13, color: colors.accent),
-                ],
-              ],
-            ),
+            titulo: option.flag,
+            elegida: option == vigente,
+            // Los extremos se nombran, a la derecha como el atajo de las
+            // otras filas: «xhigh» no dice por sí solo hacia qué lado tira.
+            alLado: switch (option) {
+              ClaudeEffort.low => strings.effortFaster,
+              ClaudeEffort.max => strings.effortSmarter,
+              _ => null,
+            },
+            alLadoEsDato: false,
           ),
+        pieDelMenu(context, strings.esfuerzoComoEnLaConsola),
       ],
       child: Text(
         vigente?.flag ?? strings.effortTitle,
         style: NexusTypography.label.copyWith(
           color: folder?.claudeEffort == null ? colors.faint : colors.mute,
         ),
+      ),
+    );
+  }
+}
+
+/// Las versiones anteriores, juntas cuando son de la misma familia y vienen
+/// seguidas: `opus-4-8, opus-4-7, opus-4-6` es un grupo; `opus-5` y `opus-4-8`
+/// no, porque entre ellas va Fable. Seguidas y no todas las de la familia para
+/// que el orden de [versionesAnteriores] —el del `/model` del CLI— se respete.
+List<List<String>> _porFamilia(List<String> modelos) {
+  final grupos = <List<String>>[];
+  for (final modelo in modelos) {
+    final familia = ClaudeModel.fromCliName(modelo);
+    if (grupos.isNotEmpty &&
+        familia != null &&
+        ClaudeModel.fromCliName(grupos.last.first) == familia) {
+      grupos.last.add(modelo);
+    } else {
+      grupos.add([modelo]);
+    }
+  }
+  return grupos;
+}
+
+/// Varias versiones de una familia en una sola fila: «Opus 4.8 · 4.7 · 4.6».
+///
+/// Cada número se pulsa por separado —es una opción cada uno, como en el
+/// CLI—; lo que se ahorra es repetir «Opus» tres veces y tres filas de alto.
+class _FilaDeVersiones extends PopupMenuEntry<String> {
+  const _FilaDeVersiones({required this.versiones, required this.elegida});
+
+  final List<String> versiones;
+  final String elegida;
+
+  @override
+  double get height => 42;
+
+  @override
+  bool represents(String? value) => versiones.contains(value);
+
+  @override
+  State<_FilaDeVersiones> createState() => _FilaDeVersionesState();
+}
+
+class _FilaDeVersionesState extends State<_FilaDeVersiones> {
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final familia = ClaudeModel.fromCliName(widget.versiones.first)?.label;
+    String etiqueta(int i) {
+      final entera = modelLabel(widget.versiones[i]);
+      // Solo la primera lleva el nombre de la familia; las demás, su número.
+      return i == 0 || familia == null
+          ? entera
+          : entera.replaceFirst('$familia ', '');
+    }
+
+    TextStyle estilo(String modelo) => NexusTypography.nota.copyWith(
+      height: 1.35,
+      color: colors.ink,
+      fontWeight: modelo == widget.elegida ? FontWeight.w500 : null,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s1),
+      child: Row(
+        children: [
+          for (var i = 0; i < widget.versiones.length; i++) ...[
+            if (i > 0)
+              Text('·', style: estilo('').copyWith(color: colors.faint)),
+            Semantics(
+              button: true,
+              selected: widget.versiones[i] == widget.elegida,
+              child: InkWell(
+                onTap: () =>
+                    Navigator.of(context).pop<String>(widget.versiones[i]),
+                hoverColor: colors.accent.withValues(alpha: 0.12),
+                focusColor: colors.accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  // La primera, con la sangría de las filas de siempre para
+                  // que «Opus» quede alineado con los nombres de arriba.
+                  padding: EdgeInsets.symmetric(
+                    horizontal: i == 0 ? 10 : 5,
+                    vertical: 7,
+                  ),
+                  child: Text(etiqueta(i), style: estilo(widget.versiones[i])),
+                ),
+              ),
+            ),
+          ],
+          if (widget.versiones.contains(widget.elegida)) ...[
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Text(
+                '✓',
+                style: NexusTypography.data.copyWith(color: colors.mute),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

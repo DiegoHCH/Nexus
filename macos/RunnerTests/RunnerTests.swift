@@ -207,13 +207,31 @@ final class VisorDeArtefactosTests: XCTestCase {
     )
   }
 
+  /// Como en el mockup: el interruptor a la derecha del título, diciendo su
+  /// estado con palabra, y el porqué al pie del documento.
+  func testElInterruptorDiceSuEstadoYElPorqueVaAlPie() throws {
+    let visor = Viewer(path: try documento(), onClose: {})
+    defer { visor.window.close() }
+
+    let accesorio = try XCTUnwrap(visor.window.titlebarAccessoryViewControllers.first)
+    XCTAssertEqual(accesorio.layoutAttribute, .trailing)
+    let boton = try XCTUnwrap(accesorio.view.subviews.compactMap { $0 as? NSButton }.first)
+    XCTAssertTrue(boton.attributedTitle.string.contains(NexusArtifacts.etiquetaApagado.uppercased()))
+
+    visor.permitir(true)
+    XCTAssertTrue(boton.attributedTitle.string.contains(NexusArtifacts.etiquetaEncendido.uppercased()))
+
+    let pie = visor.window.contentView?.subviews.first {
+      $0.identifier == NSUserInterfaceItemIdentifier("pie")
+    }
+    XCTAssertEqual((pie as? NSTextField)?.stringValue, NexusArtifacts.ayudaPermiso)
+  }
+
   func testElScriptDelDocumentoNoCorre() throws {
     let visor = Viewer(path: try documentoConScript(), onClose: {})
     defer { visor.window.close() }
 
-    guard let web = visor.window.contentView as? WKWebView else {
-      return XCTFail("el contenido del visor debería ser el WKWebView")
-    }
+    let web = visor.web
 
     XCTAssertFalse(
       try corrioElScript(en: web),
@@ -227,9 +245,7 @@ final class VisorDeArtefactosTests: XCTestCase {
     let visor = Viewer(path: try documentoConScript(), onClose: {})
     defer { visor.window.close() }
 
-    guard let web = visor.window.contentView as? WKWebView else {
-      return XCTFail("el contenido del visor debería ser el WKWebView")
-    }
+    let web = visor.web
     _ = try corrioElScript(en: web)
 
     visor.permitir(true)
@@ -251,9 +267,7 @@ final class VisorDeArtefactosTests: XCTestCase {
     let visor = Viewer(path: try documentoConScript(), onClose: {})
     defer { visor.window.close() }
 
-    guard let web = visor.window.contentView as? WKWebView else {
-      return XCTFail("el contenido del visor debería ser el WKWebView")
-    }
+    let web = visor.web
     _ = try corrioElScript(en: web)
 
     let respondio = expectation(description: "el webview contesta a la app")
@@ -361,9 +375,7 @@ final class VisorDeArtefactosTests: XCTestCase {
     let visor = Viewer(path: try imagenPequena(), onClose: {})
     defer { visor.window.close() }
 
-    guard let web = visor.window.contentView as? WKWebView else {
-      return XCTFail("el contenido del visor debería ser el WKWebView")
-    }
+    let web = visor.web
 
     let medida = try esperarMedidaDeLaImagen(en: web)
     XCTAssertGreaterThan(
@@ -535,6 +547,32 @@ extension BarraDeEstadoTests {
 
     let menu = try XCTUnwrap(NexusStatusItem.currentMenu)
     XCTAssertEqual(menu.items.map(\.title).filter { !$0.isEmpty }, ["Hablar", "Salir"])
+  }
+
+  func testElMenuVaEnElOrdenDelMockupYConSusAtajos() throws {
+    // Hablar primero, que es para lo que existe el menú; la versión nueva en su
+    // propio grupo, antes de salir; y cada entrada con su atajo al lado.
+    NexusStatusItem.setMenuForTesting([
+      "talk": "Hablar con Nexus",
+      "show": "Abrir la ventana",
+      "settings": "Ajustes…",
+      "update": "Hay una versión nueva: 1.26.0",
+      "quit": "Salir de Nexus",
+    ])
+
+    let menu = try XCTUnwrap(NexusStatusItem.currentMenu)
+    XCTAssertEqual(
+      menu.items.map { $0.isSeparatorItem ? "—" : $0.title },
+      [
+        "Hablar con Nexus", "Abrir la ventana", "Ajustes…", "—",
+        "Hay una versión nueva: 1.26.0", "—", "Salir de Nexus",
+      ]
+    )
+    let hablar = menu.items[0]
+    XCTAssertEqual(hablar.keyEquivalent, " ")
+    XCTAssertEqual(hablar.keyEquivalentModifierMask, [.option])
+    XCTAssertEqual(menu.items[2].keyEquivalent, ",")
+    XCTAssertEqual(menu.items.last?.keyEquivalent, "q")
   }
 }
 
@@ -1034,5 +1072,29 @@ final class LaFraseTrasElNombreTests: XCTestCase {
     XCTAssertEqual(
       NexusEscucha.loQueSigueAlNombre("Hestia, no, Hestia, abre el repo", siendo: ["hestia"]),
       "abre el repo")
+  }
+}
+
+/// El orbe de fuera, del tamaño y en el sitio del mockup.
+///
+/// En el mockup es un orbe de 210 a 28 del borde, abajo a la derecha, en una
+/// pantalla de 1280 dibujada a escala. Salía de 148 a 24, y a ese tamaño el
+/// anillo de barras y el reloj se quedaban en un borrón: se veía que había
+/// algo, no qué estaba haciendo.
+final class ElOrbeFlotanteTests: XCTestCase {
+  func testMideLoDelMockupYVaAbajoALaDerecha() {
+    let pantalla = NSRect(x: 0, y: 40, width: 1440, height: 860)
+    let marco = NexusOrbeFlotante.dondeVa(en: pantalla)
+
+    XCTAssertEqual(marco.width, 210)
+    XCTAssertEqual(marco.height, 210)
+    // AppKit cuenta desde abajo: `minY` es el borde de abajo de lo visible,
+    // que ya deja fuera el Dock.
+    XCTAssertEqual(marco.maxX, pantalla.maxX - 28)
+    XCTAssertEqual(marco.minY, pantalla.minY + 28)
+  }
+
+  func testSeFundeEnElMedioSegundoDelMockup() {
+    XCTAssertEqual(NexusOrbeFlotante.fundido, 0.5)
   }
 }

@@ -215,6 +215,11 @@ void main() {
     final mensajes = mensajesDe(c);
     expect(mensajes.first.text, '/ayuda', reason: 'lo que se escribió se ve');
     expect(mensajes.last.author, ChatAuthor.nexus);
+    expect(
+      mensajes.last.esLaAyuda,
+      isTrue,
+      reason: 'marcada, para que la conversación la pinte en dos columnas',
+    );
     // Los textos se leen del contenedor: el idioma se elige en Ajustes y esta
     // prueba no manda en eso.
     expect(mensajes.last.text, startsWith(c.read(stringsProvider).ayudaTitulo));

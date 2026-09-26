@@ -66,7 +66,11 @@ void main() {
     ],
   );
 
-  testWidgets('con versión nueva enseña el salto, el peso y el botón', (
+  // Los rótulos van en mayúsculas, como todo rótulo del instrumento: se
+  // buscan así.
+  String rotulo(String texto) => texto.toUpperCase();
+
+  testWidgets('con versión nueva enseña a cuál, el peso y el botón', (
     tester,
   ) async {
     await abrir(
@@ -74,16 +78,16 @@ void main() {
       const UpdateFound(version: '0.0.3', bytes: 24000000, notes: 'lo nuevo'),
     );
 
-    expect(find.text(es.updateFoundTitle), findsOne);
-    // El salto de una versión a otra, que es la información principal.
-    expect(find.text('0.0.2'), findsOne);
-    expect(find.text('0.0.3'), findsOne);
+    expect(find.text(rotulo(es.updateFoundTitle)), findsOne);
+    // A qué versión se va, en grande: es la información principal.
+    expect(find.text(es.updateNexus('0.0.3')), findsOne);
     expect(find.text('lo nuevo'), findsOne);
     // El peso se dice antes de empezar: 23 MB en una conexión mala es una
-    // decisión, y se toma con el dato delante.
-    expect(find.text(es.updateWeight('22.9 MB')), findsOne);
-    expect(find.text(es.updateInstall), findsOne);
-    expect(find.text(es.updateLater), findsOne);
+    // decisión, y se toma con el dato delante. Y en la misma frase, que
+    // reiniciar espera a lo que esté en marcha.
+    expect(find.text(es.updateFoundBody('22.9 MB')), findsOne);
+    expect(find.text(rotulo(es.updateInstall)), findsOne);
+    expect(find.text(rotulo(es.updateLater)), findsOne);
   });
 
   testWidgets('si ya venía descargada ofrece reiniciar, no descargar', (
@@ -98,10 +102,10 @@ void main() {
       ),
     );
 
-    expect(find.text(es.updateRestart), findsOne);
-    expect(find.text(es.updateInstall), findsNothing);
+    expect(find.text(rotulo(es.updateRestart)), findsOne);
+    expect(find.text(rotulo(es.updateInstall)), findsNothing);
     // Y sin anunciar un peso que ya no hay que bajar.
-    expect(find.text(es.updateWeight('22.9 MB')), findsNothing);
+    expect(find.text(es.updateFoundBody(null)), findsOne);
   });
 
   testWidgets('bajando dice cuánto va de cuánto', (tester) async {
@@ -110,36 +114,38 @@ void main() {
       const UpdateDownloading(received: 12000000, total: 24000000),
     );
 
-    expect(find.text(es.updateDownloading), findsOne);
-    expect(find.text(es.updateDownloadedOf('11.4 MB', '22.9 MB')), findsOne);
-    // Y se puede cancelar: es una descarga, no un compromiso.
-    expect(find.text(es.cancel), findsOne);
+    final cuenta = es.updateDownloadedOf('11.4 MB', '22.9 MB');
+    expect(find.text(rotulo('${es.updateDownloading} · $cuenta')), findsOne);
+    // Se puede dejar que se reinicie sola al acabar, o apartarla: «Más
+    // tarde» no la cancela, la descarga sigue.
+    expect(find.text(rotulo(es.updateRestartWhenDone)), findsOne);
+    expect(find.text(rotulo(es.updateLater)), findsOne);
   });
 
   testWidgets('lista para instalarse advierte del reinicio', (tester) async {
     await abrir(tester, const UpdateReady());
 
-    expect(find.text(es.updateReadyTitle), findsOne);
+    expect(find.text(rotulo(es.updateReadyTitle)), findsOne);
     // El aviso no es relleno: reiniciar puede cortar un `claude -p` a media
     // escritura, y quien lo lee decide con eso delante.
     expect(find.text(es.updateReadyBody), findsOne);
-    expect(find.text(es.updateRestart), findsOne);
+    expect(find.text(rotulo(es.updateRestart)), findsOne);
   });
 
   testWidgets('instalando ya no se puede cancelar', (tester) async {
     await abrir(tester, const UpdateInstalling());
 
-    expect(find.text(es.updateInstalling), findsOne);
-    expect(find.text(es.cancel), findsNothing);
-    expect(find.text(es.updateLater), findsNothing);
+    expect(find.text(rotulo(es.updateInstalling)), findsOne);
+    expect(find.text(rotulo(es.cancel)), findsNothing);
+    expect(find.text(rotulo(es.updateLater)), findsNothing);
   });
 
   testWidgets('un fallo enseña lo que dijo el actualizador', (tester) async {
     await abrir(tester, const UpdateFailed('no se pudo verificar la firma'));
 
-    expect(find.text(es.updateFailedTitle), findsOne);
+    expect(find.text(rotulo(es.updateFailedTitle)), findsOne);
     expect(find.text('no se pudo verificar la firma'), findsOne);
-    expect(find.text(es.updateRetry), findsOne);
+    expect(find.text(rotulo(es.updateRetry)), findsOne);
   });
 
   testWidgets('un fallo mudo no deja la modal sin explicación', (tester) async {
@@ -151,7 +157,7 @@ void main() {
   testWidgets('estás al día lo dice con la versión que corre', (tester) async {
     await abrir(tester, const UpdateUpToDate());
 
-    expect(find.text(es.updateUpToDate), findsOne);
+    expect(find.text(rotulo(es.updateUpToDate)), findsOne);
     expect(find.text(es.updateUpToDateBody('0.0.2')), findsOne);
   });
 
@@ -169,8 +175,8 @@ void main() {
 
     expect(find.text(es.updateMoveTitle), findsOne);
     expect(find.text(es.updateMoveBody), findsOne);
-    expect(find.text(es.updateInstall), findsNothing);
-    expect(find.text(es.updateRestart), findsNothing);
+    expect(find.text(rotulo(es.updateInstall)), findsNothing);
+    expect(find.text(rotulo(es.updateRestart)), findsNothing);
   });
 
   _sobreLasRutas();
@@ -184,7 +190,7 @@ void main() {
     );
 
     expect(find.text(es.updateMoveTitle), findsOne);
-    expect(find.text(es.updateInstall), findsNothing);
+    expect(find.text(rotulo(es.updateInstall)), findsNothing);
   });
 }
 
@@ -237,14 +243,17 @@ void _sobreLasRutas() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text(const NexusStringsEs().updateFoundTitle), findsOne);
+    expect(
+      find.text(const NexusStringsEs().updateFoundTitle.toUpperCase()),
+      findsOne,
+    );
 
     await tester.tap(find.text('abrir'));
     await tester.pumpAndSettle();
 
     expect(find.text('otra pantalla'), findsOne, reason: 'la ruta está encima');
     expect(
-      find.text(const NexusStringsEs().updateFoundTitle),
+      find.text(const NexusStringsEs().updateFoundTitle.toUpperCase()),
       findsOne,
       reason: 'y el aviso sigue a la vista: por eso va en el overlay raíz',
     );

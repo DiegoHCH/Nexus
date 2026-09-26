@@ -79,11 +79,11 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(find.text('Hacerlo ahora'));
+      await tester.tap(find.text('HACERLO AHORA'));
       expect(hecha, 1);
       expect(saltada, 0, reason: 'hacerla no puede además saltarla');
 
-      await tester.tap(find.text('Saltar'));
+      await tester.tap(find.text('SALTAR'));
       expect(saltada, 1);
     });
 

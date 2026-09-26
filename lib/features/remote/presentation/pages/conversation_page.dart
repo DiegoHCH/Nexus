@@ -1,11 +1,16 @@
+import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
+import 'package:nexus/features/remote/domain/el_compas_de_la_respuesta.dart';
+import 'package:nexus/features/remote/domain/el_subtitulo_de_la_voz.dart';
 import 'package:nexus/features/remote/domain/remote_mirror.dart';
+import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/remote/presentation/providers/mirror_providers.dart';
 import 'package:nexus/features/remote/presentation/providers/outbox_providers.dart';
-import 'package:nexus/features/remote/presentation/widgets/link_badge.dart';
 import 'package:nexus/features/remote/presentation/widgets/write_phrase_sheet.dart';
 import 'package:nexus/core/design_system/nexus_spacing.dart';
 import 'package:nexus/core/design_system/nexus_typography.dart';
@@ -127,12 +132,13 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
   /// usaba— y eso revienta con «un TextEditingController se usó después de liberarlo».
   Future<void> _acciones(
     MirroredConversation conv,
-  ) => showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: context.colors.deep,
-    shape: const RoundedRectangleBorder(),
-    builder: (hoja) => _HojaDeAcciones(
-      nombreDeAhora: conv.nombre,
+  ) => mostrarHojaDelMovil<void>(
+    context,
+    (hoja) => _HojaDeAcciones(
+      // El título si lo tiene, y **vacío** si no: la carpeta es el nombre de
+      // repuesto, no uno que alguien puso, y dejarla en el campo invitaba a
+      // guardarla como si lo fuera.
+      nombreDeAhora: conv.title ?? '',
       alGuardar: (nombre) async {
         Navigator.of(hoja).pop();
         await ref
@@ -167,6 +173,8 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
         titulo: strings.mobileConversationGone,
         cuerpo: strings.mobileConversationGoneBody,
         pieDeAyuda: strings.mobileConversationGoneHint,
+        alVolver: () => Navigator.of(context).maybePop(),
+        ladoDelOrbe: 220,
         acciones: [
           WideAction(
             texto: strings.mobileBack,
@@ -177,145 +185,207 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       );
     }
 
+    final orbe = ref.watch(orbeProvider(widget.conversationId));
+    final paso = ElPasoDeAhora.de(conv.steps);
+    final vacia = _vacia(conv);
+    // **Hablando, el orbe vuelve a ser el contenido**, con el subtítulo debajo: es lo
+    // que dibuja el mockup. Mientras ella habla lo que se lee es lo que dice, y la
+    // lista de turnos debajo competiría con la frase que está sonando.
+    final hablando =
+        orbe == NexusOrbState.speak && conv.reply.trim().isNotEmpty;
+    // Trabajando con pasos, el orbe baja a una banda con el reactor y el paso al
+    // lado: los segmentos y el «paso 3 de 4» cuentan lo mismo, uno en dibujo y otro
+    // en palabras.
+    final trabajando = !vacia && orbe == NexusOrbState.think && paso != null;
+
+    // La voz de verdad, cuando la tiene el teléfono. Si la respuesta suena aquí, el
+    // orbe late con lo que sale del altavoz; si hablas aquí, con lo que entra por el
+    // micrófono. Si la voz está en el Mac, `null`: el teléfono no la oye, y latir con
+    // un silencio que no es tal dejaría el orbe quieto mientras ella habla allí.
+    final suenaAqui = ref.watch(reproduccionProvider) == Reproduccion.sonando;
+    final hablasAqui = ref.watch(vozProvider) == Voz.hablando;
+    final compas = ref.watch(compasProvider);
+    final nivelVivo = switch (orbe) {
+      NexusOrbState.speak when suenaAqui => compas.nivel,
+      NexusOrbState.listen when hablasAqui => ref.watch(
+        nivelDelMicrofonoProvider,
+      ),
+      _ => null,
+    };
+
+    final elOrbe = IgnorePointer(
+      child: NexusOrb(
+        // Con la regla puesta: sin enlace no gira, diga lo que diga el último
+        // estado que llegó del Mac.
+        state: orbe,
+        showHorizon: false,
+        nivelVivo: nivelVivo,
+        pasos: paso?.total,
+        hechos: paso?.hechos,
+        // El anillo del oído, si es la conversación que el Mac escucha.
+        oido: conv.focused,
+      ),
+    );
+    final alto = MediaQuery.of(context).size.height;
+
     return Scaffold(
       backgroundColor: colors.void_,
-      appBar: AppBar(
-        backgroundColor: colors.void_,
-        title: Text(
-          conv.nombre.split('/').last,
-          style: NexusTypography.lead.copyWith(color: colors.ink),
-        ),
-        actions: [
-          // Las dos acciones sobre la conversación **detrás de un toque**, no a la
-          // vista: cerrar al lado de la insignia de conexión es un botón destructivo
-          // pegado a algo que se mira todo el rato.
-          IconButton(
-            key: const ValueKey('acciones-de-la-conversacion'),
-            onPressed: () => _acciones(conv),
-            // Tres puntos dibujados con el sistema, no `Icons.more_vert`: el idioma de
-            // estas pantallas son hairlines y glifos.
-            icon: Text(
-              '···',
-              style: NexusTypography.lead.copyWith(color: colors.mute),
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: LinkBadge(),
-          ),
-        ],
-      ),
-      // **El orbe va detrás, no dentro.** Es la otra mitad de esta pieza: puesto entre
-      // el contenido sería una ilustración —una cosa más que mirar en una lista— y lo
-      // que es es la presencia del asistente. Detrás y a media pantalla, cuenta en qué
-      // anda el Mac sin robarle sitio a lo que se lee.
-      //
-      // `IgnorePointer` porque no se toca, y arriba porque es donde queda libre: los
-      // turnos crecen hacia abajo y el compositor vive pegado al fondo.
       body: SafeArea(
         child: Column(
           children: [
+            // La cabecera de todas, con la vuelta y el nombre de la conversación en
+            // vez del wordmark. Era un `AppBar` con su propia insignia —en minúscula
+            // y en verde— y al entrar la cabecera cambiaba de forma y de color.
+            MobileChrome(
+              alVolver: () => Navigator.of(context).maybePop(),
+              nombre: conv.nombre.split('/').last,
+              // Las dos acciones sobre la conversación **detrás de un toque**, no a
+              // la vista: cerrar al lado del chip es un botón destructivo pegado a
+              // algo que se mira todo el rato.
+              alFinal: _TresPuntos(alTocar: () => _acciones(conv)),
+            ),
             if (conv.percent != null) _Medidor(conversacion: conv),
             // **El orbe, fijo arriba: no se desplaza.** Estuvo de fondo y el texto se
             // le montaba encima; y como cabecera de la lista se iba de la pantalla al
             // leer. Aquí no hace ninguna de las dos: los mensajes se desplazan por
             // debajo de él y el orbe se queda, que es lo que corresponde a la
             // presencia del asistente — no es contenido, es quien te atiende.
-            //
-            // Vacía se lleva media pantalla, porque no hay nada que leer y es lo único
-            // que hay que ver. Con turnos, una banda corta: lo justo para saber en qué
-            // anda el Mac sin quitarle sitio a lo que se lee.
-            SizedBox(
-              height: _vacia(conv)
-                  ? MediaQuery.of(context).size.height * 0.46
-                  : 132,
-              child: IgnorePointer(
-                child: NexusOrb(
-                  // Con la regla puesta: sin enlace no gira, diga lo que diga el
-                  // último estado que llegó del Mac.
-                  state: ref.watch(orbeProvider(widget.conversationId)),
-                  showHorizon: false,
+            if (hablando) ...[
+              // Hablando, el orbe con su anillo es lo que se mira: 280 como el
+              // mockup, y proporcional al alto donde no cabe.
+              SizedBox(height: math.min(280, alto * 0.36), child: elOrbe),
+              Expanded(
+                child: _Subtitulo(
+                  texto: conv.reply,
+                  // Por dónde va, solo si suena aquí: con la voz en el Mac no se
+                  // sabe, y entonces se enseña entera.
+                  avance: suenaAqui ? compas.avance : null,
                 ),
               ),
-            ),
-            Expanded(
-              child: ListView(
-                controller: _scroll,
-                padding: const EdgeInsets.all(20),
-                children: [
-                  // Más arriba lo más viejo: se lee hacia abajo, como una
-                  // conversación.
-                  if (conv.masHistorial != null)
-                    Center(
-                      child: TextButton(
-                        key: const ValueKey('mas-historial'),
-                        onPressed: () => ref
-                            .read(mirrorProvider.notifier)
-                            .masHistorial(widget.conversationId),
-                        child: Text(strings.mobileSeeEarlier),
+            ] else if (vacia) ...[
+              // Vacía el orbe es lo único que hay que ver, y debajo **qué se puede
+              // hacer con ella**: sin esa línea la pantalla era un orbe y un campo,
+              // y no decía que también se le puede hablar.
+              const SizedBox(height: 30),
+              SizedBox(height: math.min(300, alto * 0.42), child: elOrbe),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  MedidasDelMovil.margen,
+                  NexusSpacing.s3,
+                  MedidasDelMovil.margen,
+                  0,
+                ),
+                child: Text(
+                  strings.mobileEmptyConversationHint,
+                  key: const ValueKey('pista-de-la-vacia'),
+                  textAlign: TextAlign.center,
+                  style: NexusTypography.nota.copyWith(
+                    color: colors.mute,
+                    fontSize: 13.5,
+                  ),
+                ),
+              ),
+              const Spacer(),
+            ] else ...[
+              if (trabajando)
+                _BandaTrabajando(orbe: elOrbe, paso: paso)
+              else
+                // Con turnos, una banda corta: lo justo para saber en qué anda el
+                // Mac sin quitarle sitio a lo que se lee.
+                SizedBox(height: 132, child: elOrbe),
+              Expanded(
+                child: ListView(
+                  controller: _scroll,
+                  padding: const EdgeInsets.fromLTRB(
+                    MedidasDelMovil.margen,
+                    NexusSpacing.s3,
+                    MedidasDelMovil.margen,
+                    NexusSpacing.s3,
+                  ),
+                  children: [
+                    // Más arriba lo más viejo: se lee hacia abajo, como una
+                    // conversación.
+                    if (conv.masHistorial != null)
+                      Center(
+                        child: TextButton(
+                          key: const ValueKey('mas-historial'),
+                          onPressed: () => ref
+                              .read(mirrorProvider.notifier)
+                              .masHistorial(widget.conversationId),
+                          // Un mando, y los mandos del teléfono van en
+                          // mayúsculas como el botón ancho.
+                          child: Text(
+                            strings.mobileSeeEarlier.toUpperCase(),
+                            style: NexusTypography.label.copyWith(
+                              color: colors.mute,
+                              fontSize: 10.5,
+                              letterSpacing: 1.47,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  for (final mensaje in conv.history)
-                    _Mensaje(mensaje: mensaje),
-                  if (conv.history.isNotEmpty) const SizedBox(height: 8),
-                  // **Lo que dijo el usuario, cuando lo dijo hablando.** Escribiendo
-                  // el teléfono ya lo tiene; hablando, la voz se transcribe en el Mac
-                  // y sin esto llegaba la respuesta a una pregunta que nunca se pintó
-                  // — una conversación contestando sola.
-                  //
-                  // Va **antes** de los pasos y de la respuesta porque es lo que las
-                  // provoca, y con la misma cautela que la respuesta: solo si no está
-                  // ya abajo en el historial, o se vería dos veces al cerrarse el turno.
-                  if (conv.ask.isNotEmpty && !conv.preguntaYaEnHistorial)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: TurnBlock(
+                    for (final mensaje in conv.history)
+                      _Mensaje(mensaje: mensaje),
+                    // **Lo que dijo el usuario, cuando lo dijo hablando.** Escribiendo
+                    // el teléfono ya lo tiene; hablando, la voz se transcribe en el Mac
+                    // y sin esto llegaba la respuesta a una pregunta que nunca se pintó
+                    // — una conversación contestando sola.
+                    //
+                    // Va **antes** de los pasos y de la respuesta porque es lo que las
+                    // provoca, y con la misma cautela que la respuesta: solo si no está
+                    // ya abajo en el historial, o se vería dos veces al cerrarse el turno.
+                    if (conv.ask.isNotEmpty && !conv.preguntaYaEnHistorial)
+                      TurnBlock(
                         key: const ValueKey('pregunta'),
                         mine: true,
                         text: conv.ask,
                       ),
-                    ),
-                  if (conv.steps.isNotEmpty) _Pasos(pasos: conv.steps),
-                  // La respuesta en curso, **y solo si no está ya abajo en el
-                  // historial**: al terminar el turno el mismo texto salía por los
-                  // dos sitios y con dos estilos distintos, que se lee como si el
-                  // asistente hubiera contestado dos veces.
-                  if (conv.reply.isNotEmpty && !conv.respuestaYaEnHistorial)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: TurnBlock(
-                        key: const ValueKey('respuesta'),
-                        mine: false,
-                        text: conv.reply,
+                    if (conv.steps.isNotEmpty) _Pasos(pasos: conv.steps),
+                    // La respuesta en curso, **y solo si no está ya abajo en el
+                    // historial**: al terminar el turno el mismo texto salía por los
+                    // dos sitios y con dos estilos distintos, que se lee como si el
+                    // asistente hubiera contestado dos veces.
+                    if (conv.reply.isNotEmpty && !conv.respuestaYaEnHistorial)
+                      Padding(
+                        padding: const EdgeInsets.only(top: NexusSpacing.s2),
+                        child: TurnBlock(
+                          key: const ValueKey('respuesta'),
+                          mine: false,
+                          text: conv.reply,
+                        ),
                       ),
-                    ),
-                  if (conv.error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: Text(
-                        conv.error!,
-                        style: TextStyle(color: colors.err),
+                    if (conv.error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: NexusSpacing.s4),
+                        child: Text(
+                          conv.error!,
+                          style: NexusTypography.nota.copyWith(
+                            color: colors.err,
+                          ),
+                        ),
                       ),
-                    ),
-                  // El aviso, en ámbar y debajo del error. Los dos pueden
-                  // coincidir —un encargo puede fallar justo el día que
-                  // cambiaron las reglas— y en rojo se leería como que algo se
-                  // rompió, cuando lo que pasa es que algo cambió.
-                  if (conv.notice != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: Text(
-                        conv.notice!,
-                        style: TextStyle(color: colors.warn),
+                    // El aviso, en ámbar y debajo del error. Los dos pueden
+                    // coincidir —un encargo puede fallar justo el día que
+                    // cambiaron las reglas— y en rojo se leería como que algo se
+                    // rompió, cuando lo que pasa es que algo cambió.
+                    if (conv.notice != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: NexusSpacing.s4),
+                        child: Text(
+                          conv.notice!,
+                          style: NexusTypography.nota.copyWith(
+                            color: colors.warn,
+                          ),
+                        ),
                       ),
-                    ),
-                  // Lo que está esperando salir. Se enseña **aquí y no en un cajón
-                  // aparte**: un encargo escrito sin cobertura que no se ve por
-                  // ninguna parte se da por perdido y se vuelve a escribir.
-                  _Esperando(conversationId: widget.conversationId),
-                ],
+                    // Lo que está esperando salir. Se enseña **aquí y no en un cajón
+                    // aparte**: un encargo escrito sin cobertura que no se ve por
+                    // ninguna parte se da por perdido y se vuelve a escribir.
+                    _Esperando(conversationId: widget.conversationId),
+                  ],
+                ),
               ),
-            ),
+            ],
             _Compositor(
               campo: _campo,
               conversacion: conv,
@@ -327,6 +397,155 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Los tres puntos de la cabecera: renombrar y cerrar, detrás de un toque.
+///
+/// Un glifo y no `Icons.more_vert`: el idioma de estas pantallas son hairlines y
+/// glifos, y el icono de Material pesa más que el chip de al lado.
+class _TresPuntos extends StatelessWidget {
+  const _TresPuntos({required this.alTocar});
+
+  final VoidCallback alTocar;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: context.strings.mobileName,
+    child: InkWell(
+      key: const ValueKey('acciones-de-la-conversacion'),
+      onTap: alTocar,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          NexusSpacing.s2,
+          NexusSpacing.s3,
+          0,
+          NexusSpacing.s3,
+        ),
+        child: Text(
+          '···',
+          style: NexusTypography.control.copyWith(
+            color: context.colors.mute,
+            fontSize: 16,
+            height: 1,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Lo que dice mientras habla, debajo del orbe: **lo dicho en blanco, lo que falta en
+/// gris**.
+///
+/// Sans ligera y grande, que es la forma de «esto es lo que se dice» en este sistema, y
+/// sin cuadro: es un subtítulo, no un panel.
+class _Subtitulo extends StatelessWidget {
+  const _Subtitulo({required this.texto, this.avance});
+
+  final String texto;
+
+  /// Por dónde va la voz, cuando suena aquí. Ver [ElCompasDeLaRespuesta].
+  final ValueListenable<double>? avance;
+
+  @override
+  Widget build(BuildContext context) {
+    // 🔴 **En su propia capa**, por lo mismo que en el escritorio: el subtítulo cambia
+    // mientras suena el audio, y sin esta frontera cada cambio repinta también el
+    // orbe —un `CustomPaint` animado— en la misma pasada.
+    final avance = this.avance;
+    return RepaintBoundary(
+      child: Padding(
+        // Pegado al orbe y no centrado en el hueco: la frase es lo que el orbe está
+        // diciendo, y separada de él se lee como otra cosa.
+        padding: const EdgeInsets.fromLTRB(
+          MedidasDelMovil.margen,
+          NexusSpacing.s1,
+          MedidasDelMovil.margen,
+          0,
+        ),
+        child: avance == null
+            ? _pinta(context, SubtituloDeLaVoz.de(texto))
+            : ValueListenableBuilder<double>(
+                valueListenable: avance,
+                builder: (context, va, _) =>
+                    _pinta(context, SubtituloDeLaVoz.de(texto, avance: va)),
+              ),
+      ),
+    );
+  }
+
+  Widget _pinta(BuildContext context, SubtituloDeLaVoz sub) {
+    final colors = context.colors;
+    // Equilibrado, como el mockup: centrada y partida por el medio, la frase se lee
+    // como lo que se está diciendo y no como un párrafo con una palabra colgando.
+    return Align(
+      alignment: Alignment.topCenter,
+      child: TextoEquilibrado.rich(
+        clave: const ValueKey('subtitulo'),
+        TextSpan(
+          children: [
+            TextSpan(text: sub.ya),
+            TextSpan(
+              text: sub.falta,
+              style: TextStyle(color: colors.faint),
+            ),
+          ],
+        ),
+        style: NexusTypography.subtitleMobile.copyWith(color: colors.ink),
+      ),
+    );
+  }
+}
+
+/// La banda de trabajando: el orbe con su reactor, y a su lado el paso en que va.
+class _BandaTrabajando extends StatelessWidget {
+  const _BandaTrabajando({required this.orbe, required this.paso});
+
+  final Widget orbe;
+  final ElPasoDeAhora paso;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: MedidasDelMovil.margen),
+      child: Row(
+        key: const ValueKey('banda-trabajando'),
+        children: [
+          SizedBox(width: 120, height: 120, child: orbe),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.strings
+                      .mobileStepOf(paso.paso, paso.total)
+                      .toUpperCase(),
+                  style: NexusTypography.label.copyWith(color: colors.mute),
+                ),
+                const SizedBox(height: NexusSpacing.s1),
+                Text(
+                  paso.texto,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  // Ligera, como el mockup: es lo que se está diciendo del trabajo,
+                  // con la misma voz fina que el subtítulo, y no un titular.
+                  style: NexusTypography.lead.copyWith(
+                    color: colors.ink,
+                    fontWeight: FontWeight.w300,
+                    fontVariations: const [FontVariation('wght', 300)],
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -446,42 +665,50 @@ class _Medidor extends StatelessWidget {
         ? colors.warn
         : colors.accent;
 
+    // **Una raya de 3 px de lado a lado y sin cifra**, como el mockup: en el teléfono
+    // lo que se viene a saber es si queda sitio, y eso lo dicen el largo y el color.
+    // La cifra sigue ahí para quien no ve la raya —el lector de pantalla la lee—, y
+    // la dice **como la mandó el Mac**: recalcularla aquí con una ventana asumida es
+    // el error que ya se cometió en el escritorio.
+    //
     // Dos cajas y no un `LinearProgressIndicator`: el de Material redondea las
     // puntas y anima al cambiar de valor, y una barra que se desliza sola parece que
-    // está midiendo algo en vivo — esto es una cifra que llegó del Mac. Cuadrada y
-    // quieta, como la del mockup.
+    // está midiendo algo en vivo — esto es una cifra que llegó del Mac.
     return Padding(
       padding: const EdgeInsets.symmetric(
-        horizontal: NexusSpacing.s5,
-        vertical: NexusSpacing.s2,
+        horizontal: MedidasDelMovil.margen,
+        vertical: 6,
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 4,
-              color: colors.rule,
-              alignment: Alignment.centerLeft,
-              child: FractionallySizedBox(
-                widthFactor: (porcentaje / 100).clamp(0.0, 1.0),
-                child: Container(color: color),
-              ),
-            ),
+      child: Semantics(
+        label: context.strings.contextWindow,
+        value: '$porcentaje %',
+        child: Container(
+          key: const ValueKey('medidor'),
+          height: 3,
+          color: colors.rule,
+          alignment: Alignment.centerLeft,
+          child: FractionallySizedBox(
+            widthFactor: (porcentaje / 100).clamp(0.0, 1.0),
+            heightFactor: 1,
+            child: ColoredBox(color: color),
           ),
-          const SizedBox(width: 10),
-          Text(
-            // El porcentaje **como lo mandó el Mac**. Recalcularlo aquí con una
-            // ventana asumida es el error que ya se cometió en el escritorio.
-            '$porcentaje %',
-            key: const ValueKey('medidor'),
-            style: NexusTypography.label.copyWith(color: color),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
+/// Los pasos del turno, **como el registro del mockup**: un punto y una línea, sin
+/// separadores.
+///
+/// Tres estados y no dos: lo hecho en verde, **el de ahora** en acento y con su halo
+/// —el único que brilla, igual que el orbe—, y lo que falta apagado. Antes todo lo no
+/// terminado brillaba igual, así que con cuatro pasos pendientes no se sabía cuál era
+/// el de ahora; el de ahora es el primero sin terminar, que es lo mismo que cuenta el
+/// «paso 3 de 4» de la banda.
+///
+/// Sin hairline entre pasos: son las líneas de un mismo registro, y con una raya
+/// debajo de cada una se leían como cuatro mensajes.
 class _Pasos extends StatelessWidget {
   const _Pasos({required this.pasos});
 
@@ -490,50 +717,54 @@ class _Pasos extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final paso in pasos)
-          Container(
-            // Hairline entre pasos, como los bloques de arriba: es el mismo sistema, y
-            // una lista con separadores propios se leería como otra app.
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: colors.rule)),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s3),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: _Marca(
-                    // El que escribe manda sobre lo demás: es la única forma que tiene
-                    // el teléfono de decir que algo está tocando archivos, y eso
-                    // importa más que si ya terminó.
-                    color: paso.writes
-                        ? colors.warn
-                        : paso.done
-                        ? colors.ok
-                        : colors.accent,
-                    brilla: !paso.done,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    paso.text,
-                    style: NexusTypography.mono.copyWith(
+    final ahora = pasos.indexWhere((p) => !p.done);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: NexusSpacing.s1),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final (i, paso) in pasos.indexed)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s1),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2, right: 8),
+                    child: _Marca(
+                      // El que escribe manda sobre lo demás: es la única forma que
+                      // tiene el teléfono de decir que algo está tocando archivos, y
+                      // eso importa más que si ya terminó.
                       color: paso.writes
                           ? colors.warn
                           : paso.done
-                          ? colors.faint
-                          : colors.ink,
+                          ? colors.ok
+                          : i == ahora
+                          ? colors.accent
+                          : colors.faint,
+                      brilla: i == ahora,
                     ),
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: Text(
+                      paso.text,
+                      style: NexusTypography.mono.copyWith(
+                        fontSize: 12,
+                        height: 1.45,
+                        color: paso.writes
+                            ? colors.warn
+                            : i == ahora
+                            ? colors.ink
+                            : colors.mute,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -560,13 +791,17 @@ class _Compositor extends ConsumerWidget {
     final hasta = ref.watch(writePermissionProvider).value;
     final puedeEscribir = hasta != null && DateTime.now().isBefore(hasta);
 
+    // **Sin fondo propio**, como el mockup: una raya encima lo separa de lo que se
+    // lee, y el resto es el mismo fondo que la pantalla. Con el `deep` de antes el
+    // compositor era una bandeja pegada abajo, de otra app.
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+      margin: const EdgeInsets.symmetric(horizontal: MedidasDelMovil.margen),
+      padding: const EdgeInsets.fromLTRB(0, 10, 0, MedidasDelMovil.pie),
       decoration: BoxDecoration(
-        color: colors.deep,
         border: Border(top: BorderSide(color: colors.rule)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // El permiso se dice **antes de escribir el encargo**, no al mandarlo.
           // Enterarse de que era solo lectura después de teclear tres frases es
@@ -574,66 +809,24 @@ class _Compositor extends ConsumerWidget {
           //
           // Y es el interruptor del mockup, no una línea con un candado: se ven **los
           // dos estados a la vez**, así que se lee en qué está sin recordar qué
-          // significaba el icono. `PermissionToggle` ya lo dibuja —existía y esta
-          // pantalla no lo usaba— y sabe que bajar a solo lectura no pide frase y
-          // subir sí.
-          Align(
-            alignment: Alignment.centerLeft,
-            child: PermissionToggle(
-              key: const ValueKey('permiso'),
-              puedeEditar: puedeEscribir,
-              alTocar: () => mostrarFraseDeEscritura(context, ref),
-            ),
+          // significaba el icono. Sabe que bajar a solo lectura no pide frase y
+          // subir sí, y lleva la hora dentro.
+          PermissionToggle(
+            key: const ValueKey('permiso'),
+            puedeEditar: puedeEscribir,
+            hasta: puedeEscribir ? _hora(hasta) : null,
+            alTocar: () => mostrarFraseDeEscritura(context, ref),
           ),
-          if (puedeEscribir) ...[
-            const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                // La hora, que es lo que el interruptor no puede decir: «puede
-                // editar» sin hasta cuándo invita a confiar en que sigue abierto.
-                strings.mobileWritableUntil(_hora(hasta)),
-                style: NexusTypography.label.copyWith(color: colors.faint),
-              ),
-            ),
-          ],
-          const SizedBox(height: NexusSpacing.s3),
+          const SizedBox(height: NexusSpacing.s2),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Expanded(
-                child: Container(
-                  // La caja del mockup: `rise`, un hairline y radio 2 — y 44 de alto
-                  // mínimo, que es la medida de algo que se toca con el pulgar.
-                  constraints: const BoxConstraints(minHeight: 44),
-                  decoration: BoxDecoration(
-                    color: colors.rise,
-                    borderRadius: BorderRadius.circular(2),
-                    border: Border.all(color: colors.rule),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: NexusSpacing.s3,
-                    vertical: 2,
-                  ),
-                  child: TextField(
-                    key: const ValueKey('encargo'),
-                    controller: campo,
-                    minLines: 1,
-                    maxLines: 4,
-                    style: NexusTypography.body.copyWith(color: colors.ink),
-                    decoration: InputDecoration(
-                      hintText: strings.mobileComposerHint,
-                      hintStyle: NexusTypography.body.copyWith(
-                        color: colors.faint,
-                      ),
-                      // Sin las líneas de Material: la caja ya es el borde, y dos
-                      // bordes dibujan un campo dentro de otro.
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      isDense: true,
-                    ),
-                  ),
+                child: MobileInput(
+                  campoKey: const ValueKey('encargo'),
+                  controlador: campo,
+                  pista: strings.mobileComposerHint,
+                  lineas: 4,
                 ),
               ),
               const SizedBox(width: NexusSpacing.s2),
@@ -657,10 +850,14 @@ class _Compositor extends ConsumerWidget {
                 // «no quiero solo poder hablar si no también escribir».
                 _Microfono(conversationId: conversacion.id),
                 const SizedBox(width: NexusSpacing.s2),
+                // Mandar en `mute` y no en acento, como el mockup: el acento de esta
+                // fila es del micrófono, que es lo que el teléfono viene a ofrecer
+                // además de escribir. Dos cuadros encendidos no dicen cuál es el
+                // camino.
                 _Cuadro(
                   key: const ValueKey('mandar'),
                   glifo: '↑',
-                  color: colors.accent,
+                  color: colors.mute,
                   alTocar: mandando ? null : alMandar,
                 ),
               ],
@@ -668,13 +865,14 @@ class _Compositor extends ConsumerWidget {
           ),
           if (conversacion.streaming) ...[
             const SizedBox(height: NexusSpacing.s2),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                // El texto exacto del mockup. Dice la consecuencia y no la
-                // prohibición: el botón ya no manda, así que esto explica por qué.
-                strings.mobileQueueWarning,
-                style: NexusTypography.label.copyWith(color: colors.faint),
+            Text(
+              // El texto del mockup. Dice la consecuencia y no la prohibición: el
+              // botón ya no manda, así que esto explica por qué. En sans, que es
+              // una explicación y no un rótulo.
+              strings.mobileQueueWarning,
+              style: NexusTypography.nota.copyWith(
+                color: colors.mute,
+                fontSize: 11.5,
               ),
             ),
           ],
@@ -736,7 +934,9 @@ class _Microfono extends ConsumerWidget {
       Voz.abriendo => (false, false, colors.accent),
       Voz.sinMicrofono => (false, true, colors.err),
       Voz.sinMac => (false, true, colors.warn),
-      Voz.callado => (false, false, colors.mute),
+      // En reposo **en acento**, como el mockup: es la otra forma de pedir, y la que
+      // el teléfono viene a ofrecer además del teclado. En gris se leía apagado.
+      Voz.callado => (false, false, colors.accent),
     };
 
     // **Mientras suena la respuesta, este cuadro es el de callar.**
@@ -863,43 +1063,40 @@ class _HojaDeAccionesState extends State<_HojaDeAcciones> {
     final colors = context.colors;
     final strings = context.strings;
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(NexusSpacing.s5),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            MobileField(
-              etiqueta: strings.mobileName,
-              controlador: _campo,
-              // Se dice que se puede vaciar: es la forma de deshacer, y sin decirlo
-              // nadie la encuentra.
-              pista: strings.mobileNameHint,
-            ),
-            const SizedBox(height: NexusSpacing.s4),
-            WideAction(
-              key: const ValueKey('guardar-nombre'),
-              texto: strings.mobileSaveName,
-              principal: true,
-              alTocar: () => widget.alGuardar(_campo.text),
-            ),
-            const SizedBox(height: NexusSpacing.s5),
-            Text(
-              // Lo que hace falta saber **antes** de tocar: cerrar suena a borrar y no
-              // lo es.
-              strings.mobileCloseExplainer,
-              style: NexusTypography.mono.copyWith(color: colors.faint),
-            ),
-            const SizedBox(height: NexusSpacing.s3),
-            WideAction(
-              key: const ValueKey('cerrar-la-conversacion'),
-              texto: strings.mobileCloseConversation,
-              alTocar: widget.alCerrar,
-            ),
-          ],
+    return HojaDelMovil(
+      children: [
+        MobileField(
+          etiqueta: strings.mobileName,
+          controlador: _campo,
+          // Se dice que se puede vaciar: es la forma de deshacer, y sin decirlo
+          // nadie la encuentra.
+          pista: strings.mobileNameHint,
         ),
-      ),
+        WideAction(
+          key: const ValueKey('guardar-nombre'),
+          texto: strings.mobileSaveName,
+          principal: true,
+          alTocar: () => widget.alGuardar(_campo.text),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+            // Lo que hace falta saber **antes** de tocar: cerrar suena a borrar y no
+            // lo es.
+            strings.mobileCloseExplainer,
+            style: NexusTypography.nota.copyWith(
+              color: colors.mute,
+              fontSize: 13.5,
+            ),
+          ),
+        ),
+        WideAction(
+          key: const ValueKey('cerrar-la-conversacion'),
+          texto: strings.mobileCloseConversation,
+          peligrosa: true,
+          alTocar: widget.alCerrar,
+        ),
+      ],
     );
   }
 }

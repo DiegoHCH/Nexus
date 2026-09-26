@@ -32,7 +32,7 @@ void main() {
   testWidgets('la configuración inicial', (tester) async {
     await pumpScreen(tester, const InitialSetupPage());
     expect(find.text(strings.beforeWeStart), findsOneWidget);
-    expect(find.text(strings.geminiKey), findsOneWidget);
+    expect(find.text(strings.pasoLlave), findsOneWidget);
   });
 
   testWidgets('la casa, sin ninguna conversación abierta', (tester) async {
@@ -64,7 +64,10 @@ void main() {
     testWidgets('abre por permisos', (tester) async {
       await abrir(tester);
       expect(find.text(strings.settings), findsOneWidget);
-      expect(find.text(strings.filePermissionsTitle), findsOneWidget);
+      expect(
+        find.text(strings.filePermissionsTitle.toUpperCase()),
+        findsOneWidget,
+      );
     });
 
     // Las cuatro secciones se abren de verdad: una que existiera y no
@@ -74,13 +77,14 @@ void main() {
       await abrir(tester);
 
       for (final (seccion, titulo) in [
-        ('voice', strings.nexusVoice),
+        // El rótulo va en mayúsculas, como todos los de Ajustes.
+        ('voice', strings.nexusVoice.toUpperCase()),
         ('history', strings.archiveTitle),
         // Del idioma se comprueba su explicación y no el título: «IDIOMA» es
         // también el nombre del enlace del menú, y encontrarlo dos veces no
         // diría si la sección llegó a pintarse.
         ('language', strings.languageExplainer),
-        ('permissions', strings.filePermissionsTitle),
+        ('permissions', strings.filePermissionsTitle.toUpperCase()),
       ]) {
         await tester.tap(find.byKey(ValueKey('seccion-$seccion')));
         await tester.pump();
@@ -170,7 +174,9 @@ void main() {
 
     expect(find.text(strings.historialHoy.toUpperCase()), findsOneWidget);
     expect(find.text(strings.historialAyer.toUpperCase()), findsOneWidget);
-    expect(find.text('la de esta mañana'), findsOneWidget);
+    // La más reciente sale dos veces: en su fila y como título de la vista
+    // previa, que se abre con ella elegida para no enseñar un panel en blanco.
+    expect(find.text('la de esta mañana'), findsNWidgets(2));
     expect(find.text('la de ayer'), findsOneWidget);
     // Y la fila enseña la hora, no la fecha entera: el día ya lo dice su
     // cabecera.

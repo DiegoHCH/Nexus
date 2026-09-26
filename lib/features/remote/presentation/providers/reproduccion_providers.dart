@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/features/remote/data/altavoz_del_movil.dart';
 import 'package:nexus/features/remote/data/channel_link.dart';
+import 'package:nexus/features/remote/domain/el_compas_de_la_respuesta.dart';
 import 'package:nexus/features/remote/presentation/providers/pairing_providers.dart';
 import 'package:nexus/features/remote/presentation/providers/voz_providers.dart';
 import 'package:nexus_protocol/nexus_protocol.dart';
@@ -20,6 +21,17 @@ enum Reproduccion {
   /// una decisión, y mientras dure no se vuelve a sonar aunque sigan llegando trozos.
   silenciada,
 }
+
+/// El compás de la respuesta que suena aquí: su volumen y por dónde va.
+///
+/// Aparte del altavoz porque lo leen dos que no tienen nada que ver con el sonido
+/// —el orbe, que late con él, y el subtítulo, que se parte por donde va— y porque
+/// el altavoz no sabe dónde empieza una respuesta. Ver [ElCompasDeLaRespuesta].
+final compasProvider = Provider<ElCompasDeLaRespuesta>((ref) {
+  final compas = ElCompasDeLaRespuesta();
+  ref.onDispose(compas.dispose);
+  return compas;
+});
 
 final altavozProvider = Provider<Altavoz>((ref) {
   final altavoz = AltavozDelMovil();
@@ -48,6 +60,7 @@ class ReproduccionController extends Notifier<Reproduccion> {
   Reproduccion build() {
     final enlace = ref.watch(channelLinkProvider);
     final altavoz = ref.watch(altavozProvider);
+    final compas = ref.watch(compasProvider);
 
     // **Vaciarse no es haber terminado.**
     //
@@ -89,9 +102,14 @@ class ReproduccionController extends Notifier<Reproduccion> {
       //
       // Va aquí y no solo en el botón porque el botón cubre la intención y esto cubre
       // el caso: apagar la posibilidad en la pantalla no sirve si nadie la tocó.
-      if (state != Reproduccion.sonando) _cerrarElMicrofono();
+      if (state != Reproduccion.sonando) {
+        _cerrarElMicrofono();
+        // Una respuesta nueva: lo contado de la anterior no dice nada de esta.
+        compas.empiezaOtra();
+      }
 
       state = Reproduccion.sonando;
+      compas.llega(pcm);
       unawaited(altavoz.encolar(pcm));
     });
 
@@ -100,6 +118,7 @@ class ReproduccionController extends Notifier<Reproduccion> {
       _esperandoElFinal?.cancel();
       _esperandoElFinal = null;
       unawaited(altavoz.tirar());
+      compas.callado();
       if (state == Reproduccion.sonando) state = Reproduccion.callada;
     });
 
@@ -129,6 +148,7 @@ class ReproduccionController extends Notifier<Reproduccion> {
     state = Reproduccion.silenciada;
     _esperandoElFinal?.cancel();
     _esperandoElFinal = null;
+    ref.read(compasProvider).callado();
     await ref.read(altavozProvider).tirar();
     await _avisar(RemoteMethod.silenceReply);
   }

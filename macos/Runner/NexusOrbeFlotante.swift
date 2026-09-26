@@ -45,11 +45,20 @@ final class NexusOrbeFlotante: NSObject {
   /// Lo que se le manda al orbe: en qué estado pintarse.
   private var haciaElOrbe: FlutterMethodChannel?
 
-  /// Cuánto ocupa. Lo justo para que se reconozca de un vistazo sin tapar nada.
-  private static let lado: CGFloat = 148
+  /// Cuánto ocupa: los 210 del mockup, en una pantalla de 1280 dibujada a
+  /// escala. Con 148 el orbe de fuera era la mitad de lo que el mockup
+  /// aprobó, y a ese tamaño el anillo de barras de «hablando» y el reloj de
+  /// «pensando» se quedaban en un borrón: se veía que había algo, no qué
+  /// estaba haciendo. Lo que tiene que decir este orbe es precisamente eso.
+  static let lado: CGFloat = 210
 
-  /// Y a cuánto del borde. Ver [dondeVa].
-  private static let margen: CGFloat = 24
+  /// Y a cuánto del borde: los 28 del mockup. Ver [dondeVa].
+  static let margen: CGFloat = 28
+
+  /// Lo que tarda en aparecer y en recogerse: el medio segundo del mockup.
+  /// Salir de golpe sobre lo que estás haciendo sobresalta; fundido, se lee
+  /// como alguien que se acerca.
+  static let fundido: TimeInterval = 0.5
 
   static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(
@@ -59,20 +68,10 @@ final class NexusOrbeFlotante: NSObject {
     channel.setMethodCallHandler { call, result in
       switch call.method {
       case "mostrar":
-        let datos = call.arguments as? [String: Any]
-        compartido.mostrar(
-          estado: datos?["estado"] as? String ?? "listen",
-          acento: datos?["acento"] as? Int,
-          estilo: datos?["estilo"] as? [String: Any]
-        )
+        compartido.mostrar(call.arguments as? [String: Any] ?? [:])
         result(nil)
       case "estado":
-        let datos = call.arguments as? [String: Any]
-        compartido.pinta(
-          datos?["estado"] as? String ?? "listen",
-          acento: datos?["acento"] as? Int,
-          estilo: datos?["estilo"] as? [String: Any]
-        )
+        compartido.pinta(call.arguments as? [String: Any] ?? [:])
         result(nil)
       case "ocultar":
         compartido.ocultar()
@@ -98,9 +97,14 @@ final class NexusOrbeFlotante: NSObject {
   /// —no `NSScreen.main`, que es «la que tiene la ventana activa» y vuelve a
   /// ser una posición que se mueve.
   private static func dondeVa() -> NSRect {
-    let marco = NSScreen.screens.first?.visibleFrame
-      ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-    return NSRect(
+    dondeVa(
+      en: NSScreen.screens.first?.visibleFrame
+        ?? NSRect(x: 0, y: 0, width: 1440, height: 900))
+  }
+
+  /// La cuenta, aparte de la pantalla, para poder probarla sin una.
+  static func dondeVa(en marco: NSRect) -> NSRect {
+    NSRect(
       x: marco.maxX - lado - margen,
       y: marco.minY + margen,
       width: lado,
@@ -108,11 +112,11 @@ final class NexusOrbeFlotante: NSObject {
     )
   }
 
-  private func mostrar(estado: String, acento: Int?, estilo: [String: Any]?) {
+  private func mostrar(_ datos: [String: Any]) {
     // Si ya está fuera —dos avisos seguidos—, se repinta y basta: es la misma
     // aparición, y el motor está pintando.
     if let ventana, ventana.isVisible {
-      pinta(estado, acento: acento, estilo: estilo)
+      pinta(datos)
       return
     }
 
@@ -168,17 +172,27 @@ final class NexusOrbeFlotante: NSObject {
     panel.isMovableByWindowBackground = false
     panel.hidesOnDeactivate = false
     ventana = panel
+    // Sale fundiéndose, como en el mockup. De paso tapa lo que tarda el motor
+    // en dar su primer fotograma —0,17 s medidos—, que sin fundido se veía
+    // como una ventana vacía que luego se llenaba.
+    panel.alphaValue = 0
     panel.orderFrontRegardless()
-    pinta(estado, acento: acento, estilo: estilo)
+    NSAnimationContext.runAnimationGroup { contexto in
+      contexto.duration = Self.fundido
+      panel.animator().alphaValue = 1
+    }
+    pinta(datos)
     Self.log.info("orbe fuera")
   }
 
-  /// El estilo del orbe —plasma o puntos y sus ajustes— viaja tal cual: aquí
-  /// no se lee, solo se pasa al motor del orbe, que sí sabe qué es.
-  private func pinta(_ estado: String, acento: Int?, estilo: [String: Any]?) {
-    var datos: [String: Any] = ["estado": estado]
-    if let acento { datos["acento"] = acento }
-    if let estilo { datos["estilo"] = estilo }
+  /// Lo que llega de la app viaja **tal cual** al motor del orbe: el estado,
+  /// el acento, el estilo —plasma o puntos y sus ajustes— y si el tema es
+  /// claro. Aquí no se lee nada: quien sabe qué es cada cosa es el orbe, y
+  /// copiar aquí la lista de claves obligaba a tocar Swift cada vez que la app
+  /// quería decirle algo más.
+  private func pinta(_ datos: [String: Any]) {
+    var datos = datos
+    if datos["estado"] == nil { datos["estado"] = "listen" }
     haciaElOrbe?.invokeMethod("estado", arguments: datos)
   }
 
@@ -198,15 +212,30 @@ final class NexusOrbeFlotante: NSObject {
   /// motor, y la siguiente los crea de nuevo. Arrancar el motor cuesta unas
   /// décimas —medido, 0,17 s entre «te llamaron» y «orbe fuera»—, y el orbe
   /// sale una vez por llamada.
+  ///
+  /// 🔴 **Y se recoge fundiéndose, soltándolo todo antes de empezar.** El
+  /// medio segundo del mockup se anima sobre copias locales, y la ventana y el
+  /// motor dejan de ser «los de ahora» en el acto: si te vuelven a llamar
+  /// mientras se desvanece, la llamada nueva crea los suyos en vez de repintar
+  /// uno que está a punto de cerrarse —que es cómo volvería el orbe congelado
+  /// que esto vino a quitar—.
   private func ocultar() {
     guard let panel = ventana else { return }
-    panel.orderOut(nil)
-    panel.contentViewController = nil
-    panel.close()
+    let motor = self.motor
     ventana = nil
     haciaElOrbe = nil
-    motor?.shutDownEngine()
-    motor = nil
-    Self.log.info("orbe recogido")
+    self.motor = nil
+    NSAnimationContext.runAnimationGroup(
+      { contexto in
+        contexto.duration = Self.fundido
+        panel.animator().alphaValue = 0
+      },
+      completionHandler: {
+        panel.orderOut(nil)
+        panel.contentViewController = nil
+        panel.close()
+        motor?.shutDownEngine()
+        Self.log.info("orbe recogido")
+      })
   }
 }

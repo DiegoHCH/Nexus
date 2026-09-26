@@ -12,16 +12,12 @@ mixin SuperpoderesStrings {
   String get sectionAppearance;
   String get themeTitle;
   String get accentTitle;
-  String get accentExplainer;
   String get accentPick;
 
   // El orbe: de qué está hecho y el carácter del plasma.
   String get orbeTitle;
-  String get orbeExplainer;
   String get orbePlasma;
-  String get orbePlasmaDetail;
   String get orbePuntos;
-  String get orbePuntosDetail;
   String get orbeFilamentos;
   String get orbeTurbulencia;
   String get orbeFinura;
@@ -53,7 +49,6 @@ mixin SuperpoderesStrings {
   String get themeLight;
   String get themeDark;
   String get mcpExplainer;
-  String get mcpInstalled;
   String get mcpNone;
   String get mcpCatalog;
   String get mcpManual;
@@ -83,7 +78,6 @@ mixin SuperpoderesStrings {
   /// nuevo — que tarda casi un minuto, así que no se espera.
   String mcpEstadoDe(String hora);
   String get mcpPreguntandoDeNuevo;
-  String get mcpCheckNote;
   String get mcpChecking;
   String get mcpCheckFailed;
 
@@ -173,27 +167,13 @@ mixin SuperpoderesStringsEs implements SuperpoderesStrings {
   @override
   String get accentTitle => 'Color de acento';
   @override
-  String get accentExplainer =>
-      'El tono del orbe y de todo lo que resalta. Eliges el color; el brillo lo '
-      'ajusta la app para que se lea en el tema claro y en el oscuro.';
-  @override
   String get accentPick => 'Elegir el color';
   @override
   String get orbeTitle => 'Orbe';
   @override
-  String get orbeExplainer =>
-      'De plasma o con los puntos de siempre. Estos ajustes son la base: '
-      'encima, cada estado se mueve a su manera, y eso no se elige porque es lo '
-      'que deja distinguirlos de lejos. Vale también para el orbe del '
-      'escritorio.';
-  @override
   String get orbePlasma => 'Plasma';
   @override
-  String get orbePlasmaDetail => 'hebras de luz en remolino';
-  @override
   String get orbePuntos => 'Puntos';
-  @override
-  String get orbePuntosDetail => 'la esfera de siempre';
   @override
   String get orbeFilamentos => 'Filamentos';
   @override
@@ -250,10 +230,7 @@ mixin SuperpoderesStringsEs implements SuperpoderesStrings {
   @override
   String get accentNameGrey => 'Gris';
   @override
-  String get themeExplainer =>
-      'La app nace oscura porque es un HUD, y de noche eso se agradece. Pero a '
-      'pleno día un fondo negro se lee peor, y nadie va a cambiar el tema del '
-      'Mac entero para eso: aquí se elige aparte.';
+  String get themeExplainer => 'Nace oscura porque es un HUD.';
   @override
   String get themeSystem => 'El del sistema';
   @override
@@ -264,8 +241,6 @@ mixin SuperpoderesStringsEs implements SuperpoderesStrings {
   String get mcpExplainer =>
       'Un servidor MCP le da a Claude manos fuera del disco: un navegador, la '
       'documentación de una librería, tu Jira. Se configuran por cuenta.';
-  @override
-  String get mcpInstalled => 'Puestos en esta cuenta';
   @override
   String get mcpNone => 'Ninguno todavía.';
   @override
@@ -314,10 +289,6 @@ mixin SuperpoderesStringsEs implements SuperpoderesStrings {
   String get mcpPreguntandoDeNuevo =>
       'Se está preguntando otra vez: escribe /mcp en un minuto para el estado '
       'nuevo.';
-  @override
-  String get mcpCheckNote =>
-      'La lista se refresca sola cada pocas horas. Púlsalo si acabas de '
-      'conectar algo: pregunta a cada servidor si responde, y tarda.';
   @override
   String get mcpChecking => 'Preguntando a cada uno…';
   @override
@@ -452,27 +423,13 @@ mixin SuperpoderesStringsEn implements SuperpoderesStrings {
   @override
   String get accentTitle => 'Accent colour';
   @override
-  String get accentExplainer =>
-      'The tone of the orb and of everything that stands out. You pick the '
-      'colour; the app adjusts the brightness so it reads in both themes.';
-  @override
   String get accentPick => 'Pick the colour';
   @override
   String get orbeTitle => 'Orb';
   @override
-  String get orbeExplainer =>
-      'Plasma or the usual dots. These settings are the base: on top of them '
-      'each state moves its own way, and that is not a choice because it is '
-      'what lets you tell them apart from across the room. It also applies to '
-      'the desktop orb.';
-  @override
   String get orbePlasma => 'Plasma';
   @override
-  String get orbePlasmaDetail => 'swirling threads of light';
-  @override
   String get orbePuntos => 'Dots';
-  @override
-  String get orbePuntosDetail => 'the usual sphere';
   @override
   String get orbeFilamentos => 'Filaments';
   @override
@@ -529,10 +486,7 @@ mixin SuperpoderesStringsEn implements SuperpoderesStrings {
   @override
   String get accentNameGrey => 'Grey';
   @override
-  String get themeExplainer =>
-      'The app is born dark because it is a HUD, and at night that is welcome. '
-      'In broad daylight a black background reads worse, though, and nobody is '
-      'going to switch the whole Mac for that: pick it here instead.';
+  String get themeExplainer => 'It is born dark because it is a HUD.';
   @override
   String get themeSystem => "The system's";
   @override
@@ -543,8 +497,6 @@ mixin SuperpoderesStringsEn implements SuperpoderesStrings {
   String get mcpExplainer =>
       'An MCP server gives Claude hands beyond the disk: a browser, a '
       "library's documentation, your Jira. They are set per account.";
-  @override
-  String get mcpInstalled => 'Set up in this account';
   @override
   String get mcpNone => 'None yet.';
   @override
@@ -591,10 +543,6 @@ mixin SuperpoderesStringsEn implements SuperpoderesStrings {
   @override
   String get mcpPreguntandoDeNuevo =>
       'Asking again now: type /mcp in a minute for the fresh status.';
-  @override
-  String get mcpCheckNote =>
-      'Asks every server whether it answers. Slow, and it also brings in your '
-      'claude.ai account connectors.';
   @override
   String get mcpChecking => 'Asking each one…';
   @override

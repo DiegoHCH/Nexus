@@ -135,4 +135,80 @@ void main() {
       );
     });
   });
+
+  // Además de oír, se ven: las carpetas emparejadas, para tocar en vez de
+  // repetir. Antes la puerta era solo voz.
+  group('las carpetas que se sugieren', () {
+    const web = PairedFolder(
+      path: '/Users/alguien/personal/nexus-web',
+      modality: FolderModality.voice,
+    );
+
+    test('la última en la que trabajaste va primero', () {
+      expect(
+        LaPuertaQueSaluda.sugerencias(const [
+          _nexus,
+          _tienda,
+          web,
+        ], laUltima: web.path),
+        [web, _nexus, _tienda],
+        reason: 'es la respuesta más probable a «¿en dónde vamos a trabajar?»',
+      );
+    });
+
+    test('y sin última, en su orden de siempre', () {
+      expect(LaPuertaQueSaluda.sugerencias(const [_nexus, _tienda, web]), [
+        _nexus,
+        _tienda,
+        web,
+      ]);
+    });
+
+    test('son sugerencias, no una lista: hay un tope', () {
+      final muchas = [
+        for (var i = 0; i < 9; i++)
+          PairedFolder(
+            path: '/Users/alguien/repo-$i',
+            modality: FolderModality.voice,
+          ),
+      ];
+      expect(
+        LaPuertaQueSaluda.sugerencias(muchas),
+        hasLength(LaPuertaQueSaluda.cuantasSeSugieren),
+      );
+    });
+
+    test('solo emparejadas: sin carpetas no se inventa ninguna', () {
+      expect(LaPuertaQueSaluda.sugerencias(const []), isEmpty);
+    });
+  });
+
+  // Las dos frases de 3b, con las palabras del mockup.
+  group('lo que dice cuando no te entiende', () {
+    const es = NexusStringsEs();
+    const en = NexusStringsEn();
+
+    test('no te siguió', () {
+      expect(es.laPuertaNoEntendio, 'No te seguí. ¿En qué carpeta trabajamos?');
+      expect(en.laPuertaNoEntendio, "I didn't catch that. Which folder?");
+    });
+
+    test('oyó dos', () {
+      expect(
+        es.laPuertaOyoDos(['nexus', 'nexus-web']),
+        'Oí nexus y nexus-web. ¿En cuál de las dos?',
+      );
+    });
+
+    test('y con tres no dice «de las dos»', () {
+      expect(
+        es.laPuertaOyoDos(['nexus', 'nexus-web', 'tienda']),
+        'Oí nexus, nexus-web y tienda. ¿En cuál?',
+      );
+      expect(
+        en.laPuertaOyoDos(['nexus', 'nexus-web', 'shop']),
+        'I heard nexus, nexus-web and shop. Which one?',
+      );
+    });
+  });
 }

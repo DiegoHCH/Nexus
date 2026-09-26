@@ -18,10 +18,12 @@ import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/platform/app_menu_channel.dart';
 import 'package:nexus/orbe_flotante.dart';
 import 'package:nexus/features/artifacts/presentation/widgets/artifacts_sheet.dart';
+import 'package:nexus/features/assistant/presentation/providers/algo_en_marcha.dart';
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/history/presentation/widgets/conversation_history_sheet.dart';
 import 'package:nexus/features/onboarding/presentation/pages/app_root.dart';
+import 'package:nexus/features/updates/presentation/providers/updates_providers.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings_page.dart';
 import 'package:nexus/features/remote/presentation/providers/channel_providers.dart';
@@ -59,7 +61,15 @@ Future<void> main() async {
     ProviderScope(
       // El mismo que ya está escribiendo, para que Ajustes pueda decir dónde
       // vive. Construir otro daría una segunda ruta y ninguna sería la buena.
-      overrides: [registroDeLaAppProvider.overrideWithValue(registro)],
+      overrides: [
+        registroDeLaAppProvider.overrideWithValue(registro),
+        // El actualizador pregunta si hay algo en marcha antes de reiniciar,
+        // y quien lo sabe es el asistente: se conectan aquí, en la raíz, para
+        // que ninguna de las dos features tenga que importar a la otra.
+        seEstaTrabajandoProvider.overrideWith(
+          (ref) => ref.watch(algoEnMarchaProvider),
+        ),
+      ],
       child: const MainApp(),
     ),
   );

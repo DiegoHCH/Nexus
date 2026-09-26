@@ -46,7 +46,20 @@ class ComposerBar extends ConsumerStatefulWidget {
     this.meter = const SessionMeter(),
     this.voiceActive = false,
     this.onToggleVoice,
+    this.conLoDeLaSala = true,
+    this.margen = const EdgeInsets.fromLTRB(
+      NexusSpacing.s8,
+      NexusSpacing.s3,
+      NexusSpacing.s8,
+      NexusSpacing.s5,
+    ),
   });
+
+  /// El aire alrededor. De cerca el compositor vive **en la columna de la
+  /// conversación** —el mismo borde izquierdo que el registro, como en el
+  /// mockup— y el hueco lo pone la columna; a lo ancho de la ventana, como en
+  /// la pantalla de arranque, se separa él de los bordes.
+  final EdgeInsets margen;
 
   /// Recibe **el texto y las rutas por separado**, no un texto ya compuesto.
   /// Quién decide qué se le manda a Claude es el controlador, que además tiene
@@ -69,6 +82,13 @@ class ComposerBar extends ConsumerStatefulWidget {
   final SessionMeter meter;
   final bool voiceActive;
   final VoidCallback? onToggleVoice;
+
+  /// Si la caja trae también el permiso, el modelo y el esfuerzo.
+  ///
+  /// En el panel de la conversación no: esos tres están a la vista en las
+  /// esquinas de la sala, al lado, y repetirlos en una caja estrecha partía su
+  /// fila de controles.
+  final bool conLoDeLaSala;
 
   @override
   ConsumerState<ComposerBar> createState() => _ComposerBarState();
@@ -153,30 +173,31 @@ class _ComposerBarState extends ConsumerState<ComposerBar> {
         _attach(detail.files.map((file) => file.path));
       },
       child: DecoratedBox(
+        // Una línea de 1 px encima y nada más, como en el mockup: el
+        // compositor es una fila más del registro, no un panel aparte. El
+        // acento solo aparece con algo encima, que es cuando hay que decir
+        // que este sitio lo acepta.
         decoration: BoxDecoration(
           border: Border(
             top: BorderSide(
-              color: colors.accent.withValues(alpha: _dragging ? 0.9 : 0.28),
+              color: _dragging ? colors.accent : colors.rule,
               width: _dragging ? 2 : 1,
             ),
           ),
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            stops: const [0.0, 0.7],
-            colors: [
-              colors.accent.withValues(alpha: _dragging ? 0.16 : 0.045),
-              colors.accent.withValues(alpha: 0),
-            ],
-          ),
+          gradient: _dragging
+              ? LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: const [0.0, 0.7],
+                  colors: [
+                    colors.accent.withValues(alpha: 0.16),
+                    colors.accent.withValues(alpha: 0),
+                  ],
+                )
+              : null,
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            NexusSpacing.s8,
-            NexusSpacing.s4,
-            NexusSpacing.s8,
-            NexusSpacing.s5,
-          ),
+          padding: widget.margen,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -186,7 +207,7 @@ class _ComposerBarState extends ConsumerState<ComposerBar> {
                 folderPath: widget.folderPath,
                 alSepararse: widget.alSepararse,
               ),
-              const SizedBox(height: NexusSpacing.s3),
+              const SizedBox(height: NexusSpacing.s2),
               AttachmentStrip(paths: _attachments, onRemove: _detach),
               _Field(
                 controller: _controller,
@@ -195,7 +216,7 @@ class _ComposerBarState extends ConsumerState<ComposerBar> {
                 onSubmit: _handleSubmit,
                 onClear: _handleClear,
               ),
-              const SizedBox(height: NexusSpacing.s3),
+              const SizedBox(height: NexusSpacing.s2),
               _Controls(
                 folder: folder,
                 // `workingDirectory` y no `path`: con una raíz de varios repos,
@@ -207,6 +228,7 @@ class _ComposerBarState extends ConsumerState<ComposerBar> {
                 voiceActive: widget.voiceActive,
                 onToggleVoice: widget.onToggleVoice,
                 onAttach: _attach,
+                conLoDeLaSala: widget.conLoDeLaSala,
               ),
               // Solo mientras hay algo encima. macOS ya enseña la miniatura de lo
               // que llevas colgando del cursor; lo que falta decir es que **este**
@@ -362,8 +384,25 @@ class _FieldState extends State<_Field> {
             decoration: InputDecoration(
               hintText: context.strings.composerHint,
               hintStyle: NexusTypography.body.copyWith(color: colors.faint),
+              // Sin relleno: el campo es un marco sobre el fondo, como en el
+              // mockup, y no una caja gris metida en otra.
+              filled: false,
+              contentPadding: const EdgeInsets.all(NexusSpacing.s3),
+              // Vacío, a la derecha, cómo se hace un salto de línea —en mono,
+              // que es un atajo, un dato—. Antes iba pegado a la pista, y al
+              // empezar a escribir desaparecía justo cuando hace falta saberlo;
+              // aquí se va cuando ya hay algo, que es cuando aparece la goma.
               suffixIcon: value.text.isEmpty
-                  ? null
+                  ? Padding(
+                      padding: const EdgeInsets.only(right: NexusSpacing.s3),
+                      child: Text(
+                        context.strings.saltoDeLinea,
+                        style: NexusTypography.data.copyWith(
+                          color: colors.faint,
+                          fontSize: 10,
+                        ),
+                      ),
+                    )
                   : Tooltip(
                       message: context.strings.clearWhatYouWrote,
                       child: IconButton(
@@ -398,7 +437,11 @@ class _Controls extends ConsumerWidget {
     required this.voiceActive,
     required this.onToggleVoice,
     required this.onAttach,
+    this.conLoDeLaSala = true,
   });
+
+  /// Ver [ComposerBar.conLoDeLaSala].
+  final bool conLoDeLaSala;
 
   /// La carpeta de esta conversación: de ella salen la cuenta, el modelo y el
   /// esfuerzo, porque los tres se deciden por carpeta.
@@ -424,128 +467,98 @@ class _Controls extends ConsumerWidget {
     // dejaba que dar escritura en un proyecto la diera también en el del
     // trabajo. Ver [ElPermisoQueVale].
     final carpeta = folder;
-    final canWrite = ElPermisoQueVale.enLaCarpeta(workspace, carpeta?.path);
-    // Con el tope cerrado, dar permiso aquí no haría escribir: se dice en el
-    // propio menú y elegirlo lo sube también.
-    final subeElTope = !ElPermisoQueVale.elTopeLoPermite(workspace);
 
+    // En fila y con su caja cada uno, como en el mockup: el permiso con su
+    // color, y después +, micro, dispositivos, correr y pruebas en cuadros de
+    // 30 px. Sueltos eran iconos flotando que no se leían como botones.
     return Row(
+      spacing: NexusSpacing.s2,
       children: [
         // El permiso, como un menú y no como un interruptor: al desplegarlo se
         // lee la consecuencia de cada opción, que es lo que hay que saber para
         // elegir bien y no cabía junto a un conmutador.
-        PopupMenuButton<FilePermission>(
-          color: colors.deep,
-          tooltip: '',
-          // **Sin carpeta emparejada no hay permiso que dar.** Es el caso de la
-          // carpeta de documentos: no se escribe ahí por este camino, y un menú
-          // que se abre para no poder elegir nada engaña.
-          enabled: carpeta != null,
-          initialValue: canWrite
-              ? FilePermission.canEdit
-              : FilePermission.readOnly,
-          onSelected: (opcion) => ref
-              .read(workspaceControllerProvider.notifier)
-              .setPermisoDeCarpeta(carpeta!.path, opcion.canWrite),
-          itemBuilder: (context) => [
-            for (final option in FilePermission.values)
-              PopupMenuItem<FilePermission>(
-                value: option,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 🔴 **Con el nombre de la carpeta dentro.** El permiso es
-                    // suyo desde el #278 y el menú seguía rotulado en genérico,
-                    // que es exactamente lo que hizo creer que era de la app
-                    // —«la carpeta ya tiene permiso de puede editar»—. Los dos
-                    // textos existían traducidos y sin usar desde antes, hechos
-                    // para esto: eran deuda esperando a que la decisión
-                    // existiera.
-                    Text(
-                      switch ((option.canWrite, carpeta?.name)) {
-                        (true, final donde?) => strings.canEditFilesIn(donde),
-                        (false, final donde?) => strings.readOnlyIn(donde),
-                        (true, _) => strings.canEdit,
-                        (false, _) => strings.readOnly,
-                      },
-                      style: NexusTypography.control.copyWith(
-                        color: colors.ink,
-                      ),
-                    ),
-                    Text(
-                      option.canWrite
-                          ? strings.canEditExplainer
-                          : strings.readOnlyExplainer,
-                      style: NexusTypography.nota.copyWith(color: colors.faint),
-                    ),
-                    // Lo que además va a pasar, dicho **antes** de elegir: para
-                    // eso este control es un menú con explicaciones y no un
-                    // conmutador.
-                    if (option.canWrite && subeElTope)
-                      Text(
-                        strings.tambienSubeElTope,
-                        style: NexusTypography.nota.copyWith(
-                          color: colors.warn,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-          ],
-          child: Row(
-            children: [
-              Icon(
-                canWrite ? Icons.edit_outlined : Icons.lock_outline,
-                size: 13,
-                color: canWrite ? colors.warn : colors.faint,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                canWrite ? strings.canEdit : strings.readOnly,
-                style: NexusTypography.label.copyWith(
-                  color: canWrite ? colors.warn : colors.faint,
-                ),
-              ),
-              Icon(Icons.expand_more, size: 14, color: colors.faint),
-            ],
-          ),
-        ),
-        const SizedBox(width: NexusSpacing.s3),
-        MoreMenu(onAttach: onAttach),
-        const SizedBox(width: NexusSpacing.s2),
+        if (conLoDeLaSala)
+          MenuDelPermiso(folder: carpeta, workspace: workspace),
+        _Casilla(child: MoreMenu(onAttach: onAttach)),
         if (onToggleVoice case final toggle?)
-          IconButton(
-            onPressed: toggle,
-            tooltip: voiceActive
-                ? strings.micOpenHint
-                : strings.sayStopToInterrupt,
-            iconSize: 15,
-            splashRadius: 15,
-            color: voiceActive ? colors.accent : colors.faint,
-            icon: Icon(voiceActive ? Icons.mic : Icons.mic_none),
+          _Casilla(
+            encendida: voiceActive,
+            child: IconButton(
+              onPressed: toggle,
+              tooltip: voiceActive
+                  ? strings.micOpenHint
+                  : strings.sayStopToInterrupt,
+              iconSize: 15,
+              splashRadius: 15,
+              color: voiceActive ? colors.accent : colors.mute,
+              icon: Icon(voiceActive ? Icons.mic : Icons.mic_none),
+            ),
           ),
         // **Los dispositivos, aquí y no solo en Ajustes.** Arrancar un emulador
         // se hace a media faena; irse a Ajustes para eso es salirse de la
         // conversación. Va junto al micrófono porque son la misma clase de cosa:
         // herramientas de la sesión, no estado del proyecto —eso es la fila de
         // arriba.
-        const DispositivosMenu(),
+        const _Casilla(child: DispositivosMenu()),
         // Correr la app va justo al lado de los dispositivos porque son los dos
         // pasos del mismo gesto: encender dónde, y lanzar qué.
-        CorrerMenu(proyecto: proyecto),
+        _Casilla(child: CorrerMenu(proyecto: proyecto)),
         // Y las pruebas, el tercer paso del mismo gesto: enciendes dónde, lanzas
         // qué, y compruebas que sigue funcionando.
-        _BotonDePruebas(proyecto: proyecto),
+        _Casilla(child: _BotonDePruebas(proyecto: proyecto)),
         const Spacer(),
-        ModelMenu(folder: folder, meter: meter),
-        const SizedBox(width: NexusSpacing.s3),
-        EffortMenu(folder: folder, meter: meter),
-        const SizedBox(width: NexusSpacing.s3),
+        if (conLoDeLaSala) ...[
+          ModelMenu(folder: folder, meter: meter),
+          EffortMenu(folder: folder, meter: meter),
+          const SizedBox(width: NexusSpacing.s1),
+        ],
         TourAnchor(
           stop: TourStop.meter,
           child: UsageMenu(meter: meter, claudeProfile: folder?.claudeProfile),
         ),
       ],
+    );
+  }
+}
+
+/// El cuadro de 30 px de cada control de la fila.
+///
+/// Envuelve al control y no lo sustituye: cada uno —el menú de dispositivos, el
+/// de correr— es de otra parte de la app y trae su propio comportamiento. Lo que
+/// pone el compositor es **la forma de la fila**, que es suya: todos del mismo
+/// tamaño y con el mismo filo.
+class _Casilla extends StatelessWidget {
+  const _Casilla({required this.child, this.encendida = false});
+
+  final Widget child;
+
+  /// Algo abierto —el micrófono—: el filo en el acento.
+  final bool encendida;
+
+  static const _lado = 30.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      width: _lado,
+      height: _lado,
+      decoration: BoxDecoration(
+        border: Border.all(color: encendida ? colors.accent : colors.rule2),
+        borderRadius: BorderRadius.circular(NexusRadius.sm),
+      ),
+      // Sin el mínimo de 48 que Material le pone a un `IconButton`: dentro del
+      // cuadro manda el cuadro.
+      child: IconButtonTheme(
+        data: IconButtonThemeData(
+          style: IconButton.styleFrom(
+            minimumSize: const Size.square(_lado - 2),
+            padding: EdgeInsets.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ),
+        child: Center(child: child),
+      ),
     );
   }
 }
@@ -603,6 +616,102 @@ class _BotonDePruebas extends ConsumerWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// El permiso de la carpeta, como un menú con lo que implica cada opción.
+///
+/// Público porque se cambia desde dos sitios: el compositor, de cerca, y la
+/// esquina del permiso del escenario, de lejos. Los dos tienen que decir lo
+/// mismo y cambiar lo mismo.
+class MenuDelPermiso extends ConsumerWidget {
+  const MenuDelPermiso({
+    super.key,
+    required this.folder,
+    required this.workspace,
+  });
+
+  final PairedFolder? folder;
+  final Workspace workspace;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final strings = context.strings;
+    final carpeta = folder;
+    final canWrite = ElPermisoQueVale.enLaCarpeta(workspace, carpeta?.path);
+    // Con el tope cerrado, dar permiso aquí no haría escribir: se dice en el
+    // propio menú y elegirlo lo sube también.
+    final subeElTope = !ElPermisoQueVale.elTopeLoPermite(workspace);
+    return MenuDelCompositor<FilePermission>(
+      ancho: 330,
+      // **Sin carpeta emparejada no hay permiso que dar.** Es el caso de la
+      // carpeta de documentos: no se escribe ahí por este camino, y un menú
+      // que se abre para no poder elegir nada engaña.
+      enabled: carpeta != null,
+      onSelected: (opcion) => ref
+          .read(workspaceControllerProvider.notifier)
+          .setPermisoDeCarpeta(carpeta!.path, opcion.canWrite),
+      itemBuilder: (context) => [
+        // 🔴 **Con el nombre de la carpeta, en la cabecera.** El permiso es
+        // suyo desde el #278 y el menú seguía rotulado en genérico, que es
+        // exactamente lo que hizo creer que era de la app —«la carpeta ya
+        // tiene permiso de puede editar»—. Arriba lo dice una vez y las
+        // opciones quedan con su nombre corto.
+        cabeceraDelMenu(context, strings.permisoEn(carpeta?.name)),
+        // Cada opción en su caja, con **lo que implica, y lo que no**, debajo.
+        // «Ejecutar sigue pidiendo permiso» evita creer que editar lo abre
+        // todo; el texto de antes decía justo eso —«corre comandos sin
+        // preguntar»— y no era verdad desde que hay quien conteste.
+        //
+        // La elegida se dice con su filo: ámbar si escribe, que es lo que hay
+        // que tener presente mientras trabaja.
+        for (final option in FilePermission.values)
+          OpcionDelMenu<FilePermission>(
+            value: option,
+            titulo: option.canWrite
+                ? strings.permisoOpcionPuedeEditar
+                : strings.permisoOpcionSoloLeer,
+            elegida: option.canWrite == canWrite,
+            tono: option.canWrite ? colors.warn : null,
+            explicacion: option.canWrite
+                ? strings.permisoEditarImplica(carpeta?.name)
+                : strings.permisoSoloLeerImplica,
+          ),
+        // Lo que además va a pasar, dicho **antes** de elegir: para eso
+        // este control es un menú con explicaciones y no un conmutador.
+        if (subeElTope) pieDelMenu(context, strings.tambienSubeElTope),
+      ],
+      // Con su caja y su color, como en el mockup: ámbar si puede escribir,
+      // que es lo que hay que tener presente mientras trabaja. Es el único
+      // control de la fila con palabras porque es el único cuyo estado importa
+      // leer antes de pedir algo.
+      child: Container(
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          border: Border.all(color: canWrite ? colors.warn : colors.rule2),
+          borderRadius: BorderRadius.circular(NexusRadius.sm),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              canWrite ? strings.canEdit : strings.readOnly,
+              style: NexusTypography.label.copyWith(
+                color: canWrite ? colors.warn : colors.mute,
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(
+              Icons.expand_more,
+              size: 14,
+              color: canWrite ? colors.warn : colors.faint,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -111,6 +111,19 @@ Directory prepareScreenTest() {
     const MethodChannel('hotkey_manager'),
     (call) async => null,
   );
+  // 🔴 **Y con el nombre de verdad.** El canal del paquete no se llama así sino
+  // `dev.leanflutter.plugins/hotkey_manager`, y el de arriba no lo atendía
+  // nunca: pasaba desapercibido porque el registro se queda esperando y la
+  // prueba termina antes. En cuanto una prueba deja correr el tiempo de verdad
+  // —`runAsync`, para que algo llegue al disco— el fallo sale y la tumba.
+  messenger.setMockMethodCallHandler(
+    const MethodChannel('dev.leanflutter.plugins/hotkey_manager'),
+    (call) async => null,
+  );
+  messenger.setMockMethodCallHandler(
+    const MethodChannel('dev.leanflutter.plugins/hotkey_manager_event'),
+    (call) async => null,
+  );
   messenger.setMockMethodCallHandler(
     const MethodChannel('nexus/audio'),
     (call) async => call.method == 'hasPermission' ? true : null,

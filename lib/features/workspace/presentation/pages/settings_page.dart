@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/design_system/la_entrada_de_la_hoja.dart';
 import 'package:nexus/features/memoria/presentation/pages/memoria_section.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/nombres_section.dart';
 import 'package:nexus/core/design_system/design_system.dart';
-import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/stats/presentation/widgets/stats_section.dart';
 import 'package:nexus/features/superpowers/presentation/widgets/superpowers_section.dart';
@@ -21,55 +21,75 @@ import 'package:nexus/features/workspace/presentation/pages/settings/avisos_sect
 import 'package:nexus/features/workspace/presentation/pages/settings/imagenes_section.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/llaves_section.dart';
 import 'package:nexus/features/remote/presentation/pages/mobile_section.dart';
+import 'package:nexus/features/workspace/presentation/pages/settings/oido_section.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/permissions_section.dart';
+import 'package:nexus/features/workspace/presentation/pages/settings/secciones_de_ajustes.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/voice_section.dart';
 
-/// Ajustes (D05 del mockup). De sus cuatro secciones solo vive «Permisos»:
-/// las otras tres se listan apagadas, como en el propio mockup, porque
-/// pertenecen a fases que aún no existen y fingirlas sería peor que dejarlas
-/// a la vista.
+/// Ajustes, como hoja sobre la sala.
+///
+/// 🔴 **No tapa la pantalla.** A pantalla completa la presencia desaparecía y
+/// Ajustes se volvía otra app pegada al lado; como hoja a la derecha, la sala
+/// sigue a la vista —atenuada— y se entra, se decide y se vuelve. Pulsar la
+/// sala cierra la hoja, igual que Esc. Ver `nexus-orbe-plasma.html`, `#ajustes`.
+///
+/// Las secciones van agrupadas en las cinco preguntas de [PreguntaDeAjustes]:
+/// dieciocho enlaces en fila obligaban a leerlos todos para encontrar uno.
 class SettingsPage extends ConsumerStatefulWidget {
-  const SettingsPage({super.key});
+  const SettingsPage({super.key, this.abreEn = SeccionDeAjustes.permissions});
 
-  /// Se abre desde cuatro sitios —el botón de la barra, el de «empareja una
-  /// carpeta», ⌘, y el menú de macOS—, y algunos pueden coincidir en la misma
-  /// pulsación. Apilar dos ajustes deja al usuario cerrando la misma pantalla
-  /// dos veces, así que el segundo no hace nada.
-  static bool _isOpen = false;
+  /// Dónde se abre. Por defecto en Permisos, que es la sección del día a día y
+  /// la que busca quien llega sin carpeta emparejada.
+  final SeccionDeAjustes abreEn;
 
-  static Future<void> open(BuildContext context) async {
-    if (_isOpen) return;
-    _isOpen = true;
-    try {
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => const SettingsPage(),
-          fullscreenDialog: true,
+  /// La última sección que se miró, para abrir donde se dejó.
+  ///
+  /// En memoria y no en disco: volver a Ajustes a los dos minutos para
+  /// terminar lo que se estaba haciendo es el caso; al día siguiente, Permisos
+  /// vuelve a ser mejor punto de partida que lo último que se tocó ayer.
+  static SeccionDeAjustes? _dondeSeQuedo;
+
+  /// [en] fuerza la sección: quien abre Ajustes porque no hay carpeta donde
+  /// trabajar tiene que caer en Permisos, que es donde se empareja, y no en lo
+  /// último que miró.
+  static Future<void> open(BuildContext context, {SeccionDeAjustes? en}) =>
+      RutaDeLaHoja.alternar(
+        context,
+        cual: 'ajustes',
+        // Pedida por un motivo —[en]— se queda abierta; por el atajo, ⌘, la
+        // abre y la cierra.
+        cerrarSiEstaAbierta: en == null,
+        builder: (_) => SettingsPage(
+          abreEn: en ?? _dondeSeQuedo ?? SeccionDeAjustes.permissions,
         ),
       );
-    } finally {
-      _isOpen = false;
-    }
-  }
+
+  /// El ancho de la hoja para una ventana dada.
+  ///
+  /// La proporción del mockup —900 de 1280—, con suelo y techo: por debajo de
+  /// 800 las secciones no caben en su columna, y por encima de 1040 las líneas
+  /// de las explicaciones se hacen tan largas que cuesta leerlas. En una
+  /// ventana más estrecha que el suelo, la hoja la ocupa entera.
+  ///
+  /// Era 0,72 —921 a 1280— y el orbe de la sala se quedaba sin sitio: con la
+  /// del mockup quedan 380 px a la izquierda, lo justo para que se vea entero.
+  @visibleForTesting
+  static double anchoDeLaHoja(double ventana) =>
+      (ventana * 900 / 1280).clamp(800.0, 1040.0).clamp(0.0, ventana);
 
   @override
   ConsumerState<SettingsPage> createState() => _SettingsPageState();
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
-  /// «Móvil» sigue apagada: pertenece a una fase que no existe, y fingirla
-  /// sería peor que dejarla a la vista como lo que es. Donde estaba «Modelo»
-  /// ahora hay estadísticas: el modelo se elige por carpeta desde la barra
-  /// —le12—, así que esa sección se quedó sin contenido antes de tenerlo.
-  /// Las secciones vivas, en el orden en que se leen. Son claves, no textos:
-  /// el nombre visible sale del diccionario.
-  ///
-  /// Sale de `values` y **no de una lista escrita a mano**: esa lista ya se
-  /// olvidó dos veces —el Historial primero y los Superpoderes después—, y el
-  /// resultado es siempre el mismo, una sección que existe, se pinta bien y no
-  /// tiene forma de abrirse. Con el orden de declaración como orden del menú,
-  /// añadir una al enum basta para que aparezca.
-  _Section _section = _Section.permissions;
+  late SeccionDeAjustes _section = widget.abreEn;
+
+  void _ir(SeccionDeAjustes seccion) {
+    SettingsPage._dondeSeQuedo = seccion;
+    setState(() => _section = seccion);
+  }
+
+  void _cerrar() => Navigator.of(context).maybePop();
 
   @override
   void initState() {
@@ -88,74 +108,92 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   @override
-  Widget build(BuildContext context) => CallbackShortcuts(
-    bindings: {
-      const SingleActivator(LogicalKeyboardKey.escape): () =>
-          Navigator.of(context).maybePop(),
-    },
-    child: Focus(
-      autofocus: true,
-      child: Scaffold(
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return CallbackShortcuts(
+      bindings: {const SingleActivator(LogicalKeyboardKey.escape): _cerrar},
+      child: Focus(
+        autofocus: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _SettingsTopBar(onClose: () => Navigator.of(context).maybePop()),
+            // 🔴 **La barra cruza la ventana entera, como en el mockup.** Iba
+            // dentro de la hoja, y la de la sala asomaba detrás del velo con
+            // su propio estado: dos barras, y la de la izquierda diciendo
+            // «dormido» mientras se estaba en Ajustes. Esta ocupa su sitio y
+            // dice dónde se está.
+            ElVeloEntra(child: _SettingsTopBar(onClose: _cerrar)),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(64, 56, 64, 0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              child: LayoutBuilder(
+                builder: (context, constraints) => Row(
+                  // Estirado a lo alto: sin esto el velo de la sala, que no
+                  // tiene hijo, medía cero de alto — ni atenuaba ni se podía
+                  // pulsar.
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SizedBox(
-                      width: 200,
-                      // 🔴 **Rueda, porque la lista crece con cada sección.**
-                      // Se pasó del alto al llegar a la decimosexta —8 px
-                      // medidos— y el fallo no es de esa sección: es que una
-                      // columna fija se acerca al borde con cada una que se
-                      // añade, y la que lo cruce se lleva la culpa de todas.
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            for (final section in _Section.values)
-                              _SectionLink(
-                                // Con nombre propio: «VOZ» aparece dos veces en
-                                // esta pantalla —el enlace de la izquierda y la
-                                // modalidad de una carpeta— y sin una llave no
-                                // hay forma de decir cuál se pulsa.
-                                key: ValueKey('seccion-${section.name}'),
-                                label: section.title(context.strings),
-                                active: _section == section,
-                                onTap: () => setState(() => _section = section),
-                              ),
-                          ],
+                    // La sala, atenuada y a la vista. Pulsarla cierra: es lo
+                    // que se espera de algo que está encima y no ocupa el
+                    // sitio.
+                    Expanded(
+                      child: GestureDetector(
+                        key: const ValueKey('la-sala-detras'),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _cerrar,
+                        child: ElVeloEntra(
+                          child: ColoredBox(
+                            color: colors.scrim.withValues(alpha: 0.45),
+                          ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 96),
-                    Expanded(
+                    LaHojaEntra(
                       child: SizedBox(
-                        width: 600,
-                        child: switch (_section) {
-                          _Section.voice => const VoiceSection(),
-                          _Section.llaves => const LlavesSection(),
-                          _Section.imagenes => const ImagenesSection(),
-                          _Section.avisos => const AvisosSection(),
-                          _Section.nombres => const NombresSection(),
-                          _Section.memoria => const MemoriaSection(),
-                          _Section.permissions => const PermissionsSection(),
-                          _Section.mobile => const MobileSection(),
-                          _Section.history => const HistorySection(),
-                          _Section.pruebas => const PruebasSection(),
-                          _Section.cuentas => const CuentasSection(),
-                          _Section.stats => const StatsSection(),
-                          _Section.superpowers => const SuperpowersSection(),
-                          _Section.emulators => const EmuladoresSection(),
-                          _Section.appearance => const AppearanceSection(),
-                          _Section.language => const LanguageSection(),
-                          _Section.salidas => const SalidasSection(),
-                          _Section.help => const HelpSection(),
-                        },
+                        width: SettingsPage.anchoDeLaHoja(constraints.maxWidth),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              left: BorderSide(color: colors.rule2),
+                            ),
+                          ),
+                          child: Scaffold(
+                            backgroundColor: colors.deep,
+                            body: IrASeccionDeAjustes(
+                              ir: _ir,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  // El índice con su línea a la derecha: es lo
+                                  // que lo separa de la sección sin un fondo
+                                  // distinto, que lo haría parecer otro panel.
+                                  Container(
+                                    width: 210,
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                        right: BorderSide(color: colors.rule),
+                                      ),
+                                    ),
+                                    child: _ElIndice(
+                                      actual: _section,
+                                      onElegir: _ir,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        44,
+                                        30,
+                                        44,
+                                        0,
+                                      ),
+                                      child: _LaSeccion(_section),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -165,8 +203,124 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ],
         ),
       ),
-    ),
-  );
+    );
+  }
+}
+
+/// La sección abierta, con su pregunta encima del título.
+///
+/// La pregunta dice a qué grupo pertenece lo que se mira sin tener que volver
+/// al índice, que es lo que hace que agrupar sirva también dentro.
+class _LaSeccion extends StatelessWidget {
+  const _LaSeccion(this.seccion);
+
+  final SeccionDeAjustes seccion;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final strings = context.strings;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          seccion.pregunta.title(strings).toUpperCase(),
+          style: NexusTypography.label.copyWith(color: colors.accent),
+        ),
+        const SizedBox(height: 20),
+        // A 28 y no a los 22 de un título de pantalla: es lo único grande de
+        // la hoja, y lo que dice de un vistazo dónde se está. Pegado a lo que
+        // sigue —cuatro píxeles— porque el primer bloque es de este título.
+        Text(
+          seccion.title(strings),
+          style: NexusTypography.title.copyWith(
+            fontSize: 28,
+            height: 1.2,
+            letterSpacing: -0.56,
+            color: colors.ink,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Expanded(
+          child: switch (seccion) {
+            SeccionDeAjustes.voice => const VoiceSection(),
+            SeccionDeAjustes.oido => const OidoSection(),
+            SeccionDeAjustes.llaves => const LlavesSection(),
+            SeccionDeAjustes.imagenes => const ImagenesSection(),
+            SeccionDeAjustes.avisos => const AvisosSection(),
+            SeccionDeAjustes.nombres => const NombresSection(),
+            SeccionDeAjustes.memoria => const MemoriaSection(),
+            SeccionDeAjustes.permissions => const PermissionsSection(),
+            SeccionDeAjustes.mobile => const MobileSection(),
+            SeccionDeAjustes.history => const HistorySection(),
+            SeccionDeAjustes.pruebas => const PruebasSection(),
+            SeccionDeAjustes.cuentas => const CuentasSection(),
+            SeccionDeAjustes.stats => const StatsSection(),
+            SeccionDeAjustes.superpowers => const SuperpowersSection(),
+            SeccionDeAjustes.emulators => const EmuladoresSection(),
+            SeccionDeAjustes.appearance => const AppearanceSection(),
+            SeccionDeAjustes.language => const LanguageSection(),
+            SeccionDeAjustes.salidas => const SalidasSection(),
+            SeccionDeAjustes.help => const HelpSection(),
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// El índice: las cinco preguntas, y debajo de cada una sus secciones.
+class _ElIndice extends StatelessWidget {
+  const _ElIndice({required this.actual, required this.onElegir});
+
+  final SeccionDeAjustes actual;
+  final ValueChanged<SeccionDeAjustes> onElegir;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final strings = context.strings;
+
+    // 🔴 **Rueda, porque la lista crece con cada sección.** Se pasó del alto al
+    // llegar a la decimosexta —8 px medidos— y el fallo no es de esa sección:
+    // es que una columna fija se acerca al borde con cada una que se añade, y
+    // la que lo cruce se lleva la culpa de todas.
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final (i, pregunta) in PreguntaDeAjustes.values.indexed) ...[
+            Padding(
+              key: ValueKey('pregunta-${pregunta.name}'),
+              padding: EdgeInsets.only(top: i == 0 ? 0 : 16, bottom: 6),
+              // En `mute` y no en `faint`: la pregunta es lo que se busca al
+              // recorrer el índice, y en `faint` era lo menos legible de él.
+              child: Text(
+                pregunta.title(strings).toUpperCase(),
+                style: NexusTypography.label.copyWith(
+                  fontSize: 9.5,
+                  letterSpacing: 1.9,
+                  color: colors.mute,
+                ),
+              ),
+            ),
+            for (final section in SeccionDeAjustes.de(pregunta))
+              _SectionLink(
+                // Con nombre propio: «Voz» aparece dos veces en esta pantalla
+                // —el enlace de la izquierda y la modalidad de una carpeta— y
+                // sin una llave no hay forma de decir cuál se pulsa.
+                key: ValueKey('seccion-${section.name}'),
+                label: section.title(strings),
+                active: actual == section,
+                onTap: () => onElegir(section),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _SectionLink extends StatelessWidget {
@@ -189,23 +343,39 @@ class _SectionLink extends StatelessWidget {
     // destapó la prueba que abre la pantalla, y el ratón lo sufría igual.
     //
     // Y ancho completo, no el del texto: la columna mide 200 y el área que
-    // respondía era del ancho de cada palabra —«VOZ» daba tres letras de blanco
+    // respondía era del ancho de cada palabra —«Voz» daba tres letras de blanco
     // útil—, así que apuntar a la pestaña corta fallaba más que las largas. Ahora
     // todas valen lo mismo y no queda hueco muerto entre una y la siguiente.
     return InkWell(
       onTap: onTap,
-      child: SizedBox(
+      child: Container(
         width: double.infinity,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            vertical: NexusSpacing.s3,
-            horizontal: NexusSpacing.s2,
-          ),
-          child: Text(
-            label.toUpperCase(),
-            style: NexusTypography.label.copyWith(
-              color: active ? colors.accent : colors.faint,
+        // La elegida se marca con la línea de acento a la izquierda, como en el
+        // mockup; las demás llevan la tenue, que es la que dibuja el grupo.
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(
+              color: active ? colors.accent : colors.rule,
+              width: active ? 2 : 1,
             ),
+          ),
+        ),
+        padding: EdgeInsets.only(
+          top: 6,
+          bottom: 6,
+          left: active ? 11 : 12,
+          right: NexusSpacing.s2,
+        ),
+        // En sans y en minúscula de frase, no en rótulo: los rótulos en
+        // mayúsculas son las preguntas, y dieciocho enlaces en mayúsculas eran
+        // la lista plana que el mockup rechaza. Sans y no el instrumento
+        // porque son nombres que se leen —«Cuentas de prueba»—, no mandos.
+        child: Text(
+          label,
+          style: NexusTypography.nota.copyWith(
+            fontSize: 13.5,
+            height: 1.35,
+            color: active ? colors.ink : colors.mute,
           ),
         ),
       ),
@@ -213,119 +383,89 @@ class _SectionLink extends StatelessWidget {
   }
 }
 
-class _SettingsTopBar extends ConsumerWidget {
+/// La barra de Ajustes: la marca, dónde se está y cómo se sale.
+///
+/// La misma gramática que la barra de la sala —marca en `mute`, estado en
+/// acento—, con «AJUSTES» donde la sala dice qué está haciendo: con la hoja
+/// abierta, lo que está pasando es que estás en Ajustes. Ver
+/// `nexus-orbe-plasma.html`, `#ajustes`.
+class _SettingsTopBar extends StatelessWidget {
   const _SettingsTopBar({required this.onClose});
 
   final VoidCallback onClose;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colors = context.colors;
+    final strings = context.strings;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: NexusSpacing.s6,
-        vertical: NexusSpacing.s5,
-      ),
-      child: Row(
-        children: [
-          // Un solo `Flexible` para el rótulo entero, y **sin `Spacer`**: con un
-          // `Flexible` por texto, cada uno se llevaba su parte del reparto —flex 1
-          // por defecto— y el hueco quedaba dividido en tres, así que «Cerrar» se
-          // plantaba a media pantalla en vez de en el borde. Ahora el rótulo se
-          // queda todo el sobrante y empuja el botón a la derecha, y en una
-          // ventana estrecha sigue encogiendo con puntos suspensivos, que es para
-          // lo que estaba puesto.
-          // `Expanded` y no `Flexible`: el segundo deja al hijo quedarse pequeño,
-          // así que el rótulo medía lo que su texto y «Cerrar» se pegaba a él —a
-          // 825 px del borde, medido—. Con restricciones ajustadas el rótulo ocupa
-          // todo el sobrante y empuja el botón al borde.
-          Expanded(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(
-                  child: Text(
-                    context.strings.brand,
-                    overflow: TextOverflow.ellipsis,
-                    style: NexusTypography.brand.copyWith(color: colors.mute),
-                  ),
-                ),
-                const SizedBox(width: NexusSpacing.s5),
-                Flexible(
-                  child: Text(
-                    context.strings.settings,
-                    overflow: TextOverflow.ellipsis,
-                    style: NexusTypography.label.copyWith(
-                      color: colors.faint,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                ),
-              ],
+    // Con su propio `Material`: la barra vive fuera del `Scaffold` de la hoja,
+    // y sin uno encima los textos salían con el subrayado amarillo de Flutter
+    // y el botón sin dónde pintar su tinta.
+    return Material(
+      color: colors.void_,
+      child: Container(
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: colors.rule)),
+        ),
+        child: Row(
+          children: [
+            Text(
+              strings.brand,
+              style: NexusTypography.brand.copyWith(color: colors.mute),
             ),
-          ),
-          const SizedBox(width: NexusSpacing.s5),
-          // El interruptor de permisos ya no vive aquí.
-          //
-          // Es del espacio de trabajo entero, así que en la cabecera salía en
-          // **todas** las secciones sin nada que lo explicase — al lado de la voz
-          // o del idioma no dice de qué habla. Se cambia donde tiene contexto: en
-          // la sección de Permisos, con su título y su explicación, y en la
-          // pantalla principal, junto a la caja de escribir, que es donde importa
-          // saber si Claude puede editar antes de pedirle algo.
-          OutlinedButton(
-            onPressed: onClose,
-            child: Text(context.strings.closeEsc),
-          ),
-        ],
+            const SizedBox(width: 18),
+            // `Expanded` y no `Flexible`: el segundo deja al hijo quedarse
+            // pequeño, así que el rótulo medía lo que su texto y «Cerrar» se
+            // pegaba a él. Con restricciones ajustadas el rótulo ocupa todo el
+            // sobrante y empuja el botón al borde, y en una ventana estrecha
+            // sigue encogiendo con puntos suspensivos.
+            Expanded(
+              child: Text(
+                strings.settings,
+                overflow: TextOverflow.ellipsis,
+                style: NexusTypography.label.copyWith(
+                  fontSize: 11,
+                  color: colors.accent,
+                ),
+              ),
+            ),
+            const SizedBox(width: NexusSpacing.s5),
+            // El interruptor de permisos ya no vive aquí: es del espacio de
+            // trabajo entero, y en la cabecera salía en **todas** las secciones
+            // sin nada que lo explicase. Se cambia en Permisos, con su título y
+            // su explicación, y junto a la caja de escribir.
+            //
+            // Pequeño y en `mute`: salir es lo que menos se decide de la hoja, y
+            // el botón de 44 px de alto de fábrica pesaba más que el título.
+            OutlinedButton(
+              onPressed: onClose,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 8,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                side: BorderSide(color: colors.rule2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(NexusRadius.sm),
+                ),
+              ),
+              child: Text(
+                strings.closeEsc.toUpperCase(),
+                style: NexusTypography.label.copyWith(
+                  letterSpacing: 1.6,
+                  height: 1,
+                  color: colors.mute,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
-}
-
-/// Las secciones de Ajustes, como claves. El nombre visible sale del
-/// diccionario: aquí solo se decide cuáles hay y en qué orden.
-enum _Section {
-  voice,
-  llaves,
-  imagenes,
-  avisos,
-  nombres,
-  memoria,
-  permissions,
-  mobile,
-  history,
-  pruebas,
-  cuentas,
-  stats,
-  superpowers,
-  emulators,
-  appearance,
-  language,
-  // Antes de Ayuda y después de los ajustes: no se configura nada aquí, se
-  // comprueba — así que va con lo que se lee, no con lo que se toca.
-  salidas,
-  help;
-
-  String title(NexusStrings strings) => switch (this) {
-    _Section.voice => strings.sectionVoice,
-    _Section.llaves => strings.sectionKeys,
-    _Section.imagenes => strings.sectionImages,
-    _Section.avisos => strings.sectionAvisos,
-    _Section.nombres => strings.sectionNombres,
-    _Section.memoria => strings.sectionMemoria,
-    _Section.permissions => strings.sectionPermissions,
-    _Section.mobile => strings.sectionMobile,
-    _Section.history => strings.sectionHistory,
-    _Section.pruebas => strings.sectionPruebas,
-    _Section.cuentas => strings.sectionCuentas,
-    _Section.stats => strings.sectionStats,
-    _Section.superpowers => strings.sectionSuperpowers,
-    _Section.emulators => strings.sectionEmulators,
-    _Section.appearance => strings.sectionAppearance,
-    _Section.language => strings.sectionLanguage,
-    _Section.salidas => strings.sectionExits,
-    _Section.help => strings.sectionHelp,
-  };
 }

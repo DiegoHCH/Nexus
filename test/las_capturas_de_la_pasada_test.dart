@@ -129,7 +129,10 @@ void main() {
   group('pintarlas', () {
     const unaCaptura = {'login_form': 'data:image/png;base64,AAAA'};
 
-    test('cada una va debajo del paso que la tomó', () {
+    // Al lado de los pasos, como el mockup: debajo, cada una empujaba la lista
+    // media pantalla y el paso en curso se salía de la vista. El pie dice de
+    // qué paso es, que es lo que antes decía el sitio.
+    test('van al lado de los pasos, con el paso que la tomó al pie', () {
       final html = LaPasadaComoHtml.escribe(
         flow: 'login',
         pasos: const [
@@ -149,16 +152,14 @@ void main() {
         capturas: unaCaptura,
       );
 
-      // Justo detrás del paso que la tomó, no en un montón al final. En su propia
-      // línea y no dentro del texto: dentro arranca en la columna del texto y no
-      // hay forma de centrarla respecto a la tarjeta.
-      final tras = html.substring(html.indexOf('Take screenshot login_form'));
+      final capturas = html.substring(html.indexOf('<div class="capturas">'));
+      expect(capturas, contains('<img src="data:image/png;base64,AAAA"'));
+      expect(capturas, contains(TextosDeLaPasada.es.captura('login_form', 2)));
+      // Detrás de la lista y no dentro: es su propia columna.
       expect(
-        tras,
-        contains('<li class="toma"><img src="data:image/png;base64,AAAA"'),
+        html.indexOf('<div class="capturas">'),
+        greaterThan(html.indexOf('Take screenshot login_form')),
       );
-      // Y la que centra: márgenes automáticos, con la imagen como bloque.
-      expect(html, contains('li.toma img{display:block;margin:0 auto'));
     });
 
     test('un paso que no toma capturas no lleva ninguna', () {

@@ -5,6 +5,7 @@ import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
 import 'package:nexus/features/remote/presentation/providers/mirror_providers.dart';
 import 'package:nexus/core/design_system/nexus_typography.dart';
+import 'package:nexus/features/remote/presentation/widgets/mobile_chrome.dart';
 
 /// Abrir la escritura con la frase.
 ///
@@ -15,13 +16,10 @@ import 'package:nexus/core/design_system/nexus_typography.dart';
 ///
 /// **El teléfono no la guarda nunca.** Se teclea cuando hace falta y la verifica el
 /// Mac; eso es lo que hace que llevarse el teléfono no baste para escribir.
+///
+/// Con la hoja del teléfono y no la de Material: ver [mostrarHojaDelMovil].
 Future<void> mostrarFraseDeEscritura(BuildContext context, WidgetRef ref) =>
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: context.colors.deep,
-      isScrollControlled: true,
-      builder: (_) => const _Hoja(),
-    );
+    mostrarHojaDelMovil<void>(context, (_) => const _Hoja());
 
 class _Hoja extends ConsumerStatefulWidget {
   const _Hoja();
@@ -68,59 +66,49 @@ class _HojaState extends ConsumerState<_Hoja> {
     final colors = context.colors;
     final strings = context.strings;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        24,
-        24,
-        24 + MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    return HojaDelMovil(
+      children: [
+        // Un rótulo y no un titular, como las demás pantallas: el nombre de lo que
+        // se hace en la letra del instrumento, y la frase de debajo es la que habla.
+        Text(
+          strings.mobileUnlockTitle.toUpperCase(),
+          style: NexusTypography.label.copyWith(color: colors.mute),
+        ),
+        // En sans y no en mono: es una explicación de qué pasa con la frase, no un
+        // dato, y en mono se leía como un log.
+        Text(
+          strings.mobileUnlockExplainer,
+          style: NexusTypography.nota.copyWith(
+            color: colors.mute,
+            fontSize: 13.5,
+          ),
+        ),
+        MobileInput(
+          campoKey: const ValueKey('frase'),
+          controlador: _frase,
+          pista: strings.mobilePhraseHint,
+          oculto: true,
+          autofocus: true,
+          alMandar: (_) => _probar(),
+        ),
+        // El error **en la misma hoja** y debajo del campo, como el mockup: la
+        // frase se vuelve a teclear ahí mismo, sin cerrar ni abrir nada.
+        if (_codigo != null)
           Text(
-            strings.mobileUnlockTitle,
-            style: NexusTypography.subtitleMobile.copyWith(color: colors.ink),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            strings.mobileUnlockExplainer,
-            style: NexusTypography.mono.copyWith(color: colors.mute),
-          ),
-          const SizedBox(height: 20),
-          TextField(
-            key: const ValueKey('frase'),
-            controller: _frase,
-            // **Oculta, al contrario que el token.** El token se pega desde tu propio
-            // Mac y hay que ver que entró entero; la frase se teclea, y se teclea a
-            // veces delante de gente.
-            obscureText: true,
-            autofocus: true,
-            autocorrect: false,
-            enableSuggestions: false,
-            style: TextStyle(color: colors.ink),
-            onSubmitted: (_) => _probar(),
-            decoration: InputDecoration(hintText: strings.mobilePhraseHint),
-          ),
-          if (_codigo != null) ...[
-            const SizedBox(height: 14),
-            Text(
-              _decir(strings, _codigo!),
-              key: const ValueKey('fallo-de-la-frase'),
-              style: NexusTypography.mono.copyWith(color: colors.err),
-            ),
-          ],
-          const SizedBox(height: 20),
-          FilledButton(
-            key: const ValueKey('abrir-escritura'),
-            onPressed: _probando ? null : _probar,
-            child: Text(
-              _probando ? strings.mobileChecking : strings.mobileOpen,
+            _decir(strings, _codigo!),
+            key: const ValueKey('fallo-de-la-frase'),
+            style: NexusTypography.nota.copyWith(
+              color: colors.err,
+              fontSize: 12.5,
             ),
           ),
-        ],
-      ),
+        WideAction(
+          key: const ValueKey('abrir-escritura'),
+          texto: _probando ? strings.mobileChecking : strings.mobileOpen,
+          principal: true,
+          alTocar: _probando ? null : _probar,
+        ),
+      ],
     );
   }
 }

@@ -13,6 +13,20 @@ mixin ArranqueStrings {
   // La comprobación de arranque (a3): Claude Code es la mitad del trabajo y no
   // se comprobaba nunca.
   String get readinessTitle;
+  // El rótulo de la barra y lo que ya está: la comprobación enseña también lo
+  // que va bien, en su fila y con su punto, para que se vea qué falta de dos.
+  String get readinessRotulo;
+  String get readinessCliOk;
+  String get readinessSessionOk;
+  // Los tres pasos del primer arranque, numerados. El título del paso va en
+  // minúscula de frase: es lo que se lee, no un rótulo.
+  String get pasoMicrofono;
+  String get pasoCarpeta;
+  String get pasoLlave;
+  String get pasoMicrofonoHecho;
+  String get pasoLlaveSinLlave;
+  String pasoHecho(int numero);
+  String pasoPendiente(int numero);
   // El tour de la primera vez (a3, pieza 2): cuatro paradas, ancladas en piezas
   // que un recién llegado sí tiene en pantalla.
   String get tourOrbTitle;
@@ -23,8 +37,6 @@ mixin ArranqueStrings {
   String get tourDockBody;
   String get tourMeterTitle;
   String get sectionHelp;
-  String get helpTourTitle;
-  String get helpTourExplainer;
   String get helpTourAction;
   String get versionLabel;
   String updateAvailable(String version);
@@ -42,6 +54,23 @@ mixin ArranqueStrings {
   String get updateExtracting;
   String get updateReadyTitle;
   String get updateReadyBody;
+
+  /// El título del aviso cuando se sabe a qué versión se va: «Nexus 1.26.0».
+  String updateNexus(String version);
+
+  /// Qué pasa al actualizar, dicho antes de empezar: el peso, si se sabe, y
+  /// que reiniciar **espera** a lo que esté en marcha en vez de cortarlo.
+  String updateFoundBody(String? size);
+
+  /// Durante la descarga: que al acabar se reinicie sola, sin volver a
+  /// preguntar.
+  String get updateRestartWhenDone;
+
+  /// Ya pedido: lo que se lee en lugar del botón.
+  String get updateRestartsWhenDone;
+
+  /// Lista, pedida, y esperando a que termine lo que está en marcha.
+  String get updateWaitingToRestart;
   String get updateInstalling;
   String get updateInstallingBody;
   String get updateFailedTitle;
@@ -73,18 +102,13 @@ mixin ArranqueStrings {
   String get readinessRecheck;
   String get readinessContinueAnyway;
   String get readinessContinueHint;
-  String get setupExplainer;
   String get startUsingNexus;
   String get changeLaterHint;
   String get hayMasAbajo;
   String get request;
-  String get micPending;
   String get micPendingExplainer;
   String get micAsking;
   String get micAskingExplainer;
-  String get micGranted;
-  String get micGrantedExplainer;
-  String get micDenied;
   String get microphoneBlocked;
 
   /// Las reglas del repositorio no son las mismas que la última vez. Lleva las
@@ -111,14 +135,22 @@ mixin ArranqueStrings {
   String get allowScriptsAndNetwork;
   String get allowScriptsExplainer;
 
+  /// El estado del permiso, al lado de su nombre en el botón del visor:
+  /// «Permitir scripts y red · apagado». Dicho con palabra y no solo con una
+  /// casilla, porque en la barra del título una casilla se lee como un adorno.
+  String get allowScriptsOff;
+  String get allowScriptsOn;
+
+  /// El pie de la ventana de la consola de la app: de dónde sale y qué no
+  /// toca.
+  String get consolaSoloConLaCopia;
+
   /// Lo mismo, en el ancho de un teléfono.
   String get allowScriptsShort;
 
   /// Qué sale de la máquina: la sección y sus cuatro puertas.
   String get sectionExits;
   String get exitsExplainer;
-  String get exitsNoFolder;
-  String exitsForFolder(String carpeta);
   String get exitClosed;
   String get exitAvailable;
   String get exitOpen;
@@ -135,21 +167,17 @@ mixin ArranqueStrings {
 
   /// El registro de la app, en Ajustes › Ayuda.
   String get logTitle;
-  String get logExplainer;
   String get logAction;
   String get logMissing;
   String get micDeniedShort;
   String get micDeniedExplainer;
   String get microphone;
   String get iHearYou;
-  String get workFolder;
   String get choose;
   String get chosen;
   String get workFolderTitle;
-  String get workFolderExplainer;
   String get geminiKey;
   String get geminiKeyHint;
-  String get geminiKeyExplainer;
   String get getFreeKey;
   String keySaveFailed(String error);
 }
@@ -162,12 +190,32 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   @override
   String get readinessTitle => 'Falta algo para que Nexus pueda trabajar';
   @override
-  String get tourOrbTitle => 'Háblale. Esto es Nexus';
+  String get readinessRotulo => 'Falta algo';
+  @override
+  String get readinessCliOk => 'Claude Code está instalado';
+  @override
+  String get readinessSessionOk => 'Hay una cuenta con sesión abierta';
+  @override
+  String get pasoMicrofono => 'Micrófono';
+  @override
+  String get pasoCarpeta => 'Carpeta de trabajo';
+  @override
+  String get pasoLlave => 'Llave de voz · Gemini';
+  @override
+  String get pasoMicrofonoHecho =>
+      'Concedido. Habla un momento: si el trazo se mueve, te oigo.';
+  @override
+  String get pasoLlaveSinLlave => 'Sin llave, Nexus trabaja por texto.';
+  @override
+  String pasoHecho(int numero) => 'Paso $numero, hecho';
+  @override
+  String pasoPendiente(int numero) => 'Paso $numero, pendiente';
+  @override
+  String get tourOrbTitle => 'Háblale. Esto es Nexus.';
   @override
   String get tourOrbBody =>
-      'Pulsa el orbe y empieza a hablar. Se le pide en voz alta lo que quieres '
-      'hacer en tu carpeta, y responde mientras Claude trabaja. El atajo global '
-      'también lo despierta sin traer la ventana al frente.';
+      'Di su nombre o pulsa ⌥Espacio. Cuando te oye, el orbe se abre en '
+      'partículas; cuando trabaja, se vuelve un reactor.';
   @override
   String get tourComposerTitle => 'O escríbelo, si prefieres';
   @override
@@ -184,12 +232,6 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   String get tourMeterTitle => 'Contexto y cupo, aquí dentro';
   @override
   String get sectionHelp => 'Ayuda';
-  @override
-  String get helpTourTitle => 'El tour de la primera vez';
-  @override
-  String get helpTourExplainer =>
-      'Las cuatro piezas del HUD, señaladas una por una. Sale solo la primera vez; '
-      'desde aquí se puede volver a ver.';
   @override
   String get helpTourAction => 'Ver el tour otra vez';
   @override
@@ -225,8 +267,21 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   String get updateReadyTitle => 'Lista para instalarse';
   @override
   String get updateReadyBody =>
-      'Nexus se cerrará y volverá a abrirse. Si tienes un encargo en marcha, '
-      'reiniciar lo corta a media escritura: espera a que termine.';
+      'Nexus se cerrará y volverá a abrirse. Si está hablando o trabajando, '
+      'reiniciar espera a que termine en vez de cortarlo.';
+  @override
+  String updateNexus(String version) => 'Nexus $version';
+  @override
+  String updateFoundBody(String? size) =>
+      '${size == null ? '' : 'La descarga pesa $size. '}Nexus se cerrará y '
+      'volverá a abrirse: lo que esté hablando o trabajando termina antes.';
+  @override
+  String get updateRestartWhenDone => 'Reiniciar al terminar';
+  @override
+  String get updateRestartsWhenDone => 'Se reiniciará al terminar la descarga';
+  @override
+  String get updateWaitingToRestart =>
+      'Esperando a que termine lo que está en marcha para reiniciar.';
   @override
   String get updateInstalling => 'Instalando';
   @override
@@ -344,14 +399,13 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   String tourStep(int current, int total) => 'paso $current de $total';
   @override
   String get readinessExplainer =>
-      'Nexus habla contigo, pero el trabajo lo hace Claude Code en tu Mac. '
-      'Sin él no es que un encargo falle mal: es que falla sin decir por qué.';
+      'Nexus habla contigo, pero el trabajo lo hace Claude Code. Sin él, puede '
+      'oírte y no puede hacer nada.';
   @override
   String get readinessCliMissing => 'Claude Code no está instalado';
   @override
   String get readinessCliMissingFix =>
-      'Se instala una vez y Nexus lo encuentra solo. Si crees que ya lo tienes, '
-      'comprueba en una terminal que «claude --version» conteste.';
+      'Se instala con una línea en la terminal y se entra con tu cuenta.';
   @override
   String get readinessSessionMissing => 'Ninguna cuenta tiene sesión abierta';
   @override
@@ -366,22 +420,16 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   String get readinessContinueAnyway => 'Entrar de todas formas';
   @override
   String get readinessContinueHint =>
-      'Puedes entrar y arreglarlo luego: los ajustes y el historial funcionan igual.';
+      'Puedes entrar y arreglarlo luego: la voz funciona, los encargos '
+      'esperarán.';
   @override
-  String get setupExplainer =>
-      'Nexus necesita tu micrófono para escucharte, una llave de Gemini para '
-      'darte voz y una carpeta donde trabajar. Nada de esto se comparte con '
-      'nadie más.';
+  String get startUsingNexus => 'Empezar a usar Nexus';
   @override
-  String get startUsingNexus => 'EMPEZAR A USAR NEXUS';
-  @override
-  String get changeLaterHint => 'Puedes cambiar esto después en Ajustes';
+  String get changeLaterHint => 'Todo esto se cambia luego en Ajustes.';
   @override
   String get hayMasAbajo => 'Hay más abajo';
   @override
-  String get request => 'SOLICITAR';
-  @override
-  String get micPending => 'PENDIENTE';
+  String get request => 'Solicitar';
   @override
   String get micPendingExplainer =>
       'Vas a ver el diálogo de permiso de macOS. En cuanto lo aceptes, la '
@@ -391,13 +439,6 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   @override
   String get micAskingExplainer =>
       'Responde al diálogo del sistema para continuar.';
-  @override
-  String get micGranted => 'CONCEDIDO';
-  @override
-  String get micGrantedExplainer =>
-      'Habla un momento — si el trazo se mueve, tu voz llega bien a Nexus.';
-  @override
-  String get micDenied => 'DENEGADO';
   @override
   String get microphoneBlocked =>
       'El micrófono está bloqueado, así que no se puede abrir la voz. Se concede '
@@ -431,22 +472,23 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   String get allowScriptsAndNetwork => 'Permitir scripts y red';
   @override
   String get allowScriptsExplainer =>
-      'Este documento lo escribió Claude. Sin esto no ejecuta sus scripts ni '
-      'carga nada de internet.';
+      'Este documento lo escribió Claude. Sin permiso no ejecuta sus scripts ni '
+      'carga nada de internet. Se recarga solo si cambia.';
+  @override
+  String get allowScriptsOff => 'apagado';
+  @override
+  String get allowScriptsOn => 'encendido';
+  @override
+  String get consolaSoloConLaCopia =>
+      'Solo con la copia «con la consola» que guarda Nexus: el repo no se toca.';
   @override
   String get allowScriptsShort => 'Scripts y red';
   @override
   String get sectionExits => 'Qué sale';
   @override
   String get exitsExplainer =>
-      'Las cuatro puertas por las que algo puede salir de este Mac, con lo que '
-      'viaja por cada una y si está saliendo ahora. Aquí no se configura nada: '
-      'cada puerta se decide en su propio ajuste. Esto es para poder mirarlas '
-      'juntas.';
-  @override
-  String get exitsNoFolder => 'SIN CARPETA ENFOCADA';
-  @override
-  String exitsForFolder(String carpeta) => 'PARA $carpeta';
+      'Las **cinco puertas** por las que algo puede salir de este Mac, para la '
+      'carpeta en foco. Aquí no se configura nada: se mira.';
   @override
   String get exitClosed => 'cerrada';
   @override
@@ -456,41 +498,27 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   @override
   String get exitAnthropic => 'Anthropic';
   @override
-  String get exitAnthropicWhat =>
-      'Lo que Claude lee de tu carpeta, en cada encargo. Es cómo trabaja: sin '
-      'esto no hay producto.';
+  String get exitAnthropicWhat => 'lo que Claude lee y escribe';
   @override
   String get exitGemini => 'Google · voz';
   @override
   String get exitGeminiWhat =>
-      'Tu micrófono y lo que Claude leyó, porque una respuesta narrada lo lleva '
-      'dentro — como mucho 4.000 caracteres por respuesta: lo que no cabe se '
-      'queda en la pantalla. En una carpeta de solo texto no participa.';
+      'tu voz y lo que ella narra, mientras hablas · hasta 4.000 caracteres '
+      'por respuesta';
   @override
   String get exitSlack => 'Slack';
   @override
-  String get exitSlackWhat =>
-      'El parte del día que escribe Claude, y solo cuando le das a enviar. Es la '
-      'única de las cinco que nunca sale sola: se lee en pantalla antes.';
+  String get exitSlackWhat => 'el parte del día, solo cuando lo mandas';
   @override
   String get exitNotion => 'Notion';
   @override
-  String get exitNotionWhat =>
-      'Conversaciones enteras, al terminar cada turno. Archivar en una carpeta '
-      'o en Obsidian no sale de aquí: es disco de este Mac.';
+  String get exitNotionWhat => 'el archivo de conversaciones';
   @override
   String get exitChannel => 'El canal del teléfono';
   @override
-  String get exitChannelWhat =>
-      'Lo que se ve y se dice en la app, dentro de tu tailnet. Escribir pide '
-      'además la frase, y caduca sola.';
+  String get exitChannelWhat => 'solo por Tailscale';
   @override
   String get logTitle => 'REGISTRO';
-  @override
-  String get logExplainer =>
-      'Lo que Nexus ha ido contando de sí mismo, escrito en un archivo. Sirve '
-      'para cuando algo falla y hay que saber qué pasó antes. No sale de este '
-      'Mac: se queda en su carpeta y lo lees tú.';
   @override
   String get logAction => 'Ver en el Finder';
   @override
@@ -504,30 +532,19 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   @override
   String get microphone => 'MICRÓFONO';
   @override
-  String get iHearYou => 'TE ESCUCHO';
+  String get iHearYou => 'Te escucho';
   @override
-  String get workFolder => 'CARPETA DE TRABAJO';
+  String get choose => 'Elegir';
   @override
-  String get choose => 'ELEGIR';
+  String get chosen => 'Elegida';
   @override
-  String get chosen => 'ELEGIDA';
-  @override
-  String get workFolderTitle => 'Nexus solo trabaja donde le digas';
-  @override
-  String get workFolderExplainer =>
-      'Puede ser un proyecto o la carpeta que los contiene a todos. Si las '
-      'reglas de un repo viven fuera de él, elige la carpeta padre. Después '
-      'puedes añadir más en Ajustes.';
+  String get workFolderTitle => 'Nexus solo trabaja donde le digas.';
   @override
   String get geminiKey => 'LLAVE DE VOZ (GEMINI)';
   @override
   String get geminiKeyHint => 'Pega tu llave de API aquí';
   @override
-  String get geminiKeyExplainer =>
-      'Se guarda cifrada en este Mac. Solo viaja hacia Google para sostener la '
-      'voz en tiempo real.';
-  @override
-  String get getFreeKey => 'CONSEGUIR UNA LLAVE GRATIS ↗';
+  String get getFreeKey => 'Conseguir una llave gratis ↗';
   @override
   String keySaveFailed(String error) => 'No se pudo guardar la llave: $error';
 }
@@ -540,12 +557,32 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   @override
   String get readinessTitle => 'Something is missing before Nexus can work';
   @override
-  String get tourOrbTitle => 'Talk to it. This is Nexus';
+  String get readinessRotulo => 'Something is missing';
+  @override
+  String get readinessCliOk => 'Claude Code is installed';
+  @override
+  String get readinessSessionOk => 'An account is signed in';
+  @override
+  String get pasoMicrofono => 'Microphone';
+  @override
+  String get pasoCarpeta => 'Work folder';
+  @override
+  String get pasoLlave => 'Voice key · Gemini';
+  @override
+  String get pasoMicrofonoHecho =>
+      'Granted. Say something: if the trace moves, I can hear you.';
+  @override
+  String get pasoLlaveSinLlave => 'Without a key, Nexus works by text.';
+  @override
+  String pasoHecho(int numero) => 'Step $numero, done';
+  @override
+  String pasoPendiente(int numero) => 'Step $numero, pending';
+  @override
+  String get tourOrbTitle => 'Talk to it. This is Nexus.';
   @override
   String get tourOrbBody =>
-      'Press the orb and start talking. You ask out loud for what you want done '
-      'in your folder, and it answers while Claude works. The global shortcut '
-      'also wakes it without bringing the window to the front.';
+      'Say its name or press ⌥Space. When it hears you, the orb opens into '
+      'particles; when it works, it turns into a reactor.';
   @override
   String get tourComposerTitle => 'Or type it, if you prefer';
   @override
@@ -563,12 +600,6 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   String get tourMeterTitle => 'Context and quota, in here';
   @override
   String get sectionHelp => 'Help';
-  @override
-  String get helpTourTitle => 'The first-run tour';
-  @override
-  String get helpTourExplainer =>
-      'The four pieces of the HUD, pointed at one by one. It only shows the first '
-      'time; from here you can see it again.';
   @override
   String get helpTourAction => 'See the tour again';
   @override
@@ -604,8 +635,21 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   String get updateReadyTitle => 'Ready to install';
   @override
   String get updateReadyBody =>
-      'Nexus will quit and open again. If an errand is running, restarting '
-      'cuts it mid-write: wait until it finishes.';
+      'Nexus will quit and open again. If it is talking or working, '
+      'restarting waits for it to finish instead of cutting it.';
+  @override
+  String updateNexus(String version) => 'Nexus $version';
+  @override
+  String updateFoundBody(String? size) =>
+      '${size == null ? '' : 'The download is $size. '}Nexus will quit and '
+      'open again: whatever it is saying or doing finishes first.';
+  @override
+  String get updateRestartWhenDone => 'Restart when done';
+  @override
+  String get updateRestartsWhenDone => 'It will restart when the download ends';
+  @override
+  String get updateWaitingToRestart =>
+      'Waiting for what is running to finish before restarting.';
   @override
   String get updateInstalling => 'Installing';
   @override
@@ -722,14 +766,14 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   String tourStep(int current, int total) => 'step $current of $total';
   @override
   String get readinessExplainer =>
-      'Nexus does the talking, but the work is done by Claude Code on your Mac. '
-      'Without it an errand does not fail badly — it fails without saying why.';
+      'Nexus talks to you, but the work is done by Claude Code. Without it, it '
+      'can hear you and cannot do anything.';
   @override
   String get readinessCliMissing => 'Claude Code is not installed';
   @override
   String get readinessCliMissingFix =>
-      'Install it once and Nexus finds it on its own. If you think you already '
-      'have it, check that «claude --version» answers in a terminal.';
+      'It installs with one line in the terminal, and you sign in with your '
+      'account.';
   @override
   String get readinessSessionMissing => 'No account is signed in';
   @override
@@ -744,21 +788,15 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   String get readinessContinueAnyway => 'Go in anyway';
   @override
   String get readinessContinueHint =>
-      'You can go in and fix it later: settings and history work the same.';
+      'You can go in and fix it later: voice works, errands will wait.';
   @override
-  String get setupExplainer =>
-      'Nexus needs your microphone to hear you, a Gemini key to give you a '
-      'voice, and a folder to work in. None of it is shared with anyone else.';
+  String get startUsingNexus => 'Start using Nexus';
   @override
-  String get startUsingNexus => 'START USING NEXUS';
-  @override
-  String get changeLaterHint => 'You can change this later in Settings';
+  String get changeLaterHint => 'All of this can be changed later in Settings.';
   @override
   String get hayMasAbajo => 'There is more below';
   @override
-  String get request => 'REQUEST';
-  @override
-  String get micPending => 'PENDING';
+  String get request => 'Request';
   @override
   String get micPendingExplainer =>
       'You will see the macOS permission dialog. As soon as you accept it, the '
@@ -767,13 +805,6 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   String get micAsking => 'Asking for microphone access…';
   @override
   String get micAskingExplainer => 'Answer the system dialog to continue.';
-  @override
-  String get micGranted => 'GRANTED';
-  @override
-  String get micGrantedExplainer =>
-      'Say something — if the trace moves, your voice is reaching Nexus.';
-  @override
-  String get micDenied => 'DENIED';
   @override
   String get microphoneBlocked =>
       'The microphone is blocked, so voice cannot start. You grant it in System '
@@ -806,22 +837,24 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   String get allowScriptsAndNetwork => 'Allow scripts and network';
   @override
   String get allowScriptsExplainer =>
-      'Claude wrote this document. Without this it runs no scripts and loads '
-      'nothing from the internet.';
+      'Claude wrote this document. Without permission it runs no scripts and '
+      'loads nothing from the internet. It reloads by itself when it changes.';
+  @override
+  String get allowScriptsOff => 'off';
+  @override
+  String get allowScriptsOn => 'on';
+  @override
+  String get consolaSoloConLaCopia =>
+      'Only with the «with the console» copy Nexus keeps: the repo is not '
+      'touched.';
   @override
   String get allowScriptsShort => 'Scripts & network';
   @override
   String get sectionExits => 'What leaves';
   @override
   String get exitsExplainer =>
-      'The four doors anything can leave this Mac through, what travels out of '
-      'each and whether it is leaving right now. Nothing is configured here: '
-      'each door is decided in its own setting. This is for seeing them '
-      'together.';
-  @override
-  String get exitsNoFolder => 'NO FOLDER IN FOCUS';
-  @override
-  String exitsForFolder(String carpeta) => 'FOR $carpeta';
+      'The **five doors** anything can leave this Mac through, for the folder '
+      'in focus. Nothing is configured here: you just look.';
   @override
   String get exitClosed => 'closed';
   @override
@@ -831,43 +864,27 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   @override
   String get exitAnthropic => 'Anthropic';
   @override
-  String get exitAnthropicWhat =>
-      'What Claude reads from your folder, on every errand. It is how it works: '
-      'without this there is no product.';
+  String get exitAnthropicWhat => 'what Claude reads and writes';
   @override
   String get exitGemini => 'Google · voice';
   @override
   String get exitGeminiWhat =>
-      'Your microphone and what Claude read, because a narrated answer carries '
-      'it inside — at most 4,000 characters per answer: what does not fit stays '
-      'on screen. In a text-only folder it takes no part.';
+      'your voice and what she narrates, while you talk · up to 4,000 '
+      'characters per answer';
   @override
   String get exitSlack => 'Slack';
   @override
-  String get exitSlackWhat =>
-      'The day’s report Claude writes, and only when you press send. It is the '
-      'only one of the five that never goes on its own: you read it on screen '
-      'first.';
+  String get exitSlackWhat => 'the day’s report, only when you send it';
   @override
   String get exitNotion => 'Notion';
   @override
-  String get exitNotionWhat =>
-      'Whole conversations, at the end of every turn. Archiving to a folder or '
-      'to Obsidian does not leave here: that is this Mac\'s disk.';
+  String get exitNotionWhat => 'the conversation archive';
   @override
   String get exitChannel => 'The phone channel';
   @override
-  String get exitChannelWhat =>
-      'What the app shows and says, inside your tailnet. Writing also takes the '
-      'phrase, and it expires on its own.';
+  String get exitChannelWhat => 'only over Tailscale';
   @override
   String get logTitle => 'LOG';
-  @override
-  String get logExplainer =>
-      'What Nexus has been saying about itself, written to a file. It is for '
-      'when something breaks and you need to know what happened before. It '
-      'never leaves this Mac: it stays in its folder and you are the one who '
-      'reads it.';
   @override
   String get logAction => 'Show in Finder';
   @override
@@ -881,30 +898,19 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   @override
   String get microphone => 'MICROPHONE';
   @override
-  String get iHearYou => 'I HEAR YOU';
+  String get iHearYou => 'I hear you';
   @override
-  String get workFolder => 'WORK FOLDER';
+  String get choose => 'Choose';
   @override
-  String get choose => 'CHOOSE';
+  String get chosen => 'Chosen';
   @override
-  String get chosen => 'CHOSEN';
-  @override
-  String get workFolderTitle => 'Nexus only works where you tell it to';
-  @override
-  String get workFolderExplainer =>
-      'It can be one project or the folder holding all of them. If a repo keeps '
-      'its rules outside itself, pick the parent folder. You can add more later '
-      'in Settings.';
+  String get workFolderTitle => 'Nexus only works where you tell it to.';
   @override
   String get geminiKey => 'VOICE KEY (GEMINI)';
   @override
   String get geminiKeyHint => 'Paste your API key here';
   @override
-  String get geminiKeyExplainer =>
-      'Stored encrypted on this Mac. It only travels to Google to keep the '
-      'real-time voice going.';
-  @override
-  String get getFreeKey => 'GET A FREE KEY ↗';
+  String get getFreeKey => 'Get a free key ↗';
   @override
   String keySaveFailed(String error) => 'Could not save the key: $error';
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,10 +15,13 @@ import 'package:nexus/features/remote/presentation/widgets/mobile_chrome.dart';
 
 /// Mientras se busca el Mac.
 ///
-/// El orbe **en `think`** y con horizonte: es el único elemento vivo del sistema, y
-/// aquí está haciendo algo de verdad. En un estado de error va dormido —un orbe
-/// girando bajo un «se perdió el enlace» promete trabajo que no está pasando— pero
-/// esto es exactamente lo contrario: hay trabajo.
+/// El orbe **trabajando, con el reactor**, que es lo que dibuja el mockup: es el único
+/// elemento vivo del sistema, y aquí está haciendo algo de verdad. Y el reactor no
+/// gira de adorno: **sus segmentos cuentan los intentos** —los que fallaron
+/// encendidos, el de ahora llenándose—, así que una espera larga se ve avanzar en vez
+/// de parecer colgada. En un estado de error el orbe va apagado —un orbe girando bajo
+/// un «no llego a tu Mac» promete trabajo que no está pasando— pero esto es lo
+/// contrario: hay trabajo.
 class ConnectingPage extends ConsumerWidget {
   const ConnectingPage({super.key, this.alCancelar});
 
@@ -28,76 +32,97 @@ class ConnectingPage extends ConsumerWidget {
     final colors = context.colors;
     final strings = context.strings;
     final pareja = ref.watch(pairingControllerProvider).value;
+    final enlace = ref.watch(channelLinkProvider);
 
     return Scaffold(
       backgroundColor: colors.void_,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: NexusSpacing.s5,
-            vertical: NexusSpacing.s4,
-          ),
-          child: Column(
-            children: [
-              // Mientras esta pantalla está en el aire, lo que afirma es
-              // «conectando» — y el chip tiene que decir lo mismo. Si el enlace ya
-              // conectó y solo seguimos aquí por el mínimo, el estado real diría
-              // `Conectado` debajo de un «buscando tu Mac».
-              const MobileChrome(enVezDe: LinkState.conectando),
-              const Spacer(),
-              // Con horizonte, al contrario que en las demás pantallas del teléfono:
-              // el horizonte es lo que convierte al orbe en «trabajando» y no en un
-              // adorno girando.
-              const SizedBox(
-                height: 260,
-                child: NexusOrb(state: NexusOrbState.think),
-              ),
-              const Spacer(),
-              Text(
-                strings.mobileSearchingForMac,
-                style: NexusTypography.label.copyWith(color: colors.mute),
-              ),
-              const SizedBox(height: NexusSpacing.s3),
-              Text(
-                // La dirección emparejada, que es el dato de verdad: el mockup pone
-                // aquí `macbook-diego.local · red local`, y aquí no hay nombres ni red
-                // local — hay una dirección de Tailscale y un puerto.
-                pareja?.comoSeVe ?? '—',
-                style: NexusTypography.data.copyWith(color: colors.mute),
-              ),
-              const SizedBox(height: NexusSpacing.s6),
-              SizedBox(
-                width: double.infinity,
-                child: InkWell(
-                  key: const ValueKey('cancelar-la-conexion'),
-                  onTap: alCancelar,
-                  child: Container(
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: NexusSpacing.s4,
+        child: Column(
+          children: [
+            // Mientras esta pantalla está en el aire, lo que afirma es «conectando»
+            // — y el chip tiene que decir lo mismo. Si el enlace ya conectó y solo
+            // seguimos aquí por el mínimo, el estado real diría `Conectado` debajo
+            // de un «buscando tu Mac».
+            const MobileChrome(enVezDe: LinkState.conectando),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: MedidasDelMovil.margen,
+                ),
+                // **Todo el bloque centrado en el alto**, como el mockup: el orbe, lo
+                // que dice y el botón son una sola cosa. Con el orbe en un `Flexible`
+                // entre dos `Spacer` el sitio que no usaba iba a parar al fondo, y el
+                // bloque quedaba pegado arriba con media pantalla vacía debajo.
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Encoge si no cabe, por lo mismo que en las pantallas de estado:
+                    // en un teléfono pequeño lo que se cortaba era el botón.
+                    Flexible(
+                      child: SizedBox(
+                        height: 250,
+                        child: IgnorePointer(
+                          child: ValueListenableBuilder<int>(
+                            valueListenable: enlace.intentos,
+                            builder: (context, intentos, _) {
+                              // Tantos segmentos como peldaños tiene la escalera de
+                              // reintentos, y uno más por cada vuelta de más: pasada
+                              // la escalera se sigue intentando, y un reactor lleno
+                              // diría que ya acabó.
+                              final pasos = math.max(
+                                enlace.esperas.length,
+                                intentos,
+                              );
+                              return NexusOrb(
+                                key: const ValueKey('orbe-buscando'),
+                                state: NexusOrbState.think,
+                                pasos: pasos,
+                                hechos: math.max(0, intentos - 1),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
                     ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(2),
-                      border: Border.all(color: colors.rule2),
-                    ),
-                    child: Text(
-                      strings.mobileCancel,
+                    const SizedBox(height: NexusSpacing.s2),
+                    Text(
+                      strings.mobileSearchingForMac,
                       style: NexusTypography.label.copyWith(color: colors.mute),
                     ),
-                  ),
+                    const SizedBox(height: NexusSpacing.s1),
+                    // Pegada al rótulo, que es de quien es: «buscando tu Mac» y
+                    // **cuál**. La dirección emparejada es el dato de verdad —aquí no
+                    // hay nombres ni red local, hay Tailscale y un puerto—.
+                    Text(
+                      pareja?.comoSeVe ?? '—',
+                      style: NexusTypography.data.copyWith(
+                        color: colors.mute,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                    WideAction(
+                      key: const ValueKey('cancelar-la-conexion'),
+                      texto: strings.mobileCancel,
+                      alTocar: alCancelar,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      // Lo que hay que comprobar es Tailscale, en los dos aparatos —
+                      // y es lo que falló la primera vez. En sans: es una
+                      // explicación, no un dato.
+                      strings.mobileSlowConnectHint,
+                      textAlign: TextAlign.center,
+                      style: NexusTypography.nota.copyWith(
+                        color: colors.mute,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: NexusSpacing.s4),
-              Text(
-                // El mockup dice «comprueba que ambos están en la misma red», que era
-                // de cuando había red local. Lo que de verdad hay que comprobar es
-                // Tailscale, en los dos aparatos — y es lo que falló la primera vez.
-                strings.mobileSlowConnectHint,
-                textAlign: TextAlign.center,
-                style: NexusTypography.mono.copyWith(color: colors.faint),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

@@ -16,11 +16,6 @@ mixin EstadisticasStrings {
   String get statsSessions;
   String get statsMessages;
   String get statsTotalTokens;
-  String get statsActiveDays;
-  String get statsCurrentStreak;
-  String get statsLongestStreak;
-  String get statsPeakHour;
-  String get statsFavoriteModel;
   String get statsReading;
   String get statsUnreadable;
   String get statsNothingYet;
@@ -49,16 +44,6 @@ mixin EstadisticasStringsEs implements EstadisticasStrings {
   String get statsMessages => 'Mensajes';
   @override
   String get statsTotalTokens => 'Tokens';
-  @override
-  String get statsActiveDays => 'Días activos';
-  @override
-  String get statsCurrentStreak => 'Racha actual';
-  @override
-  String get statsLongestStreak => 'Racha más larga';
-  @override
-  String get statsPeakHour => 'Hora punta';
-  @override
-  String get statsFavoriteModel => 'Modelo favorito';
   @override
   String get statsReading => 'Leyendo los transcritos…';
   @override
@@ -98,16 +83,6 @@ mixin EstadisticasStringsEn implements EstadisticasStrings {
   String get statsMessages => 'Messages';
   @override
   String get statsTotalTokens => 'Tokens';
-  @override
-  String get statsActiveDays => 'Active days';
-  @override
-  String get statsCurrentStreak => 'Current streak';
-  @override
-  String get statsLongestStreak => 'Longest streak';
-  @override
-  String get statsPeakHour => 'Peak hour';
-  @override
-  String get statsFavoriteModel => 'Favorite model';
   @override
   String get statsReading => 'Reading the transcripts…';
   @override

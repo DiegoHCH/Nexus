@@ -18,7 +18,6 @@ mixin PruebasStrings {
   String get sectionCuentas;
   String get flowsRootExplainer;
   String get flowsRootHint;
-  String get flowsByProject;
   String get flowsNoProjects;
   String get flowsNoneHere;
   String flowsCount(int total);
@@ -143,21 +142,15 @@ mixin PruebasStrings {
   String get verElIphoneQuickTime;
   String get channelTitle;
   String get channelExplainer;
-  String get channelSwitch;
   String get channelStarting;
   String get channelListeningAt;
-  String get channelToken;
   String get channelCopyToken;
   String get channelRotateToken;
-  String get channelRotateWarning;
   String get channelNeedsTailscale;
   String get channelPortBusy;
   String get channelUnknownProblem;
-  String get channelNoPhoneYet;
   String get channelQrExplainer;
   String get phraseTitle;
-  String get phraseExplainer;
-  String get phraseDefined;
   String get phraseMissing;
   String get phraseDefine;
   String get phraseChange;
@@ -168,7 +161,6 @@ mixin PruebasStrings {
   String get sectionModel;
   String get nexusVoice;
   String get audioOutput;
-  String get audioOutputExplainer;
   String get audioOutputSystem;
   String get voiceExplainer;
   String get elAcento;
@@ -189,20 +181,17 @@ mixin PruebasStrings {
   String repoModelo(String modelo);
   String get repoAvisosTitle;
   String get repoLoFija;
-  String get geminiKeySaved;
   String get geminiKeyMissing;
   String get geminiKeySave;
   String get setupOptional;
   String get foldersWithPermission;
   String get noFoldersYet;
   String get addFolder;
-  String get foldersExplainer;
   String get isActiveFolder;
   String get workHere;
   String get remove;
   String get voiceAllowedExplainer;
   String get textOnlyExplainer;
-  String get languageTitle;
   String get languageExplainer;
   String get languageSystem;
   String get languageSpanish;
@@ -234,8 +223,6 @@ mixin PruebasStringsEs implements PruebasStrings {
       'uno con su «.maestro/».';
   @override
   String get flowsRootHint => '~/pruebas';
-  @override
-  String get flowsByProject => 'Por proyecto';
   @override
   String get flowsNoProjects => 'No hay ninguna carpeta emparejada todavía.';
   @override
@@ -497,21 +484,13 @@ mixin PruebasStringsEs implements PruebasStrings {
   String get channelExplainer =>
       'Escucha solo por Tailscale, nunca en la red local.';
   @override
-  String get channelSwitch => 'Aceptar conexiones del teléfono';
-  @override
   String get channelStarting => 'Abriendo el canal…';
   @override
   String get channelListeningAt => 'Escuchando en';
   @override
-  String get channelToken => 'Token';
-  @override
   String get channelCopyToken => 'Copiar el token';
   @override
   String get channelRotateToken => 'Rotar';
-  @override
-  String get channelRotateWarning =>
-      'Rotarlo cierra las conexiones abiertas y deja fuera a todos los teléfonos: '
-      'es la forma de revocar el acceso.';
   @override
   String get channelNeedsTailscale =>
       'No encuentro Tailscale en este Mac. El canal solo escucha por ahí, así que '
@@ -528,19 +507,7 @@ mixin PruebasStringsEs implements PruebasStrings {
       'Escanéalo desde la app del teléfono. El token se copia o se rota: '
       'rotarlo cierra lo que esté conectado.';
   @override
-  String get channelNoPhoneYet =>
-      'La app del teléfono ya existe: se instala desde el repositorio, se empareja '
-      'pegando aquí la dirección y el token, y necesita Tailscale en el teléfono '
-      'igual que aquí. Lo que no hay todavía es una versión publicada del móvil.';
-  @override
   String get phraseTitle => 'Frase de escritura';
-  @override
-  String get phraseExplainer =>
-      'El token deja entrar al teléfono; esta frase es la que le deja escribir. No '
-      'se guarda en el teléfono: se teclea cuando hace falta y la comprueba este '
-      'Mac, así que llevarse el teléfono no basta para escribir.';
-  @override
-  String get phraseDefined => 'Definida';
   @override
   String get phraseMissing =>
       'Sin definir: el teléfono puede pedir cosas y leer, pero no escribir.';
@@ -563,10 +530,6 @@ mixin PruebasStringsEs implements PruebasStrings {
   String get nexusVoice => 'Su voz';
   @override
   String get audioOutput => 'POR DÓNDE SUENA';
-  @override
-  String get audioOutputExplainer =>
-      'Vale desde la próxima vez que le hables: el aparato se fija al montar el '
-      'audio. Con «el del sistema», cambiar de auriculares cambia también esto.';
   @override
   String get audioOutputSystem => 'El del sistema';
   @override
@@ -617,8 +580,6 @@ mixin PruebasStringsEs implements PruebasStrings {
   @override
   String get repoLoFija => 'Lo fija el repositorio';
   @override
-  String get geminiKeySaved => 'Hay una llave guardada.';
-  @override
   String get geminiKeyMissing =>
       'No hay ninguna. Sin llave, Nexus trabaja por texto y la voz no se abre.';
   @override
@@ -634,11 +595,6 @@ mixin PruebasStringsEs implements PruebasStrings {
   @override
   String get addFolder => 'AÑADIR CARPETA';
   @override
-  String get foldersExplainer =>
-      'Cada conversación trabaja sobre una carpeta y **solo** sobre esa: es la '
-      'frontera del contexto. Si las reglas de un repo viven fuera de él —un '
-      'ai-context al lado— empareja la carpeta padre, no las dos por separado.';
-  @override
   String get isActiveFolder => 'Es la carpeta activa';
   @override
   String get workHere => 'Trabajar aquí';
@@ -651,8 +607,6 @@ mixin PruebasStringsEs implements PruebasStrings {
   @override
   String get textOnlyExplainer =>
       'Solo texto: nada de esta carpeta sale hacia el servicio de voz';
-  @override
-  String get languageTitle => 'IDIOMA';
   @override
   String get languageExplainer =>
       'Cambia la interfaz y también cómo te responden.';
@@ -689,8 +643,6 @@ mixin PruebasStringsEn implements PruebasStrings {
       '«.maestro/».';
   @override
   String get flowsRootHint => '~/tests';
-  @override
-  String get flowsByProject => 'By project';
   @override
   String get flowsNoProjects => 'No folder paired yet.';
   @override
@@ -950,21 +902,13 @@ mixin PruebasStringsEn implements PruebasStrings {
   String get channelExplainer =>
       'It listens over Tailscale only, never on the local network.';
   @override
-  String get channelSwitch => 'Accept connections from the phone';
-  @override
   String get channelStarting => 'Opening the channel…';
   @override
   String get channelListeningAt => 'Listening on';
   @override
-  String get channelToken => 'Token';
-  @override
   String get channelCopyToken => 'Copy the token';
   @override
   String get channelRotateToken => 'Rotate';
-  @override
-  String get channelRotateWarning =>
-      'Rotating it closes open connections and locks every phone out: that is how '
-      'access is revoked.';
   @override
   String get channelNeedsTailscale =>
       'I cannot find Tailscale on this Mac. The channel only listens there, so it '
@@ -981,19 +925,7 @@ mixin PruebasStringsEn implements PruebasStrings {
       'Scan it from the phone app. The token is copied or rotated: rotating it '
       'closes whatever is connected.';
   @override
-  String get channelNoPhoneYet =>
-      'The phone app exists now: it installs from the repository, pairs by pasting '
-      'the address and token from here, and needs Tailscale on the phone just as it '
-      'does here. What there is no yet is a published mobile release.';
-  @override
   String get phraseTitle => 'Write phrase';
-  @override
-  String get phraseExplainer =>
-      'The token lets the phone in; this phrase is what lets it write. It is never '
-      'stored on the phone: it is typed when needed and checked by this Mac, so '
-      'taking the phone is not enough to write.';
-  @override
-  String get phraseDefined => 'Defined';
   @override
   String get phraseMissing =>
       'Not set: the phone can ask and read, but not write.';
@@ -1016,10 +948,6 @@ mixin PruebasStringsEn implements PruebasStrings {
   String get nexusVoice => 'Her voice';
   @override
   String get audioOutput => 'WHERE IT PLAYS';
-  @override
-  String get audioOutputExplainer =>
-      'Applies the next time you talk to it: the device is fixed when the audio '
-      'is set up. On «system», switching headphones switches this too.';
   @override
   String get audioOutputSystem => 'Whatever the system uses';
   @override
@@ -1070,8 +998,6 @@ mixin PruebasStringsEn implements PruebasStrings {
   @override
   String get repoLoFija => 'The repository fixes this';
   @override
-  String get geminiKeySaved => 'There is a key saved.';
-  @override
   String get geminiKeyMissing =>
       'There is none. Without a key, Nexus works by text and voice will not open.';
   @override
@@ -1087,11 +1013,6 @@ mixin PruebasStringsEn implements PruebasStrings {
   @override
   String get addFolder => 'ADD FOLDER';
   @override
-  String get foldersExplainer =>
-      'Each conversation works on one folder and **only** that one: it is the '
-      'context boundary. If a repo keeps its rules outside itself — an '
-      'ai-context next to it — pair the parent folder rather than both.';
-  @override
   String get isActiveFolder => 'This is the active folder';
   @override
   String get workHere => 'Work here';
@@ -1104,8 +1025,6 @@ mixin PruebasStringsEn implements PruebasStrings {
   @override
   String get textOnlyExplainer =>
       'Text only: nothing from this folder goes to the voice service';
-  @override
-  String get languageTitle => 'LANGUAGE';
   @override
   String get languageExplainer =>
       'Changes the interface and also how you are answered.';

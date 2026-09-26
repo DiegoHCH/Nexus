@@ -39,8 +39,6 @@ mixin ArranqueStrings {
   String get tourDockBody;
   String get tourMeterTitle;
   String get sectionHelp;
-  String get helpTourTitle;
-  String get helpTourExplainer;
   String get helpTourAction;
   String get versionLabel;
   String updateAvailable(String version);
@@ -96,9 +94,6 @@ mixin ArranqueStrings {
   String get micPendingExplainer;
   String get micAsking;
   String get micAskingExplainer;
-  String get micGranted;
-  String get micGrantedExplainer;
-  String get micDenied;
   String get microphoneBlocked;
 
   /// Las reglas del repositorio no son las mismas que la última vez. Lleva las
@@ -131,8 +126,6 @@ mixin ArranqueStrings {
   /// Qué sale de la máquina: la sección y sus cuatro puertas.
   String get sectionExits;
   String get exitsExplainer;
-  String get exitsNoFolder;
-  String exitsForFolder(String carpeta);
   String get exitClosed;
   String get exitAvailable;
   String get exitOpen;
@@ -149,7 +142,6 @@ mixin ArranqueStrings {
 
   /// El registro de la app, en Ajustes › Ayuda.
   String get logTitle;
-  String get logExplainer;
   String get logAction;
   String get logMissing;
   String get micDeniedShort;
@@ -217,12 +209,6 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   String get tourMeterTitle => 'Contexto y cupo, aquí dentro';
   @override
   String get sectionHelp => 'Ayuda';
-  @override
-  String get helpTourTitle => 'El tour de la primera vez';
-  @override
-  String get helpTourExplainer =>
-      'Las cuatro piezas del HUD, señaladas una por una. Sale solo la primera vez; '
-      'desde aquí se puede volver a ver.';
   @override
   String get helpTourAction => 'Ver el tour otra vez';
   @override
@@ -418,13 +404,6 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   String get micAskingExplainer =>
       'Responde al diálogo del sistema para continuar.';
   @override
-  String get micGranted => 'CONCEDIDO';
-  @override
-  String get micGrantedExplainer =>
-      'Habla un momento — si el trazo se mueve, tu voz llega bien a Nexus.';
-  @override
-  String get micDenied => 'DENEGADO';
-  @override
   String get microphoneBlocked =>
       'El micrófono está bloqueado, así que no se puede abrir la voz. Se concede '
       'en Ajustes del sistema › Privacidad y seguridad › Micrófono, marcando '
@@ -468,10 +447,6 @@ mixin ArranqueStringsEs implements ArranqueStrings {
       'Las **cinco puertas** por las que algo puede salir de este Mac, para la '
       'carpeta en foco. Aquí no se configura nada: se mira.';
   @override
-  String get exitsNoFolder => 'SIN CARPETA ENFOCADA';
-  @override
-  String exitsForFolder(String carpeta) => 'PARA $carpeta';
-  @override
   String get exitClosed => 'cerrada';
   @override
   String get exitAvailable => 'puede abrirse';
@@ -501,11 +476,6 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   String get exitChannelWhat => 'solo por Tailscale';
   @override
   String get logTitle => 'REGISTRO';
-  @override
-  String get logExplainer =>
-      'Lo que Nexus ha ido contando de sí mismo, escrito en un archivo. Sirve '
-      'para cuando algo falla y hay que saber qué pasó antes. No sale de este '
-      'Mac: se queda en su carpeta y lo lees tú.';
   @override
   String get logAction => 'Ver en el Finder';
   @override
@@ -589,12 +559,6 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   String get tourMeterTitle => 'Context and quota, in here';
   @override
   String get sectionHelp => 'Help';
-  @override
-  String get helpTourTitle => 'The first-run tour';
-  @override
-  String get helpTourExplainer =>
-      'The four pieces of the HUD, pointed at one by one. It only shows the first '
-      'time; from here you can see it again.';
   @override
   String get helpTourAction => 'See the tour again';
   @override
@@ -788,13 +752,6 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   @override
   String get micAskingExplainer => 'Answer the system dialog to continue.';
   @override
-  String get micGranted => 'GRANTED';
-  @override
-  String get micGrantedExplainer =>
-      'Say something — if the trace moves, your voice is reaching Nexus.';
-  @override
-  String get micDenied => 'DENIED';
-  @override
   String get microphoneBlocked =>
       'The microphone is blocked, so voice cannot start. You grant it in System '
       'Settings › Privacy & Security › Microphone, ticking Nexus. In the '
@@ -837,10 +794,6 @@ mixin ArranqueStringsEn implements ArranqueStrings {
       'The **five doors** anything can leave this Mac through, for the folder '
       'in focus. Nothing is configured here: you just look.';
   @override
-  String get exitsNoFolder => 'NO FOLDER IN FOCUS';
-  @override
-  String exitsForFolder(String carpeta) => 'FOR $carpeta';
-  @override
   String get exitClosed => 'closed';
   @override
   String get exitAvailable => 'can open';
@@ -870,12 +823,6 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   String get exitChannelWhat => 'only over Tailscale';
   @override
   String get logTitle => 'LOG';
-  @override
-  String get logExplainer =>
-      'What Nexus has been saying about itself, written to a file. It is for '
-      'when something breaks and you need to know what happened before. It '
-      'never leaves this Mac: it stays in its folder and you are the one who '
-      'reads it.';
   @override
   String get logAction => 'Show in Finder';
   @override

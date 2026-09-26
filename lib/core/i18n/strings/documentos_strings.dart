@@ -79,7 +79,6 @@ mixin DocumentosStrings {
   String get cambiosBinarioExplica;
   String get cambiosSinLeer;
   String blockedTitle(String folder);
-  String get blockedExplainer;
   String get blockedHint;
   String allowedTitle(String folder);
   String get allowedExplainer;
@@ -279,11 +278,6 @@ mixin DocumentosStringsEs implements DocumentosStrings {
       'Archivo nuevo. No se pudo leer desde aquí: puede que ya no esté.';
   @override
   String blockedTitle(String folder) => 'Comandos vetados en $folder';
-  @override
-  String get blockedExplainer =>
-      'Uno por línea, y basta con un trozo del comando. No es un ruego: el CLI '
-      'los deniega, así que no hay rodeo. Claude hará todo lo demás y terminará '
-      'diciéndote el comando exacto para que lo lances tú. Con # se comenta.';
   @override
   String get blockedHint => 'build_runner · pod install · make generate';
   @override
@@ -515,11 +509,6 @@ mixin DocumentosStringsEn implements DocumentosStrings {
       'New file. It could not be read from here: it may be gone.';
   @override
   String blockedTitle(String folder) => 'Commands blocked in $folder';
-  @override
-  String get blockedExplainer =>
-      'One per line, and a fragment of the command is enough. Not a plea: the '
-      'CLI denies them, so there is no way around it. Claude will do everything '
-      'else and finish by telling you the exact command to run. # comments.';
   @override
   String get blockedHint => 'build_runner · pod install · make generate';
   @override

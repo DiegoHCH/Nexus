@@ -117,11 +117,8 @@ mixin HistorialStrings {
   String archiveFailedBoth(String destination);
   String get archiveNoneHint;
   String get archiveFolder;
-  String get archiveFolderHint;
   String get archiveObsidian;
-  String get archiveObsidianHint;
   String get archiveNotion;
-  String get archiveNotionHint;
   String get archiveChooseFolder;
   String get archiveNoFolderYet;
   String archiveLayout(String folder);
@@ -314,17 +311,9 @@ mixin HistorialStringsEs implements HistorialStrings {
   @override
   String get archiveFolder => 'Una carpeta tuya';
   @override
-  String get archiveFolderHint =>
-      'Markdown normal, legible en cualquier editor';
-  @override
   String get archiveObsidian => 'Un vault de Obsidian';
   @override
-  String get archiveObsidianHint =>
-      'Lo mismo, con enlaces [[wiki]]: cada proyecto forma su propio grafo';
-  @override
   String get archiveNotion => 'Notion';
-  @override
-  String get archiveNotionHint => 'Todavía no: falta conectar su API';
   @override
   String get archiveChooseFolder => 'ELEGIR CARPETA';
   @override
@@ -540,16 +529,9 @@ mixin HistorialStringsEn implements HistorialStrings {
   @override
   String get archiveFolder => 'A folder of yours';
   @override
-  String get archiveFolderHint => 'Plain Markdown, readable in any editor';
-  @override
   String get archiveObsidian => 'An Obsidian vault';
   @override
-  String get archiveObsidianHint =>
-      'The same, with [[wiki]] links: each project forms its own graph';
-  @override
   String get archiveNotion => 'Notion';
-  @override
-  String get archiveNotionHint => 'Not yet: its API is still to be wired';
   @override
   String get archiveChooseFolder => 'CHOOSE FOLDER';
   @override

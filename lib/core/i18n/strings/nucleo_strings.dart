@@ -315,9 +315,6 @@ mixin NucleoStrings {
   /// El interruptor de que Nexus hable solo. Ver `ElQueHablaPrimero`.
   String get avisosEnVozAltaOn;
 
-  /// Y lo que hace, que es sobre todo lo que **no** hace.
-  String get avisosEnVozAltaExplainer;
-
   /// Hablar también con la app delante. Ver `ElQueHablaPrimero`.
   String get avisosAunqueLaMiresOn;
 
@@ -341,7 +338,6 @@ mixin NucleoStrings {
   String get avisosCuanto;
   String get avisosCarpeta;
   String get avisosSinCarpeta;
-  String get avisosNota;
   String get avisosReleer;
   String get avisosProbar;
   String get avisoDePrueba;
@@ -376,7 +372,6 @@ mixin NucleoStrings {
   String get sinCarpetaDondeCorrer;
 
   String get whichImageModel;
-  String perImage(String precio);
   String get drawingIt;
   String get imageNeedsKey;
   String get noImageToEdit;
@@ -840,11 +835,6 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String get avisosEnVozAltaOn => 'Cuando algo termina';
   @override
-  String get avisosEnVozAltaExplainer =>
-      'Cuando algo termina te lo dice hablando, además de dejarlo escrito. '
-      'Nunca en medio de una conversación de voz, y no repite lo mismo dos '
-      'veces.';
-  @override
   String get avisosAunqueLaMiresOn => 'También con Nexus delante';
   @override
   String get elOidoOn => 'Que te oiga cuando la llames';
@@ -897,19 +887,12 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String avisosLeidoA(String hora) => 'Calendario leído a las $hora';
   @override
-  String get avisosNota =>
-      'Suena con la voz que elegiste en Voz, y también en el teléfono si está '
-      'conectado. Si estás hablando con Nexus, espera a que la conversación '
-      'termine; si no termina, lo deja en una notificación.';
-  @override
   String reunionEnMinutos(String titulo, int minutos) =>
       '$titulo, en $minutos minutos.';
   @override
   String reunionAhora(String titulo) => '$titulo, ahora.';
   @override
   String get whichImageModel => 'CON QUÉ MODELO SE DIBUJA';
-  @override
-  String perImage(String precio) => '$precio por imagen';
   @override
   String soloGit(String comando) =>
       'Por ahora «!» solo corre git, y eso era «$comando». Lo demás se le pide '
@@ -1426,11 +1409,6 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String get avisosEnVozAltaOn => 'When something finishes';
   @override
-  String get avisosEnVozAltaExplainer =>
-      'When something finishes it says so out loud, as well as leaving it '
-      'written. Never in the middle of a voice conversation, and never the '
-      'same thing twice.';
-  @override
   String get avisosAunqueLaMiresOn => 'Even with Nexus in front';
   @override
   String get elOidoOn => 'Hear you when you call her';
@@ -1484,19 +1462,12 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String avisosLeidoA(String hora) => 'Calendar read at $hora';
   @override
-  String get avisosNota =>
-      'It speaks with the voice you picked under Voice, and on the phone too if '
-      'it is connected. If you are talking to Nexus it waits for the '
-      'conversation to end; if it does not, it leaves a notification.';
-  @override
   String reunionEnMinutos(String titulo, int minutos) =>
       '$titulo, in $minutos minutes.';
   @override
   String reunionAhora(String titulo) => '$titulo, now.';
   @override
   String get whichImageModel => 'WHICH MODEL DRAWS';
-  @override
-  String perImage(String precio) => '$precio per image';
   @override
   String soloGit(String comando) =>
       '"!" only runs git for now, and that was "$comando". Everything else goes '

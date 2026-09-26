@@ -18,6 +18,8 @@ import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.
 import 'package:nexus/features/assistant/presentation/state/chat_message.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
+import 'package:nexus/features/onboarding/presentation/state/tour_state.dart';
+import 'package:nexus/features/onboarding/presentation/widgets/tour_anchor.dart';
 
 /// **La conversación vista de lejos**: el orbe manda y la sala se reorganiza
 /// según lo que está pasando.
@@ -510,50 +512,57 @@ class _LasEsquinas extends ConsumerWidget {
         Positioned(
           left: margen,
           bottom: margen,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                strings.escenarioConversaciones.toUpperCase(),
-                style: etiqueta,
-              ),
-              const SizedBox(height: NexusSpacing.s2),
-              Row(
-                children: [
-                  for (final c in conversaciones)
-                    Padding(
-                      padding: const EdgeInsets.only(right: NexusSpacing.s3),
-                      child: _MiniOrbe(
-                        nombre: c.folderPath.split('/').last,
-                        enFoco: c.id == conversationId,
-                        vivo:
-                            ref
-                                .watch(assistantControllerProvider(c.id))
-                                .orbState !=
-                            NexusOrbState.sleep,
-                        alPulsar: () => unawaited(
-                          ref.read(conversationsProvider.notifier).focus(c.id),
-                        ),
-                        // Soltar va con cerrar, siempre, como en el muelle: ver
-                        // [soltarLaConversacionProvider].
-                        alCerrar: () {
-                          ref.read(soltarLaConversacionProvider)(c.id);
-                          unawaited(
+          // La parada del tour que antes señalaba el muelle: ahora las
+          // conversaciones abiertas viven aquí.
+          child: TourAnchor(
+            stop: TourStop.dock,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  strings.escenarioConversaciones.toUpperCase(),
+                  style: etiqueta,
+                ),
+                const SizedBox(height: NexusSpacing.s2),
+                Row(
+                  children: [
+                    for (final c in conversaciones)
+                      Padding(
+                        padding: const EdgeInsets.only(right: NexusSpacing.s3),
+                        child: _MiniOrbe(
+                          nombre: c.folderPath.split('/').last,
+                          enFoco: c.id == conversationId,
+                          vivo:
+                              ref
+                                  .watch(assistantControllerProvider(c.id))
+                                  .orbState !=
+                              NexusOrbState.sleep,
+                          alPulsar: () => unawaited(
                             ref
                                 .read(conversationsProvider.notifier)
-                                .close(c.id),
-                          );
-                        },
+                                .focus(c.id),
+                          ),
+                          // Soltar va con cerrar, siempre, como en el muelle: ver
+                          // [soltarLaConversacionProvider].
+                          alCerrar: () {
+                            ref.read(soltarLaConversacionProvider)(c.id);
+                            unawaited(
+                              ref
+                                  .read(conversationsProvider.notifier)
+                                  .close(c.id),
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                  // Una nueva, en cualquier carpeta: el mismo menú que
-                  // «Nueva» en el muelle. Sin él, desde el escenario no había
-                  // forma de abrir otra.
-                  if (!ref.watch(conversationsProvider).isFull)
-                    const AbrirOtraConversacion(compacto: true),
-                ],
-              ),
-            ],
+                    // Una nueva, en cualquier carpeta: el mismo menú que
+                    // «Nueva» en el muelle. Sin él, desde el escenario no había
+                    // forma de abrir otra.
+                    if (!ref.watch(conversationsProvider).isFull)
+                      const AbrirOtraConversacion(compacto: true),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
         Positioned(

@@ -75,7 +75,12 @@ class ComposerChips extends ConsumerWidget {
             folderPath!,
           );
 
-    return Row(
+    // En `Wrap` y no en fila: en el panel de la conversación, estrecho, la
+    // cuenta y las conversaciones que comparten memoria bajan a otra línea en
+    // vez de salirse por el borde.
+    return Wrap(
+      runSpacing: NexusSpacing.s2,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         PopupMenuButton<String>(
           color: colors.deep,

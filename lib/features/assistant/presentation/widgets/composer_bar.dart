@@ -46,6 +46,7 @@ class ComposerBar extends ConsumerStatefulWidget {
     this.meter = const SessionMeter(),
     this.voiceActive = false,
     this.onToggleVoice,
+    this.conLoDeLaSala = true,
     this.margen = const EdgeInsets.fromLTRB(
       NexusSpacing.s8,
       NexusSpacing.s3,
@@ -81,6 +82,13 @@ class ComposerBar extends ConsumerStatefulWidget {
   final SessionMeter meter;
   final bool voiceActive;
   final VoidCallback? onToggleVoice;
+
+  /// Si la caja trae también el permiso, el modelo y el esfuerzo.
+  ///
+  /// En el panel de la conversación no: esos tres están a la vista en las
+  /// esquinas de la sala, al lado, y repetirlos en una caja estrecha partía su
+  /// fila de controles.
+  final bool conLoDeLaSala;
 
   @override
   ConsumerState<ComposerBar> createState() => _ComposerBarState();
@@ -220,6 +228,7 @@ class _ComposerBarState extends ConsumerState<ComposerBar> {
                 voiceActive: widget.voiceActive,
                 onToggleVoice: widget.onToggleVoice,
                 onAttach: _attach,
+                conLoDeLaSala: widget.conLoDeLaSala,
               ),
               // Solo mientras hay algo encima. macOS ya enseña la miniatura de lo
               // que llevas colgando del cursor; lo que falta decir es que **este**
@@ -428,7 +437,11 @@ class _Controls extends ConsumerWidget {
     required this.voiceActive,
     required this.onToggleVoice,
     required this.onAttach,
+    this.conLoDeLaSala = true,
   });
+
+  /// Ver [ComposerBar.conLoDeLaSala].
+  final bool conLoDeLaSala;
 
   /// La carpeta de esta conversación: de ella salen la cuenta, el modelo y el
   /// esfuerzo, porque los tres se deciden por carpeta.
@@ -464,7 +477,8 @@ class _Controls extends ConsumerWidget {
         // El permiso, como un menú y no como un interruptor: al desplegarlo se
         // lee la consecuencia de cada opción, que es lo que hay que saber para
         // elegir bien y no cabía junto a un conmutador.
-        MenuDelPermiso(folder: carpeta, workspace: workspace),
+        if (conLoDeLaSala)
+          MenuDelPermiso(folder: carpeta, workspace: workspace),
         _Casilla(child: MoreMenu(onAttach: onAttach)),
         if (onToggleVoice case final toggle?)
           _Casilla(
@@ -493,9 +507,11 @@ class _Controls extends ConsumerWidget {
         // qué, y compruebas que sigue funcionando.
         _Casilla(child: _BotonDePruebas(proyecto: proyecto)),
         const Spacer(),
-        ModelMenu(folder: folder, meter: meter),
-        EffortMenu(folder: folder, meter: meter),
-        const SizedBox(width: NexusSpacing.s1),
+        if (conLoDeLaSala) ...[
+          ModelMenu(folder: folder, meter: meter),
+          EffortMenu(folder: folder, meter: meter),
+          const SizedBox(width: NexusSpacing.s1),
+        ],
         TourAnchor(
           stop: TourStop.meter,
           child: UsageMenu(meter: meter, claudeProfile: folder?.claudeProfile),

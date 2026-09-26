@@ -41,7 +41,11 @@ import 'package:nexus/features/run/presentation/providers/run_providers.dart';
 /// [ComoVaLaCorridaDe], que es donde está la regla del mockup —la acción que
 /// toca, primero—.
 class LaBotoneraDeCorridas extends ConsumerStatefulWidget {
-  const LaBotoneraDeCorridas({super.key});
+  const LaBotoneraDeCorridas({super.key, this.reservaDerecha = 0});
+
+  /// Lo que tiene que dejar libre a la derecha al nacer: la conversación
+  /// abierta y el riel, que tienen debajo la caja de escribir.
+  final double reservaDerecha;
 
   /// Ancho fijo y no el del contenido: con el ancho al gusto, la barra cambia
   /// de tamaño al cambiar el texto del progreso —«Running Gradle task…»— y se
@@ -86,8 +90,10 @@ class LaBotoneraDeCorridas extends ConsumerStatefulWidget {
   /// contada desde arriba una segunda corrida la asoma por el borde de abajo y
   /// el `Stack` se la come. Anclada al suelo crece hacia arriba, que además es
   /// lo que hace cualquier barra de estado.
-  static Offset dondeNace(Size caja) =>
-      Offset(caja.width - ancho - NexusSpacing.s6, alDelSuelo);
+  static Offset dondeNace(Size caja, {double reservaDerecha = 0}) => Offset(
+    math.max(0, caja.width - reservaDerecha - ancho - NexusSpacing.s6),
+    alDelSuelo,
+  );
 
   /// La deja **entera** dentro de la ventana siempre que quepa, y agarrable
   /// cuando no. `dy` se cuenta **desde el suelo**; ver [dondeNace].
@@ -211,7 +217,10 @@ class _LaBotoneraDeCorridasState extends ConsumerState<LaBotoneraDeCorridas> {
             caja.biggest,
             _arrastrando ??
                 ref.watch(dondeFlotaLaBotoneraProvider) ??
-                LaBotoneraDeCorridas.dondeNace(caja.biggest),
+                LaBotoneraDeCorridas.dondeNace(
+                  caja.biggest,
+                  reservaDerecha: widget.reservaDerecha,
+                ),
             alto: _alto,
           );
 

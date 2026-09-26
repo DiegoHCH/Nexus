@@ -4,7 +4,10 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/features/assistant/data/datasources/conversations_data_source.dart';
 import 'package:nexus/features/assistant/presentation/pages/home_page.dart';
-import 'package:nexus/features/assistant/presentation/widgets/conversation_dock.dart';
+import 'package:flutter/services.dart';
+import 'package:nexus/features/assistant/presentation/widgets/composer_bar.dart';
+import 'package:nexus/features/assistant/presentation/widgets/el_riel_de_la_sala.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nexus/features/assistant/presentation/widgets/el_escenario.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/history/data/datasources/local_conversation_store.dart';
@@ -20,7 +23,11 @@ import 'support/screen_harness.dart';
 /// sin la ✕ no había forma de cerrar una sin pasar a la vista de cerca.
 void main() {
   late Directory support;
-  setUp(() => support = prepareScreenTest());
+  setUp(() {
+    support = prepareScreenTest();
+    // Con el tour visto: su velo cubre la sala y se comería el ratón.
+    SharedPreferences.setMockInitialValues({'tour_seen': true});
+  });
   tearDown(() => support.deleteSync(recursive: true));
 
   testWidgets('al pasar por encima de un miniorbe sale la ✕, y cierra', (
@@ -82,7 +89,7 @@ void main() {
     (FolderModality.voice, true),
   ]) {
     testWidgets(
-      'sin mensajes, ${modo.name} abre ${escenario ? 'el escenario' : 'de cerca'}',
+      'sin mensajes, ${modo.name} ${escenario ? 'deja la conversación recogida' : 'abre la conversación'}',
       (tester) async {
         await pumpScreen(
           tester,
@@ -113,12 +120,31 @@ void main() {
         );
         await tester.pump(const Duration(milliseconds: 100));
 
+        // La sala está siempre; lo que cambia es si el panel está abierto.
+        expect(find.byType(ElEscenario), findsOneWidget);
         expect(
-          find.byType(ElEscenario),
+          find.byType(ComposerBar),
+          escenario ? findsNothing : findsOneWidget,
+        );
+
+        // Y el icono del riel lo abre y lo recoge, igual que ⌘E.
+        await tester.tap(find.byKey(ElRielDeLaSala.laLlaveDelChat));
+        // Una vuelta para que arranque la animación y otra para que acabe.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 600));
+        expect(
+          find.byType(ComposerBar),
           escenario ? findsOneWidget : findsNothing,
         );
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        // Una vuelta para que arranque la animación y otra para que acabe.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 600));
         expect(
-          find.byType(ConversationDock),
+          find.byType(ComposerBar),
           escenario ? findsNothing : findsOneWidget,
         );
       },

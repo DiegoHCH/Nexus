@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_verbo_de_un_paso.dart';
 import 'package:nexus/features/assistant/domain/usecases/la_actividad_como_html.dart';
+import 'package:nexus/features/assistant/presentation/providers/la_ventana_de_actividad.dart';
 import 'package:nexus/features/assistant/presentation/state/activity_layout.dart';
 import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
 
@@ -13,19 +15,7 @@ import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.
 // deja trabajar; esto es una NSWindow de verdad.
 void main() {
   const strings = NexusStringsEs();
-  final textos = TextosDeActividad(
-    titulo: strings.rightNow,
-    paso: strings.pasoDeTotal,
-    trabajando: strings.working,
-    escribe: strings.writesTag,
-    seEjecuto: strings.ranLabel,
-    devolvio: strings.returnedLabel,
-    todaviaCorriendo: strings.stillRunning,
-    sinPasos: strings.noStepsYet,
-    detener: strings.stopNow,
-    ahora: strings.pasoAhora,
-    espera: strings.pasoEspera,
-  );
+  final textos = textosDeActividad(strings);
 
   String pinta(
     List<ActivityItem> pasos, {
@@ -61,7 +51,7 @@ void main() {
     // `<details>` y no JavaScript: el navegador ya sabe abrirlo, así que no hay
     // estado que sincronizar entre la página y la app.
     expect(html, contains('<details'));
-    expect(html, contains('Corriendo git status'));
+    expect(html, contains('>git status<'));
     expect(html, contains('git status --porcelain'));
     expect(
       html,
@@ -70,7 +60,9 @@ void main() {
     );
   });
 
-  test('lo que escribe se marca, y lo que no, no', () {
+  // «Se ejecutó / Lee / Escribe»: lo que escribe lo dice su verbo, en su
+  // columna, y no una chapa aparte al final de la línea.
+  test('lo que escribe lo dice su verbo, y lo que no, no', () {
     final conEscritura = pinta([
       ActivityItem(id: 'a1', description: 'Escribiendo x.dart', writes: true),
     ]);
@@ -78,8 +70,15 @@ void main() {
       ActivityItem(id: 'a1', description: 'Leyendo x.dart', writes: false),
     ]);
 
-    expect(conEscritura, contains(strings.writesTag));
-    expect(sinEscritura, isNot(contains(strings.writesTag)));
+    expect(
+      conEscritura,
+      contains('<span class="tipo">${strings.verboEscribe.ahora}</span>'),
+    );
+    expect(
+      sinEscritura,
+      contains('<span class="tipo">${strings.verboLee.ahora}</span>'),
+    );
+    expect(sinEscritura, isNot(contains(strings.verboEscribe.ahora)));
   });
 
   test('lo del subagente va sangrado bajo quien lo mandó', () {
@@ -142,16 +141,27 @@ void main() {
     );
   });
 
-  test('viva gira; terminada, no', () {
+  test('viva, el paso que va se marca; terminada, no queda ninguno', () {
     final paso = [
       ActivityItem(id: 'a1', description: 'Corriendo algo', writes: false),
     ];
 
-    expect(pinta(paso).contains('class="gira"'), isTrue);
+    expect(pinta(paso), contains('<summary class="curso">'));
     expect(
       pinta([paso.first.asDone()], viva: false),
-      isNot(contains('class="gira"')),
+      isNot(contains('<summary class="curso">')),
     );
+  });
+
+  // La barra del mockup: la marca, «Actividad» y el botón de parar con su
+  // nombre entero, no un cuadrado sin texto.
+  test('la barra dice qué ventana es y qué para su botón', () {
+    final html = pinta([
+      ActivityItem(id: 'a1', description: 'Corriendo algo', writes: false),
+    ], detenerEn: 'c1');
+
+    expect(html, contains('<span class="rot">${strings.actividadRotulo}'));
+    expect(html, contains('>${strings.stopNow}</a>'));
   });
 
   group('el reactor, como en el orbe', () {
@@ -219,10 +229,10 @@ void main() {
       ]);
 
       expect(html, contains('<summary class="hecho">'));
-      expect(html, contains(strings.ranLabel));
+      expect(html, contains(strings.verboOtro.hecho));
       // Corre el más hondo; quien lo mandó espera, apagado.
       expect(html, contains('<summary class="curso">'));
-      expect(html, contains(strings.pasoAhora));
+      expect(html, contains(strings.verboOtro.ahora));
       expect(html, contains('<summary class="espera">'));
       expect(html, contains(strings.pasoEspera));
     });
@@ -238,13 +248,67 @@ void main() {
         ),
       ]);
 
+      // «Devolvió» en minúscula de frase, como el mockup: en una línea de
+      // mono, el rótulo en mayúsculas grita.
+      expect(
+        html,
+        contains('<span class="dev">Devolvió · 1 fallida, 3 bien</span>'),
+      );
+    });
+
+    test('el verbo va en su columna y lo que tocó, aparte', () {
+      final html = pinta([
+        ActivityItem(
+          id: 'a',
+          description: 'Corriendo gh run list',
+          writes: false,
+          done: true,
+        ),
+        ActivityItem(
+          id: 'b',
+          description: 'Leyendo test/a_test.dart',
+          writes: false,
+        ),
+      ]);
+
       expect(
         html,
         contains(
-          '<span class="dev">${strings.returnedLabel} · 1 fallida, 3 bien'
-          '</span>',
+          '<span class="tipo">${strings.verboEjecuta.hecho}</span>'
+          '<span class="que">gh run list</span>',
         ),
       );
+      expect(
+        html,
+        contains(
+          '<span class="tipo">${strings.verboLee.ahora}</span>'
+          '<span class="que">test/a_test.dart</span>',
+        ),
+      );
+    });
+  });
+
+  group('el verbo de un paso', () {
+    test('se separa de la frase que escribe el lector de herramientas', () {
+      expect(ElVerboDeUnPaso.de('Leyendo lib/a.dart'), (
+        verbo: VerboDelPaso.lee,
+        objeto: 'lib/a.dart',
+      ));
+      expect(ElVerboDeUnPaso.de('Buscando en la web «flutter»'), (
+        verbo: VerboDelPaso.busca,
+        objeto: '«flutter»',
+      ));
+      expect(ElVerboDeUnPaso.de('Delegando: revisar el diff'), (
+        verbo: VerboDelPaso.delega,
+        objeto: 'revisar el diff',
+      ));
+    });
+
+    test('lo que no se reconoce se queda entero', () {
+      expect(ElVerboDeUnPaso.de('Compactando la conversación'), (
+        verbo: VerboDelPaso.otro,
+        objeto: 'Compactando la conversación',
+      ));
     });
   });
 }

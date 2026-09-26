@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
 import 'package:nexus/core/design_system/nexus_radius.dart';
-import 'package:nexus/core/design_system/nexus_spacing.dart';
 import 'package:nexus/core/design_system/nexus_typography.dart';
 
 /// Qué dice un [BotonDeFila] con su color.
@@ -31,6 +30,12 @@ enum TonoDeBoton {
 /// Un `OutlinedButton` con el relleno recortado y no el de fábrica: el de
 /// Material pide 44 px de alto, que en una fila de un HUD se ve como un
 /// formulario web.
+///
+/// **En mayúsculas, como el `.btn` del mockup**: Oxanium a 10 px con el
+/// tracking abierto. En minúscula de frase y a 11,5 se leía como un enlace
+/// dentro de la fila y no como un mando del aparato. El texto se recibe en
+/// minúscula de frase —es el mismo que se dice y el del tooltip— y se sube
+/// aquí, que es donde se pinta: Flutter no tiene `text-transform`.
 class BotonDeFila extends StatelessWidget {
   const BotonDeFila({
     super.key,
@@ -73,13 +78,14 @@ class BotonDeFila extends StatelessWidget {
     final boton = OutlinedButton(
       onPressed: onPulsar,
       style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(
-          horizontal: NexusSpacing.s2,
-          vertical: 5,
-        ),
+        // Los 6 × 8 del botón de fila del mockup, con un punto más de ancho
+        // para que el tracking abierto no toque el filo.
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.compact,
+        // Sin `VisualDensity.compact`: resta 8 px del relleno vertical, y con
+        // la letra a 10 dejaba el texto saliéndose del filo por arriba y abajo.
+        visualDensity: VisualDensity.standard,
         backgroundColor: activo ? colors.accent.withValues(alpha: 0.12) : null,
         side: BorderSide(color: onPulsar == null ? colors.rule : borde),
         shape: RoundedRectangleBorder(
@@ -87,14 +93,15 @@ class BotonDeFila extends StatelessWidget {
         ),
       ),
       child: Text(
-        texto,
+        texto.toUpperCase(),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         // El color va en el texto y no solo en el estilo del botón: es lo que
         // se lee, y así se comprueba lo mismo que se ve.
-        style: NexusTypography.control.copyWith(
+        style: NexusTypography.label.copyWith(
           color: onPulsar == null ? colors.faint : color,
-          fontSize: 11.5,
+          letterSpacing: 1.4,
+          height: 1,
         ),
       ),
     );

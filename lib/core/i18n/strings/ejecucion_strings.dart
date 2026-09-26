@@ -150,7 +150,7 @@ mixin EjecucionStringsEs implements EjecucionStrings {
   @override
   String get emulatorsRunning => 'arriba';
   @override
-  String get emulatorsColdBoot => 'en frío';
+  String get emulatorsColdBoot => 'En frío';
   @override
   String get emulatorsRefresh => 'Comprobar';
   @override
@@ -213,8 +213,8 @@ mixin EjecucionStringsEs implements EjecucionStrings {
   String get runDuplicarConConsola => 'Copiarla con la consola';
   @override
   String get runDuplicarNota =>
-      'Te la guarda Nexus, con el panel de depuración encendido. El repo no se '
-      'toca.';
+      'La copia la guarda Nexus, con el panel de depuración encendido. El repo '
+      'no se toca.';
   @override
   String get runYaTraeConsola => 'Esta ya trae el panel de depuración.';
   @override
@@ -313,7 +313,7 @@ mixin EjecucionStringsEn implements EjecucionStrings {
   @override
   String get emulatorsRunning => 'up';
   @override
-  String get emulatorsColdBoot => 'cold boot';
+  String get emulatorsColdBoot => 'Cold boot';
   @override
   String get emulatorsRefresh => 'Check';
   @override
@@ -376,7 +376,7 @@ mixin EjecucionStringsEn implements EjecucionStrings {
   String get runDuplicarConConsola => 'Copy it with the console';
   @override
   String get runDuplicarNota =>
-      'Nexus keeps it for you, with the app debug panel on. The repo is left '
+      'Nexus keeps the copy, with the app debug panel on. The repo is left '
       'untouched.';
   @override
   String get runYaTraeConsola => 'This one already has the debug panel.';

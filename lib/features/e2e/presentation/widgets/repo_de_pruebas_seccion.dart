@@ -8,6 +8,7 @@ import 'package:nexus/features/e2e/domain/entities/pasada_de_prueba.dart';
 import 'package:nexus/features/e2e/domain/usecases/como_se_agrupan_los_flows.dart';
 import 'package:nexus/features/e2e/presentation/providers/e2e_providers.dart';
 import 'package:nexus/features/e2e/presentation/providers/repo_de_pruebas_providers.dart';
+import 'package:nexus/features/e2e/presentation/widgets/el_nombre_de_una_prueba.dart';
 
 /// Los flows que viven en el repo de pruebas del equipo.
 ///
@@ -39,7 +40,7 @@ class RepoDePruebasSeccion extends ConsumerWidget {
         // La pregunta de esta parte de la hoja, en el color de acento como las
         // otras dos: «qué hay en el repo». Ver [PruebasSheet].
         Text(
-          strings.e2eRepoTitle,
+          strings.e2eRepoTitle.toUpperCase(),
           style: NexusTypography.label.copyWith(color: colors.accent),
         ),
         const SizedBox(height: 2),
@@ -191,11 +192,20 @@ class _EstadoState extends ConsumerState<_Estado> {
           TextField(
             key: const ValueKey('buscar-una-prueba'),
             controller: _buscar,
-            style: NexusTypography.mono.copyWith(color: colors.ink),
+            // Lo que se escribe es una frase de búsqueda, no un comando: en la
+            // voz de lo que se dice, como el buscador del mockup. Y la pista en
+            // `faint`, que se lee; en `rule2` era un filo, no un texto.
+            style: NexusTypography.body.copyWith(
+              fontSize: 14,
+              color: colors.ink,
+            ),
             decoration: InputDecoration(
               isDense: true,
               hintText: strings.e2eRepoSearch,
-              hintStyle: NexusTypography.mono.copyWith(color: colors.rule2),
+              hintStyle: NexusTypography.body.copyWith(
+                fontSize: 14,
+                color: colors.faint,
+              ),
               prefixIcon: Icon(Icons.search, size: 16, color: colors.faint),
               prefixIconConstraints: const BoxConstraints(minWidth: 28),
               suffixIcon: filtro.isEmpty
@@ -227,7 +237,7 @@ class _EstadoState extends ConsumerState<_Estado> {
                     // El grupo como separador con su línea, igual que los días
                     // del historial: el nombre en acento y la cuenta detrás.
                     Text(
-                      _titulo(grupo, strings),
+                      _titulo(grupo, strings).toUpperCase(),
                       style: NexusTypography.label.copyWith(
                         color: grupo.rutas.isEmpty
                             ? colors.faint
@@ -299,7 +309,7 @@ class _Problema extends ConsumerWidget {
           // Invalidar y no reintentar dentro: así el estado de carga vuelve a
           // pasar por el mismo sitio y la UI no tiene dos caminos para lo mismo.
           onPressed: () => ref.invalidate(clonDelRepoProvider),
-          child: Text(strings.e2eRepoRetry),
+          child: Text(strings.e2eRepoRetry.toUpperCase()),
         ),
       ],
     );
@@ -358,7 +368,7 @@ class _FilaDeFlow extends ConsumerWidget {
                   // Sin `flows/` delante: es el prefijo de todas y no distingue
                   // ninguna, así que solo gasta ancho.
                   ruta.startsWith('flows/') ? ruta.substring(6) : ruta,
-                  style: NexusTypography.data.copyWith(color: colors.ink),
+                  style: elNombreDeUnaPrueba(colors),
                 ),
                 // El motivo manda sobre la etiqueta: si no se puede correr, lo
                 // que hace falta saber es por qué, no con qué cuenta iba a ir.

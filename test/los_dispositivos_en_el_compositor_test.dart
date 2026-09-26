@@ -99,10 +99,10 @@ void main() {
     // El mismo panel que Ajustes: si esto se ve, es que el menú no reimplementó
     // la lista por su cuenta.
     expect(find.text('Medium Phone API 36.1'), findsOneWidget);
-    expect(find.text(strings.emulatorsLaunch), findsOneWidget);
+    expect(find.text(strings.emulatorsLaunch.toUpperCase()), findsOneWidget);
     // En compacto no cabe la frase larga; el título corto sí.
     expect(find.text(strings.emulatorsExplainer), findsNothing);
-    expect(find.text(strings.sectionEmulators), findsOneWidget);
+    expect(find.text(strings.sectionEmulators.toUpperCase()), findsOneWidget);
   });
 
   // Lo del mockup: el estado se dice también apagado —no solo con el punto
@@ -115,13 +115,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('android · ${strings.emulatorsOff}'), findsOneWidget);
-    final arrancar = tester.getTopLeft(find.text(strings.emulatorsLaunch));
-    final enFrio = tester.getTopLeft(find.text(strings.emulatorsColdBoot));
+    final arrancar = tester.getTopLeft(
+      find.text(strings.emulatorsLaunch.toUpperCase()),
+    );
+    final enFrio = tester.getTopLeft(
+      find.text(strings.emulatorsColdBoot.toUpperCase()),
+    );
     expect(arrancar.dx, lessThan(enFrio.dx));
     expect(
       tester
           .widget<BotonDeFila>(
-            find.widgetWithText(BotonDeFila, strings.emulatorsLaunch),
+            find.widgetWithText(
+              BotonDeFila,
+              strings.emulatorsLaunch.toUpperCase(),
+            ),
           )
           .tono,
       TonoDeBoton.principal,

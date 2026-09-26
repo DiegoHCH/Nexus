@@ -254,7 +254,8 @@ class _LaBotoneraDeCorridasState extends ConsumerState<LaBotoneraDeCorridas> {
           width: LaBotoneraDeCorridas.ancho,
           decoration: BoxDecoration(
             color: colors.deep,
-            border: Border.all(color: colors.rule),
+            // `rule2`, el filo de lo que va encima, como el panel de correr.
+            border: Border.all(color: colors.rule2),
             borderRadius: BorderRadius.circular(NexusRadius.md),
             boxShadow: [
               // Despegada del fondo: es lo único que dice que está encima y no
@@ -396,7 +397,7 @@ class _ElAsa extends ConsumerWidget {
                       const SizedBox(width: NexusSpacing.s2),
                       Flexible(
                         child: Text(
-                          '${strings.runToolbarDrag} · $cuantas',
+                          '${strings.runToolbarDrag} · $cuantas'.toUpperCase(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: NexusTypography.label.copyWith(
@@ -526,11 +527,17 @@ class _Corrida extends ConsumerWidget {
                 // **Con qué y dónde**, como el mockup: «ci · POCO F6». Solo el
                 // dispositivo no contestaba «¿esto es ci o preprod?», que es lo
                 // que se pregunta con dos corridas a la vez.
+                //
+                // En la voz de lo que se dice y no en mono: son dos nombres, y
+                // en mono se leían como un identificador.
                 Text(
                   '${corrida.configuracion} · ${corrida.dispositivo}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: NexusTypography.data.copyWith(color: colors.ink),
+                  style: NexusTypography.body.copyWith(
+                    fontSize: 13,
+                    color: colors.ink,
+                  ),
                 ),
                 // **El estado en su propia línea.** Detrás del nombre se cortaba
                 // —«Medium Phone API 36.1 · R…», con la R de «Running Gradle

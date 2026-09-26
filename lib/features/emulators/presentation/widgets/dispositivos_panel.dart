@@ -125,11 +125,14 @@ class _DispositivosPanelState extends ConsumerState<DispositivosPanel> {
         Row(
           children: [
             Expanded(
+              // En mayúsculas y en `mute`, como los rótulos del mockup: dicen
+              // qué es lo de debajo, y en `faint` se perdían al lado del botón.
               child: Text(
-                widget.compacto
-                    ? strings.sectionEmulators
-                    : strings.emulatorsTitle,
-                style: NexusTypography.label.copyWith(color: colors.faint),
+                (widget.compacto
+                        ? strings.sectionEmulators
+                        : strings.emulatorsTitle)
+                    .toUpperCase(),
+                style: NexusTypography.label.copyWith(color: colors.mute),
               ),
             ),
             if (refrescando)
@@ -179,14 +182,17 @@ class _DispositivosPanelState extends ConsumerState<DispositivosPanel> {
             style: NexusTypography.nota.copyWith(color: colors.faint),
           )
         else ...[
-          for (final emulador in valor.emuladores)
-            _FilaDeEmulador(
-              emulador: emulador,
-              ocupado: _ocupado == emulador.id,
-              apagado: _ocupado != null,
-              onLanzar: () => _lanzar(emulador),
-              onLanzarEnFrio: () => _lanzar(emulador, frio: true),
-              onCerrar: () => _cerrar(emulador),
+          for (final (i, emulador) in valor.emuladores.indexed)
+            _Fila(
+              primera: i == 0,
+              child: _FilaDeEmulador(
+                emulador: emulador,
+                ocupado: _ocupado == emulador.id,
+                apagado: _ocupado != null,
+                onLanzar: () => _lanzar(emulador),
+                onLanzarEnFrio: () => _lanzar(emulador, frio: true),
+                onCerrar: () => _cerrar(emulador),
+              ),
             ),
 
           // **Los teléfonos de verdad, en su propio grupo y sin botón.**
@@ -200,21 +206,24 @@ class _DispositivosPanelState extends ConsumerState<DispositivosPanel> {
           // de arriba. La cabecera se pinta ya con su indicador para que no
           // aparezcan de golpe sin avisar.
           if (fisicos.value case final lista? when lista.isNotEmpty) ...[
-            const SizedBox(height: NexusSpacing.s5),
+            const SizedBox(height: NexusSpacing.s4),
             Text(
-              strings.emulatorsConnected,
-              style: NexusTypography.label.copyWith(color: colors.faint),
+              strings.emulatorsConnected.toUpperCase(),
+              style: NexusTypography.label.copyWith(color: colors.mute),
             ),
             const SizedBox(height: NexusSpacing.s2),
-            for (final dispositivo in lista)
-              _FilaDeDispositivo(dispositivo: dispositivo),
+            for (final (i, dispositivo) in lista.indexed)
+              _Fila(
+                primera: i == 0,
+                child: _FilaDeDispositivo(dispositivo: dispositivo),
+              ),
           ] else if (fisicos.isLoading) ...[
             const SizedBox(height: NexusSpacing.s5),
             Row(
               children: [
                 Text(
-                  strings.emulatorsConnected,
-                  style: NexusTypography.label.copyWith(color: colors.faint),
+                  strings.emulatorsConnected.toUpperCase(),
+                  style: NexusTypography.label.copyWith(color: colors.mute),
                 ),
                 const SizedBox(width: NexusSpacing.s3),
                 SizedBox(
@@ -258,6 +267,33 @@ class _DispositivosPanelState extends ConsumerState<DispositivosPanel> {
   }
 }
 
+/// Una fila de la lista, con la raya de arriba salvo la primera del grupo.
+///
+/// Como las filas del mockup: sin la raya, cada nombre con su segunda línea y
+/// sus botones se juntaba con el de debajo y no se sabía de quién era cada
+/// «Cerrar».
+class _Fila extends StatelessWidget {
+  const _Fila({required this.primera, required this.child});
+
+  final bool primera;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      border: primera
+          ? null
+          : Border(top: BorderSide(color: context.colors.rule)),
+    ),
+    child: child,
+  );
+}
+
+/// El nombre de un aparato: un nombre, no un dato. En la voz de lo que se dice
+/// y a 13,5, como el mockup; en mono se leía como un identificador.
+TextStyle _elNombre(NexusColors colors) =>
+    NexusTypography.body.copyWith(fontSize: 13.5, color: colors.ink);
+
 /// Un teléfono enchufado.
 ///
 /// No hay nada que arrancar ni que apagar —si está en la lista, está enchufado— así
@@ -275,7 +311,7 @@ class _FilaDeDispositivo extends ConsumerWidget {
     final strings = context.strings;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: 9),
       child: Row(
         children: [
           // El punto va siempre encendido: si está en la lista, está enchufado.
@@ -288,16 +324,13 @@ class _FilaDeDispositivo extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  dispositivo.nombre,
-                  style: NexusTypography.data.copyWith(color: colors.ink),
-                ),
+                Text(dispositivo.nombre, style: _elNombre(colors)),
                 Text(
                   // El id detrás porque es lo que hace falta para `-d`, y en
                   // Android el nombre es el código de modelo —`24069PC21G`— que
                   // no dice nada por sí solo.
                   '${dispositivo.plataforma.name} · ${dispositivo.id}',
-                  style: NexusTypography.mono.copyWith(color: colors.faint),
+                  style: NexusTypography.data.copyWith(color: colors.mute),
                 ),
               ],
             ),
@@ -377,7 +410,7 @@ class _FilaDeEmulador extends StatelessWidget {
     final puede = !apagado;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: 9),
       child: Row(
         children: [
           // El punto de estado antes del nombre: se lee de un barrido, sin
@@ -396,7 +429,7 @@ class _FilaDeEmulador extends StatelessWidget {
                   emulador.nombre,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: NexusTypography.data.copyWith(color: colors.ink),
+                  style: _elNombre(colors),
                 ),
                 // **El estado se dice también apagado**: «android · apagado».
                 // Antes solo se escribía «arriba», y el apagado quedaba en un

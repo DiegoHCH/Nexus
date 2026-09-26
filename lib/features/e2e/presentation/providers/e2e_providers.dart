@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/design_system/la_hoja_viva_de_las_paginas.dart';
+import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/platform/lo_que_pide_la_pagina.dart';
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
 import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
@@ -560,10 +562,11 @@ class PruebaEnMarchaController extends Notifier<PruebaEnMarcha?> {
             viva: actual.viva,
             fallo: actual.fallo,
             capturas: _capturas,
-            // **El motivo, traducido.** El resto de la página está en español a
-            // pelo —deuda que viene de antes— pero esto no se suma a ella: el
+            // **El motivo, traducido**, como el resto de la página: el
             // controlador sí puede leer `stringsProvider`, así que se lee.
             diagnostico: _diagnostico(actual),
+            textos: textosDeLaPasada(ref.read(stringsProvider)),
+            hoja: await laHojaViva(ref),
           ),
           primeraVez: !_ventanaAbierta,
           raizDeLaVentana:
@@ -677,3 +680,16 @@ final pruebaEnMarchaProvider =
     NotifierProvider<PruebaEnMarchaController, PruebaEnMarcha?>(
       PruebaEnMarchaController.new,
     );
+
+/// Los textos de la ventana de una pasada en el idioma elegido. Aparte para
+/// que el informe de una pasada vieja salga con los mismos.
+TextosDeLaPasada textosDeLaPasada(NexusStrings s) => TextosDeLaPasada(
+  corriendo: s.pasadaCorriendo,
+  bien: s.pasadaBien,
+  mal: s.pasadaMal,
+  detener: s.pasadaDetener,
+  salida: s.pasadaSalida,
+  todaLaSalida: s.pasadaTodaLaSalida,
+  linea: s.pasadaLinea,
+  captura: s.pasadaCaptura,
+);

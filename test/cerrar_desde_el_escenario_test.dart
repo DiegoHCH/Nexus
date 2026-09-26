@@ -1,0 +1,102 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:nexus/features/assistant/data/datasources/conversations_data_source.dart';
+import 'package:nexus/features/assistant/presentation/pages/home_page.dart';
+import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
+import 'package:nexus/features/history/data/datasources/local_conversation_store.dart';
+import 'package:nexus/features/history/domain/entities/conversation_summary.dart';
+import 'package:nexus/features/history/presentation/providers/archive_providers.dart';
+import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
+import 'package:nexus/features/workspace/domain/entities/workspace.dart';
+import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
+
+import 'support/screen_harness.dart';
+
+/// En el escenario las conversaciones van como miniorbes en una esquina, y
+/// sin la ✕ no había forma de cerrar una sin pasar a la vista de cerca.
+void main() {
+  late Directory support;
+  setUp(() => support = prepareScreenTest());
+  tearDown(() => support.deleteSync(recursive: true));
+
+  testWidgets('al pasar por encima de un miniorbe sale la ✕, y cierra', (
+    tester,
+  ) async {
+    const carpetas = ['/Users/x/nexus', '/Users/x/front-mobile-b2c'];
+    final disco = _Disco({
+      'items': [
+        for (final (i, path) in carpetas.indexed)
+          {'id': 'c$i', 'folderPath': path},
+      ],
+      'focusedId': 'c0',
+    });
+    await pumpScreen(
+      tester,
+      const HomePage(),
+      overrides: [
+        workspaceControllerProvider.overrideWith(
+          () => FixedWorkspace(
+            Workspace(
+              folders: [
+                for (final path in carpetas)
+                  PairedFolder(path: path, modality: FolderModality.textOnly),
+              ],
+              activePath: carpetas.first,
+            ),
+          ),
+        ),
+        localConversationStoreProvider.overrideWithValue(
+          const _ConAlgoDicho(['c0', 'c1']),
+        ),
+        conversationsDataSourceProvider.overrideWithValue(disco),
+      ],
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byIcon(Icons.close), findsNothing);
+
+    final gesto = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesto.addPointer(location: Offset.zero);
+    addTearDown(gesto.removePointer);
+    await gesto.moveTo(tester.getCenter(find.byTooltip('front-mobile-b2c')));
+    await tester.pump();
+
+    expect(find.byIcon(Icons.close), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.close));
+    // Cerrar reescribe la lista en disco: varias vueltas hasta que se asienta.
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(find.byTooltip('front-mobile-b2c'), findsNothing);
+    expect(find.byTooltip('nexus'), findsOneWidget);
+  });
+}
+
+class _Disco implements ConversationsDataSource {
+  _Disco(this.contenido);
+  Map<String, dynamic> contenido;
+  @override
+  Future<Map<String, dynamic>> read() async => contenido;
+  @override
+  Future<void> write(Map<String, dynamic> json) async => contenido = json;
+}
+
+class _ConAlgoDicho implements LocalConversationStore {
+  const _ConAlgoDicho(this.ids);
+  final List<String> ids;
+  @override
+  Future<List<ConversationSummary>> list(String folderPath) async => [
+    for (final id in ids)
+      ConversationSummary(
+        id: id,
+        folderPath: folderPath,
+        startedAt: DateTime(2026, 9, 5),
+        title: 'algo',
+        turns: 2,
+      ),
+  ];
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
+}

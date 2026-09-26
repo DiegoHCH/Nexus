@@ -522,25 +522,28 @@ class _LasEsquinas extends ConsumerWidget {
                 children: [
                   for (final c in conversaciones)
                     Padding(
-                      padding: const EdgeInsets.only(right: NexusSpacing.s2),
-                      child: Tooltip(
-                        message: c.folderPath.split('/').last,
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: () => unawaited(
+                      padding: const EdgeInsets.only(right: NexusSpacing.s3),
+                      child: _MiniOrbe(
+                        nombre: c.folderPath.split('/').last,
+                        enFoco: c.id == conversationId,
+                        vivo:
+                            ref
+                                .watch(assistantControllerProvider(c.id))
+                                .orbState !=
+                            NexusOrbState.sleep,
+                        alPulsar: () => unawaited(
+                          ref.read(conversationsProvider.notifier).focus(c.id),
+                        ),
+                        // Soltar va con cerrar, siempre, como en el muelle: ver
+                        // [soltarLaConversacionProvider].
+                        alCerrar: () {
+                          ref.read(soltarLaConversacionProvider)(c.id);
+                          unawaited(
                             ref
                                 .read(conversationsProvider.notifier)
-                                .focus(c.id),
-                          ),
-                          child: _MiniOrbe(
-                            enFoco: c.id == conversationId,
-                            vivo:
-                                ref
-                                    .watch(assistantControllerProvider(c.id))
-                                    .orbState !=
-                                NexusOrbState.sleep,
-                          ),
-                        ),
+                                .close(c.id),
+                          );
+                        },
                       ),
                     ),
                   // Una nueva, en cualquier carpeta: el mismo menú que
@@ -572,31 +575,106 @@ class _LasEsquinas extends ConsumerWidget {
 }
 
 /// Una conversación abierta, en pequeño: encendida si está haciendo algo, con
-/// halo la que está en foco.
-class _MiniOrbe extends StatelessWidget {
-  const _MiniOrbe({required this.enFoco, required this.vivo});
+/// halo la que está en foco. Pulsarla la trae al frente.
+///
+/// **Y se cierra desde aquí**, con la ✕ que sale al pasar por encima: la misma
+/// del muelle. Sin ella, en el escenario no había forma de cerrar una
+/// conversación sin pasar antes a la vista de cerca.
+class _MiniOrbe extends StatefulWidget {
+  const _MiniOrbe({
+    required this.nombre,
+    required this.enFoco,
+    required this.vivo,
+    required this.alPulsar,
+    required this.alCerrar,
+  });
 
+  final String nombre;
   final bool enFoco;
   final bool vivo;
+  final VoidCallback alPulsar;
+  final VoidCallback alCerrar;
+
+  @override
+  State<_MiniOrbe> createState() => _MiniOrbeState();
+}
+
+class _MiniOrbeState extends State<_MiniOrbe> {
+  var _encima = false;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return Container(
-      width: 14,
-      height: 14,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: vivo ? colors.accent.withValues(alpha: 0.5) : null,
-        border: Border.all(color: enFoco ? colors.accent : colors.rule2),
-        boxShadow: enFoco
-            ? [
-                BoxShadow(
-                  color: colors.accent.withValues(alpha: 0.6),
-                  blurRadius: 8,
+    final strings = context.strings;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _encima = true),
+      onExit: (_) => setState(() => _encima = false),
+      child: Tooltip(
+        message: widget.nombre,
+        // La caja es más grande que el círculo para que la ✕ quepa **dentro**:
+        // lo que sobresale de su caja se pinta pero no recibe el clic, y la
+        // ✕ se veía sin poder pulsarse.
+        child: SizedBox(
+          width: 26,
+          height: 26,
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                bottom: 0,
+                width: 18,
+                height: 18,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: widget.alPulsar,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: widget.vivo
+                          ? colors.accent.withValues(alpha: 0.5)
+                          : null,
+                      border: Border.all(
+                        color: widget.enFoco
+                            ? colors.accent
+                            : (_encima ? colors.mute : colors.rule2),
+                      ),
+                      boxShadow: widget.enFoco
+                          ? [
+                              BoxShadow(
+                                color: colors.accent.withValues(alpha: 0.6),
+                                blurRadius: 8,
+                              ),
+                            ]
+                          : null,
+                    ),
+                  ),
                 ),
-              ]
-            : null,
+              ),
+              if (_encima)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Semantics(
+                    button: true,
+                    label: strings.escenarioCerrarConversacion(widget.nombre),
+                    child: InkWell(
+                      onTap: widget.alCerrar,
+                      customBorder: const CircleBorder(),
+                      child: Container(
+                        padding: const EdgeInsets.all(1.5),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: colors.void_,
+                          border: Border.all(color: colors.rule2),
+                        ),
+                        child: Icon(Icons.close, size: 9, color: colors.mute),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

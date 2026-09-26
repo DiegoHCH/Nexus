@@ -15,8 +15,13 @@ const curvaDeLaHoja = Cubic(0.2, 0.7, 0.2, 1);
 /// La ruta de una hoja: transparente, para que la sala se siga pintando
 /// detrás, y sin transición propia —la hacen [LaHojaEntra] y [ElVeloEntra]
 /// dentro de la hoja, cada una a lo suyo—.
+///
+/// 🔴 **Una hoja a la vez, y su atajo la abre y la cierra.** Cada ⌘Y abría otro
+/// Historial encima del anterior. Abiertas con [alternar], pedir la misma hoja
+/// otra vez la cierra, y pedir otra cierra la que había antes de abrirse: nunca
+/// se apilan.
 class RutaDeLaHoja<T> extends PageRouteBuilder<T> {
-  RutaDeLaHoja({required WidgetBuilder builder})
+  RutaDeLaHoja({required WidgetBuilder builder, this.cual = ''})
     : super(
         opaque: false,
         transitionDuration: const Duration(milliseconds: 600),
@@ -24,6 +29,46 @@ class RutaDeLaHoja<T> extends PageRouteBuilder<T> {
         pageBuilder: (context, _, _) => builder(context),
         transitionsBuilder: (_, _, _, child) => child,
       );
+
+  /// Qué hoja es —«historial», «documentos», «ajustes»—, para saber si pedirla
+  /// es abrirla o cerrarla.
+  final String cual;
+
+  static RutaDeLaHoja<dynamic>? _abierta;
+
+  /// Si la hoja [cual] está abierta ahora mismo.
+  static bool estaAbierta(String cual) =>
+      _abierta != null && _abierta!.isActive && _abierta!.cual == cual;
+
+  /// Abre la hoja [cual], o la cierra si ya es la que está abierta. Si hay otra
+  /// abierta, la cierra primero. Con [cerrarSiEstaAbierta] a `false` pedirla
+  /// abierta no la cierra: sirve a quien la abre por un motivo —«no hay carpeta,
+  /// empareja una»— y no por el atajo.
+  static Future<void> alternar(
+    BuildContext context, {
+    required String cual,
+    required WidgetBuilder builder,
+    bool cerrarSiEstaAbierta = true,
+  }) async {
+    final navigator = Navigator.of(context);
+    final abierta = _abierta;
+    if (abierta != null && abierta.isActive) {
+      if (abierta.cual == cual && !cerrarSiEstaAbierta) return;
+      _abierta = null;
+      // Encima de todo se cierra con su animación, saliendo por la derecha;
+      // tapada por algo, se quita sin más.
+      if (abierta.isCurrent) {
+        navigator.pop();
+      } else {
+        navigator.removeRoute(abierta);
+      }
+      if (abierta.cual == cual) return;
+    }
+    final ruta = RutaDeLaHoja<void>(builder: builder, cual: cual);
+    _abierta = ruta;
+    await navigator.push(ruta);
+    if (identical(_abierta, ruta)) _abierta = null;
+  }
 }
 
 Animation<double> _laAnimacion(BuildContext context) =>

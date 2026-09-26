@@ -42,12 +42,6 @@ class SettingsPage extends ConsumerStatefulWidget {
   /// la que busca quien llega sin carpeta emparejada.
   final SeccionDeAjustes abreEn;
 
-  /// Se abre desde varios sitios —el botón de la barra, el de «empareja una
-  /// carpeta», ⌘, y el menú de macOS—, y algunos pueden coincidir en la misma
-  /// pulsación. Apilar dos ajustes deja al usuario cerrando la misma pantalla
-  /// dos veces, así que el segundo no hace nada.
-  static bool _isOpen = false;
-
   /// La última sección que se miró, para abrir donde se dejó.
   ///
   /// En memoria y no en disco: volver a Ajustes a los dos minutos para
@@ -58,21 +52,17 @@ class SettingsPage extends ConsumerStatefulWidget {
   /// [en] fuerza la sección: quien abre Ajustes porque no hay carpeta donde
   /// trabajar tiene que caer en Permisos, que es donde se empareja, y no en lo
   /// último que miró.
-  static Future<void> open(BuildContext context, {SeccionDeAjustes? en}) async {
-    if (_isOpen) return;
-    _isOpen = true;
-    try {
-      await Navigator.of(context).push(
-        RutaDeLaHoja<void>(
-          builder: (_) => SettingsPage(
-            abreEn: en ?? _dondeSeQuedo ?? SeccionDeAjustes.permissions,
-          ),
+  static Future<void> open(BuildContext context, {SeccionDeAjustes? en}) =>
+      RutaDeLaHoja.alternar(
+        context,
+        cual: 'ajustes',
+        // Pedida por un motivo —[en]— se queda abierta; por el atajo, ⌘, la
+        // abre y la cierra.
+        cerrarSiEstaAbierta: en == null,
+        builder: (_) => SettingsPage(
+          abreEn: en ?? _dondeSeQuedo ?? SeccionDeAjustes.permissions,
         ),
       );
-    } finally {
-      _isOpen = false;
-    }
-  }
 
   /// El ancho de la hoja para una ventana dada.
   ///

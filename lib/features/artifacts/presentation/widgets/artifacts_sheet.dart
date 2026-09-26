@@ -43,7 +43,7 @@ class ArtifactsSheet extends ConsumerStatefulWidget {
   const ArtifactsSheet({super.key});
 
   static Future<void> open(BuildContext context) =>
-      HojaDeLaSala.abrir(context, const ArtifactsSheet());
+      HojaDeLaSala.abrir(context, const ArtifactsSheet(), cual: 'documentos');
 
   /// Abre un documento **donde se lee mejor**: lo que el visor del sistema pinta
   /// va a su ventana —ahí se puede hacer zoom, imprimir, arrastrar—; un markdown

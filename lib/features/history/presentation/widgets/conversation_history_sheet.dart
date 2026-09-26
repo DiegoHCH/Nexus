@@ -64,6 +64,7 @@ class ConversationHistorySheet extends ConsumerStatefulWidget {
       onForget: onForget,
       forgetFolder: forgetFolder,
     ),
+    cual: 'historial',
   );
 
   @override

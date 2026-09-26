@@ -42,8 +42,14 @@ class HojaDeLaSala extends StatelessWidget {
 
   /// Abre [hoja] como ruta transparente, para que la sala se siga pintando
   /// detrás.
-  static Future<void> abrir(BuildContext context, Widget hoja) =>
-      Navigator.of(context).push(RutaDeLaHoja<void>(builder: (_) => hoja));
+  ///
+  /// [cual] la nombra para que su atajo la abra y la cierre: ver
+  /// [RutaDeLaHoja.alternar].
+  static Future<void> abrir(
+    BuildContext context,
+    Widget hoja, {
+    required String cual,
+  }) => RutaDeLaHoja.alternar(context, cual: cual, builder: (_) => hoja);
 
   /// El ancho de la hoja para una ventana dada.
   ///

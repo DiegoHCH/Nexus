@@ -88,8 +88,8 @@ void main() {
     // Una pantalla que informa y no deja salir es una pantalla que encierra.
     await pumpScreen(tester, const ReadinessPage(readiness: sinCli));
 
-    expect(find.text('Comprobar de nuevo'), findsOne);
-    expect(find.text('Entrar de todas formas'), findsOne);
+    expect(find.text('COMPROBAR DE NUEVO'), findsOne);
+    expect(find.text('ENTRAR DE TODAS FORMAS'), findsOne);
   });
 
   /// No es una aserción: deja la pantalla en PNG para poder **mirarla**, que es

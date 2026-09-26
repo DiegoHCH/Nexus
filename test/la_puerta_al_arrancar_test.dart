@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/features/assistant/domain/usecases/la_sesion_de_puerta.dart';
+import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
 import 'package:nexus/features/assistant/presentation/pages/home_page.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/voice_session_providers.dart';
@@ -151,6 +152,29 @@ void main() {
     );
   });
 
+  // El cuadro 3 del arranque: el orbe de 420 centrado arriba y el saludo como
+  // subtítulo de 30 px debajo. Llenando el cuerpo, hablando se abría hasta
+  // tocar el subtítulo, y a 13 px la frase se leía como una ayuda.
+  testWidgets(
+    'con la puerta abierta, el orbe se recoge y el saludo es subtítulo',
+    (tester) async {
+      await abrirLaCasa(tester);
+      await tester.pump(const Duration(milliseconds: 600));
+
+      final orbe = tester.getRect(find.byType(NexusOrb));
+      expect(orbe.width, closeTo(420, 20));
+      expect(orbe.center.dx, closeTo(640, 1), reason: 'centrado');
+
+      final saludo = tester.widget<Text>(find.text(puerta.saludoPedido!));
+      expect(saludo.style?.fontSize ?? 0, 30);
+      expect(
+        tester.getTopLeft(find.text(puerta.saludoPedido!)).dy,
+        greaterThan(orbe.bottom),
+        reason: 'debajo del orbe, sin pisarlo',
+      );
+    },
+  );
+
   // 🔴 La puerta no puede ser la única entrada.
   testWidgets('si se cae, vuelve la caja de siempre', (tester) async {
     await abrirLaCasa(tester);
@@ -234,7 +258,7 @@ void main() {
     );
 
     Finder sugerencia(String nombre) =>
-        find.widgetWithText(OutlinedButton, nombre);
+        find.widgetWithText(OutlinedButton, nombre.toUpperCase());
 
     testWidgets('se ven con la puerta abierta', (tester) async {
       await abrirLaCasa(tester, workspace: tres);

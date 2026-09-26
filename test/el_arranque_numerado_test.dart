@@ -122,9 +122,9 @@ void main() {
       await abrir(tester, conCarpeta: false);
 
       expect(find.bySemanticsLabel(es.pasoPendiente(2)), findsOneWidget);
-      expect(find.text(es.choose), findsOneWidget);
+      expect(find.text(es.choose.toUpperCase()), findsOneWidget);
       final entrar = tester.widget<OutlinedButton>(
-        find.widgetWithText(OutlinedButton, es.startUsingNexus),
+        find.widgetWithText(OutlinedButton, es.startUsingNexus.toUpperCase()),
       );
       expect(entrar.onPressed, isNull);
     });
@@ -137,7 +137,7 @@ void main() {
       expect(find.bySemanticsLabel(es.pasoHecho(2)), findsOneWidget);
       expect(find.text(es.chosen), findsOneWidget);
       expect(
-        find.text(es.choose),
+        find.text(es.choose.toUpperCase()),
         findsNothing,
         reason: 'lo hecho no se vuelve a pedir',
       );
@@ -145,7 +145,7 @@ void main() {
       expect(find.bySemanticsLabel(es.pasoPendiente(1)), findsOneWidget);
       expect(find.bySemanticsLabel(es.pasoPendiente(3)), findsOneWidget);
       final entrar = tester.widget<OutlinedButton>(
-        find.widgetWithText(OutlinedButton, es.startUsingNexus),
+        find.widgetWithText(OutlinedButton, es.startUsingNexus.toUpperCase()),
       );
       expect(entrar.onPressed, isNotNull);
     });

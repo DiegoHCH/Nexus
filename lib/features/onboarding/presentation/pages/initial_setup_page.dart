@@ -133,14 +133,17 @@ class _InitialSetupPageState extends ConsumerState<InitialSetupPage>
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
+        // El mismo título de pantalla que la comprobación: 28 px, `.sec-t`.
         Text(
           strings.setupTitle,
           style: NexusTypography.title.copyWith(
             color: colors.ink,
-            fontSize: 26,
+            fontSize: 28,
+            letterSpacing: -0.56,
+            height: 1.2,
           ),
         ),
-        const SizedBox(height: NexusSpacing.s3),
+        const SizedBox(height: 22),
         for (final p in pasos) ...[
           // Una línea de 1 px entre pasos: es una lista que se recorre en
           // orden, no tres tarjetas que se cogen.
@@ -154,10 +157,10 @@ class _InitialSetupPageState extends ConsumerState<InitialSetupPage>
             style: NexusTypography.nota.copyWith(color: colors.err),
           ),
         ],
-        const SizedBox(height: NexusSpacing.s5),
+        const SizedBox(height: 18),
         Wrap(
-          spacing: NexusSpacing.s4,
-          runSpacing: NexusSpacing.s3,
+          spacing: NexusSpacing.s2,
+          runSpacing: NexusSpacing.s2,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             // El botón deshabilitado con .38, como en el mockup: el estilo
@@ -174,7 +177,10 @@ class _InitialSetupPageState extends ConsumerState<InitialSetupPage>
             ),
             Text(
               strings.changeLaterHint,
-              style: NexusTypography.nota.copyWith(color: colors.mute),
+              style: NexusTypography.nota.copyWith(
+                color: colors.mute,
+                fontSize: 12.5,
+              ),
             ),
           ],
         ),
@@ -183,6 +189,10 @@ class _InitialSetupPageState extends ConsumerState<InitialSetupPage>
 
     return ArranqueConOrbe(
       rotulo: strings.beforeWeStart,
+      // Más arriba que la comprobación: son tres pasos y no dos filas, y
+      // empezando a la misma altura el botón de entrar quedaba bajo el borde
+      // en la ventana mínima.
+      sobreElCentro: 284,
       orbe: const NexusOrb(state: NexusOrbState.sleep),
       panel: Stack(
         alignment: Alignment.center,
@@ -210,7 +220,7 @@ class _InitialSetupPageState extends ConsumerState<InitialSetupPage>
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(
                     0,
-                    NexusSpacing.s6,
+                    0,
                     NexusSpacing.s6,
                     NexusSpacing.s7,
                   ),
@@ -278,30 +288,43 @@ class _Paso extends StatelessWidget {
     final strings = context.strings;
     final lado = this.lado;
     final color = paso.hecho ? colors.ok : colors.mute;
+    // El `.pi` del mockup: 14 de aire, el número en una columna de 34 y el
+    // texto a 12 de ella.
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s4),
+      padding: const EdgeInsets.symmetric(vertical: 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Semantics(
-            label: paso.hecho
-                ? strings.pasoHecho(paso.numero)
-                : strings.pasoPendiente(paso.numero),
-            excludeSemantics: true,
-            child: Container(
-              key: ValueKey('paso-${paso.numero}'),
-              width: 26,
-              height: 26,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: paso.hecho ? colors.ok : colors.rule2,
+          SizedBox(
+            width: 34,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Semantics(
+                label: paso.hecho
+                    ? strings.pasoHecho(paso.numero)
+                    : strings.pasoPendiente(paso.numero),
+                excludeSemantics: true,
+                child: Container(
+                  key: ValueKey('paso-${paso.numero}'),
+                  width: 26,
+                  height: 26,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: paso.hecho ? colors.ok : colors.rule2,
+                    ),
+                  ),
+                  child: Text(
+                    '${paso.numero}',
+                    style: NexusTypography.control.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w500,
+                      fontVariations: const [FontVariation('wght', 500)],
+                      height: 1,
+                    ),
+                  ),
                 ),
-              ),
-              child: Text(
-                '${paso.numero}',
-                style: NexusTypography.control.copyWith(color: color),
               ),
             ),
           ),
@@ -313,7 +336,7 @@ class _Paso extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 3),
                   child: Wrap(
-                    spacing: NexusSpacing.s2,
+                    spacing: 6,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
@@ -329,15 +352,20 @@ class _Paso extends StatelessWidget {
                       // conocer, y eso se decide al leer el título.
                       if (paso.opcional)
                         Text(
-                          strings.setupOptional,
+                          strings.setupOptional.toUpperCase(),
+                          // El `small` del mockup: 9,5 y .14em, un punto por
+                          // debajo del rótulo porque acompaña al título en vez
+                          // de encabezar nada.
                           style: NexusTypography.label.copyWith(
                             color: colors.mute,
+                            fontSize: 9.5,
+                            letterSpacing: 1.33,
                           ),
                         ),
                     ],
                   ),
                 ),
-                const SizedBox(height: NexusSpacing.s1),
+                const SizedBox(height: 2),
                 cuerpo,
               ],
             ),
@@ -348,6 +376,14 @@ class _Paso extends StatelessWidget {
     );
   }
 }
+
+/// El cuerpo de un paso, el `.b-p` del mockup: una nota a 14, que es lo que
+/// explica el paso y se lee de corrido.
+TextStyle _cuerpoDelPaso(NexusColors colors) => NexusTypography.nota.copyWith(
+  color: colors.mute,
+  fontSize: 14,
+  height: 1.55,
+);
 
 /// Un estado ya conseguido: su punto y su frase.
 class _Estado extends StatelessWidget {
@@ -364,9 +400,11 @@ class _Estado extends StatelessWidget {
       children: [
         PuntoDeEstado(color: color),
         const SizedBox(width: NexusSpacing.s2),
+        // La frase en el color del punto, como el `.est.ok` del mockup: «Te
+        // escucho» en verde dice que está hecho sin tener que buscar el punto.
         Text(
           texto,
-          style: NexusTypography.nota.copyWith(color: context.colors.ink),
+          style: NexusTypography.nota.copyWith(color: color, fontSize: 13.5),
         ),
       ],
     ),
@@ -421,23 +459,18 @@ class _PasoDelMicrofono extends StatelessWidget {
       cuerpo: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            explicacion,
-            style: NexusTypography.nota.copyWith(color: colors.mute),
-          ),
+          Text(explicacion, style: _cuerpoDelPaso(colors)),
           // La prueba de sonido: si el trazo se mueve, la voz llega. Solo con
           // el micrófono concedido, que es cuando hay algo que medir.
+          //
+          // 🔴 **Se queda aunque el mockup no la dibuje**, porque la frase de
+          // al lado la promete —«si el trazo se mueve, te oigo»— y sin trazo
+          // sería una instrucción imposible. Lo que sí se le quita es la caja:
+          // en el mockup el paso es texto sobre el fondo, y un recuadro ahí
+          // lo convertía en un campo que parecía que había que rellenar.
           if (status == MicrophoneStatus.granted) ...[
             const SizedBox(height: NexusSpacing.s2),
-            Container(
-              constraints: const BoxConstraints(minHeight: 36),
-              padding: const EdgeInsets.symmetric(horizontal: NexusSpacing.s3),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(NexusRadius.sm),
-                border: Border.all(color: colors.rule2),
-              ),
-              child: _MicWaveform(amplitude: amplitude),
-            ),
+            _MicWaveform(amplitude: amplitude),
           ],
         ],
       ),
@@ -476,10 +509,7 @@ class _PasoDeLaCarpeta extends ConsumerWidget {
           : _Estado(color: colors.ok, texto: strings.chosen),
       // Elegida, se enseña la ruta —un dato, en mono—; sin elegir, qué es.
       cuerpo: folder == null
-          ? Text(
-              strings.workFolderTitle,
-              style: NexusTypography.nota.copyWith(color: colors.mute),
-            )
+          ? Text(strings.workFolderTitle, style: _cuerpoDelPaso(colors))
           : Text(
               folder.displayPath(home),
               overflow: TextOverflow.ellipsis,
@@ -512,23 +542,49 @@ class _PasoDeLaLlave extends StatelessWidget {
       cuerpo: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 🔴 **Una línea y no una caja**, como el `.campo` del mockup: la
+          // llave es opcional, y un recuadro relleno en medio de la lista
+          // pesaba más que los dos pasos obligatorios juntos. La línea dice
+          // «aquí se escribe» sin pedir que se escriba.
           TextField(
             controller: controller,
             onChanged: onChanged,
             obscureText: true,
             style: NexusTypography.mono.copyWith(color: colors.ink),
-            decoration: InputDecoration(hintText: strings.geminiKeyHint),
+            decoration: InputDecoration(
+              hintText: strings.geminiKeyHint,
+              hintStyle: NexusTypography.mono.copyWith(color: colors.faint),
+              filled: false,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 6),
+              border: UnderlineInputBorder(
+                borderSide: BorderSide(color: colors.rule2),
+              ),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: colors.rule2),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: colors.accent),
+              ),
+            ),
           ),
-          const SizedBox(height: NexusSpacing.s2),
+          const SizedBox(height: 6),
           // Qué pasa sin ella, antes que dónde conseguirla: lo primero que hay
           // que saber es que se puede dejar en blanco.
+          //
+          // El enlace va subrayado y en el mismo tono, no en acento: en esta
+          // pantalla el acento es de los botones que se esperan, y un enlace
+          // opcional en acento competía con «Elegir», que es lo que falta.
           Wrap(
-            spacing: NexusSpacing.s2,
+            spacing: 4,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
                 strings.pasoLlaveSinLlave,
-                style: NexusTypography.nota.copyWith(color: colors.mute),
+                style: NexusTypography.nota.copyWith(
+                  color: colors.mute,
+                  fontSize: 12,
+                ),
               ),
               InkWell(
                 onTap: onGetKey,
@@ -536,9 +592,10 @@ class _PasoDeLaLlave extends StatelessWidget {
                 child: Text(
                   strings.getFreeKey,
                   style: NexusTypography.nota.copyWith(
-                    color: colors.accent,
+                    color: colors.mute,
+                    fontSize: 12,
                     decoration: TextDecoration.underline,
-                    decorationColor: colors.accent,
+                    decorationColor: colors.mute,
                   ),
                 ),
               ),
@@ -580,6 +637,10 @@ class _MicWaveformState extends State<_MicWaveform> {
 
   @override
   Widget build(BuildContext context) {
+    // Hasta que llega el primer trozo de sonido no ocupa sitio: sin caja, su
+    // hueco vacío entre la frase y la línea del paso se leía como un fallo de
+    // maquetación, no como un medidor esperando.
+    if (_samples.isEmpty) return const SizedBox.shrink();
     return SizedBox(
       height: 28,
       child: CustomPaint(
@@ -609,14 +670,9 @@ class _WaveformPainter extends CustomPainter {
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
 
-    if (samples.isEmpty) {
-      canvas.drawLine(
-        Offset(0, size.height / 2),
-        Offset(size.width, size.height / 2),
-        paint..color = color.withValues(alpha: 0.3),
-      );
-      return;
-    }
+    // Sin muestras no se pinta nada: sin la caja de antes, una línea quieta
+    // aquí se leía como un separador más de la lista y no como un medidor.
+    if (samples.isEmpty) return;
 
     final gap = size.width / _MicWaveformState._maxSamples;
     for (var i = 0; i < samples.length; i++) {

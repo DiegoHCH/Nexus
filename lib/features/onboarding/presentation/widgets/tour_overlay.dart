@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
-import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
-import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
+import 'package:nexus/features/assistant/presentation/orb/nexus_orb_painter.dart';
 import 'package:nexus/features/onboarding/presentation/providers/tour_providers.dart';
 import 'package:nexus/features/onboarding/presentation/state/tour_state.dart';
+import 'package:nexus/features/onboarding/presentation/widgets/arranque_con_orbe.dart';
 
 /// El tour de la primera vez, señalando las piezas de verdad.
 ///
@@ -116,6 +116,10 @@ class _TourOverlayState extends ConsumerState<TourOverlay> {
     final colors = context.colors;
     final strings = context.strings;
     final (titulo, cuerpo) = _copyFor(stop, strings);
+    // El orbe se señala con un círculo y no con la caja que ocupa: su caja es
+    // media pantalla —es también la superficie que se toca—, y un marco ahí
+    // no señalaba nada. Ver [focoDelOrbe].
+    final foco = stop == TourStop.orb ? focoDelOrbe(hole) : null;
 
     return Stack(
       children: [
@@ -127,23 +131,22 @@ class _TourOverlayState extends ConsumerState<TourOverlay> {
             onTap: () {},
             child: CustomPaint(
               painter: _Spotlight(
-                hole: hole,
-                scrim: colors.scrim,
+                hole: foco ?? hole,
+                redondo: foco != null,
+                // El velo del mockup: `void` al 55 %. El `scrim` de las hojas
+                // (72 %) apagaba tanto que el orbe señalado se veía igual de
+                // hundido que lo que no se señala.
+                scrim: colors.void_.withValues(alpha: 0.55),
                 ring: colors.accent,
               ),
             ),
           ),
         ),
         _Card(
-          hole: hole,
+          hole: foco ?? hole,
           title: titulo,
           body: cuerpo,
           step: strings.tourStep(tour.index, tour.total),
-          // 🔴 **La primera parada presenta el orbe por cómo se mueve**, que es
-          // lo que luego hay que saber leer. El texto lo cuenta y esto lo
-          // enseña: los mismos estados que el de verdad, con la palabra que
-          // pondrá la barra de arriba cuando esté en cada uno.
-          extra: stop == TourStop.orb ? const ComoSeMueveElOrbe() : null,
           isLast: tour.pending.isEmpty,
           onNext: () => ref.read(tourControllerProvider.notifier).next(),
           onSkip: () => ref.read(tourControllerProvider.notifier).skip(),
@@ -164,24 +167,48 @@ class _TourOverlayState extends ConsumerState<TourOverlay> {
       };
 }
 
+/// El círculo con que se señala el orbe dentro de la caja que ocupa.
+///
+/// Se calcula con la misma cuenta que usa el orbe para pintarse —su centro un
+/// pelo por encima de la mitad y el radio de su esfera, ver
+/// [NexusOrbPainter.radioEn]—, con un poco de aire: es el `.foco` del mockup,
+/// un aro justo por fuera de la esfera. Copiar aquí el radio a mano dejaría el
+/// aro desacoplado del orbe en cuanto alguien le cambie el tamaño.
+Rect focoDelOrbe(Rect caja) {
+  final radio = NexusOrbPainter.radioEn(caja.size) * 1.05;
+  return Rect.fromCircle(
+    center: Offset(caja.center.dx, caja.top + caja.height * 0.46),
+    radius: radio,
+  );
+}
+
 /// El velo con un hueco: todo oscuro menos la pieza de la que se habla.
+///
+/// El aro es el del mockup: una línea de 1 px en acento y, por fuera, 4 px de
+/// acento suave, que lo hace leerse como luz y no como un marco dibujado.
 class _Spotlight extends CustomPainter {
   const _Spotlight({
     required this.hole,
     required this.scrim,
     required this.ring,
+    this.redondo = false,
   });
 
   final Rect hole;
   final Color scrim;
   final Color ring;
 
+  /// Un círculo en vez de un rectángulo: el orbe.
+  final bool redondo;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final marco = RRect.fromRectAndRadius(
-      hole.inflate(6),
-      const Radius.circular(NexusRadius.md),
-    );
+    final marco = redondo
+        ? RRect.fromRectAndRadius(hole, Radius.circular(hole.shortestSide / 2))
+        : RRect.fromRectAndRadius(
+            hole.inflate(6),
+            const Radius.circular(NexusRadius.md),
+          );
     canvas.drawPath(
       Path.combine(
         PathOperation.difference,
@@ -191,20 +218,43 @@ class _Spotlight extends CustomPainter {
       Paint()..color = scrim,
     );
     canvas.drawRRect(
+      marco.inflate(2.5),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4
+        ..color = ring.withValues(alpha: 0.12),
+    );
+    canvas.drawRRect(
       marco,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
+        ..strokeWidth = 1
         ..color = ring,
     );
   }
 
   @override
   bool shouldRepaint(_Spotlight old) =>
-      old.hole != hole || old.scrim != scrim || old.ring != ring;
+      old.hole != hole ||
+      old.scrim != scrim ||
+      old.ring != ring ||
+      old.redondo != redondo;
 }
 
 /// La explicación, al lado de la pieza y nunca encima.
+///
+/// 🔴 **Como el `.pop` del mockup**: fondo `deep`, borde `rule2` y no de
+/// acento —el acento ya lo lleva el aro, y dos cosas en acento no dicen cuál
+/// es la señalada—, el paso en rótulo, el título en la letra de los títulos y
+/// los dos botones del arranque, el que se espera primero. Antes el título iba
+/// en la letra del texto, «Siguiente» era una píldora rellena y «Saltar» un
+/// enlace suelto al otro lado: tres voces distintas en una tarjeta de cuatro
+/// líneas.
+///
+/// La tira de cuatro orbes que enseñaba los estados se quitó: el mockup los
+/// cuenta en la frase —«cuando te oye, el orbe se abre en partículas; cuando
+/// trabaja, se vuelve un reactor»— mientras el de verdad está al lado, y la
+/// tira hacía la tarjeta el doble de alta hasta no caber junto al orbe.
 class _Card extends StatelessWidget {
   /// Para poder medirla en una prueba: que se calce al texto es justo lo que se
   /// rompió, y no lo detecta ninguna aserción de las normales.
@@ -218,11 +268,14 @@ class _Card extends StatelessWidget {
     required this.isLast,
     required this.onNext,
     required this.onSkip,
-    this.extra,
   });
 
-  static const _width = 340.0;
+  /// El ancho del `.pop`: 330 de 1280.
+  static const _width = 330.0;
   static const _gap = NexusSpacing.s5;
+
+  /// A cuánto del aro, de lado: los 50 del mockup.
+  static const _gapAlLado = 50.0;
 
   /// Lo mínimo para que la tarjeta sea legible en un hueco. Por debajo de esto
   /// no se intenta meterla al lado: se pone encima de la pieza, que es peor de
@@ -237,53 +290,66 @@ class _Card extends StatelessWidget {
   final VoidCallback onNext;
   final VoidCallback onSkip;
 
-  /// Lo que la parada enseña además de contarlo. Ver [ComoSeMueveElOrbe].
-  final Widget? extra;
-
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final extra = this.extra;
+    final strings = context.strings;
     final pantalla = MediaQuery.sizeOf(context);
+    const margen = NexusSpacing.s6;
 
-    // Fuera del hueco si cabe, y si no, encima — pero **siempre dentro de la
-    // ventana**.
+    // **A la derecha de la pieza si cabe**, que es donde la pone el mockup: al
+    // lado se leen la tarjeta y lo que señala de una vez, sin que una tape a
+    // la otra. Si no, debajo, encima o, en último caso, al pie —pero
+    // **siempre dentro de la ventana**.
     //
     // El orbe ocupa el centro entero de la pantalla, así que en su parada no hay
     // hueco ni arriba ni abajo: medido, quedan 123 px por debajo en una ventana
     // de 800, y menos en la mínima de 768. La primera versión ponía la tarjeta
     // «fuera» sin comprobar que cupiera y la echaba 820 px por encima del borde;
     // sus botones no se podían ni pulsar, y de hecho no se podía terminar el tour.
+    final alLado =
+        pantalla.width - hole.right - _gapAlLado - margen >= _width &&
+        pantalla.height - margen * 2 >= _minAlto;
     final espacioAbajo = pantalla.height - hole.bottom - _gap * 2;
     final espacioArriba = hole.top - _gap * 2;
 
+    final double izquierda;
     final double? arriba;
     final double? abajo;
     final double maxAlto;
-    if (espacioAbajo >= _minAlto) {
-      arriba = hole.bottom + _gap;
+    if (alLado) {
+      izquierda = hole.right + _gapAlLado;
+      // Un poco por encima del centro de la pieza, como en el mockup (100 px
+      // sobre el centro del aro): la tarjeta empieza donde empieza a mirarse.
+      final desde = (hole.center.dy - 100).clamp(
+        margen,
+        pantalla.height - _minAlto - margen,
+      );
+      arriba = desde;
       abajo = null;
-      maxAlto = espacioAbajo;
-    } else if (espacioArriba >= _minAlto) {
-      arriba = null;
-      abajo = pantalla.height - hole.top + _gap;
-      maxAlto = espacioArriba;
+      maxAlto = pantalla.height - desde - margen;
     } else {
-      // Solapa, que es inevitable, y se va al pie: el orbe es una esfera difusa
-      // y tapar su parte de abajo se lee bien, mientras el marco del foco sigue
-      // viéndose alrededor.
-      arriba = null;
-      abajo = _gap;
-      maxAlto = pantalla.height - _gap * 2;
+      izquierda = (hole.center.dx - _width / 2).clamp(
+        margen,
+        (pantalla.width - _width - margen).clamp(margen, double.infinity),
+      );
+      if (espacioAbajo >= _minAlto) {
+        arriba = hole.bottom + _gap;
+        abajo = null;
+        maxAlto = espacioAbajo;
+      } else if (espacioArriba >= _minAlto) {
+        arriba = null;
+        abajo = pantalla.height - hole.top + _gap;
+        maxAlto = espacioArriba;
+      } else {
+        // Solapa, que es inevitable, y se va al pie: el orbe es una esfera
+        // difusa y tapar su parte de abajo se lee bien, mientras el aro del
+        // foco sigue viéndose alrededor.
+        arriba = null;
+        abajo = _gap;
+        maxAlto = pantalla.height - _gap * 2;
+      }
     }
-
-    final izquierda = (hole.center.dx - _width / 2).clamp(
-      NexusSpacing.s6,
-      (pantalla.width - _width - NexusSpacing.s6).clamp(
-        NexusSpacing.s6,
-        double.infinity,
-      ),
-    );
 
     return Positioned(
       left: izquierda,
@@ -297,10 +363,10 @@ class _Card extends StatelessWidget {
         constraints: BoxConstraints(maxHeight: maxAlto),
         child: Container(
           key: cardKey,
-          padding: const EdgeInsets.all(NexusSpacing.s5),
+          padding: const EdgeInsets.all(NexusSpacing.s4),
           decoration: BoxDecoration(
             color: colors.deep,
-            border: Border.all(color: colors.accent),
+            border: Border.all(color: colors.rule2),
             borderRadius: BorderRadius.circular(NexusRadius.md),
           ),
           child: Column(
@@ -315,156 +381,52 @@ class _Card extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                step,
-                style: NexusTypography.label.copyWith(color: colors.faint),
+                step.toUpperCase(),
+                style: NexusTypography.label.copyWith(color: colors.mute),
               ),
-              const SizedBox(height: NexusSpacing.s3),
+              const SizedBox(height: NexusSpacing.s2),
               Text(
                 title,
-                style: NexusTypography.lead.copyWith(color: colors.ink),
+                style: NexusTypography.title.copyWith(
+                  color: colors.ink,
+                  height: 1.2,
+                ),
               ),
-              const SizedBox(height: NexusSpacing.s3),
-              // Lo que acompaña al texto —la tira de orbes de la primera
-              // parada— va **dentro** de la parte que cede: con el orbe grande
-              // del escenario le queda menos alto a la tarjeta, y fuera del
-              // scroll la desbordaba 41 px.
+              const SizedBox(height: NexusSpacing.s2),
               Flexible(
                 child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        body,
-                        style: NexusTypography.body.copyWith(
-                          color: colors.mute,
-                        ),
-                      ),
-                      if (extra != null) ...[
-                        const SizedBox(height: NexusSpacing.s4),
-                        extra,
-                      ],
-                    ],
+                  child: Text(
+                    body,
+                    style: NexusTypography.nota.copyWith(
+                      color: colors.mute,
+                      fontSize: 14,
+                      height: 1.55,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: NexusSpacing.s5),
-              // `Expanded` en el de saltar y no `spaceBetween` a secas: con los dos
-              // a su tamaño natural la fila **desbordaba 48 px**, y en inglés o con
-              // una tipografía más ancha volvería a pasar. Así el que cede es el
-              // secundario, que es el que puede ceder.
-              Row(
+              const SizedBox(height: NexusSpacing.s2),
+              // Los dos a la izquierda y el que se espera primero, como en el
+              // mockup. En un `Wrap` y no en una fila: en inglés o con otra
+              // letra, el segundo baja de línea en vez de desbordar.
+              Wrap(
+                spacing: NexusSpacing.s2,
+                runSpacing: NexusSpacing.s2,
                 children: [
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      // Saltar está siempre, y no escondido: un tour del que no se
-                      // puede salir es un peaje.
-                      child: TextButton(
-                        onPressed: onSkip,
-                        child: Text(
-                          context.strings.tourSkip,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: NexusTypography.label.copyWith(
-                            color: colors.faint,
-                          ),
-                        ),
-                      ),
-                    ),
+                  BotonDelArranque(
+                    texto: isLast ? strings.tourDone : strings.tourNext,
+                    principal: true,
+                    onPulsar: onNext,
                   ),
-                  const SizedBox(width: NexusSpacing.s3),
-                  FilledButton(
-                    onPressed: onNext,
-                    child: Text(
-                      isLast
-                          ? context.strings.tourDone
-                          : context.strings.tourNext,
-                      maxLines: 1,
-                    ),
-                  ),
+                  // Saltar está siempre, y no escondido: un tour del que no se
+                  // puede salir es un peaje.
+                  BotonDelArranque(texto: strings.tourSkip, onPulsar: onSkip),
                 ],
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-}
-
-/// El orbe en cuatro de sus estados, cada uno con su palabra.
-///
-/// Son **los mismos orbes** que la app pinta —misma forma, mismas capas—, no
-/// un dibujo aparte: lo que se aprende aquí tiene que reconocerse después en el
-/// grande, y un icono que lo imite enseñaría otra cosa. Cuatro y no cinco:
-/// pensando es trabajando sin decir nada, y se entiende cuando llega.
-///
-/// La palabra es la de la barra de arriba, no una nueva: una palabra por cosa.
-class ComoSeMueveElOrbe extends StatelessWidget {
-  const ComoSeMueveElOrbe({super.key});
-
-  /// Lo que se enseña, en el orden en que pasa: te espera, te oye, trabaja y
-  /// te contesta.
-  static const estados = [
-    NexusOrbState.sleep,
-    NexusOrbState.listen,
-    NexusOrbState.think,
-    NexusOrbState.speak,
-  ];
-
-  static const _lado = 56.0;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final strings = context.strings;
-    String palabra(NexusOrbState estado) => switch (estado) {
-      NexusOrbState.sleep => strings.asleep,
-      NexusOrbState.listen => strings.listening,
-      NexusOrbState.think => strings.working,
-      NexusOrbState.ponder => strings.pensando,
-      NexusOrbState.speak => strings.speaking,
-    };
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          strings.tourComoSeMueve,
-          style: NexusTypography.label.copyWith(color: colors.mute),
-        ),
-        const SizedBox(height: NexusSpacing.s2),
-        Row(
-          children: [
-            for (final estado in estados)
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox.square(
-                      dimension: _lado,
-                      child: NexusOrb(state: estado, oido: false),
-                    ),
-                    const SizedBox(height: NexusSpacing.s1),
-                    // Encoge antes que cortarse: «Escuchando» cortado en
-                    // «Escuchan…» ya no es la palabra de la barra.
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        palabra(estado),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        style: NexusTypography.control.copyWith(
-                          color: colors.ink,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ],
     );
   }
 }

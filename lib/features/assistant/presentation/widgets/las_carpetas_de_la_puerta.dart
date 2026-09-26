@@ -58,6 +58,13 @@ class LasCarpetasDeLaPuerta extends StatelessWidget {
 }
 
 /// Una sugerencia: solo contorno, que es lo que dice «disponible».
+///
+/// 🔴 **En mayúsculas y con la letra del instrumento**, el `.sugiere` del
+/// mockup: Oxanium 11, tracking .12em, 9×12 de relleno. En minúscula de frase
+/// y del tamaño de un botón cualquiera, debajo de un subtítulo de 30 px se
+/// perdían; así se leen como lo que son, las respuestas que se pueden tocar,
+/// y no como una línea más de lo que se dice. El nombre de la carpeta llega
+/// tal cual al lector de pantalla.
 class _Sugerencia extends StatelessWidget {
   const _Sugerencia({
     required this.texto,
@@ -81,14 +88,23 @@ class _Sugerencia extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(NexusRadius.sm),
         ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: NexusSpacing.s3,
-          vertical: NexusSpacing.s2,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
-      child: Text(texto, style: NexusTypography.control.copyWith(color: color)),
+      child: Semantics(
+        label: texto,
+        excludeSemantics: true,
+        child: Text(
+          texto.toUpperCase(),
+          style: NexusTypography.label.copyWith(
+            fontSize: 11,
+            letterSpacing: 1.32,
+            height: 1,
+            color: color,
+          ),
+        ),
+      ),
     );
   }
 }

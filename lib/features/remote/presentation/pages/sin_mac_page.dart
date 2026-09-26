@@ -82,7 +82,8 @@ class SinMacPage extends ConsumerWidget {
         apagado: true,
         titulo: strings.mobileUnreachableTitle,
         cuerpo: strings.mobileUnreachableBody,
-        detalle: direccion,
+        // Sin la dirección debajo, como el mockup: el chip de la cabecera ya dice
+        // «no llego · ¿Tailscale?», y lo que se viene a leer aquí es qué hacer.
         acciones: [
           reintentar,
           WideAction(

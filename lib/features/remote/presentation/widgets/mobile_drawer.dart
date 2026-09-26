@@ -45,23 +45,23 @@ class MobileDrawer extends ConsumerWidget {
       // que dice que esto se cierra enseguida. Un menú a pantalla completa se siente
       // como haber navegado a otra parte.
       width: MediaQuery.of(context).size.width * 0.78,
-      shape: Border(right: BorderSide(color: colors.rule)),
+      shape: Border(right: BorderSide(color: colors.rule2)),
       child: SafeArea(
         // **Desplazable, y no por gusto.** Con cuatro entradas y el pie, esto se
         // desborda en una pantalla corta —lo destapó una prueba a 800×600, que es
         // también un teléfono pequeño de lado o con la letra grande del sistema—. Un
         // menú que se corta esconde precisamente la entrada de abajo.
+        //
+        // Con el margen de 20 del mockup **alrededor de todo**, las líneas incluidas:
+        // las hairlines de lado a lado convertían las entradas en una tabla, y el
+        // mockup las deja como una lista que respira dentro del panel.
         child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 13, 20, NexusSpacing.s4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  NexusSpacing.s4,
-                  NexusSpacing.s5,
-                  NexusSpacing.s4,
-                  NexusSpacing.s3,
-                ),
+                padding: const EdgeInsets.only(bottom: 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -69,12 +69,15 @@ class MobileDrawer extends ConsumerWidget {
                       strings.mobileThisMac,
                       style: NexusTypography.label.copyWith(color: colors.mute),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: NexusSpacing.s1),
                     Text(
                       // La dirección y **no la huella del token**: lo que identifica al
                       // Mac aquí es dónde está, y el token no se enseña ni en trozos.
                       pareja?.comoSeVe ?? strings.mobileUnpaired,
-                      style: NexusTypography.data.copyWith(color: colors.mute),
+                      style: NexusTypography.data.copyWith(
+                        color: colors.mute,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -99,7 +102,7 @@ class MobileDrawer extends ConsumerWidget {
               ),
               // La única destructiva, y va **al final y separada**: el sitio donde no
               // se toca por error al buscar otra cosa.
-              const SizedBox(height: NexusSpacing.s6),
+              const SizedBox(height: 30),
               _Olvidar(
                 alOlvidar: () =>
                     ref.read(pairingControllerProvider.notifier).olvidar(),
@@ -155,7 +158,7 @@ class _OlvidarState extends State<_Olvidar> {
     return Container(
       key: const ValueKey('olvidar-preguntando'),
       width: double.infinity,
-      padding: const EdgeInsets.all(NexusSpacing.s4),
+      padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s3),
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: colors.rule)),
       ),
@@ -208,10 +211,7 @@ class _Entrada extends StatelessWidget {
       onTap: alTocar,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-          horizontal: NexusSpacing.s4,
-          vertical: NexusSpacing.s3,
-        ),
+        padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s3),
         decoration: BoxDecoration(
           // Hairline arriba, como los bloques de la conversación: es el mismo sistema,
           // y una lista con separadores propios se leería como otra app.
@@ -223,14 +223,24 @@ class _Entrada extends StatelessWidget {
             Text(
               titulo,
               // En rojo la que no tiene vuelta sin volver a emparejar, como el
-              // mockup: el color va **con** la palabra, que es la que lo dice.
+              // mockup: el color va **con** la palabra, que es la que lo dice. Las
+              // demás a 500, que es lo que las hace leer como sitios a los que ir;
+              // la roja se queda en 400 para no gritar además de ser roja.
               style: NexusTypography.body.copyWith(
                 color: peligrosa ? colors.err : colors.ink,
+                fontWeight: peligrosa ? FontWeight.w400 : FontWeight.w500,
+                fontVariations: [FontVariation('wght', peligrosa ? 400 : 500)],
+                height: 1.4,
               ),
             ),
-            const SizedBox(height: 2),
             // El pie en sans: explica, no es un dato.
-            Text(pie, style: NexusTypography.nota.copyWith(color: colors.mute)),
+            Text(
+              pie,
+              style: NexusTypography.nota.copyWith(
+                color: colors.mute,
+                fontSize: 12.5,
+              ),
+            ),
           ],
         ),
       ),

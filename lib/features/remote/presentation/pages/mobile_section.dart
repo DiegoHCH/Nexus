@@ -9,6 +9,7 @@ import 'package:nexus/features/remote/presentation/providers/write_phrase_provid
 import 'package:nexus/features/remote/domain/channel_token.dart';
 import 'package:nexus/features/remote/domain/pairing.dart';
 import 'package:nexus/features/remote/domain/pairing_code.dart';
+import 'package:nexus/features/remote/domain/write_phrase.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/apagado_o_encendido.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -27,81 +28,47 @@ class MobileSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final strings = context.strings;
     final estado = ref.watch(channelControllerProvider);
     final control = ref.read(channelControllerProvider.notifier);
 
-    // **El scroll, aquí y solo aquí.** El primer intento fue envolver el hueco donde
-    // Ajustes pinta cualquier seccion, y eso rompio las que llenan el alto a
-    // proposito —historial, permisos, voz, superpoderes usan `Expanded` en su raiz—:
-    // un `Expanded` dentro de algo que hace scroll es una contradiccion, y Flutter la
-    // rechaza. El arreglo estrecho es el correcto: esta seccion creció hasta no caber,
-    // y es la unica que se corta.
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: NexusSpacing.s6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            strings.channelTitle,
-            style: NexusTypography.label.copyWith(color: colors.faint),
-          ),
-          const SizedBox(height: NexusSpacing.s2),
-          // En sans y no en mono: es una explicación, y en mono se leía como un
-          // registro.
-          Text(
-            strings.channelExplainer,
-            style: NexusTypography.nota.copyWith(color: colors.mute),
-          ),
-          const SizedBox(height: NexusSpacing.s5),
-          Text(
-            strings.channelSwitch.toUpperCase(),
-            style: NexusTypography.label.copyWith(color: colors.faint),
-          ),
-          const SizedBox(height: NexusSpacing.s2),
-          // Dos opciones con nombre y no un interruptor: el canal es una puerta
-          // por la que algo sale del Mac, y lo que cuesta abrirla tiene que
-          // leerse antes de abrirla.
-          ApagadoOEncendido(
-            llave: 'canal',
-            encendido: estado is ChannelOn || estado is ChannelStarting,
-            costeApagado: strings.canalCosteApagado,
-            costeEncendido: strings.canalCosteEncendido,
-            onCambiar: (encender) =>
-                encender ? control.encender() : control.apagar(),
-          ),
-          const SizedBox(height: NexusSpacing.s5),
-          switch (estado) {
-            ChannelOff() => const SizedBox.shrink(),
-            ChannelStarting() => _Nota(strings.channelStarting),
-            final ChannelOn on => _Encendido(url: on.url),
-            final ChannelUnavailable no => _Problema(no.reason),
-          },
-          const SizedBox(height: NexusSpacing.s7),
-          const _Frase(),
-          const SizedBox(height: NexusSpacing.s7),
-          // Dicho sin rodeos y no en letra pequeña al final: quien enciende esto hoy
-          // no tiene con qué conectarse.
-          Container(
-            decoration: BoxDecoration(
-              color: colors.deep,
-              border: Border.all(color: colors.rule),
-              borderRadius: BorderRadius.circular(NexusRadius.sm),
+    // **El scroll, aquí y solo aquí**, como cada sección: el hueco donde
+    // Ajustes pinta las secciones no lo trae, porque las que llenan el alto a
+    // propósito —superpoderes, estadísticas— usan `Expanded` en su raíz.
+    return BloquesDeAjustes(
+      bloques: [
+        BloqueDeAjustes(
+          rotulo: strings.channelTitle,
+          hijos: [
+            TextoDeAjustes(strings.channelExplainer),
+            // Dos opciones con nombre y no un interruptor: el canal es una
+            // puerta por la que algo sale del Mac, y se decide leyendo.
+            ApagadoOEncendido(
+              llave: 'canal',
+              encendido: estado is ChannelOn || estado is ChannelStarting,
+              onCambiar: (encender) =>
+                  encender ? control.encender() : control.apagar(),
             ),
-            padding: const EdgeInsets.all(NexusSpacing.s5),
-            child: Text(
-              strings.channelNoPhoneYet,
-              style: NexusTypography.nota.copyWith(color: colors.mute),
-            ),
-          ),
-        ],
-      ),
+            ...switch (estado) {
+              ChannelOff() => const <Widget>[],
+              ChannelStarting() => [
+                EstadoDeAjustes(
+                  tono: TonoDeAjustes.apagado,
+                  texto: strings.channelStarting,
+                ),
+              ],
+              final ChannelOn on => [_Encendido(url: on.url)],
+              final ChannelUnavailable no => [_Problema(no.reason)],
+            },
+          ],
+        ),
+        const _Frase(),
+      ],
     );
   }
 }
 
-/// Dónde escucha, y el token para llegar.
+/// Dónde escucha, el código para el teléfono y lo que se hace con el token.
 class _Encendido extends ConsumerWidget {
   const _Encendido({required this.url});
 
@@ -109,81 +76,76 @@ class _Encendido extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final strings = context.strings;
     final token = ref.watch(channelTokenControllerProvider);
+    final actual = token.value;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          strings.channelListeningAt,
-          style: NexusTypography.label.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s2),
-        SelectableText(
-          url,
-          key: const ValueKey('direccion-del-canal'),
-          style: NexusTypography.mono.copyWith(color: colors.accent),
-        ),
-        const SizedBox(height: NexusSpacing.s5),
-        Text(
-          strings.channelToken,
-          style: NexusTypography.label.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s2),
-        // **La huella y no el token.** Se enseña entero solo al copiarlo, porque
-        // esta pantalla se comparte en capturas y en pantallas compartidas más de
-        // lo que parece — y un secreto de 43 caracteres a la vista es un secreto
-        // que ya viajó.
+        // La dirección en su frase de estado, en verde: es lo que dice que el
+        // canal está abierto de verdad, y se puede seleccionar para copiarla.
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              token.value?.fingerprint ?? '—',
-              style: NexusTypography.mono.copyWith(color: colors.mute),
-            ),
-            const SizedBox(width: NexusSpacing.s4),
-            if (token.value case final actual?)
-              TextButton(
-                key: const ValueKey('copiar-el-token'),
-                onPressed: () =>
-                    Clipboard.setData(ClipboardData(text: actual.value)),
-                child: Text(strings.channelCopyToken),
+            Flexible(
+              child: EstadoDeAjustes(
+                tono: TonoDeAjustes.bien,
+                texto: strings.channelListeningAt,
               ),
-            TextButton(
-              key: const ValueKey('rotar-el-token'),
-              onPressed: ref
-                  .read(channelControllerProvider.notifier)
-                  .rotarToken,
-              child: Text(strings.channelRotateToken),
+            ),
+            const SizedBox(width: 5),
+            Flexible(
+              child: SelectableText(
+                url,
+                key: const ValueKey('direccion-del-canal'),
+                style: NexusTypography.mono.copyWith(color: context.colors.ok),
+              ),
             ),
           ],
         ),
-        const SizedBox(height: NexusSpacing.s2),
-        Text(
-          strings.channelRotateWarning,
-          style: NexusTypography.nota.copyWith(color: colors.mute),
-        ),
-        if (token.value case final actual?) ...[
-          const SizedBox(height: NexusSpacing.s6),
+        if (actual != null) ...[
+          const SizedBox(height: 12),
           _CodigoParaElMovil(url: url, token: actual),
         ],
+        const SizedBox(height: 12),
+        // **El token no se enseña, ni su huella en grande**: se copia o se
+        // rota. Esta pantalla se comparte en capturas más de lo que parece, y
+        // un secreto de 43 caracteres a la vista es un secreto que ya viajó.
+        AccionesDeAjustes(
+          botones: [
+            if (actual != null)
+              BotonDeAjustes(
+                key: const ValueKey('copiar-el-token'),
+                texto: strings.channelCopyToken,
+                tono: TonoDeBoton.principal,
+                tooltip: actual.fingerprint,
+                onPulsar: () =>
+                    Clipboard.setData(ClipboardData(text: actual.value)),
+              ),
+            BotonDeAjustes(
+              key: const ValueKey('rotar-el-token'),
+              texto: strings.channelRotateToken,
+              onPulsar: ref.read(channelControllerProvider.notifier).rotarToken,
+            ),
+          ],
+        ),
       ],
     );
   }
 }
 
-/// El QR que el teléfono escanea.
+/// El QR que el teléfono escanea, con su explicación al lado.
 ///
 /// **No es un mecanismo de emparejamiento: es no teclear 43 caracteres.** Lleva
-/// exactamente los dos valores que están justo encima —la dirección y el token— así
-/// que escribirlos a mano sigue siendo la ruta de verdad y esta es la cómoda.
+/// exactamente la dirección y el token, así que escribirlos a mano sigue siendo
+/// la ruta de verdad y esta es la cómoda.
 ///
-/// **Se enseña siempre, sin botón.** La primera versión lo escondía detrás de un «ver
-/// el código» razonando que un QR con el token dentro acaba en cualquier foto de esta
-/// pantalla — y el razonamiento no aguanta: la dirección se enseña entera y el token
-/// se copia con un clic justo encima, así que el secreto ya estaba a un gesto. Lo
-/// único que añadía el botón era un paso en la pantalla que se abre **para** emparejar.
+/// **Se enseña siempre, sin botón.** La primera versión lo escondía detrás de un
+/// «ver el código» razonando que un QR con el token dentro acaba en cualquier
+/// foto de esta pantalla — y el razonamiento no aguanta: el token se copia con
+/// un clic justo debajo, así que el secreto ya estaba a un gesto. Lo único que
+/// añadía el botón era un paso en la pantalla que se abre **para** emparejar.
 class _CodigoParaElMovil extends StatelessWidget {
   const _CodigoParaElMovil({required this.url, required this.token});
 
@@ -192,35 +154,36 @@ class _CodigoParaElMovil extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final strings = context.strings;
     final pareja = Pairing(url: Uri.parse(url), token: token);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Text(
-          strings.channelQrExplainer,
-          style: NexusTypography.nota.copyWith(color: colors.mute),
-        ),
-        const SizedBox(height: NexusSpacing.s4),
-        // Sobre blanco y con margen: un QR sobre el fondo oscuro de la app lo lee
-        // **peor** casi cualquier cámara, porque los lectores esperan módulos oscuros
-        // sobre claro. Es el único sitio de la app donde algo se pinta en blanco, y
-        // tiene ese motivo.
+        // Sobre blanco y con margen: un QR sobre el fondo oscuro de la app lo
+        // lee **peor** casi cualquier cámara, porque los lectores esperan
+        // módulos oscuros sobre claro. Es el único sitio de la app donde algo
+        // se pinta en blanco, y tiene ese motivo. Más pequeño que antes —como
+        // el mockup, al lado de su explicación—, y sigue leyéndose de sobra:
+        // en una pantalla no se arruga ni se mancha.
         Container(
           key: const ValueKey('el-qr'),
-          padding: const EdgeInsets.all(NexusSpacing.s3),
-          color: Colors.white,
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(NexusRadius.sm),
+          ),
           child: QrImageView(
             data: PairingCode.componer(pareja),
-            size: 190,
+            size: 120,
+            padding: EdgeInsets.zero,
             backgroundColor: Colors.white,
-            // Corrección media: un QR en pantalla no se arruga ni se mancha, así que
-            // la redundancia alta solo lo haría más denso y más difícil de enfocar.
+            // Corrección media: la redundancia alta solo lo haría más denso y
+            // más difícil de enfocar.
             errorCorrectionLevel: QrErrorCorrectLevel.M,
           ),
         ),
+        const SizedBox(width: 18),
+        Expanded(child: TextoDeAjustes(strings.channelQrExplainer)),
       ],
     );
   }
@@ -233,111 +196,67 @@ class _Problema extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final strings = context.strings;
-    return Container(
+    // Cada problema con **lo que hay que hacer**, no solo con lo que pasó, y
+    // en ámbar: no es que el canal esté roto, es que falta algo para abrirlo.
+    return EstadoDeAjustes(
       key: const ValueKey('problema-del-canal'),
-      decoration: BoxDecoration(
-        color: colors.deep,
-        border: Border.all(color: colors.warn),
-        borderRadius: BorderRadius.circular(NexusRadius.sm),
-      ),
-      padding: const EdgeInsets.all(NexusSpacing.s5),
-      child: Text(
-        // Cada problema con **lo que hay que hacer**, no solo con lo que pasó.
-        switch (reason) {
-          ChannelProblem.noTailscale => strings.channelNeedsTailscale,
-          ChannelProblem.portBusy => strings.channelPortBusy,
-          ChannelProblem.unknown => strings.channelUnknownProblem,
-        },
-        style: NexusTypography.body.copyWith(color: colors.mute),
-      ),
+      tono: TonoDeAjustes.atencion,
+      texto: switch (reason) {
+        ChannelProblem.noTailscale => strings.channelNeedsTailscale,
+        ChannelProblem.portBusy => strings.channelPortBusy,
+        ChannelProblem.unknown => strings.channelUnknownProblem,
+      },
     );
   }
 }
 
-class _Nota extends StatelessWidget {
-  const _Nota(this.texto);
-
-  final String texto;
-
-  @override
-  Widget build(BuildContext context) => Text(
-    texto,
-    style: NexusTypography.nota.copyWith(color: context.colors.mute),
-  );
-}
-
 /// La frase de escritura: si existe, y cómo cambiarla. **Nunca cuál es.**
 ///
-/// Ni siquiera su huella, al contrario que el token. El token hay que copiarlo al
-/// teléfono alguna vez, así que enseñarlo tiene un para qué; la frase se teclea de
-/// memoria y no hay ninguna razón para que aparezca en esta pantalla — que se
-/// comparte en capturas más de lo que parece.
+/// Ni siquiera su huella, al contrario que el token. El token hay que copiarlo
+/// al teléfono alguna vez, así que enseñarlo tiene un para qué; la frase se
+/// teclea de memoria y no hay ninguna razón para que aparezca en esta pantalla.
 class _Frase extends ConsumerWidget {
   const _Frase();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final strings = context.strings;
     final definida = ref.watch(writePhraseControllerProvider).value ?? false;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          strings.phraseTitle,
-          style: NexusTypography.label.copyWith(color: colors.faint),
+    return BloqueDeAjustes(
+      rotulo: strings.phraseTitle,
+      hijos: [
+        // Sin frase no es un error —es el estado por defecto y el seguro—, así
+        // que va con el punto apagado y no en ámbar.
+        EstadoDeAjustes(
+          key: const ValueKey('estado-de-la-frase'),
+          tono: definida ? TonoDeAjustes.bien : TonoDeAjustes.apagado,
+          texto: definida
+              ? strings.phraseDefinedFor(WriteGrant.duracion.inMinutes)
+              : strings.phraseMissing,
         ),
-        const SizedBox(height: NexusSpacing.s2),
-        Text(
-          strings.phraseExplainer,
-          style: NexusTypography.nota.copyWith(color: colors.mute),
-        ),
-        const SizedBox(height: NexusSpacing.s4),
-        Row(
-          children: [
-            // `Expanded` y no un `Spacer` detrás: el texto de «sin definir» es una
-            // frase entera, y con ancho libre empujaba los botones fuera de la
-            // columna —desbordaba 14 px, lo dijo la prueba que abre las secciones
-            // antes de que nadie lo viera—. Así el texto cede y los botones se
-            // quedan donde tienen que estar.
-            Expanded(
-              child: Text(
-                definida ? strings.phraseDefined : strings.phraseMissing,
-                key: const ValueKey('estado-de-la-frase'),
-                style: NexusTypography.data.copyWith(
-                  // Sin frase no es un error —es el estado por defecto y el
-                  // seguro— así que se dice en el tono de un dato, no de una
-                  // advertencia.
-                  color: definida ? colors.ink : colors.mute,
-                ),
-              ),
+        AccionesDeAjustes(
+          botones: [
+            BotonDeAjustes(
+              key: const ValueKey('definir-la-frase'),
+              texto: definida ? strings.phraseChange : strings.phraseDefine,
+              tono: TonoDeBoton.principal,
+              onPulsar: () => _PhraseDialog.open(context),
             ),
-            const SizedBox(width: NexusSpacing.s3),
             if (definida)
-              TextButton(
+              BotonDeAjustes(
                 key: const ValueKey('quitar-la-frase'),
-                onPressed: ref
+                texto: strings.phraseRemove,
+                onPulsar: ref
                     .read(writePhraseControllerProvider.notifier)
                     .borrar,
-                child: Text(strings.phraseRemove),
               ),
-            TextButton(
-              key: const ValueKey('definir-la-frase'),
-              onPressed: () => _PhraseDialog.open(context),
-              child: Text(
-                definida ? strings.phraseChange : strings.phraseDefine,
-              ),
-            ),
           ],
         ),
-        const SizedBox(height: NexusSpacing.s2),
-        Text(
-          strings.phraseChangeWarning,
-          style: NexusTypography.nota.copyWith(color: colors.mute),
-        ),
+        // Lo que cuesta cambiarla, dicho donde se cambia: cierra el permiso
+        // de escritura que estuviera abierto en el teléfono.
+        if (definida) TextoDeAjustes(strings.phraseChangeWarning, tamano: 12.5),
       ],
     );
   }
@@ -447,13 +366,13 @@ class _PhraseDialogState extends ConsumerState<_PhraseDialog> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: Text(strings.cancel),
+                    child: Text(strings.cancel.toUpperCase()),
                   ),
                   const Spacer(),
                   FilledButton(
                     key: const ValueKey('guardar-la-frase'),
                     onPressed: _guardar,
-                    child: Text(strings.phraseSave),
+                    child: Text(strings.phraseSave.toUpperCase()),
                   ),
                 ],
               ),

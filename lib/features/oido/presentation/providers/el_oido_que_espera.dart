@@ -2,8 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
+import 'package:nexus/features/assistant/domain/usecases/la_puerta_de_la_voz.dart';
 import 'package:nexus/core/design_system/accent_preference.dart';
 import 'package:nexus/core/design_system/orbe_preference.dart';
+import 'package:nexus/core/design_system/theme_preference.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/core/platform/escucha_channel.dart';
 import 'package:nexus/core/platform/orbe_channel.dart';
@@ -88,6 +91,21 @@ class ElOidoQueEspera {
     if (!_ref.mounted) return;
     _ref.invalidate(elOidoEstaEncendidoProvider);
     await cuadrar();
+  }
+
+  /// Dónde se guarda si contesta al llamarla.
+  static const saluda = 'oido_saluda';
+
+  /// Si contesta «¿Sí, Argonauta?» al llamarla o se abre en silencio.
+  ///
+  /// Contestar es lo de fábrica, por lo que cuenta [_elSaludo]: desde el otro
+  /// lado de la habitación el silencio no dice si te oyó. Pero el mockup lo
+  /// deja elegir, y tiene razón: con la app delante —o de noche, con alguien
+  /// durmiendo— el saludo sobra, y ver el orbe salir ya dice que te oyó.
+  Future<void> cambiarSaludo({required bool aSaludar}) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(saluda, aSaludar);
+    if (_ref.mounted) _ref.invalidate(elOidoSaludaProvider);
   }
 
   /// Enciende o apaga según el ajuste y según si hay voz abierta.
@@ -178,7 +196,8 @@ class ElOidoQueEspera {
     final cual = _ref.read(conversationsProvider).focused?.id;
     if (cual == null ||
         _llamando ||
-        _ref.read(assistantControllerProvider(cual)).voiceActive) {
+        _ref.read(assistantControllerProvider(cual)).voiceActive ||
+        _laCarpetaQueNoHabla() != null) {
       return;
     }
     unawaited(
@@ -186,6 +205,7 @@ class ElOidoQueEspera {
         NexusOrbState.listen.name,
         _elAcento(),
         estilo: _elEstilo(),
+        claro: _esClaro(),
       ),
     );
   }
@@ -202,6 +222,14 @@ class ElOidoQueEspera {
         (cual != null &&
             _ref.read(assistantControllerProvider(cual)).voiceActive)) {
       debugPrint('escucha · te llamaron con la voz ya abierta: se ignora');
+      return;
+    }
+    // 🔴 **Con delante una conversación de solo texto la voz no se abre**, y
+    // antes el orbe salía igual y se quedaba fuera quince segundos sin decir
+    // por qué. Ahora no sale, y ella dice qué pasa y qué hacer.
+    if (_laCarpetaQueNoHabla() case final carpeta?) {
+      debugPrint('escucha · te llamaron en una carpeta de solo texto');
+      unawaited(_decirQueEsDeSoloTexto(carpeta));
       return;
     }
     if (cual == null) {
@@ -223,6 +251,7 @@ class ElOidoQueEspera {
         NexusOrbState.listen.name,
         _elAcento(),
         estilo: _elEstilo(),
+        claro: _esClaro(),
       ),
     );
     _llamando = true;
@@ -242,10 +271,45 @@ class ElOidoQueEspera {
       _ref
           .read(assistantControllerProvider(cual).notifier)
           .toggleVoice(
-            saludo: resto.isEmpty ? _elSaludo() : null,
+            saludo: resto.isEmpty && _contesta() ? _elSaludo() : null,
             primeraFrase: resto.isEmpty ? null : resto,
           ),
     );
+  }
+
+  /// El nombre de la carpeta que no deja abrir la voz en la conversación que
+  /// tienes delante —la suya, o la emparejada donde cae el cajón de
+  /// documentos—, o `null` si se puede hablar. La misma regla que usa
+  /// `toggleVoice`: ver [SiSePuedeAbrirLaVoz].
+  String? _laCarpetaQueNoHabla() {
+    final enFoco = _ref.read(conversationsProvider).focused;
+    if (enFoco == null) return null;
+    final workspace = _ref.read(workspaceControllerProvider);
+    final estorba = SiSePuedeAbrirLaVoz.loQueEstorba(
+      carpeta: workspace.folders
+          .where((f) => f.path == enFoco.folderPath)
+          .firstOrNull,
+      duenoDelCajon: workspace.textOnlyOwnerOf(
+        _ref.read(artifactsFolderProvider),
+      ),
+    );
+    return switch (estorba) {
+      LaCarpetaEsDeSoloTexto(:final carpeta) => carpeta.name,
+      ElCajonCaeEnUnaDeSoloTexto(:final carpeta) => carpeta.name,
+      _ => null,
+    };
+  }
+
+  Future<void> _decirQueEsDeSoloTexto(String carpeta) async {
+    await _ref
+        .read(laVozQueAvisaProvider)
+        .decir(
+          titulo: _ref.read(losNombresProvider).agente ?? 'Nexus',
+          frase: _ref
+              .read(stringsProvider)
+              .alLlamarlaSoloTexto(_ref.read(losNombresProvider).tuyo, carpeta),
+        );
+    if (_ref.mounted) await cuadrar();
   }
 
   Future<void> _decirQueNoHayConversacion() async {
@@ -271,6 +335,11 @@ class ElOidoQueEspera {
   String _elSaludo() =>
       _ref.read(stringsProvider).alLlamarla(_ref.read(losNombresProvider).tuyo);
 
+  /// Si al llamarla contesta. Lo que no se ha leído todavía cuenta como sí,
+  /// que es lo de fábrica: el proveedor se mantiene cargado desde que el oído
+  /// se arma, así que en la práctica ya está leído cuando alguien la llama.
+  bool _contesta() => _ref.read(elOidoSaludaProvider).value ?? true;
+
   /// El acento elegido, que viaja con cada aviso: el orbe de fuera corre en
   /// otro motor y no puede leer los ajustes por su cuenta.
   int _elAcento() => _ref.read(accentControllerProvider).chosen.toARGB32();
@@ -278,6 +347,10 @@ class ElOidoQueEspera {
   /// Y el estilo del orbe, por lo mismo: plasma o puntos y sus ajustes, para
   /// que el de fuera sea el mismo que el de dentro.
   Map<String, Object> _elEstilo() => _ref.read(orbeEstiloProvider).toMap();
+
+  /// Y el tema, ya resuelto contra el sistema: el orbe de fuera sigue el claro
+  /// o el oscuro que se ve en la app, como pide el mockup.
+  bool _esClaro() => !_ref.read(isDarkProvider);
 
   ProviderSubscription<AssistantHudState>? _mirando;
 
@@ -297,6 +370,7 @@ class ElOidoQueEspera {
             ahora.orbState.name,
             _elAcento(),
             estilo: _elEstilo(),
+            claro: _esClaro(),
           ),
         );
         return;
@@ -326,6 +400,9 @@ final elOidoQueEsperaProvider = Provider<ElOidoQueEspera>((ref) {
   // cambio cualquiera: la llamabas y no te oía. Las que se abren llamándola ya
   // cuadraban al cerrarse; estas no.
   ref.listen(_hayVozAbiertaProvider, (_, _) => unawaited(oido.cuadrar()));
+  // Escuchado solo para tenerlo leído: la llamada se contesta en el acto y no
+  // puede esperar al disco para saber si saluda.
+  ref.listen(elOidoSaludaProvider, (_, _) {});
   ref.listen(losNombresProvider.select((nombres) => nombres.agente), (
     antes,
     ahora,
@@ -351,4 +428,10 @@ final _hayVozAbiertaProvider = Provider<bool>(
 final elOidoEstaEncendidoProvider = FutureProvider<bool>((ref) async {
   final prefs = await SharedPreferences.getInstance();
   return prefs.getBool(ElOidoQueEspera.encendido) ?? false;
+});
+
+/// Si contesta al llamarla. Nace en sí; ver [ElOidoQueEspera.cambiarSaludo].
+final elOidoSaludaProvider = FutureProvider<bool>((ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(ElOidoQueEspera.saluda) ?? true;
 });

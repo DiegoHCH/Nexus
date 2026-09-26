@@ -7,7 +7,6 @@ import 'package:nexus/features/avisos/presentation/providers/el_que_habla_primer
 import 'package:nexus/features/prs/presentation/providers/el_vigilante_de_los_pr.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/apagado_o_encendido.dart';
-import 'package:nexus/features/workspace/presentation/pages/settings/settings_chooser.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -30,167 +29,156 @@ class AvisosSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final strings = context.strings;
     final avisos = ref.watch(elVigilanteDeLaAgendaProvider);
     final vigilante = ref.read(elVigilanteDeLaAgendaProvider.notifier);
     final carpetas = ref.watch(workspaceControllerProvider).folders;
+    final cuanto = minutos.contains(avisos.minutos) ? avisos.minutos : 5;
+    final enVozAlta = ref.watch(losAvisosEnVozAltaProvider).value ?? true;
 
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Rotulo(strings.avisosOn),
-          Text(
-            strings.avisosExplainer,
-            style: NexusTypography.nota.copyWith(color: colors.mute),
-          ),
-          const SizedBox(height: NexusSpacing.s3),
-          ApagadoOEncendido(
-            llave: 'avisos-reuniones',
-            encendido: avisos.encendidos,
-            costeApagado: strings.avisosCosteApagado,
-            costeEncendido: strings.avisosCosteEncendido(
-              minutos.contains(avisos.minutos) ? avisos.minutos : 5,
+    return BloquesDeAjustes(
+      bloques: [
+        BloqueDeAjustes(
+          rotulo: strings.avisosOn,
+          hijos: [
+            TextoDeAjustes(strings.avisosExplainer),
+            // Lo que cuesta, solo en «Encendido» y en minutos: es lo único que
+            // cambia de un día a otro, y «ninguna reunión suena» al lado de
+            // «Apagado» decía lo mismo dos veces.
+            ApagadoOEncendido(
+              llave: 'avisos-reuniones',
+              encendido: avisos.encendidos,
+              costeEncendido: strings.avisosCosteEncendido(cuanto),
+              onCambiar: (on) => vigilante.cambiar(encendidos: on),
             ),
-            onCambiar: (on) => vigilante.cambiar(encendidos: on),
-          ),
-          const SizedBox(height: NexusSpacing.s5),
-          // Los PR mezclados: el otro aviso que ocurre sin que lo pidas, y por
-          // eso va aquí y no en una sección propia — quien viene a esta pantalla
-          // viene a decidir de qué quiere enterarse solo.
-          _Rotulo(strings.avisosPrOn),
-          Text(
-            strings.avisosPrExplainer,
-            style: NexusTypography.nota.copyWith(color: colors.mute),
-          ),
-          const SizedBox(height: NexusSpacing.s3),
-          ApagadoOEncendido(
-            llave: 'avisos-pr',
-            encendido: ref.watch(losAvisosDePrProvider).value ?? false,
-            costeApagado: strings.avisosPrCosteApagado,
-            costeEncendido: strings.avisosPrCosteEncendido,
-            onCambiar: (on) async {
-              await ElVigilanteDeLosPr.cambiar(a: on);
-              ref.invalidate(losAvisosDePrProvider);
-            },
-          ),
-          const SizedBox(height: NexusSpacing.s5),
-          // Que hable solo: el interruptor de lo único que Nexus hace **sin**
-          // que se lo pidan y **con voz**. Va aquí por lo mismo que el de los
-          // PR — quien viene a esta pantalla viene a decidir de qué quiere
-          // enterarse solo— y va el último porque es el más ruidoso.
-          _Rotulo(strings.avisosEnVozAltaOn),
-          Text(
-            strings.avisosEnVozAltaExplainer,
-            style: NexusTypography.nota.copyWith(color: colors.mute),
-          ),
-          const SizedBox(height: NexusSpacing.s3),
-          ApagadoOEncendido(
-            llave: 'avisos-en-voz-alta',
-            encendido: ref.watch(losAvisosEnVozAltaProvider).value ?? true,
-            costeApagado: strings.avisosEnVozAltaCosteApagado,
-            costeEncendido: strings.avisosEnVozAltaCosteEncendido,
-            onCambiar: (on) async {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setBool(ElQueHablaPrimero.encendido, on);
-              ref.invalidate(losAvisosEnVozAltaProvider);
-            },
-          ),
-          // Y si habla **también** con Nexus delante. Va debajo y no al lado
-          // porque solo tiene sentido con lo de arriba encendido, y porque lo
-          // que decide es algo que la app no puede saber: con tres pantallas,
-          // tenerla delante y estar mirándola dejan de ser lo mismo.
-          const SizedBox(height: NexusSpacing.s4),
-          _Rotulo(strings.avisosAunqueLaMiresOn),
-          ApagadoOEncendido(
-            llave: 'avisos-aunque-la-mires',
-            encendido: ref.watch(losAvisosAunqueLaMiresProvider).value ?? true,
-            costeApagado: strings.avisosAunqueLaMiresCosteApagado,
-            costeEncendido: strings.avisosAunqueLaMiresCosteEncendido,
-            onCambiar: (on) async {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setBool(ElQueHablaPrimero.aunqueLaMires, on);
-              ref.invalidate(losAvisosAunqueLaMiresProvider);
-            },
-          ),
-          const SizedBox(height: NexusSpacing.s5),
-          Text(
-            strings.avisosCarpeta,
-            style: NexusTypography.label.copyWith(color: colors.faint),
-          ),
-          const SizedBox(height: NexusSpacing.s2),
-          SettingsChooser<String>(
-            value: _elegida(avisos.carpeta, carpetas),
-            options: ['', for (final carpeta in carpetas) carpeta.path],
-            label: (ruta) =>
-                ruta.isEmpty ? strings.avisosSinCarpeta : ruta.split('/').last,
-            detail: (ruta) => ruta.isEmpty ? '' : ruta,
-            onSelected: (ruta) =>
-                vigilante.cambiar(carpeta: ruta.isEmpty ? null : ruta),
-          ),
-          const SizedBox(height: NexusSpacing.s5),
-          Text(
-            strings.avisosCuanto,
-            style: NexusTypography.label.copyWith(color: colors.faint),
-          ),
-          const SizedBox(height: NexusSpacing.s2),
-          SettingsChooser<int>(
-            value: minutos.contains(avisos.minutos) ? avisos.minutos : 5,
-            options: minutos,
-            label: (m) => '$m min',
-            onSelected: (m) => vigilante.cambiar(minutos: m),
-          ),
-          const SizedBox(height: NexusSpacing.s5),
-          // 🔴 El botón y la hora juntos, y no el botón solo.
-          //
-          // La agenda en memoria **envejece sin avisar**: lo que programes a
-          // media mañana no está en lo que se leyó al arrancar. Ver a qué hora
-          // se leyó es lo que convierte eso en algo que puedes corregir, en vez
-          // de en una ausencia de la que nadie se entera.
-          //
-          // En un `Wrap` y no en una fila: en la columna de la hoja los dos
-          // botones y la hora no caben en una línea —117 px de más, medidos— y
-          // la hora es lo que se caería, que es justo lo que no puede faltar.
-          Wrap(
-            spacing: NexusSpacing.s3,
-            runSpacing: NexusSpacing.s2,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              OutlinedButton(
-                onPressed: avisos.listos
-                    ? () => ref
-                          .read(elVigilanteDeLaAgendaProvider.notifier)
-                          .releer()
-                    : null,
-                child: Text(strings.avisosReleer),
+          ],
+        ),
+        BloqueDeAjustes(
+          rotulo: strings.avisosCuanto,
+          hijos: [
+            // Cortas y cerradas: un campo de minutos invita a escribir 90, y un
+            // aviso hora y media antes no saca a nadie de donde está.
+            ElegirDeAjustes<int>(
+              llave: 'avisos-cuanto',
+              opciones: minutos,
+              elegida: cuanto,
+              nombre: (m) => '$m min',
+              onElegir: (m) => vigilante.cambiar(minutos: m),
+            ),
+          ],
+        ),
+        // Dónde mira: el calendario es el de la cuenta de Claude de una
+        // carpeta. No está en el mockup, que supone una sola cuenta; con dos,
+        // sin elegirla no hay calendario que leer.
+        BloqueDeAjustes(
+          rotulo: strings.avisosCarpeta,
+          hijos: [
+            ElegirDeAjustes<String>(
+              llave: 'avisos-carpeta',
+              opciones: ['', for (final carpeta in carpetas) carpeta.path],
+              elegida: _elegida(avisos.carpeta, carpetas),
+              nombre: (ruta) => ruta.isEmpty
+                  ? strings.avisosSinCarpeta
+                  : ruta.split('/').last,
+              onElegir: (ruta) =>
+                  vigilante.cambiar(carpeta: ruta.isEmpty ? null : ruta),
+            ),
+          ],
+        ),
+        // Los PR mezclados: el otro aviso que ocurre sin que lo pidas, y por
+        // eso va aquí y no en una sección propia — quien viene a esta pantalla
+        // viene a decidir de qué quiere enterarse solo.
+        BloqueDeAjustes(
+          rotulo: strings.avisosPrOn,
+          hijos: [
+            TextoDeAjustes(strings.avisosPrExplainer),
+            ApagadoOEncendido(
+              llave: 'avisos-pr',
+              encendido: ref.watch(losAvisosDePrProvider).value ?? false,
+              onCambiar: (on) async {
+                await ElVigilanteDeLosPr.cambiar(a: on);
+                ref.invalidate(losAvisosDePrProvider);
+              },
+            ),
+          ],
+        ),
+        // Lo único que Nexus hace **sin** que se lo pidan y **con voz**, dicho
+        // como el mockup: dos maneras de enterarse, con su nombre, en vez de
+        // «que me lo diga en voz alta: apagado».
+        BloqueDeAjustes(
+          rotulo: strings.avisosEnVozAltaOn,
+          hijos: [
+            ElegirDeAjustes<bool>(
+              llave: 'avisos-en-voz-alta',
+              opciones: const [true, false],
+              elegida: enVozAlta,
+              nombre: (alta) => alta
+                  ? strings.avisosEnVozAlta
+                  : strings.avisosSoloNotificacion,
+              onElegir: (on) async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setBool(ElQueHablaPrimero.encendido, on);
+                ref.invalidate(losAvisosEnVozAltaProvider);
+              },
+            ),
+            // Y si habla **también** con Nexus delante. Va debajo y solo con
+            // la voz alta elegida, porque sin ella no hay nada que callar, y
+            // porque decide algo que la app no puede saber: con tres
+            // pantallas, tenerla delante y estar mirándola no son lo mismo.
+            if (enVozAlta) ...[
+              RotuloDeAjustes(strings.avisosAunqueLaMiresOn),
+              ApagadoOEncendido(
+                llave: 'avisos-aunque-la-mires',
+                encendido:
+                    ref.watch(losAvisosAunqueLaMiresProvider).value ?? true,
+                costeApagado: strings.avisosAunqueLaMiresCosteApagado,
+                costeEncendido: strings.avisosAunqueLaMiresCosteEncendido,
+                onCambiar: (on) async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool(ElQueHablaPrimero.aunqueLaMires, on);
+                  ref.invalidate(losAvisosAunqueLaMiresProvider);
+                },
               ),
-              // Oírlo cuando quieras, y no cuando te toque una reunión.
-              //
-              // Sin esto, la única forma de saber si funciona —o a qué volumen
-              // suena, o si falta la llave— es esperar a que pase de verdad. Y
-              // ese día es justo el peor para descubrir que no funcionaba.
-              //
-              // No pide carpeta: no mira el calendario, así que se puede pulsar
-              // antes de haber configurado nada.
-              OutlinedButton(
-                onPressed: () =>
-                    ref.read(elVigilanteDeLaAgendaProvider.notifier).probar(),
-                child: Text(strings.avisosProbar),
-              ),
-              Text(switch (avisos.ultimaLectura) {
+            ],
+            // 🔴 La hora y los botones juntos, y no los botones solos.
+            //
+            // La agenda en memoria **envejece sin avisar**: lo que programes a
+            // media mañana no está en lo que se leyó al arrancar. Ver a qué
+            // hora se leyó es lo que convierte eso en algo que puedes
+            // corregir, en vez de en una ausencia de la que nadie se entera.
+            EstadoDeAjustes(
+              tono: avisos.ultimaLectura == null
+                  ? TonoDeAjustes.apagado
+                  : TonoDeAjustes.bien,
+              texto: switch (avisos.ultimaLectura) {
                 final cuando? => strings.avisosLeidoA(_laHora(cuando)),
                 null => strings.avisosSinLeer,
-              }, style: NexusTypography.data.copyWith(color: colors.faint)),
-            ],
-          ),
-          const SizedBox(height: NexusSpacing.s5),
-          Text(
-            strings.avisosNota,
-            style: NexusTypography.nota.copyWith(color: colors.mute),
-          ),
-        ],
-      ),
+              },
+            ),
+            AccionesDeAjustes(
+              botones: [
+                BotonDeAjustes(
+                  texto: strings.avisosReleer,
+                  tono: TonoDeBoton.principal,
+                  onPulsar: avisos.listos ? vigilante.releer : null,
+                ),
+                // Oírlo cuando quieras, y no cuando te toque una reunión.
+                //
+                // Sin esto, la única forma de saber si funciona —o a qué
+                // volumen suena, o si falta la llave— es esperar a que pase de
+                // verdad. Y ese día es justo el peor para descubrirlo.
+                //
+                // No pide carpeta: no mira el calendario, así que se puede
+                // pulsar antes de haber configurado nada.
+                BotonDeAjustes(
+                  texto: strings.avisosProbar,
+                  onPulsar: vigilante.probar,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -203,21 +191,4 @@ class AvisosSection extends ConsumerWidget {
 
   static String _elegida(String? guardada, List<PairedFolder> carpetas) =>
       carpetas.any((c) => c.path == guardada) ? guardada! : '';
-}
-
-/// El nombre de cada aviso, encima de su explicación: sin el interruptor, que
-/// lo llevaba de título, la elección necesita decir de qué es.
-class _Rotulo extends StatelessWidget {
-  const _Rotulo(this.texto);
-
-  final String texto;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
-    child: Text(
-      texto.toUpperCase(),
-      style: NexusTypography.label.copyWith(color: context.colors.faint),
-    ),
-  );
 }

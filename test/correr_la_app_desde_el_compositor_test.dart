@@ -245,7 +245,10 @@ void main() {
     expect(find.widgetWithText(Opcion, 'Tienda (dev)'), findsOneWidget);
     expect(find.widgetWithText(Opcion, 'Tienda (prod)'), findsOneWidget);
     // Y de qué proyecto son, que la conversación puede tener otro en la cabeza.
-    expect(find.text('${strings.runTitle} · tienda'), findsOneWidget);
+    expect(
+      find.text('${strings.runTitle} · tienda'.toUpperCase()),
+      findsOneWidget,
+    );
   });
 
   testWidgets('un proyecto sin configuraciones lo dice, no se queda mudo', (
@@ -256,7 +259,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(strings.runNoConfigs), findsOneWidget);
-    expect(find.text(strings.runStart), findsNothing);
+    expect(find.text(strings.runStart.toUpperCase()), findsNothing);
   });
 
   testWidgets('sin proyecto no hay nada que correr, y se explica', (
@@ -320,7 +323,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final boton = tester.widget<OutlinedButton>(
-      find.widgetWithText(OutlinedButton, strings.runStart),
+      find.widgetWithText(OutlinedButton, strings.runStart.toUpperCase()),
     );
     expect(boton.onPressed, isNull);
   });
@@ -346,7 +349,7 @@ void main() {
     expect(
       tester
           .widget<OutlinedButton>(
-            find.widgetWithText(OutlinedButton, strings.runStart),
+            find.widgetWithText(OutlinedButton, strings.runStart.toUpperCase()),
           )
           .onPressed,
       isNotNull,
@@ -364,12 +367,12 @@ void main() {
     // 🔴 **Para recargar había que abrir el menú, apuntar a la fila y pulsar**,
     // con la lista de entornos y dispositivos delante — y el panel se cierra al
     // pulsar fuera, así que gobernar una corrida obligaba a reabrirlo cada vez.
-    expect(find.byTooltip(strings.runReload), findsNothing);
-    expect(find.byTooltip(strings.runRestart), findsNothing);
-    expect(find.byTooltip(strings.runStop), findsNothing);
-    expect(find.byTooltip(strings.runLogs), findsNothing);
+    expect(find.byTooltip(strings.runReload.toUpperCase()), findsNothing);
+    expect(find.byTooltip(strings.runRestart.toUpperCase()), findsNothing);
+    expect(find.byTooltip(strings.runStop.toUpperCase()), findsNothing);
+    expect(find.byTooltip(strings.runLogs.toUpperCase()), findsNothing);
     // Y el panel sigue siendo lo que es: elegir entorno y dispositivo.
-    expect(find.text(strings.runStart), findsOneWidget);
+    expect(find.text(strings.runStart.toUpperCase()), findsOneWidget);
   });
 
   group('al arrancar', () {
@@ -384,11 +387,11 @@ void main() {
       await tester.tap(find.widgetWithText(Opcion, 'Medium Phone API 36.1'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text(strings.runStart));
+      await tester.tap(find.text(strings.runStart.toUpperCase()));
       await tester.pumpAndSettle();
 
       expect(
-        find.text(strings.runStart),
+        find.text(strings.runStart.toUpperCase()),
         findsNothing,
         reason: 'una vez elegido no queda nada que mirar en el panel',
       );
@@ -407,7 +410,7 @@ void main() {
       await tester.tap(find.widgetWithText(Opcion, 'Medium Phone API 36.1'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text(strings.runStart));
+      await tester.tap(find.text(strings.runStart.toUpperCase()));
       await tester.pumpAndSettle();
 
       expect(find.text('Ya está corriendo en ese dispositivo'), findsOneWidget);
@@ -431,7 +434,7 @@ void main() {
         isTrue,
       );
       final boton = tester.widget<OutlinedButton>(
-        find.widgetWithText(OutlinedButton, strings.runStart),
+        find.widgetWithText(OutlinedButton, strings.runStart.toUpperCase()),
       );
       // Falta el dispositivo, así que sigue apagado — pero la mitad ya está.
       expect(boton.onPressed, isNull);

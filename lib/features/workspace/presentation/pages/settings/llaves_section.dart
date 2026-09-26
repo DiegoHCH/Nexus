@@ -26,28 +26,27 @@ class LlavesSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final strings = context.strings;
     final guardadas = ref.watch(lasLlavesGuardadasProvider).value;
 
     // Rueda: con una llave de imágenes por cuenta y un campo abierto, la
     // lista crece más que el alto de la hoja.
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            strings.keysExplainer,
-            style: NexusTypography.nota.copyWith(color: colors.mute),
-          ),
-          const SizedBox(height: NexusSpacing.s5),
-          // Mientras se lee el llavero no se pinta nada: decir «sin poner» sin
-          // haber mirado sería una respuesta falsa a la única pregunta que
-          // contesta esta pantalla.
-          for (final llave in guardadas ?? const <LlaveEnElLlavero>[])
-            _Fila(llave: llave),
-        ],
-      ),
+    return BloquesDeAjustes(
+      bloques: [
+        BloqueDeAjustes(
+          hijos: [
+            TextoDeAjustes(strings.keysExplainer),
+            // Mientras se lee el llavero no se pinta nada: decir «sin poner»
+            // sin haber mirado sería una respuesta falsa a la única pregunta
+            // que contesta esta pantalla.
+            if (guardadas != null)
+              FilasDeAjustes(
+                filas: [for (final llave in guardadas) _Fila(llave: llave)],
+              ),
+            TextoDeAjustes(strings.keysOlvidarPideConfirmacion),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -93,72 +92,53 @@ class _FilaState extends ConsumerState<_Fila> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final strings = context.strings;
     final hay = llave.hay;
     final nombre = _nombre(llave, strings);
 
-    final fila = Row(
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(right: NexusSpacing.s3),
-          child: Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: hay ? colors.ok : colors.rule2,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            nombre,
-            style: NexusTypography.body.copyWith(color: colors.ink),
-          ),
-        ),
-        Text(
-          hay ? strings.keyIsSaved : strings.keyIsMissing,
-          style: NexusTypography.control.copyWith(color: colors.faint),
-        ),
-        if (sePoneDesdeLlaves(llave.cual))
-          Padding(
-            padding: const EdgeInsets.only(left: NexusSpacing.s4),
-            child: TextButton(
-              key: ValueKey('poner-${llave.cual.name}-${llave.perfil ?? ''}'),
-              onPressed: () => setState(() => _abierta = !_abierta),
-              child: Text(hay ? strings.keyChange : strings.keyPut),
-            ),
-          ),
-        // El botón solo si hay algo que quitar. Uno que a veces no hace nada
-        // enseña a no pulsarlo, y entonces tampoco se pulsa el día que sí.
-        if (hay)
-          Padding(
-            padding: const EdgeInsets.only(left: NexusSpacing.s4),
-            child: TextButton(
-              onPressed: () => _confirmar(context, nombre),
-              style: TextButton.styleFrom(foregroundColor: colors.err),
-              child: Text(
-                strings.keyForget,
-                style: NexusTypography.label.copyWith(color: colors.err),
-              ),
-            ),
-          ),
-      ],
-    );
+    final sePone = sePoneDesdeLlaves(llave.cual);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s3),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: colors.rule)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          fila,
-          if (_abierta) ...[
-            const SizedBox(height: NexusSpacing.s2),
-            Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FilaDeAjustes(
+          tono: hay ? TonoDeAjustes.bien : TonoDeAjustes.apagado,
+          titulo: nombre,
+          dato: hay ? strings.keyIsSaved : strings.keyIsMissing,
+          accion: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // «Cambiar» además de «Olvidar» cuando está puesta: el mockup
+              // deja una sola acción por fila, pero cambiar una llave no puede
+              // pasar por borrarla —con su confirmación— y ponerla otra vez.
+              if (sePone)
+                BotonDeAjustes(
+                  key: ValueKey(
+                    'poner-${llave.cual.name}-${llave.perfil ?? ''}',
+                  ),
+                  texto: hay ? strings.keyChange : strings.keyPut,
+                  tono: _abierta ? TonoDeBoton.principal : TonoDeBoton.neutro,
+                  onPulsar: () => setState(() => _abierta = !_abierta),
+                ),
+              // El botón solo si hay algo que quitar. Uno que a veces no hace
+              // nada enseña a no pulsarlo, y entonces tampoco se pulsa el día
+              // que sí.
+              if (hay) ...[
+                if (sePone) const SizedBox(width: 8),
+                BotonDeAjustes(
+                  texto: strings.keyForget,
+                  tono: TonoDeBoton.peligro,
+                  onPulsar: () => _confirmar(context, nombre),
+                ),
+              ],
+            ],
+          ),
+        ),
+        if (_abierta)
+          Padding(
+            padding: const EdgeInsets.only(left: 24, bottom: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Expanded(
                   child: TextField(
@@ -166,22 +146,23 @@ class _FilaState extends ConsumerState<_Fila> {
                     autofocus: true,
                     obscureText: true,
                     onSubmitted: (_) => _guardar(),
-                    style: NexusTypography.mono.copyWith(color: colors.ink),
-                    decoration: InputDecoration(
-                      hintText: strings.geminiKeyHint,
+                    style: estiloDeCampoDeAjustes(context),
+                    decoration: decoracionDeCampoDeAjustes(
+                      context,
+                      hint: strings.geminiKeyHint,
                     ),
                   ),
                 ),
-                const SizedBox(width: NexusSpacing.s3),
-                OutlinedButton(
-                  onPressed: _guardando ? null : _guardar,
-                  child: Text(strings.geminiKeySave),
+                const SizedBox(width: 10),
+                BotonDeAjustes(
+                  texto: strings.geminiKeySave,
+                  tono: TonoDeBoton.principal,
+                  onPulsar: _guardando ? null : _guardar,
                 ),
               ],
             ),
-          ],
-        ],
-      ),
+          ),
+      ],
     );
   }
 
@@ -207,12 +188,12 @@ class _FilaState extends ConsumerState<_Fila> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(contexto).pop(false),
-            child: Text(strings.cancel),
+            child: Text(strings.cancel.toUpperCase()),
           ),
           TextButton(
             onPressed: () => Navigator.of(contexto).pop(true),
             style: TextButton.styleFrom(foregroundColor: colors.err),
-            child: Text(strings.keyForget),
+            child: Text(strings.keyForget.toUpperCase()),
           ),
         ],
       ),

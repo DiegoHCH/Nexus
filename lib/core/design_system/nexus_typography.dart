@@ -83,6 +83,23 @@ abstract final class NexusTypography {
     letterSpacing: 0.22,
   );
 
+  /// Oxanium 10px, **en mayúsculas**, tracking .14em. Botones, filtros, chips
+  /// y botones de elección: el `.btn` y el `.filtros button` del mockup.
+  ///
+  /// 🔴 **Las mayúsculas las pone quien lo usa**, con `.toUpperCase()`: Flutter
+  /// no tiene `text-transform`. Se decidió el 25 sep al compararlo con el
+  /// mockup: en tipo frase los controles se leían como texto y no como mandos.
+  /// Las opciones con nombre y explicación y los elementos de un menú no van
+  /// aquí: siguen en [control], en tipo frase.
+  static const TextStyle boton = TextStyle(
+    fontFamily: hudFamily,
+    fontSize: 10,
+    fontWeight: FontWeight.w400,
+    fontVariations: _hud400,
+    letterSpacing: 1.4,
+    height: 1,
+  );
+
   /// Oxanium 11px/500, mayúsculas, tracking .42em. El wordmark de la marca.
   static const TextStyle brand = TextStyle(
     fontFamily: hudFamily,

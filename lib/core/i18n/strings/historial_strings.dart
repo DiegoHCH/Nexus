@@ -78,6 +78,11 @@ mixin HistorialStrings {
   String get historialRetomar;
   String get historialBorrar;
 
+  /// El «Cancelar» de las confirmaciones en la fila, en minúscula de frase como
+  /// cualquier otro botón de las hojas: [cancel] va en mayúsculas porque es de
+  /// los diálogos de antes, y al lado de «Borrar» se leía como un grito.
+  String get historialCancelar;
+
   /// Lo que hace cada botón de la vista, dicho debajo. Hay dos porque el de
   /// olvidar solo aparece en la conversación de la carpeta que se tiene abierta,
   /// y explicar un botón que no está confunde más que no explicarlo.
@@ -108,6 +113,11 @@ mixin HistorialStrings {
   /// Lo que contesta si la llamas sin ninguna conversación abierta: sin eso
   /// la llamabas y no pasaba nada. Dice qué falta y qué hacer.
   String alLlamarlaSinConversacion(String? tuyo);
+
+  /// Lo que contesta si la llamas con delante una conversación de una carpeta
+  /// en solo texto: dicho, porque desde el otro lado de la habitación el aviso
+  /// escrito no se ve.
+  String alLlamarlaSoloTexto(String? tuyo, String carpeta);
   // Archivo de conversaciones
   String get archiveTitle;
   String get archiveExplainer;
@@ -117,11 +127,8 @@ mixin HistorialStrings {
   String archiveFailedBoth(String destination);
   String get archiveNoneHint;
   String get archiveFolder;
-  String get archiveFolderHint;
   String get archiveObsidian;
-  String get archiveObsidianHint;
   String get archiveNotion;
-  String get archiveNotionHint;
   String get archiveChooseFolder;
   String get archiveNoFolderYet;
   String archiveLayout(String folder);
@@ -135,8 +142,6 @@ mixin HistorialStrings {
   String get notionMissing;
   String get claudeAccount;
   String get claudeAccountDefault;
-  String get deleteConversation;
-  String get deleteForReal;
   String get cancel;
   String claudeAccountSignedOut(String name);
 }
@@ -146,10 +151,9 @@ mixin HistorialStringsEs implements HistorialStrings {
   String get slackTitle => 'EL PARTE DEL DÍA, A SLACK';
   @override
   String get slackExplainer =>
-      'Claude escribe el parte de tu último día de trabajo y lo puedes mandar a '
-      'Slack. Nunca sale solo: se lee aquí antes y sale si le das.';
+      'Claude escribe el parte de tu último día. Nunca sale solo: lo mandas tú.';
   @override
-  String get slackConToken => 'Hay un token guardado.';
+  String get slackConToken => 'Hay un token guardado';
   @override
   String get slackSinToken =>
       'No hay token. Se crea una app en tu espacio de Slack con el permiso '
@@ -167,7 +171,7 @@ mixin HistorialStringsEs implements HistorialStrings {
   @override
   String get slackProyecto => 'DE QUÉ PROYECTO';
   @override
-  String get slackTodos => 'todos';
+  String get slackTodos => 'Todos';
   @override
   String get slackProbar => 'Mandar una de prueba';
   @override
@@ -248,7 +252,9 @@ mixin HistorialStringsEs implements HistorialStrings {
   String historialTurnos(int cuantos) =>
       cuantos == 1 ? '1 turno' : '$cuantos turnos';
   @override
-  String get historialLoQuePediste => 'Lo último que pediste';
+  // «Lo que pediste» y no «lo último»: debajo va una frase sola, y el
+  // «último» ya lo dice el turno de al lado.
+  String get historialLoQuePediste => 'Lo que pediste';
   @override
   String get historialLoQueDijo => 'Lo último que dijo';
   @override
@@ -261,6 +267,8 @@ mixin HistorialStringsEs implements HistorialStrings {
   String get historialRetomar => 'Retomar';
   @override
   String get historialBorrar => 'Borrar';
+  @override
+  String get historialCancelar => 'Cancelar';
   @override
   String get historialNotaRetomar =>
       'Retomar la abre donde la dejaste: Claude sabe lo que ya hicisteis.';
@@ -291,11 +299,15 @@ mixin HistorialStringsEs implements HistorialStrings {
       '${tuyo == null ? 'Te oigo' : 'Te oigo, $tuyo'}, pero no tengo ninguna '
       'conversación abierta. Abre una carpeta en Nexus y vuelve a llamarme.';
   @override
+  String alLlamarlaSoloTexto(String? tuyo, String carpeta) =>
+      '${tuyo == null ? 'Te oigo' : 'Te oigo, $tuyo'}, pero $carpeta está en '
+      'solo texto, así que ahí no puedo hablar. Cámbiala a voz en Ajustes, '
+      'Permisos, o llámame desde una conversación de otra carpeta.';
+  @override
   String get archiveTitle => 'DÓNDE SE GUARDAN LAS CONVERSACIONES';
   @override
   String get archiveExplainer =>
-      'Cada conversación se guarda al terminar cada turno, agrupada por '
-      'proyecto: las de una carpeta van juntas y las de otra, aparte.';
+      'Se guardan al terminar cada turno, agrupadas por proyecto.';
   @override
   String get archiveNone => 'En ningún sitio';
   @override
@@ -316,17 +328,9 @@ mixin HistorialStringsEs implements HistorialStrings {
   @override
   String get archiveFolder => 'Una carpeta tuya';
   @override
-  String get archiveFolderHint =>
-      'Markdown normal, legible en cualquier editor';
-  @override
   String get archiveObsidian => 'Un vault de Obsidian';
   @override
-  String get archiveObsidianHint =>
-      'Lo mismo, con enlaces [[wiki]]: cada proyecto forma su propio grafo';
-  @override
   String get archiveNotion => 'Notion';
-  @override
-  String get archiveNotionHint => 'Todavía no: falta conectar su API';
   @override
   String get archiveChooseFolder => 'ELEGIR CARPETA';
   @override
@@ -335,8 +339,7 @@ mixin HistorialStringsEs implements HistorialStrings {
       'sitio donde dejar tus conversaciones.';
   @override
   String archiveLayout(String folder) =>
-      'Se guardan en $folder/Nexus/<proyecto>/, con una nota por proyecto que '
-      'enlaza sus conversaciones.';
+      'Se guardan en $folder/Nexus/<proyecto>/';
   @override
   String get notionToken => 'TOKEN DE INTEGRACIÓN';
   @override
@@ -365,10 +368,6 @@ mixin HistorialStringsEs implements HistorialStrings {
   @override
   String get claudeAccountDefault => 'cuenta por defecto';
   @override
-  String get deleteConversation => 'Borrar esta conversación';
-  @override
-  String get deleteForReal => 'BORRAR';
-  @override
   String get cancel => 'CANCELAR';
   @override
   String claudeAccountSignedOut(String name) => '$name · sin sesión';
@@ -379,10 +378,10 @@ mixin HistorialStringsEn implements HistorialStrings {
   String get slackTitle => 'THE DAY’S REPORT, TO SLACK';
   @override
   String get slackExplainer =>
-      'Claude writes the report of your last working day and you can send it to '
-      'Slack. It never goes on its own: you read it here first.';
+      'Claude writes the report of your last day. It never goes on its own: '
+      'you send it.';
   @override
-  String get slackConToken => 'There is a token saved.';
+  String get slackConToken => 'There is a token saved';
   @override
   String get slackSinToken =>
       'No token. Create an app in your Slack workspace with the chat:write '
@@ -400,7 +399,7 @@ mixin HistorialStringsEn implements HistorialStrings {
   @override
   String get slackProyecto => 'WHICH PROJECT';
   @override
-  String get slackTodos => 'all';
+  String get slackTodos => 'All';
   @override
   String get slackProbar => 'Send a test one';
   @override
@@ -474,7 +473,7 @@ mixin HistorialStringsEn implements HistorialStrings {
   String historialTurnos(int cuantos) =>
       cuantos == 1 ? '1 turn' : '$cuantos turns';
   @override
-  String get historialLoQuePediste => 'What you last asked';
+  String get historialLoQuePediste => 'What you asked';
   @override
   String get historialLoQueDijo => 'What it last said';
   @override
@@ -488,6 +487,8 @@ mixin HistorialStringsEn implements HistorialStrings {
   String get historialRetomar => 'Resume';
   @override
   String get historialBorrar => 'Delete';
+  @override
+  String get historialCancelar => 'Cancel';
   @override
   String get historialNotaRetomar =>
       'Resuming opens it where you left off: Claude knows what you already '
@@ -519,11 +520,15 @@ mixin HistorialStringsEn implements HistorialStrings {
       '${tuyo == null ? 'I hear you' : 'I hear you, $tuyo'}, but there is no '
       'conversation open. Open a folder in Nexus and call me again.';
   @override
+  String alLlamarlaSoloTexto(String? tuyo, String carpeta) =>
+      '${tuyo == null ? 'I hear you' : 'I hear you, $tuyo'}, but $carpeta is '
+      'text only, so I cannot talk there. Switch it to voice in Settings, '
+      'Permissions, or call me from a conversation in another folder.';
+  @override
   String get archiveTitle => 'WHERE CONVERSATIONS ARE KEPT';
   @override
   String get archiveExplainer =>
-      'Each conversation is saved as every turn ends, grouped by project: the '
-      'ones from a folder stay together, and another folder\'s stay apart.';
+      'They are saved as every turn ends, grouped by project.';
   @override
   String get archiveNone => 'Nowhere';
   @override
@@ -544,16 +549,9 @@ mixin HistorialStringsEn implements HistorialStrings {
   @override
   String get archiveFolder => 'A folder of yours';
   @override
-  String get archiveFolderHint => 'Plain Markdown, readable in any editor';
-  @override
   String get archiveObsidian => 'An Obsidian vault';
   @override
-  String get archiveObsidianHint =>
-      'The same, with [[wiki]] links: each project forms its own graph';
-  @override
   String get archiveNotion => 'Notion';
-  @override
-  String get archiveNotionHint => 'Not yet: its API is still to be wired';
   @override
   String get archiveChooseFolder => 'CHOOSE FOLDER';
   @override
@@ -561,9 +559,7 @@ mixin HistorialStringsEn implements HistorialStrings {
       'A folder is still missing: without one nothing is saved — no place to '
       'leave your conversations gets invented for you.';
   @override
-  String archiveLayout(String folder) =>
-      'Kept in $folder/Nexus/<project>/, with one note per project linking its '
-      'conversations.';
+  String archiveLayout(String folder) => 'Kept in $folder/Nexus/<project>/';
   @override
   String get notionToken => 'INTEGRATION TOKEN';
   @override
@@ -590,10 +586,6 @@ mixin HistorialStringsEn implements HistorialStrings {
   String get claudeAccount => 'Claude account for this folder';
   @override
   String get claudeAccountDefault => 'default account';
-  @override
-  String get deleteConversation => 'Delete this conversation';
-  @override
-  String get deleteForReal => 'DELETE';
   @override
   String get cancel => 'CANCEL';
   @override

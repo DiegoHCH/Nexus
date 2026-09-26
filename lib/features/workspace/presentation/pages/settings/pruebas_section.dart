@@ -42,7 +42,6 @@ class _PruebasSectionState extends ConsumerState<PruebasSection> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final strings = context.strings;
     final raiz = ref.watch(raizDeLosFlowsProvider);
     final carpetas = ref.watch(workspaceControllerProvider).folders;
@@ -54,65 +53,56 @@ class _PruebasSectionState extends ConsumerState<PruebasSection> {
       _raiz.text = raiz;
     }
 
-    return ListView(
-      children: [
-        Text(
-          strings.flowsRootExplainer,
-          style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s4),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                key: const ValueKey('raiz-de-las-pruebas'),
-                controller: _raiz,
-                style: NexusTypography.mono.copyWith(color: colors.ink),
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: strings.flowsRootHint,
-                  hintStyle: NexusTypography.mono.copyWith(color: colors.rule2),
+    return BloquesDeAjustes(
+      bloques: [
+        BloqueDeAjustes(
+          hijos: [
+            TextoDeAjustes(strings.flowsRootExplainer),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const ValueKey('raiz-de-las-pruebas'),
+                    controller: _raiz,
+                    style: estiloDeCampoDeAjustes(context),
+                    decoration: decoracionDeCampoDeAjustes(
+                      context,
+                      hint: strings.flowsRootHint,
+                    ),
+                    onChanged: (valor) =>
+                        ref.read(raizDeLosFlowsProvider.notifier).elegir(valor),
+                  ),
                 ),
-                onChanged: (valor) =>
-                    ref.read(raizDeLosFlowsProvider.notifier).elegir(valor),
-              ),
+                const SizedBox(width: 10),
+                BotonDeAjustes(
+                  key: const ValueKey('elegir-raiz-de-pruebas'),
+                  texto: strings.testsFolderPick,
+                  onPulsar: () async {
+                    final elegida = await ref
+                        .read(folderPickerProvider)
+                        .pickFolder();
+                    if (elegida == null) return;
+                    final conTilde = _corta(elegida);
+                    _raiz.text = conTilde;
+                    await ref
+                        .read(raizDeLosFlowsProvider.notifier)
+                        .elegir(conTilde);
+                  },
+                ),
+              ],
             ),
-            const SizedBox(width: NexusSpacing.s3),
-            TextButton(
-              key: const ValueKey('elegir-raiz-de-pruebas'),
-              onPressed: () async {
-                final elegida = await ref
-                    .read(folderPickerProvider)
-                    .pickFolder();
-                if (elegida == null) return;
-                final conTilde = _corta(elegida);
-                _raiz.text = conTilde;
-                await ref
-                    .read(raizDeLosFlowsProvider.notifier)
-                    .elegir(conTilde);
-              },
-              child: Text(
-                strings.testsFolderPick,
-                style: NexusTypography.label.copyWith(color: colors.accent),
+            if (carpetas.isEmpty)
+              TextoDeAjustes(strings.flowsNoProjects)
+            else
+              FilasDeAjustes(
+                filas: [
+                  for (final carpeta in carpetas)
+                    _Proyecto(carpeta: carpeta, raiz: raiz, home: _home),
+                ],
               ),
-            ),
           ],
         ),
-
-        const SizedBox(height: NexusSpacing.s6),
-        Text(
-          strings.flowsByProject,
-          style: NexusTypography.label.copyWith(color: colors.accent),
-        ),
-        const SizedBox(height: NexusSpacing.s3),
-        if (carpetas.isEmpty)
-          Text(
-            strings.flowsNoProjects,
-            style: NexusTypography.nota.copyWith(color: colors.faint),
-          )
-        else
-          for (final carpeta in carpetas)
-            _Proyecto(carpeta: carpeta, raiz: raiz, home: _home),
       ],
     );
   }
@@ -132,62 +122,31 @@ class _Proyecto extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final strings = context.strings;
     final donde = carpeta.pruebasEn(home, raiz: raiz);
     final pruebas =
         ref.watch(pruebasProvider(carpeta.workingDirectory)).value ?? const [];
-    // Un proyecto sin pruebas no se lista. Enseñar los seis emparejados con
-    // «ninguna» al lado convierte la sección en un inventario de vacíos, y lo que
-    // se viene a ver aquí es qué pruebas hay.
-    if (pruebas.isEmpty) return const SizedBox.shrink();
     final corta = home.isNotEmpty && donde.startsWith(home)
         ? '~${donde.substring(home.length)}'
         : donde;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: NexusSpacing.s4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  carpeta.nombreDelRepo,
-                  style: NexusTypography.data.copyWith(color: colors.ink),
-                ),
-              ),
-              Text(
-                pruebas.isEmpty
-                    ? strings.flowsNoneHere
-                    : strings.flowsCount(pruebas.length),
-                style: NexusTypography.label.copyWith(
-                  color: pruebas.isEmpty ? colors.faint : colors.mute,
-                ),
-              ),
-            ],
-          ),
-          // La ruta ya resuelta y no lo que se escribió: es donde se ve que la raíz le
-          // pone el nombre del proyecto detrás, y que un repo que declara la suya la
-          // conserva. Sin esto hay que adivinar cuál de las tres reglas ganó.
-          Text(
-            corta,
-            style: NexusTypography.mono.copyWith(color: colors.rule2),
-          ),
-          for (final prueba in pruebas)
-            Padding(
-              padding: const EdgeInsets.only(
-                left: NexusSpacing.s4,
-                top: NexusSpacing.s2,
-              ),
-              child: Text(
-                prueba.nombre,
-                style: NexusTypography.mono.copyWith(color: colors.faint),
-              ),
-            ),
-        ],
-      ),
+    // 🔴 **Con «ninguna» también, como el mockup.** Se escondían los proyectos
+    // sin pruebas para no llenar la sección de vacíos, y con eso no había forma
+    // de saber si un proyecto no tenía o si Nexus no lo estaba mirando. Una
+    // línea por proyecto cuesta poco, y el vacío es una respuesta.
+    //
+    // La ruta ya resuelta y no lo que se escribió: es donde se ve que la raíz
+    // le pone el nombre del proyecto detrás, y que un repo que declara la suya
+    // la conserva. Sin esto hay que adivinar cuál de las tres reglas ganó.
+    //
+    // El punto apagado en todos, como el mockup: tener pruebas no es un estado
+    // bueno ni malo, y en verde se leía como «pasan».
+    return FilaDeAjustes(
+      tono: TonoDeAjustes.apagado,
+      titulo: carpeta.nombreDelRepo,
+      dato: pruebas.isEmpty
+          ? strings.flowsNoneHere
+          : '${strings.flowsCount(pruebas.length)} · ${strings.flowsEn(corta)}',
     );
   }
 }

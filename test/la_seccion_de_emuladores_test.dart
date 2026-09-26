@@ -124,8 +124,8 @@ void main() {
     // **El botón dice lo que va a hacer.** Ofrecer «arrancar» sobre uno que ya
     // corre no rompe nada —arrancarlo dos veces no duplica— pero estaría
     // mintiendo, y de eso no se vuelve.
-    expect(find.text(strings.emulatorsClose), findsOneWidget);
-    expect(find.text(strings.emulatorsLaunch), findsOneWidget);
+    expect(find.text(strings.emulatorsClose.toUpperCase()), findsOneWidget);
+    expect(find.text(strings.emulatorsLaunch.toUpperCase()), findsOneWidget);
   });
 
   testWidgets('cerrar el de Android va por su dispositivo', (tester) async {
@@ -134,7 +134,7 @@ void main() {
     ]);
     await _montar(tester, falsa);
 
-    await tester.tap(find.text(strings.emulatorsClose));
+    await tester.tap(find.text(strings.emulatorsClose.toUpperCase()));
     await tester.pumpAndSettle();
 
     expect(falsa.cerrados, ['Medium_Phone_API_36.1']);
@@ -145,7 +145,7 @@ void main() {
 
     // `--cold` no existe para un simulador de iOS: un botón ahí no haría nada
     // distinto del de al lado.
-    expect(find.text(strings.emulatorsColdBoot), findsOneWidget);
+    expect(find.text(strings.emulatorsColdBoot.toUpperCase()), findsOneWidget);
   });
 
   testWidgets('en frío llega como en frío, y lo normal como normal', (
@@ -154,9 +154,9 @@ void main() {
     final falsa = _Falsa([_android]);
     await _montar(tester, falsa);
 
-    await tester.tap(find.text(strings.emulatorsColdBoot));
+    await tester.tap(find.text(strings.emulatorsColdBoot.toUpperCase()));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(strings.emulatorsLaunch));
+    await tester.tap(find.text(strings.emulatorsLaunch.toUpperCase()));
     await tester.pumpAndSettle();
 
     expect(falsa.lanzados, [
@@ -174,7 +174,7 @@ void main() {
     );
 
     expect(find.textContaining('No se encontró Flutter'), findsOneWidget);
-    expect(find.text(strings.emulatorsLaunch), findsNothing);
+    expect(find.text(strings.emulatorsLaunch.toUpperCase()), findsNothing);
   });
 
   testWidgets('un fallo al lanzar sale en pantalla y no se calla', (
@@ -186,7 +186,7 @@ void main() {
       ..errorAlLanzar = 'No se encontró ese emulador';
     await _montar(tester, falsa);
 
-    await tester.tap(find.text(strings.emulatorsLaunch));
+    await tester.tap(find.text(strings.emulatorsLaunch.toUpperCase()));
     await tester.pumpAndSettle();
 
     expect(find.text('No se encontró ese emulador'), findsOneWidget);
@@ -203,12 +203,12 @@ void main() {
     final falsa = _Falsa([_android])..esperaEnLanzar = Completer<void>();
     await _montar(tester, falsa);
 
-    await tester.tap(find.text(strings.emulatorsLaunch));
+    await tester.tap(find.text(strings.emulatorsLaunch.toUpperCase()));
     await tester.pump();
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.text(strings.emulatorsLaunch), findsNothing);
-    expect(find.text(strings.emulatorsColdBoot), findsNothing);
+    expect(find.text(strings.emulatorsLaunch.toUpperCase()), findsNothing);
+    expect(find.text(strings.emulatorsColdBoot.toUpperCase()), findsNothing);
 
     falsa.esperaEnLanzar!.complete();
     await tester.pumpAndSettle();
@@ -232,7 +232,7 @@ void main() {
       ..esperaEnElSegundoListado = Completer<void>();
     await _montar(tester, falsa);
 
-    await tester.tap(find.text(strings.emulatorsLaunch));
+    await tester.tap(find.text(strings.emulatorsLaunch.toUpperCase()));
     await tester.pump();
 
     // El lanzamiento ya volvió, pero la lista nueva aún no. Aquí es donde se veía
@@ -241,21 +241,21 @@ void main() {
     // del refresco en la cabecera— y contarlos sería fijar una decoración.
     expect(find.byType(CircularProgressIndicator), findsWidgets);
     expect(
-      find.text(strings.emulatorsLaunch),
+      find.text(strings.emulatorsLaunch.toUpperCase()),
       findsNothing,
       reason: 'la lista vieja se está colando en el hueco del refresco',
     );
-    expect(find.text(strings.emulatorsColdBoot), findsNothing);
+    expect(find.text(strings.emulatorsColdBoot.toUpperCase()), findsNothing);
 
     falsa.esperaEnElSegundoListado!.complete();
     await tester.pumpAndSettle();
 
     // Y al aterrizar, directamente el estado bueno.
-    expect(find.text(strings.emulatorsClose), findsOneWidget);
+    expect(find.text(strings.emulatorsClose.toUpperCase()), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
-  testWidgets('los teléfonos enchufados salen aparte y sin botón', (
+  testWidgets('los teléfonos enchufados salen en la lista y sin arrancar', (
     tester,
   ) async {
     await _montar(
@@ -272,17 +272,19 @@ void main() {
       ),
     );
 
-    expect(find.text(strings.emulatorsConnected), findsOneWidget);
+    // En la misma lista que los emuladores, como el mockup, y con su verbo:
+    // uno de estos ya está, así que no se ofrece arrancarlo.
     expect(find.text('24069PC21G'), findsOneWidget);
     // El id debajo, que es lo que pide `-d`.
     expect(find.textContaining('36c56d94'), findsOneWidget);
     // Un solo «Arrancar»: el del emulador. El teléfono no se arranca, ya está.
-    expect(find.text(strings.emulatorsLaunch), findsOneWidget);
+    expect(find.text(strings.emulatorsLaunch.toUpperCase()), findsOneWidget);
   });
 
-  testWidgets('sin teléfonos enchufados no hay grupo vacío', (tester) async {
+  testWidgets('sin teléfonos enchufados no hay fila de más', (tester) async {
     await _montar(tester, _Falsa([_android]));
     expect(find.text(strings.emulatorsConnected), findsNothing);
+    expect(find.textContaining('36c56d94'), findsNothing);
   });
 
   testWidgets('una máquina sin emuladores lo dice', (tester) async {

@@ -27,8 +27,6 @@ mixin ArranqueStrings {
   String get pasoLlaveSinLlave;
   String pasoHecho(int numero);
   String pasoPendiente(int numero);
-  // La primera parada del tour enseña el orbe por cómo se mueve.
-  String get tourComoSeMueve;
   // El tour de la primera vez (a3, pieza 2): cuatro paradas, ancladas en piezas
   // que un recién llegado sí tiene en pantalla.
   String get tourOrbTitle;
@@ -39,8 +37,6 @@ mixin ArranqueStrings {
   String get tourDockBody;
   String get tourMeterTitle;
   String get sectionHelp;
-  String get helpTourTitle;
-  String get helpTourExplainer;
   String get helpTourAction;
   String get versionLabel;
   String updateAvailable(String version);
@@ -58,6 +54,23 @@ mixin ArranqueStrings {
   String get updateExtracting;
   String get updateReadyTitle;
   String get updateReadyBody;
+
+  /// El título del aviso cuando se sabe a qué versión se va: «Nexus 1.26.0».
+  String updateNexus(String version);
+
+  /// Qué pasa al actualizar, dicho antes de empezar: el peso, si se sabe, y
+  /// que reiniciar **espera** a lo que esté en marcha en vez de cortarlo.
+  String updateFoundBody(String? size);
+
+  /// Durante la descarga: que al acabar se reinicie sola, sin volver a
+  /// preguntar.
+  String get updateRestartWhenDone;
+
+  /// Ya pedido: lo que se lee en lugar del botón.
+  String get updateRestartsWhenDone;
+
+  /// Lista, pedida, y esperando a que termine lo que está en marcha.
+  String get updateWaitingToRestart;
   String get updateInstalling;
   String get updateInstallingBody;
   String get updateFailedTitle;
@@ -96,9 +109,6 @@ mixin ArranqueStrings {
   String get micPendingExplainer;
   String get micAsking;
   String get micAskingExplainer;
-  String get micGranted;
-  String get micGrantedExplainer;
-  String get micDenied;
   String get microphoneBlocked;
 
   /// Las reglas del repositorio no son las mismas que la última vez. Lleva las
@@ -125,14 +135,22 @@ mixin ArranqueStrings {
   String get allowScriptsAndNetwork;
   String get allowScriptsExplainer;
 
+  /// El estado del permiso, al lado de su nombre en el botón del visor:
+  /// «Permitir scripts y red · apagado». Dicho con palabra y no solo con una
+  /// casilla, porque en la barra del título una casilla se lee como un adorno.
+  String get allowScriptsOff;
+  String get allowScriptsOn;
+
+  /// El pie de la ventana de la consola de la app: de dónde sale y qué no
+  /// toca.
+  String get consolaSoloConLaCopia;
+
   /// Lo mismo, en el ancho de un teléfono.
   String get allowScriptsShort;
 
   /// Qué sale de la máquina: la sección y sus cuatro puertas.
   String get sectionExits;
   String get exitsExplainer;
-  String get exitsNoFolder;
-  String exitsForFolder(String carpeta);
   String get exitClosed;
   String get exitAvailable;
   String get exitOpen;
@@ -149,7 +167,6 @@ mixin ArranqueStrings {
 
   /// El registro de la app, en Ajustes › Ayuda.
   String get logTitle;
-  String get logExplainer;
   String get logAction;
   String get logMissing;
   String get micDeniedShort;
@@ -194,9 +211,7 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   @override
   String pasoPendiente(int numero) => 'Paso $numero, pendiente';
   @override
-  String get tourComoSeMueve => 'Así se mueve';
-  @override
-  String get tourOrbTitle => 'Háblale. Esto es Nexus';
+  String get tourOrbTitle => 'Háblale. Esto es Nexus.';
   @override
   String get tourOrbBody =>
       'Di su nombre o pulsa ⌥Espacio. Cuando te oye, el orbe se abre en '
@@ -217,12 +232,6 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   String get tourMeterTitle => 'Contexto y cupo, aquí dentro';
   @override
   String get sectionHelp => 'Ayuda';
-  @override
-  String get helpTourTitle => 'El tour de la primera vez';
-  @override
-  String get helpTourExplainer =>
-      'Las cuatro piezas del HUD, señaladas una por una. Sale solo la primera vez; '
-      'desde aquí se puede volver a ver.';
   @override
   String get helpTourAction => 'Ver el tour otra vez';
   @override
@@ -258,8 +267,21 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   String get updateReadyTitle => 'Lista para instalarse';
   @override
   String get updateReadyBody =>
-      'Nexus se cerrará y volverá a abrirse. Si tienes un encargo en marcha, '
-      'reiniciar lo corta a media escritura: espera a que termine.';
+      'Nexus se cerrará y volverá a abrirse. Si está hablando o trabajando, '
+      'reiniciar espera a que termine en vez de cortarlo.';
+  @override
+  String updateNexus(String version) => 'Nexus $version';
+  @override
+  String updateFoundBody(String? size) =>
+      '${size == null ? '' : 'La descarga pesa $size. '}Nexus se cerrará y '
+      'volverá a abrirse: lo que esté hablando o trabajando termina antes.';
+  @override
+  String get updateRestartWhenDone => 'Reiniciar al terminar';
+  @override
+  String get updateRestartsWhenDone => 'Se reiniciará al terminar la descarga';
+  @override
+  String get updateWaitingToRestart =>
+      'Esperando a que termine lo que está en marcha para reiniciar.';
   @override
   String get updateInstalling => 'Instalando';
   @override
@@ -418,13 +440,6 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   String get micAskingExplainer =>
       'Responde al diálogo del sistema para continuar.';
   @override
-  String get micGranted => 'CONCEDIDO';
-  @override
-  String get micGrantedExplainer =>
-      'Habla un momento — si el trazo se mueve, tu voz llega bien a Nexus.';
-  @override
-  String get micDenied => 'DENEGADO';
-  @override
   String get microphoneBlocked =>
       'El micrófono está bloqueado, así que no se puede abrir la voz. Se concede '
       'en Ajustes del sistema › Privacidad y seguridad › Micrófono, marcando '
@@ -460,19 +475,20 @@ mixin ArranqueStringsEs implements ArranqueStrings {
       'Este documento lo escribió Claude. Sin permiso no ejecuta sus scripts ni '
       'carga nada de internet. Se recarga solo si cambia.';
   @override
+  String get allowScriptsOff => 'apagado';
+  @override
+  String get allowScriptsOn => 'encendido';
+  @override
+  String get consolaSoloConLaCopia =>
+      'Solo con la copia «con la consola» que guarda Nexus: el repo no se toca.';
+  @override
   String get allowScriptsShort => 'Scripts y red';
   @override
   String get sectionExits => 'Qué sale';
   @override
   String get exitsExplainer =>
-      'Las cinco puertas por las que algo puede salir de este Mac, con lo que '
-      'viaja por cada una y si está saliendo ahora. Aquí no se configura nada: '
-      'cada puerta se decide en su propio ajuste. Esto es para poder mirarlas '
-      'juntas.';
-  @override
-  String get exitsNoFolder => 'SIN CARPETA ENFOCADA';
-  @override
-  String exitsForFolder(String carpeta) => 'PARA $carpeta';
+      'Las **cinco puertas** por las que algo puede salir de este Mac, para la '
+      'carpeta en foco. Aquí no se configura nada: se mira.';
   @override
   String get exitClosed => 'cerrada';
   @override
@@ -482,41 +498,27 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   @override
   String get exitAnthropic => 'Anthropic';
   @override
-  String get exitAnthropicWhat =>
-      'Lo que Claude lee de tu carpeta, en cada encargo. Es cómo trabaja: sin '
-      'esto no hay producto.';
+  String get exitAnthropicWhat => 'lo que Claude lee y escribe';
   @override
   String get exitGemini => 'Google · voz';
   @override
   String get exitGeminiWhat =>
-      'Tu micrófono y lo que Claude leyó, porque una respuesta narrada lo lleva '
-      'dentro — como mucho 4.000 caracteres por respuesta: lo que no cabe se '
-      'queda en la pantalla. En una carpeta de solo texto no participa.';
+      'tu voz y lo que ella narra, mientras hablas · hasta 4.000 caracteres '
+      'por respuesta';
   @override
   String get exitSlack => 'Slack';
   @override
-  String get exitSlackWhat =>
-      'El parte del día que escribe Claude, y solo cuando le das a enviar. Es la '
-      'única de las cinco que nunca sale sola: se lee en pantalla antes.';
+  String get exitSlackWhat => 'el parte del día, solo cuando lo mandas';
   @override
   String get exitNotion => 'Notion';
   @override
-  String get exitNotionWhat =>
-      'Conversaciones enteras, al terminar cada turno. Archivar en una carpeta '
-      'o en Obsidian no sale de aquí: es disco de este Mac.';
+  String get exitNotionWhat => 'el archivo de conversaciones';
   @override
   String get exitChannel => 'El canal del teléfono';
   @override
-  String get exitChannelWhat =>
-      'Lo que se ve y se dice en la app, dentro de tu tailnet. Escribir pide '
-      'además la frase, y caduca sola.';
+  String get exitChannelWhat => 'solo por Tailscale';
   @override
   String get logTitle => 'REGISTRO';
-  @override
-  String get logExplainer =>
-      'Lo que Nexus ha ido contando de sí mismo, escrito en un archivo. Sirve '
-      'para cuando algo falla y hay que saber qué pasó antes. No sale de este '
-      'Mac: se queda en su carpeta y lo lees tú.';
   @override
   String get logAction => 'Ver en el Finder';
   @override
@@ -536,7 +538,7 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   @override
   String get chosen => 'Elegida';
   @override
-  String get workFolderTitle => 'Nexus solo trabaja donde le digas';
+  String get workFolderTitle => 'Nexus solo trabaja donde le digas.';
   @override
   String get geminiKey => 'LLAVE DE VOZ (GEMINI)';
   @override
@@ -576,9 +578,7 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   @override
   String pasoPendiente(int numero) => 'Step $numero, pending';
   @override
-  String get tourComoSeMueve => 'How it moves';
-  @override
-  String get tourOrbTitle => 'Talk to it. This is Nexus';
+  String get tourOrbTitle => 'Talk to it. This is Nexus.';
   @override
   String get tourOrbBody =>
       'Say its name or press ⌥Space. When it hears you, the orb opens into '
@@ -600,12 +600,6 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   String get tourMeterTitle => 'Context and quota, in here';
   @override
   String get sectionHelp => 'Help';
-  @override
-  String get helpTourTitle => 'The first-run tour';
-  @override
-  String get helpTourExplainer =>
-      'The four pieces of the HUD, pointed at one by one. It only shows the first '
-      'time; from here you can see it again.';
   @override
   String get helpTourAction => 'See the tour again';
   @override
@@ -641,8 +635,21 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   String get updateReadyTitle => 'Ready to install';
   @override
   String get updateReadyBody =>
-      'Nexus will quit and open again. If an errand is running, restarting '
-      'cuts it mid-write: wait until it finishes.';
+      'Nexus will quit and open again. If it is talking or working, '
+      'restarting waits for it to finish instead of cutting it.';
+  @override
+  String updateNexus(String version) => 'Nexus $version';
+  @override
+  String updateFoundBody(String? size) =>
+      '${size == null ? '' : 'The download is $size. '}Nexus will quit and '
+      'open again: whatever it is saying or doing finishes first.';
+  @override
+  String get updateRestartWhenDone => 'Restart when done';
+  @override
+  String get updateRestartsWhenDone => 'It will restart when the download ends';
+  @override
+  String get updateWaitingToRestart =>
+      'Waiting for what is running to finish before restarting.';
   @override
   String get updateInstalling => 'Installing';
   @override
@@ -799,13 +806,6 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   @override
   String get micAskingExplainer => 'Answer the system dialog to continue.';
   @override
-  String get micGranted => 'GRANTED';
-  @override
-  String get micGrantedExplainer =>
-      'Say something — if the trace moves, your voice is reaching Nexus.';
-  @override
-  String get micDenied => 'DENIED';
-  @override
   String get microphoneBlocked =>
       'The microphone is blocked, so voice cannot start. You grant it in System '
       'Settings › Privacy & Security › Microphone, ticking Nexus. In the '
@@ -840,19 +840,21 @@ mixin ArranqueStringsEn implements ArranqueStrings {
       'Claude wrote this document. Without permission it runs no scripts and '
       'loads nothing from the internet. It reloads by itself when it changes.';
   @override
+  String get allowScriptsOff => 'off';
+  @override
+  String get allowScriptsOn => 'on';
+  @override
+  String get consolaSoloConLaCopia =>
+      'Only with the «with the console» copy Nexus keeps: the repo is not '
+      'touched.';
+  @override
   String get allowScriptsShort => 'Scripts & network';
   @override
   String get sectionExits => 'What leaves';
   @override
   String get exitsExplainer =>
-      'The five doors anything can leave this Mac through, what travels out of '
-      'each and whether it is leaving right now. Nothing is configured here: '
-      'each door is decided in its own setting. This is for seeing them '
-      'together.';
-  @override
-  String get exitsNoFolder => 'NO FOLDER IN FOCUS';
-  @override
-  String exitsForFolder(String carpeta) => 'FOR $carpeta';
+      'The **five doors** anything can leave this Mac through, for the folder '
+      'in focus. Nothing is configured here: you just look.';
   @override
   String get exitClosed => 'closed';
   @override
@@ -862,43 +864,27 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   @override
   String get exitAnthropic => 'Anthropic';
   @override
-  String get exitAnthropicWhat =>
-      'What Claude reads from your folder, on every errand. It is how it works: '
-      'without this there is no product.';
+  String get exitAnthropicWhat => 'what Claude reads and writes';
   @override
   String get exitGemini => 'Google · voice';
   @override
   String get exitGeminiWhat =>
-      'Your microphone and what Claude read, because a narrated answer carries '
-      'it inside — at most 4,000 characters per answer: what does not fit stays '
-      'on screen. In a text-only folder it takes no part.';
+      'your voice and what she narrates, while you talk · up to 4,000 '
+      'characters per answer';
   @override
   String get exitSlack => 'Slack';
   @override
-  String get exitSlackWhat =>
-      'The day’s report Claude writes, and only when you press send. It is the '
-      'only one of the five that never goes on its own: you read it on screen '
-      'first.';
+  String get exitSlackWhat => 'the day’s report, only when you send it';
   @override
   String get exitNotion => 'Notion';
   @override
-  String get exitNotionWhat =>
-      'Whole conversations, at the end of every turn. Archiving to a folder or '
-      'to Obsidian does not leave here: that is this Mac\'s disk.';
+  String get exitNotionWhat => 'the conversation archive';
   @override
   String get exitChannel => 'The phone channel';
   @override
-  String get exitChannelWhat =>
-      'What the app shows and says, inside your tailnet. Writing also takes the '
-      'phrase, and it expires on its own.';
+  String get exitChannelWhat => 'only over Tailscale';
   @override
   String get logTitle => 'LOG';
-  @override
-  String get logExplainer =>
-      'What Nexus has been saying about itself, written to a file. It is for '
-      'when something breaks and you need to know what happened before. It '
-      'never leaves this Mac: it stays in its folder and you are the one who '
-      'reads it.';
   @override
   String get logAction => 'Show in Finder';
   @override
@@ -918,7 +904,7 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   @override
   String get chosen => 'Chosen';
   @override
-  String get workFolderTitle => 'Nexus only works where you tell it to';
+  String get workFolderTitle => 'Nexus only works where you tell it to.';
   @override
   String get geminiKey => 'VOICE KEY (GEMINI)';
   @override

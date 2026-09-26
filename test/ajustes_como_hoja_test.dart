@@ -150,7 +150,7 @@ void main() {
     ) async {
       await abrir(tester);
       await tester.tap(find.byKey(const ValueKey('seccion-avisos')));
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 700));
 
       // Una vez en el índice y otra encima del título.
       expect(find.text(es.preguntaQueTeCuenta.toUpperCase()), findsNWidgets(2));
@@ -178,7 +178,7 @@ void main() {
       );
 
       await tester.tap(find.byKey(const ValueKey('seccion-oido')));
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 700));
 
       expect(find.byType(ApagadoOEncendido), findsOne);
       expect(find.byKey(const ValueKey('oido-apagado')), findsOne);
@@ -191,7 +191,7 @@ void main() {
     testWidgets('y ya no vive dentro de la voz', (tester) async {
       await abrir(tester);
       await tester.tap(find.byKey(const ValueKey('seccion-voice')));
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 700));
 
       expect(find.byKey(const ValueKey('oido-encendido')), findsNothing);
       expect(find.byType(Switch), findsNothing);
@@ -202,10 +202,15 @@ void main() {
     ) async {
       await abrir(tester);
       await tester.tap(find.byKey(const ValueKey('seccion-avisos')));
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 700));
 
       expect(find.byType(Switch), findsNothing);
-      expect(find.byType(ApagadoOEncendido), findsNWidgets(4));
+      // Tres «Apagado · Encendido» —reuniones, PR y con ella delante— y la
+      // voz alta como dos maneras de enterarse con nombre, como el mockup:
+      // «En voz alta · Solo notificación».
+      expect(find.byType(ApagadoOEncendido), findsNWidgets(3));
+      expect(find.byKey(const ValueKey('avisos-en-voz-alta-0')), findsOne);
+      expect(find.byKey(const ValueKey('avisos-en-voz-alta-1')), findsOne);
     });
   });
 
@@ -246,7 +251,7 @@ void main() {
 
     Future<void> asentar(WidgetTester tester) async {
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 700));
     }
 
     testWidgets('la sala sigue pintándose detrás, y pulsarla cierra', (
@@ -301,11 +306,11 @@ void main() {
       // se empareja, y no en lo último que miró.
       await tester.tap(find.text('abrir en permisos'));
       await asentar(tester);
-      expect(find.text(es.filePermissionsTitle), findsOne);
+      expect(find.text(es.filePermissionsTitle.toUpperCase()), findsOne);
     });
 
-    test('el ancho de la hoja: siete décimos, con suelo y techo', () {
-      expect(SettingsPage.anchoDeLaHoja(1280), closeTo(921.6, 0.1));
+    test('el ancho de la hoja: la del mockup, con suelo y techo', () {
+      expect(SettingsPage.anchoDeLaHoja(1280), 900);
       expect(SettingsPage.anchoDeLaHoja(1024), 800);
       expect(SettingsPage.anchoDeLaHoja(2560), 1040);
       // Más estrecha que el suelo, la hoja ocupa la ventana entera.

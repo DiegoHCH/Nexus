@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
+import 'package:nexus/core/design_system/hoja_de_la_sala.dart';
+import 'package:nexus/core/i18n/el_dia_legible.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
-import 'package:nexus/features/artifacts/domain/entities/tipo_de_documento.dart';
 import 'package:nexus/features/artifacts/presentation/widgets/artifacts_sheet.dart';
+import 'package:nexus/features/artifacts/presentation/widgets/miniatura_del_documento.dart';
 import 'package:nexus/features/history/domain/entities/conversation_record.dart';
 import 'package:nexus/features/history/domain/entities/conversation_summary.dart';
 import 'package:nexus/features/history/domain/usecases/el_filtro_del_historial.dart';
@@ -22,6 +24,11 @@ import 'package:nexus/features/workspace/presentation/providers/workspace_provid
 /// al primer clic obligaba a acertar a ciegas entre tres conversaciones con
 /// títulos parecidos. Ahora el clic enseña y «Retomar» reabre. Ver el mockup,
 /// sección «Historial: buscar, mirar, retomar».
+///
+/// 🔴 **Y era un diálogo centrado**, con su título y una explicación encima de
+/// la lista. Ahora es la hoja ancha del mockup —ver [HojaDeLaSala]—: la barra
+/// dice dónde se está, la sala sigue detrás, y el lado empieza por el buscador,
+/// que es a lo que se viene.
 class ConversationHistorySheet extends ConsumerStatefulWidget {
   const ConversationHistorySheet({
     super.key,
@@ -37,9 +44,9 @@ class ConversationHistorySheet extends ConsumerStatefulWidget {
   /// conversación abierta.
   ///
   /// Va con nombre y apellido porque el botón hacía otra cosa de la que
-  /// parecía: no borra nada de esta lista —para eso está la papelera de cada
-  /// fila—, sino que hace que **Claude olvide el hilo** de esa carpeta y el
-  /// siguiente encargo empiece sin contexto arrastrado.
+  /// parecía: no borra nada de esta lista —para eso está «Borrar»—, sino que
+  /// hace que **Claude olvide el hilo** de esa carpeta y el siguiente encargo
+  /// empiece sin contexto arrastrado.
   ///
   /// El botón vive **en la vista de una conversación de esa carpeta** y no al
   /// pie de la lista: es de esa conversación, y al pie no decía de cuál.
@@ -50,16 +57,15 @@ class ConversationHistorySheet extends ConsumerStatefulWidget {
     required void Function(ConversationSummary record) onPick,
     required VoidCallback onForget,
     String? forgetFolder,
-  }) {
-    return showDialog<void>(
-      context: context,
-      builder: (_) => ConversationHistorySheet(
-        onPick: onPick,
-        onForget: onForget,
-        forgetFolder: forgetFolder,
-      ),
-    );
-  }
+  }) => HojaDeLaSala.abrir(
+    context,
+    ConversationHistorySheet(
+      onPick: onPick,
+      onForget: onForget,
+      forgetFolder: forgetFolder,
+    ),
+    cual: 'historial',
+  );
 
   @override
   ConsumerState<ConversationHistorySheet> createState() =>
@@ -97,58 +103,44 @@ class _ConversationHistorySheetState
     final strings = context.strings;
     final saved = ref.watch(allSavedConversationsProvider);
 
-    return Dialog(
-      backgroundColor: colors.rise,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(color: colors.rule2),
-        borderRadius: BorderRadius.circular(NexusRadius.md),
+    return saved.when(
+      loading: () => HojaDeLaSala(
+        rotulo: strings.history,
+        lado: const SizedBox.shrink(),
+        vista: const SizedBox.shrink(),
       ),
-      child: ConstrainedBox(
-        // Ancha, como la «hoja ancha» del mockup: la lista y la vista previa
-        // van lado a lado, y a 720 la vista se quedaba en una columna de frases
-        // partidas.
-        constraints: const BoxConstraints(maxWidth: 1000, maxHeight: 640),
-        child: Padding(
-          padding: const EdgeInsets.all(NexusSpacing.s6),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                strings.history,
-                style: NexusTypography.label.copyWith(color: colors.accent),
-              ),
-              const SizedBox(height: NexusSpacing.s2),
-              Text(
-                strings.historyExplainer,
-                style: NexusTypography.nota.copyWith(color: colors.mute),
-              ),
-              const SizedBox(height: NexusSpacing.s5),
-              Expanded(
-                child: saved.when(
-                  loading: () => const SizedBox.shrink(),
-                  // Que falle leer no es «no hay historial»: son cosas muy
-                  // distintas para quien busca algo que sabe que estaba ahí.
-                  error: (error, _) => Text(
-                    '$error',
-                    style: NexusTypography.mono.copyWith(color: colors.err),
-                  ),
-                  data: _body,
-                ),
-              ),
-            ],
-          ),
+      // Que falle leer no es «no hay historial»: son cosas muy distintas para
+      // quien busca algo que sabe que estaba ahí. El motivo va tal cual, en
+      // mono, porque es lo que hay que buscar para arreglarlo.
+      error: (error, _) => HojaDeLaSala(
+        rotulo: strings.history,
+        lado: Text(
+          '$error',
+          style: NexusTypography.mono.copyWith(color: colors.err),
         ),
+        vista: const SizedBox.shrink(),
       ),
+      data: _hoja,
     );
   }
 
-  Widget _body(List<ConversationSummary> records) {
-    final colors = context.colors;
+  Widget _hoja(List<ConversationSummary> records) {
     final strings = context.strings;
     if (records.isEmpty) {
-      return Text(
-        strings.nothingAskedYet,
-        style: NexusTypography.nota.copyWith(color: colors.mute),
+      return HojaDeLaSala(
+        rotulo: strings.history,
+        lado: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _Nota(strings.nothingAskedYet),
+            const SizedBox(height: NexusSpacing.s2),
+            // Qué va a haber aquí, dicho donde no hay nada todavía: con la
+            // lista llena ya lo dice la lista, y encima de ella era una línea
+            // más que leer antes del buscador.
+            _Nota(strings.historyExplainer),
+          ],
+        ),
+        vista: const SizedBox.shrink(),
       );
     }
 
@@ -186,138 +178,130 @@ class _ConversationHistorySheetState
         widget.forgetFolder != null &&
         !records.any((r) => r.projectName == widget.forgetFolder);
 
-    return Column(
+    final lado = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
+        CampoDeBusqueda(
+          pista: strings.historialBuscar,
+          onCambia: (texto) => setState(() => _busqueda = texto.trim()),
+        ),
+        const SizedBox(height: NexusSpacing.s3),
+        // **Una línea que se desplaza, y no filas que se apilan.** El mockup
+        // los envuelve porque enseña tres proyectos; con treinta, envolverlos
+        // se comía la lista entera —medido: desbordaba 572 px a 1024×768—. Van
+        // por uso, así que los de estos días quedan a la vista sin desplazar
+        // nada.
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                width: 400,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CampoDeBusqueda(
-                      pista: strings.historialBuscar,
-                      onCambia: (texto) =>
-                          setState(() => _busqueda = texto.trim()),
-                    ),
-                    const SizedBox(height: NexusSpacing.s3),
-                    // **Una línea que se desplaza, y no filas que se apilan.**
-                    // El mockup los envuelve porque enseña tres proyectos; con
-                    // treinta, envolverlos se comía la lista entera —medido:
-                    // desbordaba 572 px a 1024×768—. Van por uso, así que los
-                    // de estos días quedan a la vista sin desplazar nada.
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (final (indice, una) in [
-                            (carpeta: null, nombre: strings.historialTodas),
-                            for (final c in carpetas)
-                              (carpeta: c.carpeta, nombre: c.nombre),
-                          ].indexed) ...[
-                            if (indice > 0)
-                              const SizedBox(width: NexusSpacing.s1),
-                            Filtro(
-                              texto: una.nombre,
-                              activo: una.carpeta == carpeta,
-                              onPulsar: () =>
-                                  setState(() => _carpeta = una.carpeta),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    if (porCuenta) ...[
-                      const SizedBox(height: NexusSpacing.s2),
-                      Wrap(
-                        spacing: NexusSpacing.s1,
-                        runSpacing: NexusSpacing.s1,
-                        children: [
-                          for (final una in cuentas)
-                            Filtro(
-                              texto: strings.historialCuenta(
-                                una.cuenta.isEmpty
-                                    ? strings.claudeAccountDefault
-                                    : una.cuenta,
-                                una.cuantas,
-                              ),
-                              activo: una.cuenta == cuenta,
-                              // Pulsar la que ya está elegida la suelta: sin un
-                              // «todas» aparte, es la única forma de volver a
-                              // ver las dos cuentas juntas.
-                              onPulsar: () => setState(
-                                () => _cuenta = una.cuenta == cuenta
-                                    ? null
-                                    : una.cuenta,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: NexusSpacing.s3),
-                    Expanded(
-                      child: visibles.isEmpty
-                          ? Text(
-                              _busqueda.isEmpty
-                                  ? strings.historialNadaConEsosFiltros
-                                  : strings.historialNadaDe(_busqueda),
-                              style: NexusTypography.nota.copyWith(
-                                color: colors.mute,
-                              ),
-                            )
-                          : _Lista(
-                              visibles: visibles,
-                              elegida: elegida?.id,
-                              conCuenta: porCuenta,
-                              onElegir: (record) =>
-                                  setState(() => _elegida = record.id),
-                              onDelete: (record) =>
-                                  ref.read(deleteConversationProvider)(record),
-                            ),
-                    ),
-                  ],
+              for (final (indice, una) in [
+                (carpeta: null, nombre: strings.historialTodas),
+                for (final c in carpetas)
+                  (carpeta: c.carpeta, nombre: c.nombre),
+              ].indexed) ...[
+                if (indice > 0) const SizedBox(width: 5),
+                Filtro(
+                  texto: una.nombre,
+                  activo: una.carpeta == carpeta,
+                  onPulsar: () => setState(() => _carpeta = una.carpeta),
                 ),
-              ),
-              const SizedBox(width: NexusSpacing.s5),
-              VerticalDivider(width: 1, color: colors.rule),
-              const SizedBox(width: NexusSpacing.s5),
-              Expanded(
-                child: elegida == null
-                    ? const SizedBox.shrink()
-                    : _VistaPrevia(
-                        // Por conversación: el estado de la vista —lo leído del
-                        // disco, la confirmación de borrar— es de esa, y no
-                        // puede heredarlo la siguiente.
-                        key: ValueKey(elegida.id),
-                        ficha: elegida,
-                        conCuenta: porCuenta,
-                        olvidarEn:
-                            elegida.projectName == widget.forgetFolder &&
-                                !olvidarAlPie
-                            ? widget.forgetFolder
-                            : null,
-                        onRetomar: () => _retomar(elegida),
-                        onOlvidar: _olvidar,
-                        onBorrar: () =>
-                            ref.read(deleteConversationProvider)(elegida),
-                      ),
-              ),
+              ],
             ],
           ),
         ),
+        if (porCuenta) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 5,
+            runSpacing: 5,
+            children: [
+              for (final una in cuentas)
+                Filtro(
+                  texto: strings.historialCuenta(
+                    una.cuenta.isEmpty
+                        ? strings.claudeAccountDefault
+                        : una.cuenta,
+                    una.cuantas,
+                  ),
+                  activo: una.cuenta == cuenta,
+                  // Pulsar la que ya está elegida la suelta: sin un «todas»
+                  // aparte, es la única forma de volver a ver las dos cuentas
+                  // juntas.
+                  onPulsar: () => setState(
+                    () => _cuenta = una.cuenta == cuenta ? null : una.cuenta,
+                  ),
+                ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 10),
+        Expanded(
+          child: visibles.isEmpty
+              ? _Nota(
+                  _busqueda.isEmpty
+                      ? strings.historialNadaConEsosFiltros
+                      : strings.historialNadaDe(_busqueda),
+                )
+              : _Lista(
+                  visibles: visibles,
+                  elegida: elegida?.id,
+                  conCuenta: porCuenta,
+                  onElegir: (record) => setState(() => _elegida = record.id),
+                ),
+        ),
         if (olvidarAlPie) ...[
-          const SizedBox(height: NexusSpacing.s5),
-          OutlinedButton(
-            onPressed: _olvidar,
-            child: Text(strings.startFromScratchIn(widget.forgetFolder!)),
+          const SizedBox(height: 14),
+          BotonDeLaHoja(
+            texto: strings.startFromScratchIn(widget.forgetFolder!),
+            onPulsar: _olvidar,
           ),
         ],
       ],
     );
+
+    return HojaDeLaSala(
+      rotulo: strings.history,
+      lado: lado,
+      vista: elegida == null
+          ? const SizedBox.shrink()
+          : _VistaPrevia(
+              // Por conversación: el estado de la vista —lo leído del disco, la
+              // confirmación de borrar— es de esa, y no puede heredarlo la
+              // siguiente.
+              key: ValueKey(elegida.id),
+              ficha: elegida,
+              conCuenta: porCuenta,
+              olvidarEn:
+                  elegida.projectName == widget.forgetFolder && !olvidarAlPie
+                  ? widget.forgetFolder
+                  : null,
+              onRetomar: () => _retomar(elegida),
+              onOlvidar: _olvidar,
+              onBorrar: () => ref.read(deleteConversationProvider)(elegida),
+            ),
+    );
   }
+}
+
+/// Una frase del lado: un estado vacío, lo que no se encontró.
+class _Nota extends StatelessWidget {
+  const _Nota(this.texto);
+
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: NexusSpacing.s1),
+    child: Text(
+      texto,
+      style: NexusTypography.nota.copyWith(
+        color: context.colors.mute,
+        fontSize: 14,
+        height: 1.55,
+      ),
+    ),
+  );
 }
 
 /// La lista por días.
@@ -327,14 +311,12 @@ class _Lista extends StatelessWidget {
     required this.elegida,
     required this.conCuenta,
     required this.onElegir,
-    required this.onDelete,
   });
 
   final List<ConversationSummary> visibles;
   final String? elegida;
   final bool conCuenta;
   final void Function(ConversationSummary) onElegir;
-  final Future<void> Function(ConversationSummary) onDelete;
 
   /// Las cabeceras y las filas, en el orden en que se pintan.
   ///
@@ -345,8 +327,6 @@ class _Lista extends StatelessWidget {
     final dias = LosDiasDelHistorial.agrupa(visibles);
     return [
       for (final (indice, dia) in dias.indexed) ...[
-        // El primero no lleva aire encima: no separa de nada, y un hueco al
-        // principio de la lista se lee como un fallo de dibujo.
         _Dia(dia: dia, primero: indice == 0),
         for (final record in dia.fichas)
           _Row(
@@ -355,7 +335,6 @@ class _Lista extends StatelessWidget {
             elegida: record.id == elegida,
             conCuenta: conCuenta,
             onTap: () => onElegir(record),
-            onDelete: () => onDelete(record),
           ),
       ],
     ];
@@ -374,35 +353,30 @@ class _Lista extends StatelessWidget {
   }
 }
 
-class _Row extends StatefulWidget {
+/// Una conversación de la lista: la hora, el título con su proyecto debajo y
+/// los turnos.
+///
+/// 🔴 **Sin papelera en la fila.** Estaba aquí y también en la vista, dos
+/// sitios para lo mismo, y el de la fila era un icono de catorce píxeles pegado
+/// a los turnos. El mockup lo deja en la vista, junto a «Retomar», y la
+/// confirmación sigue siendo la de siempre —«Cancelar · Borrar», sin diálogo—:
+/// se borra lo que se está mirando, no una línea a ciegas.
+class _Row extends StatelessWidget {
   const _Row({
     super.key,
     required this.record,
     required this.elegida,
     required this.conCuenta,
     required this.onTap,
-    required this.onDelete,
   });
 
   final ConversationSummary record;
   final bool elegida;
   final bool conCuenta;
   final VoidCallback onTap;
-  final Future<void> Function() onDelete;
-
-  @override
-  State<_Row> createState() => _RowState();
-}
-
-class _RowState extends State<_Row> {
-  /// Borrar pide confirmación **en la propia fila**, no en otro diálogo encima
-  /// de este: lo que se va a borrar es esta línea, y verla mientras decides es
-  /// más claro que un cuadro que repite el título.
-  bool _confirming = false;
 
   @override
   Widget build(BuildContext context) {
-    final record = widget.record;
     final colors = context.colors;
     final strings = context.strings;
     // 🔴 **La fecha de la lista es la del último uso, no la del comienzo.**
@@ -411,37 +385,47 @@ class _RowState extends State<_Row> {
     // ahí «las últimas conversaciones no se están guardando», con todas
     // guardadas. Ver [ConversationSummary.usadaEn].
     final when = record.usadaEn;
+    final dato = NexusTypography.data.copyWith(
+      color: colors.mute,
+      fontSize: 10.5,
+      height: 1.6,
+    );
 
     return InkWell(
-      onTap: widget.onTap,
+      onTap: onTap,
+      hoverColor: colors.rise,
       child: Container(
         decoration: BoxDecoration(
-          // El **relleno de acento suave** es lo elegido, y la raya a la
-          // izquierda lo dice sin color de por medio para quien no lo distinga.
-          color: widget.elegida ? colors.accent.withValues(alpha: 0.08) : null,
+          // La elegida se levanta y lleva la raya de acento: lo segundo lo dice
+          // sin color de por medio para quien no distinga el fondo.
+          color: elegida ? colors.rise : null,
           border: Border(
+            top: BorderSide(color: colors.rule),
             left: BorderSide(
-              color: widget.elegida ? colors.accent : Colors.transparent,
+              color: elegida ? colors.accent : Colors.transparent,
               width: 2,
             ),
-            bottom: BorderSide(color: colors.rule),
           ),
         ),
-        padding: const EdgeInsets.symmetric(
-          vertical: NexusSpacing.s3,
-          horizontal: NexusSpacing.s2,
-        ),
+        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 8),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // **La hora y no la fecha entera**: el día lo dice la cabecera de
-            // su grupo. Delante y en monoespaciada, para que las columnas
-            // cuadren y la lista se recorra con la vista en vertical.
-            Text(
-              _hora(when),
-              style: NexusTypography.mono.copyWith(color: colors.faint),
+            // su grupo. Delante, en monoespaciada y con su columna fija, para
+            // que las filas cuadren y la lista se recorra con la vista en
+            // vertical.
+            SizedBox(
+              width: 42,
+              child: Text(
+                laHora(when),
+                style: NexusTypography.data.copyWith(
+                  color: colors.mute,
+                  height: 1.6,
+                ),
+              ),
             ),
-            const SizedBox(width: NexusSpacing.s3),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -450,7 +434,11 @@ class _RowState extends State<_Row> {
                     record.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: NexusTypography.body.copyWith(color: colors.ink),
+                    style: NexusTypography.body.copyWith(
+                      color: colors.ink,
+                      fontSize: 14,
+                      height: 1.35,
+                    ),
                   ),
                   // El proyecto va debajo porque la lista mezcla todos, y sin
                   // esto dos conversaciones de repos distintos se ven
@@ -458,54 +446,25 @@ class _RowState extends State<_Row> {
                   Text(
                     [
                       record.projectName,
-                      if (widget.conCuenta)
+                      if (conCuenta)
                         ElFiltroDelHistorial.cuentaDe(record).isEmpty
                             ? strings.claudeAccountDefault
                             : ElFiltroDelHistorial.cuentaDe(record),
                     ].join(' · '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: NexusTypography.data.copyWith(color: colors.faint),
+                    style: dato.copyWith(height: 1.5),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: NexusSpacing.s2),
+            const SizedBox(width: 10),
             // Los turnos, cuando constan. Una nota escrita por una versión
             // anterior no los lleva en la cabecera, y ahí se prefiere no decir
             // nada a decir cero: cero mensajes es una conversación que no se
             // habría guardado.
-            if (record.turns > 0 && !_confirming) ...[
-              Text(
-                strings.historialTurnos(record.turns),
-                style: NexusTypography.data.copyWith(color: colors.faint),
-              ),
-              const SizedBox(width: NexusSpacing.s1),
-            ],
-            if (_confirming) ...[
-              TextButton(
-                onPressed: () => setState(() => _confirming = false),
-                child: Text(
-                  strings.cancel,
-                  style: NexusTypography.control.copyWith(color: colors.mute),
-                ),
-              ),
-              TextButton(
-                onPressed: widget.onDelete,
-                child: Text(
-                  strings.deleteForReal,
-                  style: NexusTypography.control.copyWith(color: colors.err),
-                ),
-              ),
-            ] else
-              IconButton(
-                onPressed: () => setState(() => _confirming = true),
-                tooltip: strings.deleteConversation,
-                iconSize: 14,
-                splashRadius: 14,
-                visualDensity: VisualDensity.compact,
-                icon: Icon(Icons.delete_outline, color: colors.faint),
-              ),
+            if (record.turns > 0)
+              Text(strings.historialTurnos(record.turns), style: dato),
           ],
         ),
       ),
@@ -513,13 +472,12 @@ class _RowState extends State<_Row> {
   }
 }
 
-String _dos(int value) => value.toString().padLeft(2, '0');
-String _hora(DateTime when) => '${_dos(when.hour)}:${_dos(when.minute)}';
-
 /// La cabecera de un día, que es la separación visual entre grupos.
 ///
 /// **El aire va arriba y no abajo**: así la cabecera se lee pegada a lo que
-/// titula, que es lo que hace que un grupo se vea como un grupo.
+/// titula, que es lo que hace que un grupo se vea como un grupo. **Sin la
+/// cuenta al final**: el mockup no la lleva, y cuántas hay se ve en las filas,
+/// que están justo debajo.
 class _Dia extends StatelessWidget {
   const _Dia({required this.dia, required this.primero});
 
@@ -533,43 +491,24 @@ class _Dia extends StatelessWidget {
     final colors = context.colors;
 
     return Padding(
-      padding: EdgeInsets.only(
-        top: primero ? 0 : NexusSpacing.s5,
-        bottom: NexusSpacing.s2,
-      ),
+      padding: EdgeInsets.only(top: primero ? 4 : 14, bottom: 4),
       child: Row(
         children: [
           Text(
-            _elDia(context, dia.dia).toUpperCase(),
-            style: NexusTypography.label.copyWith(color: colors.accent),
+            elDiaLegible(context.strings, dia.dia).toUpperCase(),
+            style: NexusTypography.label.copyWith(
+              color: colors.accent,
+              letterSpacing: 1.6,
+            ),
           ),
-          const SizedBox(width: NexusSpacing.s3),
+          const SizedBox(width: 10),
           // La línea sale del texto y llega al borde: es lo que dice «lo de
           // debajo es de este día» sin escribirlo.
           Expanded(child: Divider(height: 1, color: colors.rule)),
-          const SizedBox(width: NexusSpacing.s3),
-          Text(
-            '${dia.fichas.length}',
-            style: NexusTypography.label.copyWith(color: colors.faint),
-          ),
         ],
       ),
     );
   }
-}
-
-/// «Hoy», «Ayer» o la fecha, como en las cabeceras de la lista. La vista previa
-/// lo repite para que se lea sola, sin mirar a qué grupo pertenece la fila.
-String _elDia(BuildContext context, DateTime cuando) {
-  final strings = context.strings;
-  final ahora = DateTime.now();
-  final hoy = DateTime(ahora.year, ahora.month, ahora.day);
-  final dia = DateTime(cuando.year, cuando.month, cuando.day);
-  if (dia == hoy) return strings.historialHoy;
-  if (dia == hoy.subtract(const Duration(days: 1))) {
-    return strings.historialAyer;
-  }
-  return strings.historialDia(dia, conElAno: dia.year != ahora.year);
 }
 
 /// Lo que la vista previa enseña de una conversación.
@@ -611,6 +550,9 @@ class _VistaPreviaState extends ConsumerState<_VistaPrevia> {
   /// Lo leído del disco, o `null` si la ficha ya lo traía.
   Future<ConversationRecord?>? _leida;
 
+  /// Borrar pregunta **aquí mismo**, no en otro diálogo encima de este: lo que
+  /// se va a borrar es lo que se está mirando, y verlo mientras decides es más
+  /// claro que un cuadro que repite el título.
   bool _confirmaBorrar = false;
 
   bool get _laFichaLoTrae =>
@@ -659,149 +601,110 @@ class _VistaPreviaState extends ConsumerState<_VistaPrevia> {
     final strings = context.strings;
     final ficha = widget.ficha;
     final cuenta = ElFiltroDelHistorial.cuentaDe(ficha);
+    final frase = NexusTypography.body.copyWith(fontSize: 14, height: 1.5);
 
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            [
-              _elDia(context, ficha.usadaEn),
-              _hora(ficha.usadaEn),
-              ficha.projectName,
-              if (widget.conCuenta)
-                cuenta.isEmpty ? strings.claudeAccountDefault : cuenta,
-            ].join(' · ').toUpperCase(),
-            style: NexusTypography.label.copyWith(color: colors.mute),
+    return VistaDeLaHoja(
+      children: [
+        // En acento, como la pregunta encima de una sección de Ajustes: dice
+        // cuándo y de dónde antes que el qué.
+        Text(
+          [
+            elDiaLegible(strings, ficha.usadaEn),
+            laHora(ficha.usadaEn),
+            ficha.projectName,
+            if (widget.conCuenta)
+              cuenta.isEmpty ? strings.claudeAccountDefault : cuenta,
+          ].join(' · ').toUpperCase(),
+          style: NexusTypography.label.copyWith(color: colors.accent),
+        ),
+        Text(
+          ficha.title,
+          style: NexusTypography.title.copyWith(
+            color: colors.ink,
+            fontSize: 24,
+            height: 1.25,
           ),
-          const SizedBox(height: NexusSpacing.s2),
+        ),
+        if (noSePudo)
           Text(
-            ficha.title,
-            style: NexusTypography.title.copyWith(color: colors.ink),
-          ),
-          const SizedBox(height: NexusSpacing.s4),
-          if (noSePudo)
-            Text(
-              strings.historialNoSePudoLeer,
-              style: NexusTypography.nota.copyWith(color: colors.mute),
-            ),
-          if (loQueSeVe?.pediste case final pediste?)
-            _Turno(
-              quien: strings.historialLoQuePediste,
-              child: Text(
-                pediste,
-                style: NexusTypography.body.copyWith(color: colors.ink),
-              ),
-            ),
-          // Lo de ella en `mute`: es la respuesta, y lo que se reconoce de un
-          // vistazo es lo que pediste tú.
-          if (loQueSeVe?.dijo case final dijo?)
-            _Turno(
-              quien: strings.historialLoQueDijo,
-              child: Text(
-                dijo,
-                style: NexusTypography.body.copyWith(color: colors.mute),
-              ),
-            ),
-          if (loQueSeVe != null && loQueSeVe.documentos.isNotEmpty)
-            _Turno(
-              quien: strings.historialDocumentosDeAqui(
-                loQueSeVe.documentos.length,
-              ),
-              child: Column(
-                children: [
-                  for (final ruta in loQueSeVe.documentos) _Adjunto(ruta: ruta),
-                ],
-              ),
-            ),
-          const SizedBox(height: NexusSpacing.s4),
-          Wrap(
-            spacing: NexusSpacing.s2,
-            runSpacing: NexusSpacing.s2,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              ElevatedButton(
-                onPressed: widget.onRetomar,
-                child: Text(strings.historialRetomar),
-              ),
-              if (widget.olvidarEn case final carpeta?)
-                OutlinedButton(
-                  onPressed: widget.onOlvidar,
-                  child: Text(strings.startFromScratchIn(carpeta)),
-                ),
-              // Borrar pregunta aquí mismo, igual que en la fila: «Cancelar ·
-              // Borrar» sin diálogo encima.
-              if (_confirmaBorrar) ...[
-                TextButton(
-                  onPressed: () => setState(() => _confirmaBorrar = false),
-                  child: Text(strings.cancel),
-                ),
-                OutlinedButton(
-                  onPressed: widget.onBorrar,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: colors.err,
-                    side: BorderSide(color: colors.err),
-                  ),
-                  child: Text(strings.deleteForReal),
-                ),
-              ] else
-                OutlinedButton(
-                  onPressed: () => setState(() => _confirmaBorrar = true),
-                  style: OutlinedButton.styleFrom(foregroundColor: colors.err),
-                  child: Text(strings.historialBorrar),
-                ),
-            ],
-          ),
-          const SizedBox(height: NexusSpacing.s3),
-          Text(
-            widget.olvidarEn == null
-                ? strings.historialNotaRetomar
-                : strings.historialNotaRetomarYOlvidar,
+            strings.historialNoSePudoLeer,
             style: NexusTypography.nota.copyWith(color: colors.mute),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Un bloque de la vista: una línea encima, quién habla y lo que dijo. Bloques
-/// con línea y no burbujas: esto es un registro de lo que se hizo, no dos
-/// personas charlando.
-class _Turno extends StatelessWidget {
-  const _Turno({required this.quien, required this.child});
-
-  final String quien;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: NexusSpacing.s3),
-      padding: const EdgeInsets.only(top: NexusSpacing.s2),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: colors.rule)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            quien.toUpperCase(),
-            style: NexusTypography.label.copyWith(color: colors.mute),
+        if (loQueSeVe?.pediste case final pediste?)
+          BloqueDeLaVista(
+            quien: strings.historialLoQuePediste,
+            child: Text(pediste, style: frase.copyWith(color: colors.ink)),
           ),
-          const SizedBox(height: NexusSpacing.s1),
-          child,
-        ],
-      ),
+        // Lo de ella en `mute`: es la respuesta, y lo que se reconoce de un
+        // vistazo es lo que pediste tú.
+        if (loQueSeVe?.dijo case final dijo?)
+          BloqueDeLaVista(
+            quien: strings.historialLoQueDijo,
+            child: Text(dijo, style: frase.copyWith(color: colors.mute)),
+          ),
+        if (loQueSeVe != null && loQueSeVe.documentos.isNotEmpty)
+          BloqueDeLaVista(
+            quien: strings.historialDocumentosDeAqui(
+              loQueSeVe.documentos.length,
+            ),
+            child: Column(
+              children: [
+                for (final ruta in loQueSeVe.documentos) _Adjunto(ruta: ruta),
+              ],
+            ),
+          ),
+        Wrap(
+          spacing: NexusSpacing.s2,
+          runSpacing: NexusSpacing.s2,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            BotonDeLaHoja(
+              texto: strings.historialRetomar,
+              tono: TonoDeBoton.principal,
+              onPulsar: widget.onRetomar,
+            ),
+            if (widget.olvidarEn case final carpeta?)
+              BotonDeLaHoja(
+                texto: strings.startFromScratchIn(carpeta),
+                onPulsar: widget.onOlvidar,
+              ),
+            // Borrar pregunta aquí mismo: «Cancelar · Borrar» sin diálogo
+            // encima.
+            if (_confirmaBorrar) ...[
+              BotonDeLaHoja(
+                texto: strings.historialCancelar,
+                onPulsar: () => setState(() => _confirmaBorrar = false),
+              ),
+              BotonDeLaHoja(
+                texto: strings.historialBorrar,
+                tono: TonoDeBoton.peligro,
+                onPulsar: widget.onBorrar,
+              ),
+            ] else
+              BotonDeLaHoja(
+                texto: strings.historialBorrar,
+                tono: TonoDeBoton.peligro,
+                onPulsar: () => setState(() => _confirmaBorrar = true),
+              ),
+          ],
+        ),
+        Text(
+          widget.olvidarEn == null
+              ? strings.historialNotaRetomar
+              : strings.historialNotaRetomarYOlvidar,
+          style: NexusTypography.nota.copyWith(
+            color: colors.mute,
+            fontSize: 12,
+          ),
+        ),
+      ],
     );
   }
 }
 
 /// Un documento que salió de la conversación. Se abre desde aquí igual que
-/// desde la lista de documentos: es el mismo documento.
+/// desde la lista de documentos: es el mismo documento, y lleva la misma
+/// pastilla delante.
 class _Adjunto extends ConsumerWidget {
   const _Adjunto({required this.ruta});
 
@@ -816,6 +719,7 @@ class _Adjunto extends ConsumerWidget {
       padding: const EdgeInsets.only(top: NexusSpacing.s1),
       child: InkWell(
         onTap: () => ArtifactsSheet.abrirUnDocumento(context, ref, ruta),
+        hoverColor: colors.rise,
         borderRadius: BorderRadius.circular(NexusRadius.sm),
         child: Container(
           width: double.infinity,
@@ -826,24 +730,19 @@ class _Adjunto extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                iconoDelTipo(TipoDeDocumento.de(ruta)),
-                size: 15,
-                color: colors.faint,
-              ),
-              const SizedBox(width: NexusSpacing.s2),
+              MiniaturaDelDocumento(ruta: ruta),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   nombre,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: NexusTypography.data.copyWith(color: colors.ink),
+                  // El nombre del archivo es un dato: va en mono.
+                  style: NexusTypography.data.copyWith(
+                    color: colors.ink,
+                    fontSize: 12,
+                  ),
                 ),
-              ),
-              const SizedBox(width: NexusSpacing.s2),
-              Text(
-                nombreDelTipo(context, TipoDeDocumento.de(ruta)),
-                style: NexusTypography.control.copyWith(color: colors.faint),
               ),
             ],
           ),

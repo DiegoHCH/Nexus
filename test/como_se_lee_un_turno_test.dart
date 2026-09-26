@@ -85,4 +85,32 @@ void main() {
       expect(ComoSeLeeUnTurno.loQueCosto(), isNull);
     });
   });
+
+  // La etiqueta del turno lleva solo la hora cuando es de hoy —como en el
+  // mockup— y la fecha entera en cuanto no lo es: una conversación retomada de
+  // hace tres días no puede decir «11:02» como si fuera de esta mañana.
+  group('la hora dentro de la etiqueta', () {
+    final hoy = DateTime(2026, 9, 25, 18);
+
+    test('de hoy, solo la hora', () {
+      expect(
+        ComoSeLeeUnTurno.laHoraDelTurno(DateTime(2026, 9, 25, 11, 2), hoy: hoy),
+        '11:02AM',
+      );
+      expect(
+        ComoSeLeeUnTurno.laHoraDelTurno(DateTime(2026, 9, 25, 0, 5), hoy: hoy),
+        '12:05AM',
+      );
+    });
+
+    test('de otro día, con su fecha', () {
+      expect(
+        ComoSeLeeUnTurno.laHoraDelTurno(
+          DateTime(2026, 9, 22, 17, 14),
+          hoy: hoy,
+        ),
+        '22/09/26 - 5:14PM',
+      );
+    });
+  });
 }

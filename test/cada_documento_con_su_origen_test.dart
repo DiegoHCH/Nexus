@@ -221,21 +221,28 @@ void main() {
         ],
       );
 
-      expect(find.text('CRED-310 · pantallas'), findsOneWidget);
+      // En la cabecera del grupo y en el «Salió de» de la vista: es el más
+      // reciente, así que es el elegido de entrada.
+      expect(find.text('CRED-310 · pantallas'), findsNWidgets(2));
+      expect(find.text(strings.artifactsSalioDe.toUpperCase()), findsOneWidget);
       expect(
         find.text(strings.artifactsSinConversacion.toUpperCase()),
         findsOneWidget,
       );
       // Y el tipo con nombre, no la extensión.
       expect(find.textContaining(strings.artifactsTipoPagina), findsWidgets);
-      expect(find.text(strings.artifactsFiltroPaginas), findsOneWidget);
+      expect(
+        find.text(strings.artifactsFiltroPaginas.toUpperCase()),
+        findsOneWidget,
+      );
     });
 
     // Un documento de antes, sin conversación que lo reclame, se sigue viendo.
     testWidgets('sin historial, todos salen igual', (tester) async {
       await abrir(tester);
 
-      expect(find.text('informe-ci.html'), findsOneWidget);
+      // El más reciente sale dos veces: en su fila y como título de la vista.
+      expect(find.text('informe-ci.html'), findsNWidgets(2));
       expect(find.text('notas-viejas.md'), findsOneWidget);
       expect(
         find.text(strings.artifactsSinConversacion.toUpperCase()),
@@ -253,10 +260,10 @@ void main() {
       expect(find.text(strings.artifactsTrashPregunta), findsOneWidget);
       expect(find.text(strings.artifactsTrashSeRecupera), findsOneWidget);
       expect(papelera, isEmpty, reason: 'preguntar no es mover');
-      // En la fila y no encima: la hoja sigue siendo el único diálogo.
-      expect(find.byType(Dialog), findsOneWidget);
+      // En la fila y no encima: no se abre ningún diálogo.
+      expect(find.byType(Dialog), findsNothing);
 
-      await tester.tap(find.text(strings.cancel));
+      await tester.tap(find.text(strings.historialCancelar.toUpperCase()));
       await tester.pump();
 
       expect(find.text(strings.artifactsTrashPregunta), findsNothing);
@@ -264,10 +271,43 @@ void main() {
 
       await tester.tap(papeleras.first);
       await tester.pump();
-      await tester.tap(find.text(strings.artifactsTrashMover));
+      await tester.tap(find.text(strings.artifactsTrashMover.toUpperCase()));
       await tester.pump();
 
       expect(papelera, ['$_cajon/informe-ci.html']);
+    });
+
+    // 🔴 Antes un clic abría sin enseñar. Ahora el clic elige, la vista de la
+    // derecha enseña el documento, y abrir es un botón.
+    testWidgets('el clic elige y «Abrir» abre', (tester) async {
+      final abiertos = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('com.katanalabs.nexus/artifacts'),
+            (call) async {
+              if (call.method == 'open') {
+                abiertos.add((call.arguments as Map)['path'] as String);
+              }
+              return true;
+            },
+          );
+      await abrir(tester);
+
+      await tester.tap(find.text('notas-viejas.md'));
+      await tester.pump();
+
+      expect(abiertos, isEmpty, reason: 'elegir no es abrir');
+      expect(find.text('notas-viejas.md'), findsNWidgets(2));
+      expect(find.text('informe-ci.html'), findsOneWidget);
+
+      await tester.tap(find.text('informe-ci.html'));
+      await tester.pump();
+      await tester.tap(find.text(strings.artifactsAbrir.toUpperCase()));
+      await tester.pump();
+
+      expect(abiertos, ['$_cajon/informe-ci.html']);
+      // Una página avisa de cómo se abre: con scripts y red apagados.
+      expect(find.text(strings.artifactsNotaDelVisor), findsOneWidget);
     });
   });
 }

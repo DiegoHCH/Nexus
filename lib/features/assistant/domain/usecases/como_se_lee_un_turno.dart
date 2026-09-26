@@ -22,6 +22,24 @@ abstract final class ComoSeLeeUnTurno {
     return '$d/$m/$a - $hora12:$min$mitad';
   }
 
+  /// La hora de un turno dentro de su etiqueta: `5:14PM` si es de hoy, y la
+  /// fecha entera de [laFechaYLaHora] si no.
+  ///
+  /// El mockup de la conversación pone solo la hora —«Tú · 11:02 · hablado»—,
+  /// y en una conversación de hoy la fecha repetida en cada turno es ruido. Pero
+  /// al retomar una de hace tres días la hora sola engaña: lo que se pidió fue
+  /// **distinguir hoy de ayer**, y por eso la fecha vuelve en cuanto no es hoy.
+  static String laHoraDelTurno(DateTime cuando, {required DateTime hoy}) {
+    final esDeHoy =
+        cuando.year == hoy.year &&
+        cuando.month == hoy.month &&
+        cuando.day == hoy.day;
+    if (!esDeHoy) return laFechaYLaHora(cuando);
+    final hora12 = cuando.hour % 12 == 0 ? 12 : cuando.hour % 12;
+    final min = cuando.minute.toString().padLeft(2, '0');
+    return '$hora12:$min${cuando.hour < 12 ? 'AM' : 'PM'}';
+  }
+
   /// `1.2M tokens · 4m 12s`, con lo que haya.
   ///
   /// Devuelve `null` cuando no hay nada que decir: una etiqueta vacía ocupa

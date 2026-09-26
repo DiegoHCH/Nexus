@@ -325,7 +325,7 @@ void main() {
       );
       await tester.tap(find.text('abrir'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 700));
     }
 
     final oido = _ficha(
@@ -344,12 +344,94 @@ void main() {
       dijo: 'El golden cambió.',
     );
 
-    // Lo que decía antes: «De esta carpeta», y enseñaba todas.
+    // Lo que decía antes: «De esta carpeta», y enseñaba todas. Ahora lo dice el
+    // filtro —«Todas», elegido de entrada, con las dos carpetas a la vista— y,
+    // mientras no hay nada, la frase que explica qué va a haber.
     testWidgets('dice la verdad sobre qué enseña', (tester) async {
       await abrir(tester, [oido, ci]);
 
-      expect(find.text(strings.historyExplainer), findsOneWidget);
+      final todas = tester.widget<Filtro>(
+        find.widgetWithText(Filtro, strings.historialTodas.toUpperCase()),
+      );
+      expect(todas.activo, isTrue);
+      expect(find.text('Hestia no reconocía la voz'), findsWidgets);
+      expect(find.text('CRED-310 · pantallas'), findsOneWidget);
       expect(strings.historyExplainer, isNot(contains('De esta carpeta')));
+    });
+
+    testWidgets('vacía, explica qué va a haber', (tester) async {
+      await abrir(tester, const []);
+
+      expect(find.text(strings.nothingAskedYet), findsOneWidget);
+      expect(find.text(strings.historyExplainer), findsOneWidget);
+    });
+
+    // La hoja ancha del mockup: la barra con su rótulo, la sala detrás, y Esc
+    // o un clic en la sala la cierran.
+    testWidgets('es una hoja sobre la sala, y la sala la cierra', (
+      tester,
+    ) async {
+      await abrir(tester, [oido, ci]);
+
+      expect(find.byType(Dialog), findsNothing);
+      expect(find.text(strings.history), findsOneWidget);
+
+      await tester.tapAt(const Offset(40, 400));
+      await tester.pumpAndSettle();
+
+      expect(find.text(strings.historialRetomar.toUpperCase()), findsNothing);
+    });
+
+    testWidgets('Esc la cierra', (tester) async {
+      await abrir(tester, [oido, ci]);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      expect(find.text(strings.historialRetomar.toUpperCase()), findsNothing);
+    });
+
+    // Borrar vive en la vista y pregunta ahí mismo, sin diálogo encima.
+    testWidgets('borrar pregunta en la vista antes de borrar', (tester) async {
+      final borradas = <String>[];
+      await pumpScreen(
+        tester,
+        Builder(
+          builder: (context) => TextButton(
+            onPressed: () => ConversationHistorySheet.open(
+              context,
+              onPick: (_) {},
+              onForget: () {},
+            ),
+            child: const Text('abrir'),
+          ),
+        ),
+        overrides: [
+          allSavedConversationsProvider.overrideWith(
+            (ref) => Future.value([oido, ci]),
+          ),
+          deleteConversationProvider.overrideWithValue((ficha) async {
+            borradas.add(ficha.id);
+          }),
+        ],
+      );
+      await tester.tap(find.text('abrir'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+
+      await tester.tap(find.text(strings.historialBorrar.toUpperCase()));
+      await tester.pump();
+
+      expect(borradas, isEmpty, reason: 'preguntar no es borrar');
+      expect(
+        find.text(strings.historialCancelar.toUpperCase()),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text(strings.historialBorrar.toUpperCase()));
+      await tester.pump();
+
+      expect(borradas, ['oido']);
     });
 
     testWidgets('enseña la elegida antes de retomarla', (tester) async {
@@ -358,7 +440,7 @@ void main() {
       // La más reciente, elegida de entrada.
       expect(find.text('¿Por qué no sale el orbe?'), findsOneWidget);
       expect(find.text('Escuchaba en inglés.'), findsOneWidget);
-      expect(find.text(strings.historialRetomar), findsOneWidget);
+      expect(find.text(strings.historialRetomar.toUpperCase()), findsOneWidget);
 
       // Pulsar otra la enseña, no la reabre.
       await tester.tap(find.text('CRED-310 · pantallas'));
@@ -417,13 +499,13 @@ void main() {
     testWidgets('el filtro por carpeta deja solo esa', (tester) async {
       await abrir(tester, [oido, ci]);
 
-      await tester.tap(find.widgetWithText(Filtro, 'front-mobile-b2c'));
+      await tester.tap(find.widgetWithText(Filtro, 'FRONT-MOBILE-B2C'));
       await tester.pump();
 
       expect(find.text('Hestia no reconocía la voz'), findsNothing);
       expect(find.text('CRED-310 · pantallas'), findsNWidgets(2));
 
-      await tester.tap(find.text(strings.historialTodas));
+      await tester.tap(find.text(strings.historialTodas.toUpperCase()));
       await tester.pump();
 
       expect(find.text('Hestia no reconocía la voz'), findsWidgets);

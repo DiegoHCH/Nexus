@@ -17,7 +17,16 @@ class HudTopBar extends ConsumerWidget {
     this.live = false,
     this.folderPath,
     this.centrada = false,
+    this.atajos,
   });
+
+  /// Los atajos que valen ahora, a la derecha y en tenue: «⌘. detiene ·
+  /// ⌥Espacio habla».
+  ///
+  /// Solo en la conversación de cerca, que en el mockup es una barra de ventana
+  /// —con su línea abajo y los atajos al otro extremo—. El escenario es la sala
+  /// entera y no lleva barra de ventana: por eso `null` deja la de siempre.
+  final String? atajos;
 
   /// Lo que Nexus está haciendo ahora mismo, en una palabra.
   final String status;
@@ -41,11 +50,15 @@ class HudTopBar extends ConsumerWidget {
     final colors = context.colors;
     final workspace = ref.watch(workspaceControllerProvider);
     final controller = ref.read(workspaceControllerProvider.notifier);
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: NexusSpacing.s6,
-        vertical: NexusSpacing.s5,
-      ),
+    final deVentana = atajos != null;
+    final fila = Padding(
+      padding: deVentana
+          // La barra de ventana del mockup: 52 de alto y 28 a los lados.
+          ? const EdgeInsets.symmetric(horizontal: 28, vertical: 20)
+          : const EdgeInsets.symmetric(
+              horizontal: NexusSpacing.s6,
+              vertical: NexusSpacing.s5,
+            ),
       child: Row(
         children: [
           if (centrada) const Spacer(),
@@ -93,11 +106,26 @@ class HudTopBar extends ConsumerWidget {
           if (workspace.folders.isEmpty)
             OutlinedButton(
               onPressed: controller.pairFolder,
-              child: Text(context.strings.pairFolder),
+              child: Text(context.strings.pairFolder.toUpperCase()),
             ),
+          if (atajos case final dichos?) ...[
+            const SizedBox(width: NexusSpacing.s4),
+            Text(
+              dichos,
+              style: NexusTypography.label.copyWith(color: colors.mute),
+            ),
+          ],
           if (centrada) const Spacer(),
         ],
       ),
+    );
+    if (!deVentana) return fila;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.void_,
+        border: Border(bottom: BorderSide(color: colors.rule)),
+      ),
+      child: fila,
     );
   }
 }

@@ -65,7 +65,7 @@ void main() {
       // Con su cuenta al lado, y la nota del tercero: avisa de que incluye lo
       // de antes de esta tarea.
       expect(html, contains('Todo lo no comiteado<span>1</span>'));
-      expect(html, contains('<p class="nota">Incluye lo de antes.</p>'));
+      expect(html, contains('<p class="b-p nota">Incluye lo de antes.</p>'));
     });
 
     test('sin grupos no revienta, y lo dice', () {

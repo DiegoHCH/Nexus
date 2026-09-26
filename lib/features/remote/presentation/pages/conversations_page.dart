@@ -50,6 +50,9 @@ class _ConversationsPageState extends ConsumerState<ConversationsPage> {
     return Scaffold(
       key: _llave,
       backgroundColor: colors.void_,
+      // El velo del mockup y no el negro de Material: el fondo al 70 %, así que en
+      // claro se vela en claro y la pantalla de detrás se sigue leyendo.
+      drawerScrimColor: MedidasDelMovil.velo(colors),
       drawer: MobileDrawer(
         alAbrirNueva: () => _ir(const FoldersPage()),
         alAbrirArchivo: () => _ir(const ArchivePage()),
@@ -58,15 +61,10 @@ class _ConversationsPageState extends ConsumerState<ConversationsPage> {
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              // La cabecera del sistema, con el hamburguesa. «Olvidar» se fue al
-              // menú: era la única acción destructiva y estaba en la esquina de la
-              // pantalla principal, a un toque de todo lo demás.
-              child: MobileChrome(
-                alMenu: () => _llave.currentState?.openDrawer(),
-              ),
-            ),
+            // La cabecera del sistema, con el hamburguesa. «Olvidar» se fue al menú:
+            // era la única acción destructiva y estaba en la esquina de la pantalla
+            // principal, a un toque de todo lo demás.
+            MobileChrome(alMenu: () => _llave.currentState?.openDrawer()),
             Expanded(
               child: RefreshIndicator(
                 // Tirar hacia abajo vuelve a pedir la lista. Existe porque el móvil
@@ -97,7 +95,7 @@ class _ConversationsPageState extends ConsumerState<ConversationsPage> {
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: NexusSpacing.s5,
+                          horizontal: MedidasDelMovil.margen,
                         ),
                         // Una más al principio: la cabecera va dentro de la lista y
                         // no encima, para que el tirón para refrescar la arrastre
@@ -115,10 +113,10 @@ class _ConversationsPageState extends ConsumerState<ConversationsPage> {
             if (!espejo.vacio)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
-                  NexusSpacing.s5,
+                  MedidasDelMovil.margen,
                   NexusSpacing.s3,
-                  NexusSpacing.s5,
-                  NexusSpacing.s5,
+                  MedidasDelMovil.margen,
+                  MedidasDelMovil.pie,
                 ),
                 child: WideAction(
                   key: const ValueKey('conversacion-nueva'),
@@ -182,59 +180,74 @@ class _Vacio extends StatelessWidget {
           hasScrollBody: true,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
-              NexusSpacing.s5,
+              MedidasDelMovil.margen,
               0,
-              NexusSpacing.s5,
-              NexusSpacing.s5,
+              MedidasDelMovil.margen,
+              MedidasDelMovil.pie,
             ),
+            // **Arriba el orbe con lo que pasa, abajo lo que se puede hacer**, como el
+            // mockup: el orbe dormido a 30 del borde y el título pegado a él —son una
+            // sola cosa, «aquí está, esperando»—, y el botón en el fondo, donde está
+            // el pulgar. Con el orbe estirado en todo el hueco libre, el título caía
+            // a dos tercios de la pantalla, lejos de lo que lo explicaba.
+            //
+            // `spaceBetween` reparte lo que sobra **entre** los dos grupos, y el orbe
+            // en un `Flexible` es lo único que encoge en una pantalla pequeña o con
+            // la letra del sistema en grande.
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // **El orbe se queda con todo el sitio que sobre.**
-                //
-                // `Flexible` y no un alto fijo: así se centra en el hueco libre, crece
-                // en una pantalla grande y **se encoge** en una pequeña o con la letra
-                // del sistema en grande, en vez de desbordar la columna. El cuadrado
-                // es lo que importa: el orbe se dibuja con radio
-                // `min(ancho, alto) × 0.30`, así que en la caja de 140 de alto que
-                // tenía salía de 84 px de diámetro — el alto era lo que lo ahogaba, no
-                // el ancho.
-                //
-                // Sin horizonte, como el mockup: la línea lo convierte en un paisaje, y
-                // aquí el orbe es una presencia y no un decorado.
                 Flexible(
-                  child: Center(
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: NexusOrb(
-                        state: NexusOrbState.sleep,
-                        showHorizon: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 30),
+                      // Sin horizonte, como el mockup: la línea lo convierte en un
+                      // paisaje, y aquí el orbe es una presencia y no un decorado.
+                      // Cuadrado: el orbe se dibuja con el lado corto de su caja,
+                      // y en una franja ancha el que manda es el alto.
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 260),
+                          child: const AspectRatio(
+                            aspectRatio: 1,
+                            child: IgnorePointer(
+                              child: NexusOrb(state: NexusOrbState.sleep),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      TextoEquilibrado(
+                        preguntado
+                            ? strings.mobileNothingOpen
+                            : strings.mobileCouldNotAsk,
+                        clave: const ValueKey('titulo-del-vacio'),
+                        // El mismo título que las pantallas de estado —`.grande` en
+                        // el mockup—: esto es un estado, y se tiene que leer como tal.
+                        style: NexusTypography.title.copyWith(
+                          color: colors.ink,
+                          fontSize: 24,
+                          height: 1.25,
+                        ),
+                      ),
+                      const SizedBox(height: NexusSpacing.s1),
+                      Text(
+                        preguntado
+                            // Se dice **sobre qué** se abre, que es la parte que no
+                            // es obvia: una conversación no nace de la nada, nace
+                            // sobre una carpeta que el Mac ya tenía emparejada.
+                            ? strings.mobileNothingOpenBody
+                            : strings.mobileCouldNotAskBody,
+                        textAlign: TextAlign.center,
+                        style: NexusTypography.nota.copyWith(
+                          color: colors.mute,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: NexusSpacing.s5),
-                Text(
-                  preguntado
-                      ? strings.mobileNothingOpen
-                      : strings.mobileCouldNotAsk,
-                  key: const ValueKey('titulo-del-vacio'),
-                  textAlign: TextAlign.center,
-                  // El mismo título que las pantallas de estado —`.grande` en el
-                  // mockup—: esto es un estado, y se tiene que leer como tal.
-                  style: NexusTypography.title.copyWith(color: colors.ink),
-                ),
-                const SizedBox(height: NexusSpacing.s3),
-                Text(
-                  preguntado
-                      // Se dice **sobre qué** se abre, que es la parte que no es
-                      // obvia: una conversación no nace de la nada, nace sobre una
-                      // carpeta que el Mac ya tenía emparejada.
-                      ? strings.mobileNothingOpenBody
-                      : strings.mobileCouldNotAskBody,
-                  textAlign: TextAlign.center,
-                  style: NexusTypography.nota.copyWith(color: colors.mute),
-                ),
-                const SizedBox(height: NexusSpacing.s6),
                 // Abajo, y no debajo del texto: es donde está el pulgar, y es lo
                 // último que se lee después de saber qué pasa.
                 if (preguntado)
@@ -270,10 +283,7 @@ class _Cabecera extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(
-      top: NexusSpacing.s3,
-      bottom: NexusSpacing.s2,
-    ),
+    padding: const EdgeInsets.only(top: 10, bottom: 6),
     child: Text(
       context.strings.mobileOpenOnMac(cuantas).toUpperCase(),
       style: NexusTypography.label.copyWith(color: context.colors.mute),
@@ -322,22 +332,31 @@ class _Tarjeta extends ConsumerWidget {
               // piensa — sin leer ninguna fila. El mismo orbe que el grande, con las
               // mismas capas, porque un icono de estado aparte sería un segundo
               // idioma para decir lo mismo.
-              SizedBox(
+              //
+              // 22 dentro de una columna de 26, como el mockup: el miniorbe es una
+              // marca al lado de la ruta y no una ilustración, y a 26 pesaba más
+              // que el texto que acompaña.
+              Container(
                 width: 26,
-                height: 26,
-                child: IgnorePointer(
-                  child: NexusOrb(
-                    key: ValueKey('miniorbe-${conversacion.id}'),
-                    state: orbe,
-                    pasos: paso?.total,
-                    hechos: paso?.hechos,
-                    // El anillo del oído, solo en la que el Mac escucha: es la que
-                    // oye si dices su nombre.
-                    oido: conversacion.focused,
+                height: 22,
+                alignment: Alignment.centerLeft,
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: IgnorePointer(
+                    child: NexusOrb(
+                      key: ValueKey('miniorbe-${conversacion.id}'),
+                      state: orbe,
+                      pasos: paso?.total,
+                      hechos: paso?.hechos,
+                      // El anillo del oído, solo en la que el Mac escucha: es la que
+                      // oye si dices su nombre.
+                      oido: conversacion.focused,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: NexusSpacing.s3),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

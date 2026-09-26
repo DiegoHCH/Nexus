@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
+import 'package:nexus/features/superpowers/domain/usecases/la_lista_de_mcp.dart';
+import 'package:nexus/features/superpowers/presentation/providers/superpowers_providers.dart';
 import 'package:nexus/features/superpowers/presentation/widgets/mcp_panel.dart';
 import 'package:nexus/features/superpowers/presentation/widgets/plugins_panel.dart';
 import 'package:nexus/features/superpowers/presentation/widgets/skills_panel.dart';
@@ -48,7 +50,6 @@ class _SuperpowersSectionState extends ConsumerState<SuperpowersSection> {
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
-    final colors = context.colors;
     // 🔴 **Con la de siempre dentro.** Reportado con captura: en un Mac sin
     // perfiles con nombre esto decía «no hay ninguna cuenta configurada» y no
     // dejaba ver ni poner nada, mientras el chat funcionaba — porque
@@ -67,90 +68,111 @@ class _SuperpowersSectionState extends ConsumerState<SuperpowersSection> {
       mia: strings.cuentaMia,
     );
     if (profiles.isEmpty) {
-      return Text(
-        strings.statsNoAccounts,
-        style: NexusTypography.nota.copyWith(color: colors.faint),
-      );
+      return TextoDeAjustes(strings.statsNoAccounts);
     }
 
-    // Misma regla que el historial y las estadísticas: las pestañas separan
-    // cuentas y solo existen si hay más de una en el Mac.
+    // Misma regla que el historial y las estadísticas: la cuenta se elige solo
+    // si hay más de una en el Mac.
     final current = profiles.any((profile) => profile.path == _profile)
         ? _profile!
         : profiles.first.path;
 
+    // 🔴 **Cuántos hay de cada uno, en el propio nombre de la opción.** Como
+    // en el mockup —«Servidores MCP · 28»—: sin el número, para saber si una
+    // cuenta tenía algo puesto había que abrir las tres.
+    final mcp = LaListaDeMcp.junta(
+      delArchivo: ref.watch(mcpServersProvider(current)).value ?? const [],
+      recordados:
+          ref.watch(mcpRecordadosProvider(current)).value?.servidores ??
+          const [],
+    ).length;
+    final skills = ref.watch(installedSkillsProvider(current)).value?.length;
+    final plugins = ref
+        .watch(pluginsProvider(current))
+        .value
+        ?.where((plugin) => plugin.installed)
+        .length;
+    String conCuantos(String nombre, int? cuantos) =>
+        cuantos == null ? nombre : '$nombre · $cuantos';
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 🔴 **Con una sola cuenta se dice cuál es, aunque no haya pestañas.**
+        // 🔴 **Con una sola cuenta se dice cuál es, aunque no haya a elegir.**
         // Pedido tras el reporte del compañero: quien no ha creado perfiles no
         // tiene por qué saber que existe algo llamado «perfil», y una pantalla
         // que gestiona cosas «por cuenta» sin decir de qué cuenta habla obliga
-        // a suponerlo. Con dos o más lo dicen las pestañas, y repetirlo sería
-        // decir lo mismo dos veces.
+        // a suponerlo. Con dos o más lo dicen las opciones de arriba.
         if (profiles.length == 1)
           Padding(
-            padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
-            child: Text(
-              // 🔴 **Con el correo si se sabe, y el correo es mejor nombre que
-              // cualquiera que inventemos.** Preguntado antes de bautizar nada:
-              // «¿se puede saber con qué correo está logueada la cuenta?». Sí
-              // —Claude Code lo guarda en el `.claude.json` de cada
-              // directorio— y con eso quien mira esta pantalla reconoce la
-              // cuenta sin tener que aprender qué es un perfil.
-              [
-                strings.superpowersDeLaCuenta(nombres.single),
-                ?profiles.single.correo,
-              ].join(' · '),
-              style: NexusTypography.label.copyWith(color: colors.faint),
+            padding: const EdgeInsets.only(bottom: 9),
+            // 🔴 **Con el correo si se sabe, y el correo es mejor nombre que
+            // cualquiera que inventemos.** Claude Code lo guarda en el
+            // `.claude.json` de cada directorio, y con eso quien mira esta
+            // pantalla reconoce la cuenta sin tener que aprender qué es un
+            // perfil.
+            //
+            // El nombre como rótulo y el correo como dato, en mono y sin pasar
+            // a mayúsculas: un correo en mayúsculas ya no es el que se teclea.
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: strings
+                        .superpowersDeLaCuenta(nombres.single)
+                        .toUpperCase(),
+                    style: NexusTypography.label.copyWith(
+                      color: context.colors.mute,
+                    ),
+                  ),
+                  if (profiles.single.correo case final correo?)
+                    TextSpan(
+                      text: ' · $correo',
+                      style: NexusTypography.data.copyWith(
+                        color: context.colors.mute,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         if (profiles.length > 1) ...[
-          Row(
-            children: [
-              for (final (indice, profile) in profiles.indexed)
-                Expanded(
-                  child: _Tab(
-                    label: nombres[indice],
-                    // El correo, en el tooltip: en la pestaña no cabe —son
-                    // tres o cuatro repartidas a partes iguales— y es justo lo
-                    // que se quiere consultar al dudar de cuál es cuál.
-                    correo: profile.correo,
-                    active: profile.path == current,
-                    onTap: () => setState(() => _profile = profile.path),
-                  ),
-                ),
-            ],
+          ElegirDeAjustes<String>(
+            llave: 'cuenta-de-superpoderes',
+            opciones: [for (final profile in profiles) profile.path],
+            elegida: current,
+            nombre: (path) =>
+                nombres[profiles.indexWhere((profile) => profile.path == path)],
+            // El correo debajo del nombre: es justo lo que se quiere consultar
+            // al dudar de cuál es cuál.
+            pista: (path) =>
+                profiles.firstWhere((profile) => profile.path == path).correo,
+            onElegir: (path) => setState(() => _profile = path),
           ),
-          const SizedBox(height: NexusSpacing.s3),
+          const SizedBox(height: 9),
           // **El aviso va aquí y no en cada panel**: no es de los MCP ni de las
-          // skills, es de las pestañas de arriba. Y va siempre, no solo al fallar:
-          // enterarse por el síntoma —«en esta carpeta funciona y en esta no»— cuesta
-          // mucho más que leerlo antes.
+          // skills, es de la cuenta de arriba. Y va siempre, no solo al fallar:
+          // enterarse por el síntoma —«en esta carpeta funciona y en esta
+          // no»— cuesta mucho más que leerlo antes.
           _AvisoDeCuenta(
             enTodas: _enTodas,
             cuantas: profiles.length,
             alCambiar: (valor) => setState(() => _enTodas = valor),
           ),
+          const SizedBox(height: 16),
         ],
-        const SizedBox(height: NexusSpacing.s5),
-        Row(
-          children: [
-            for (final kind in _Kind.values) ...[
-              _Toggle(
-                label: switch (kind) {
-                  _Kind.mcp => strings.superpowersMcp,
-                  _Kind.skills => strings.superpowersSkills,
-                  _Kind.plugins => strings.superpowersPlugins,
-                },
-                active: _kind == kind,
-                onTap: () => setState(() => _kind = kind),
-              ),
-              const SizedBox(width: NexusSpacing.s2),
-            ],
-          ],
+        ElegirDeAjustes<_Kind>(
+          llave: 'superpoderes',
+          opciones: _Kind.values,
+          elegida: _kind,
+          nombre: (kind) => switch (kind) {
+            _Kind.mcp => conCuantos(strings.superpowersMcp, mcp),
+            _Kind.skills => conCuantos(strings.superpowersSkills, skills),
+            _Kind.plugins => conCuantos(strings.superpowersPlugins, plugins),
+          },
+          onElegir: (kind) => setState(() => _kind = kind),
         ),
-        const SizedBox(height: NexusSpacing.s5),
+        const SizedBox(height: 16),
         // La clave fuerza a rehacer el panel al cambiar de cuenta: sin ella, lo
         // escrito a medias en el formulario de una cuenta se quedaría delante
         // de la lista de la otra.
@@ -177,98 +199,13 @@ class _SuperpowersSectionState extends ConsumerState<SuperpowersSection> {
   }
 }
 
-class _Toggle extends StatelessWidget {
-  const _Toggle({
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(NexusRadius.sm),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: NexusSpacing.s3,
-          vertical: 5,
-        ),
-        decoration: BoxDecoration(
-          color: active ? colors.rise : Colors.transparent,
-          border: Border.all(color: active ? colors.rule : Colors.transparent),
-          borderRadius: BorderRadius.circular(NexusRadius.sm),
-        ),
-        child: Text(
-          label,
-          style: NexusTypography.label.copyWith(
-            color: active ? colors.ink : colors.faint,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Tab extends StatelessWidget {
-  const _Tab({
-    required this.label,
-    required this.active,
-    required this.onTap,
-    this.correo,
-  });
-
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  /// Con qué correo está iniciada esa cuenta, si se sabe. Va en el tooltip
-  /// porque en la pestaña no cabe —se reparten a partes iguales— y es lo que se
-  /// quiere consultar al dudar de cuál es cuál.
-  final String? correo;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Tooltip(
-      message: correo ?? '',
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s3),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: active ? colors.accent : colors.rule,
-                width: 2,
-              ),
-            ),
-          ),
-          child: Text(
-            label.toUpperCase(),
-            textAlign: TextAlign.center,
-            style: NexusTypography.label.copyWith(
-              color: active ? colors.accent : colors.faint,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// La casilla de «en todas las cuentas», con su aviso debajo.
+/// «En todas las cuentas», con su aviso debajo.
 ///
-/// Un párrafo y no un icono con globo: lo que hay que decir no cabe en un adorno, y es
-/// justo la clase de cosa que se descubre tarde y se diagnostica mal — el síntoma es
-/// «en esta carpeta funciona y en esta no», que no menciona cuentas en ninguna parte.
+/// Una opción con nombre y no una casilla: es la gramática de Ajustes, y una
+/// casilla aquí se veía de otra app. El aviso es un párrafo y no un icono con
+/// globo: lo que hay que decir no cabe en un adorno, y es justo la clase de
+/// cosa que se descubre tarde y se diagnostica mal — el síntoma es «en esta
+/// carpeta funciona y en esta no», que no menciona cuentas en ninguna parte.
 class _AvisoDeCuenta extends StatelessWidget {
   const _AvisoDeCuenta({
     required this.enTodas,
@@ -282,59 +219,31 @@ class _AvisoDeCuenta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final strings = context.strings;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        InkWell(
-          onTap: () => alCambiar(!enTodas),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s2),
-            child: Row(
-              children: [
-                // Un cuadro con hairline y un punto dentro, como el resto del sistema:
-                // una casilla de Material aquí se ve de otra app.
-                Container(
-                  width: 14,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(2),
-                    border: Border.all(
-                      color: enTodas ? colors.accent : colors.rule2,
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: enTodas
-                      ? Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: colors.accent,
-                            borderRadius: BorderRadius.circular(1),
-                          ),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: NexusSpacing.s3),
-                Text(
-                  '${strings.superpowersEverywhere}  ($cuantas)',
-                  style: NexusTypography.label.copyWith(
-                    color: enTodas ? colors.accent : colors.mute,
-                  ),
-                ),
-              ],
+        Wrap(
+          children: [
+            OpcionDeAjustes(
+              key: const ValueKey('en-todas-las-cuentas'),
+              nombre: '${strings.superpowersEverywhere} · $cuantas',
+              elegida: enTodas,
+              // Elegida se vuelve a pulsar para soltarla: es un sí o no, y
+              // sin esto una vez marcada no habría forma de desmarcarla.
+              onPulsar: () => alCambiar(!enTodas),
+              sePuedeSoltar: true,
             ),
-          ),
+          ],
         ),
-        // El aviso solo cuando **no** se instala en todas: con la casilla marcada deja
-        // de ser verdad, y un aviso que miente es peor que ninguno.
-        if (!enTodas)
-          Text(
-            strings.superpowersOnlyHere,
-            style: NexusTypography.nota.copyWith(color: colors.faint),
-          ),
+        // El aviso solo cuando **no** se instala en todas: con la opción
+        // marcada deja de ser verdad, y un aviso que miente es peor que
+        // ninguno.
+        if (!enTodas) ...[
+          const SizedBox(height: 9),
+          TextoDeAjustes(strings.superpowersOnlyHere, tamano: 12.5),
+        ],
       ],
     );
   }

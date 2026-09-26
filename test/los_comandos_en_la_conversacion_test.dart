@@ -159,9 +159,9 @@ void main() {
       expect(find.text('Revisar el CI de todos los repos'), findsOne);
       expect(find.textContaining(_es.laProximaCita('')), findsOne);
       expect(find.textContaining('${_es.estaApagada} · '), findsOne);
-      expect(find.text(_es.apagarla), findsOne);
-      expect(find.text(_es.encenderla), findsOne);
-      expect(find.text(_es.borrarla), findsNWidgets(2));
+      expect(find.text(_es.apagarla.toUpperCase()), findsOne);
+      expect(find.text(_es.encenderla.toUpperCase()), findsOne);
+      expect(find.text(_es.borrarla.toUpperCase()), findsNWidgets(2));
       expect(tester.takeException(), isNull);
     });
   });
@@ -172,7 +172,10 @@ void main() {
         ChatMessage(author: ChatAuthor.nexus, text: 'Ayer…', esElParte: true),
       ]);
 
-      expect(find.text('${_es.nexus} · ${_es.parteDelDia}'), findsOne);
+      expect(
+        find.text('${_es.nexus} · ${_es.parteDelDia}'.toUpperCase()),
+        findsOne,
+      );
     });
 
     // «El parte no sale solo»: se manda al pulsar, y después se dice a dónde
@@ -184,13 +187,13 @@ void main() {
       ], slack: slack);
 
       expect(slack.mandados, isEmpty, reason: 'nunca sin pulsarlo');
-      await tester.tap(find.text(_es.parteAlSlack));
+      await tester.tap(find.text(_es.parteAlSlack.toUpperCase()));
       await tester.pumpAndSettle();
 
       expect(slack.mandados, ['Ayer…']);
       expect(find.text(_es.parteEnviadoA('U01ABCDEFG')), findsOne);
       // El botón sigue ahí, para que se vea qué se pulsó.
-      expect(find.text(_es.parteAlSlack), findsOne);
+      expect(find.text(_es.parteAlSlack.toUpperCase()), findsOne);
     });
   });
 }

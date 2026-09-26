@@ -193,7 +193,7 @@ void main() {
 
     final condicion = fuente.substring(
       fuente.indexOf('if (message.cambios != null'),
-      fuente.indexOf('_LoQueDejo(message: message)'),
+      fuente.indexOf('_ElPie(message: message'),
     );
     expect(
       condicion,

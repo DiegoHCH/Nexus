@@ -28,17 +28,6 @@ mixin MovilStrings {
   String get mobileLinkRejected;
   String get mobileLinkMustUpdate;
 
-  /// La insignia de la conversación, en minúsculas y con más palabras que el chip
-  /// de la cabecera: va sola en la barra y tiene sitio para decir qué comprobar.
-  String get mobileBadgeConnected;
-  String get mobileBadgeConnecting;
-  String get mobileBadgeReconnecting;
-  String get mobileBadgeResyncing;
-  String get mobileBadgeOffline;
-  String get mobileBadgeUnreachable;
-  String get mobileBadgeRejected;
-  String get mobileBadgeMustUpdate;
-
   // Emparejar: el escáner y a mano.
   String get mobilePairTitle;
   String get mobilePointAtCode;
@@ -134,6 +123,9 @@ mixin MovilStrings {
   String get mobileSeeEarlier;
   String mobileWritableUntil(String hora);
   String get mobileComposerHint;
+
+  /// La conversación vacía: qué se puede hacer con ella, debajo del orbe.
+  String get mobileEmptyConversationHint;
   String get mobileQueueWarning;
   String get mobileReadOnly;
   String get mobileCanEdit;
@@ -175,6 +167,9 @@ mixin MovilStrings {
   String get mobileCouldNotRead;
   String get mobileFetchedOnOpen;
   String get mobileFoldersFooter;
+
+  /// El rótulo de la lista de carpetas: «Sobre qué carpeta».
+  String get mobileWhichFolder;
   String get mobileNoFolders;
   String mobileNoFoldersFor(String cuenta);
   String get mobileFoldersUnavailable;
@@ -200,31 +195,16 @@ mixin MovilStringsEs implements MovilStrings {
   @override
   String get mobileLinkMustUpdate => 'Hay que actualizar';
   @override
-  String get mobileBadgeConnected => 'conectado';
-  @override
-  String get mobileBadgeConnecting => 'conectando';
-  @override
-  String get mobileBadgeReconnecting => 'reconectando';
-  @override
-  String get mobileBadgeResyncing => 'poniéndose al día';
-  @override
-  String get mobileBadgeOffline => 'sin conexión';
-  @override
-  String get mobileBadgeUnreachable => 'no llego al Mac · ¿Tailscale?';
-  @override
-  String get mobileBadgeRejected => 'el Mac no acepta el token';
-  @override
-  String get mobileBadgeMustUpdate => 'hay que actualizar';
-  @override
   String get mobilePairTitle => 'EMPAREJAR CON TU MAC';
   @override
   String get mobilePointAtCode =>
-      'Apunta al código que aparece en la pantalla de tu Mac.';
+      'Apunta al código que aparece en tu Mac, en Ajustes › Tus aparatos › '
+      'Móvil.';
   @override
   String get mobileTypeCodeByHand => 'Escribir el código a mano';
   @override
   String get mobilePhoneRunsNothing =>
-      'El teléfono no ejecuta nada:\ntodo corre en el Mac y se muestra aquí.';
+      'El teléfono no ejecuta nada: todo corre en el Mac y se ve aquí.';
   @override
   String get mobileScanNotNexus =>
       'Ese código no es de Nexus. Sigue apuntando.';
@@ -257,7 +237,7 @@ mixin MovilStringsEs implements MovilStrings {
   String get mobileManualTitle => 'ESCRIBIR EL CÓDIGO A MANO';
   @override
   String get mobileManualExplainer =>
-      'En el Mac: Ajustes → Móvil. Enciende el canal y copia la '
+      'En el Mac: Ajustes › Tus aparatos › Móvil. Enciende el canal y copia la '
       'dirección y el token.';
   @override
   String get mobileAddressLabel => 'Dirección';
@@ -389,12 +369,14 @@ mixin MovilStringsEs implements MovilStrings {
   @override
   String get mobileSeeEarlier => 'Ver lo anterior';
   @override
-  String mobileWritableUntil(String hora) => 'hasta las $hora';
+  String mobileWritableUntil(String hora) => 'hasta $hora';
   @override
   String get mobileComposerHint => 'Qué hay que hacer';
   @override
-  String get mobileQueueWarning =>
-      'Mandar otro encima lo pondría en cola sin decirlo';
+  String get mobileEmptyConversationHint =>
+      'Pídele algo: hablando con el micro, o escribiendo abajo.';
+  @override
+  String get mobileQueueWarning => 'Mandar otro ahora lo pone en cola.';
   @override
   String get mobileReadOnly => 'Solo leer';
   @override
@@ -415,8 +397,8 @@ mixin MovilStringsEs implements MovilStrings {
   String get mobileUnlockTitle => 'Abrir la escritura';
   @override
   String get mobileUnlockExplainer =>
-      'Tu frase no se guarda en el teléfono. La comprueba el Mac, y la '
-      'ventana dura 30 minutos.';
+      'Tu frase no se guarda en el teléfono: la comprueba el Mac, y la '
+      'escritura dura 30 minutos.';
   @override
   String get mobilePhraseHint => 'Tu frase';
   @override
@@ -473,8 +455,9 @@ mixin MovilStringsEs implements MovilStrings {
   String get mobileFetchedOnOpen => 'Se pidió al abrirlo, no con la lista.';
   @override
   String get mobileFoldersFooter =>
-      'Solo las que el Mac ya tiene emparejadas: la lista la pone él. Emparejar '
-      'una carpeta nueva sigue siendo cosa del escritorio.';
+      'Emparejar una carpeta nueva sigue siendo cosa del Mac.';
+  @override
+  String get mobileWhichFolder => 'Sobre qué carpeta';
   @override
   String get mobileNoFolders => 'El Mac no tiene ninguna carpeta emparejada.';
   @override
@@ -505,31 +488,16 @@ mixin MovilStringsEn implements MovilStrings {
   @override
   String get mobileLinkMustUpdate => 'Update needed';
   @override
-  String get mobileBadgeConnected => 'connected';
-  @override
-  String get mobileBadgeConnecting => 'connecting';
-  @override
-  String get mobileBadgeReconnecting => 'reconnecting';
-  @override
-  String get mobileBadgeResyncing => 'catching up';
-  @override
-  String get mobileBadgeOffline => 'offline';
-  @override
-  String get mobileBadgeUnreachable => "can't reach the Mac · Tailscale?";
-  @override
-  String get mobileBadgeRejected => "the Mac won't accept the token";
-  @override
-  String get mobileBadgeMustUpdate => 'update needed';
-  @override
   String get mobilePairTitle => 'PAIR WITH YOUR MAC';
   @override
   String get mobilePointAtCode =>
-      "Point at the code showing on your Mac's screen.";
+      'Point at the code showing on your Mac, in Settings › Your devices › '
+      'Mobile.';
   @override
   String get mobileTypeCodeByHand => 'Type the code by hand';
   @override
   String get mobilePhoneRunsNothing =>
-      'The phone runs nothing:\neverything runs on the Mac and shows up here.';
+      'The phone runs nothing: everything runs on the Mac and shows up here.';
   @override
   String get mobileScanNotNexus => "That code isn't from Nexus. Keep pointing.";
   @override
@@ -561,8 +529,8 @@ mixin MovilStringsEn implements MovilStrings {
   String get mobileManualTitle => 'TYPE THE CODE BY HAND';
   @override
   String get mobileManualExplainer =>
-      'On the Mac: Settings → Mobile. Turn the channel on and copy the '
-      'address and the token.';
+      'On the Mac: Settings › Your devices › Mobile. Turn the channel on and '
+      'copy the address and the token.';
   @override
   String get mobileAddressLabel => 'Address';
   @override
@@ -695,8 +663,10 @@ mixin MovilStringsEn implements MovilStrings {
   @override
   String get mobileComposerHint => 'What needs doing';
   @override
-  String get mobileQueueWarning =>
-      'Sending another on top would queue it without saying so';
+  String get mobileEmptyConversationHint =>
+      'Ask it something: by talking into the mic, or typing below.';
+  @override
+  String get mobileQueueWarning => 'Sending another now queues it.';
   @override
   String get mobileReadOnly => 'Read only';
   @override
@@ -717,8 +687,8 @@ mixin MovilStringsEn implements MovilStrings {
   String get mobileUnlockTitle => 'Unlock writing';
   @override
   String get mobileUnlockExplainer =>
-      "Your phrase isn't stored on the phone. The Mac checks it, and the "
-      'window lasts 30 minutes.';
+      "Your phrase isn't stored on the phone: the Mac checks it, and writing "
+      'stays open for 30 minutes.';
   @override
   String get mobilePhraseHint => 'Your phrase';
   @override
@@ -775,8 +745,9 @@ mixin MovilStringsEn implements MovilStrings {
   String get mobileFetchedOnOpen => 'Fetched when opened, not with the list.';
   @override
   String get mobileFoldersFooter =>
-      'Only the ones the Mac already has paired: it sets the list. Pairing a '
-      'new folder is still done on the desktop.';
+      'Pairing a new folder is still done on the Mac.';
+  @override
+  String get mobileWhichFolder => 'Which folder';
   @override
   String get mobileNoFolders => "The Mac doesn't have any paired folders.";
   @override

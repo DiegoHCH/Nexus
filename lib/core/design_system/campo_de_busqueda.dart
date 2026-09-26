@@ -11,6 +11,11 @@ import 'package:nexus/core/design_system/nexus_typography.dart';
 /// dentro convertiría el buscador en un formulario. Vive aquí por lo mismo que
 /// [Filtro]: el historial y los documentos buscan igual.
 ///
+/// 🔴 **Sin lupa, y a 14 y no a 15.** Llevaba un icono delante y el cuerpo de
+/// la conversación, y con eso el buscador pesaba más que la lista que filtra.
+/// El mockup lo deja en la línea, la pista y el atajo: la pista ya dice que es
+/// para buscar, y la lupa era un tercer modo de decirlo.
+///
 /// Recibe el foco al abrir la hoja —se abre para buscar algo— y `⌘F` lo
 /// devuelve si se fue a otra parte, que es el atajo que cualquiera prueba
 /// primero en un Mac.
@@ -49,35 +54,40 @@ class _CampoDeBusquedaState extends State<CampoDeBusqueda> {
             _foco.requestFocus(),
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s1),
+        padding: const EdgeInsets.symmetric(vertical: 6),
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: colors.rule2)),
         ),
         child: Row(
           children: [
-            Icon(Icons.search, size: 15, color: colors.faint),
-            const SizedBox(width: NexusSpacing.s2),
             Expanded(
               child: TextField(
                 focusNode: _foco,
                 autofocus: widget.autofocus,
                 onChanged: widget.onCambia,
-                style: NexusTypography.body.copyWith(color: colors.ink),
+                style: NexusTypography.body.copyWith(
+                  color: colors.ink,
+                  fontSize: 14,
+                  height: 1.3,
+                ),
                 cursorColor: colors.accent,
                 decoration: InputDecoration(
                   isDense: true,
                   filled: false,
                   hintText: widget.pista,
-                  hintStyle: NexusTypography.body.copyWith(color: colors.faint),
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: NexusSpacing.s2,
+                  hintStyle: NexusTypography.body.copyWith(
+                    color: colors.faint,
+                    fontSize: 14,
+                    height: 1.3,
                   ),
+                  contentPadding: EdgeInsets.zero,
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                 ),
               ),
             ),
+            const SizedBox(width: NexusSpacing.s2),
             // El atajo es un dato —la tecla que se pulsa—, y por eso en mono.
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
@@ -87,7 +97,10 @@ class _CampoDeBusquedaState extends State<CampoDeBusqueda> {
               ),
               child: Text(
                 '⌘F',
-                style: NexusTypography.data.copyWith(color: colors.mute),
+                style: NexusTypography.data.copyWith(
+                  color: colors.mute,
+                  fontSize: 10,
+                ),
               ),
             ),
           ],

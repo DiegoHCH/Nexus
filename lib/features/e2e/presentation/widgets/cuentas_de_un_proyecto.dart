@@ -30,13 +30,27 @@ class CuentasDeUnProyecto extends ConsumerWidget {
     final cuentas = ref.watch(cuentasDePruebaProvider(proyecto));
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final (i, cuenta) in cuentas.indexed)
-          _FilaDeCuenta(cuenta: cuenta, proyecto: proyecto, porDefecto: i == 0),
-        TextButton(
-          onPressed: () => editarCuenta(context, proyecto, null),
-          child: Text(strings.e2eAccountAdd),
+        FilasDeAjustes(
+          filas: [
+            for (final (i, cuenta) in cuentas.indexed)
+              FilaDeCuentaDePruebas(
+                cuenta: cuenta,
+                proyecto: proyecto,
+                porDefecto: i == 0,
+              ),
+          ],
+        ),
+        const SizedBox(height: 9),
+        AccionesDeAjustes(
+          botones: [
+            BotonDeAjustes(
+              texto: strings.e2eAccountAdd,
+              tono: TonoDeBoton.principal,
+              onPulsar: () => editarCuenta(context, proyecto, null),
+            ),
+          ],
         ),
       ],
     );
@@ -54,14 +68,20 @@ Future<void> editarCuenta(
   builder: (_) => _FormularioDeCuenta(proyecto: proyecto, cuenta: cuenta),
 );
 
-/// Una cuenta en la lista.
+/// Una cuenta, como fila de Ajustes: la de por defecto con el punto de
+/// acento, el proyecto y lo que lleva en la línea de datos, y «Hacer por
+/// defecto» en las demás. Pulsarla la abre para editarla.
 ///
-/// 🔴 **Enseña los nombres de las variables y su cantidad, nunca los valores.** Es
+/// 🔴 **Enseña cuántas variables hay y sus etiquetas, nunca los valores.** Es
 /// la misma regla de `LasVariablesDelProyecto`: para saber que una cuenta está
-/// completa basta con los nombres, y un listado es justo el sitio donde una
+/// completa basta con contarlas, y un listado es justo el sitio donde una
 /// contraseña se queda a la vista de quien pasa por detrás.
-class _FilaDeCuenta extends ConsumerWidget {
-  const _FilaDeCuenta({
+///
+/// Pública porque Ajustes junta en una sola lista las de todos los proyectos,
+/// como el mockup: el proyecto va en el dato de cada fila.
+class FilaDeCuentaDePruebas extends ConsumerWidget {
+  const FilaDeCuentaDePruebas({
+    super.key,
     required this.cuenta,
     required this.proyecto,
     required this.porDefecto,
@@ -73,63 +93,28 @@ class _FilaDeCuenta extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final strings = context.strings;
+    final tags = cuenta.tags.toList()..sort();
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: NexusSpacing.s3),
-      child: InkWell(
-        onTap: () => editarCuenta(context, proyecto, cuenta),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s2),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    cuenta.clave,
-                    style: NexusTypography.data.copyWith(color: colors.ink),
-                  ),
-                  if (porDefecto) ...[
-                    const SizedBox(width: NexusSpacing.s2),
-                    Text(
-                      strings.e2eAccountDefault,
-                      style: NexusTypography.label.copyWith(
-                        color: colors.accent,
-                      ),
-                    ),
-                  ],
-                  const Spacer(),
-                  Text(
-                    // Cuántas hay cargadas, que es lo que dice si se puede correr.
-                    '${cuenta.variables.length}',
-                    style: NexusTypography.label.copyWith(color: colors.faint),
-                  ),
-                ],
-              ),
-              if (cuenta.descripcion.isNotEmpty)
-                Text(
-                  cuenta.descripcion,
-                  style: NexusTypography.body.copyWith(color: colors.mute),
-                ),
-              Text(
-                (cuenta.tags.toList()..sort())
-                    .map((t) => 'acct-$t')
-                    .join(' · '),
-                style: NexusTypography.label.copyWith(color: colors.faint),
-              ),
-              if (!porDefecto)
-                TextButton(
-                  onPressed: () => ref
-                      .read(cuentasDePruebaProvider(proyecto).notifier)
-                      .hacerPorDefecto(cuenta.clave),
-                  child: Text(strings.e2eAccountMakeDefault),
-                ),
-            ],
-          ),
-        ),
-      ),
+    return FilaDeAjustes(
+      tono: porDefecto ? TonoDeAjustes.activo : TonoDeAjustes.apagado,
+      titulo: porDefecto
+          ? '${cuenta.clave} · ${strings.e2eAccountDefault}'
+          : cuenta.clave,
+      dato: [
+        proyecto.split('/').last,
+        strings.e2eVariables(cuenta.variables.length),
+        if (tags.isNotEmpty) tags.join(', '),
+      ].join(' · '),
+      onPulsar: () => editarCuenta(context, proyecto, cuenta),
+      accion: porDefecto
+          ? null
+          : BotonDeAjustes(
+              texto: strings.e2eAccountMakeDefault,
+              onPulsar: () => ref
+                  .read(cuentasDePruebaProvider(proyecto).notifier)
+                  .hacerPorDefecto(cuenta.clave),
+            ),
     );
   }
 }
@@ -279,11 +264,14 @@ class _FormularioDeCuentaState extends ConsumerState<_FormularioDeCuenta> {
               Navigator.of(context).pop();
             },
             child: Text(
-              strings.e2eAccountDelete,
+              strings.e2eAccountDelete.toUpperCase(),
               style: TextStyle(color: colors.err),
             ),
           ),
-        TextButton(onPressed: _guardar, child: Text(strings.e2eAccountSave)),
+        TextButton(
+          onPressed: _guardar,
+          child: Text(strings.e2eAccountSave.toUpperCase()),
+        ),
       ],
     );
   }

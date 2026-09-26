@@ -46,10 +46,10 @@ class Filtro extends StatelessWidget {
             borderRadius: BorderRadius.circular(NexusRadius.sm),
           ),
           child: Text(
-            texto,
+            texto.toUpperCase(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: NexusTypography.control.copyWith(
+            style: NexusTypography.boton.copyWith(
               color: activo ? colors.accent : colors.mute,
             ),
           ),

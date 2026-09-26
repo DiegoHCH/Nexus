@@ -8,10 +8,11 @@ import 'package:nexus/features/assistant/presentation/widgets/chat_panel.dart';
 
 /// **Cada turno dice cuándo se dijo y qué costó contestarlo.**
 ///
-/// Pedido así: la fecha y la hora al frente del nombre, alineadas a la derecha,
-/// en los dos lados de la conversación; y al pie, los tokens y el tiempo —pero
-/// **como etiqueta, no como parte del mensaje**, que es lo que los distingue de
-/// algo que Nexus haya dicho.
+/// Pedido así: la fecha y la hora con el nombre, en los dos lados de la
+/// conversación; y al pie, los tokens y el tiempo —pero **como etiqueta, no
+/// como parte del mensaje**, que es lo que los distingue de algo que Nexus haya
+/// dicho. Desde el mockup de la conversación van **dentro de la etiqueta** del
+/// turno —«Tú · 11:02 · hablado»—, y la fecha solo cuando no es de hoy.
 void main() {
   Future<void> pintar(WidgetTester tester, List<ChatMessage> mensajes) =>
       tester.pumpWidget(
@@ -34,7 +35,7 @@ void main() {
       ),
     ]);
 
-    expect(find.text('22/09/26 - 5:14PM'), findsOneWidget);
+    expect(find.textContaining('22/09/26 - 5:14PM'), findsOneWidget);
   });
 
   // «igual con los que yo envío»: los dos lados, no solo las respuestas.
@@ -47,7 +48,7 @@ void main() {
       ),
     ]);
 
-    expect(find.text('22/09/26 - 5:14PM'), findsOneWidget);
+    expect(find.textContaining('22/09/26 - 5:14PM'), findsOneWidget);
   });
 
   testWidgets('el coste sale al pie, con lo que se gastó y lo que tardó', (

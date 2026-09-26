@@ -37,9 +37,40 @@ diff --git a/lib/muy/hondo/b.dart b/lib/muy/hondo/b.dart
       expect(html, contains('lib/a.dart'));
       expect(html, contains('+1'));
       expect(html, contains('−1'));
-      // La ruta larga se recorta por la izquierda: lo que identifica un archivo
-      // es su nombre, no las carpetas que tiene encima.
-      expect(html, contains('…/hondo/b.dart'));
+      // La que cabe va entera: recortarla no ganaría nada.
+      expect(html, contains('<span class="t">lib/muy/hondo/b.dart'));
+    });
+
+    test('la ruta larga se recorta por el medio, como el mockup', () {
+      // Lo que identifica un archivo es su nombre, y su primera carpeta dice
+      // de qué parte del proyecto es: `lib/…/credit_summary_banner.dart`.
+      const ruta = 'lib/features/credit/widgets/credit_summary_banner.dart';
+      final html = ElDiffComoHtml.de(
+        textos: _textos,
+        diff: 'diff --git a/$ruta b/$ruta\n@@ -1,1 +1,1 @@\n-vieja\n+nueva\n',
+        nuevos: const [],
+        titulo: 'x',
+      );
+
+      expect(
+        html,
+        contains('<span class="t">lib/…/credit_summary_banner.dart</span>'),
+      );
+      // Entera sigue arriba del código, y en el `title` de la fila.
+      expect(html, contains('title="$ruta"'));
+    });
+
+    test('la barra dice qué ventana es, y se cierra desde ella', () {
+      final html = ElDiffComoHtml.de(
+        textos: _textos,
+        diff: dosArchivos,
+        nuevos: const [],
+        titulo: 'x',
+      );
+
+      expect(html, contains('<span class="rot">${_es.cambiosRotulo}</span>'));
+      // Un enlace que el visor intercepta: la página no lleva JavaScript.
+      expect(html, contains('href="nexus://cerrar">${_es.cambiosCerrar}</a>'));
     });
 
     test('cada archivo es un destino, y elegirlo cambia el contenido', () {

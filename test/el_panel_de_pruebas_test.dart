@@ -9,6 +9,7 @@ import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/e2e/data/datasources/e2e_data_source.dart';
 import 'package:nexus/features/e2e/domain/entities/pasada_de_prueba.dart';
 import 'package:nexus/features/e2e/domain/usecases/el_numero_de_las_pruebas.dart';
+import 'package:nexus/features/e2e/domain/usecases/la_pasada_como_html.dart';
 import 'package:nexus/features/e2e/domain/usecases/pasos_de_una_prueba.dart';
 import 'package:nexus/features/e2e/domain/usecases/por_que_se_cayo.dart';
 import 'package:nexus/features/e2e/presentation/providers/e2e_providers.dart';
@@ -118,6 +119,8 @@ class _Borrados extends E2eDataSource {
   Future<void> abreElInforme(
     String registro, {
     String Function(PorQueSeCayo)? explica,
+    TextosDeLaPasada textos = TextosDeLaPasada.es,
+    String? hoja,
   }) async => borrados.add('ver:$registro');
 
   @override
@@ -348,7 +351,7 @@ void main() {
     testWidgets('salen las pruebas del proyecto con su botón', (tester) async {
       await _abrir(tester);
       expect(find.text('login'), findsOneWidget);
-      expect(find.text(strings.e2eRun), findsOneWidget);
+      expect(find.text(strings.e2eRun.toUpperCase()), findsOneWidget);
     });
 
     testWidgets('la fila cabe con sus dos botones y los dos se pueden tocar', (
@@ -395,7 +398,7 @@ void main() {
       // hay. Si no hay, no se enseña.
       await _abrir(tester, pruebas: const []);
       expect(find.text(strings.e2eNone), findsNothing);
-      expect(find.text(strings.e2eRun), findsNothing);
+      expect(find.text(strings.e2eRun.toUpperCase()), findsNothing);
     });
 
     testWidgets('sin dispositivo encendido, el botón no deja ni tocarlo', (
@@ -409,7 +412,7 @@ void main() {
       await _abrir(tester, encendidos: 0);
 
       final boton = tester.widget<OutlinedButton>(
-        find.widgetWithText(OutlinedButton, strings.e2eRun),
+        find.widgetWithText(OutlinedButton, strings.e2eRun.toUpperCase()),
       );
       expect(boton.onPressed, isNull);
       expect(find.byTooltip(strings.e2eNoDevice), findsOneWidget);
@@ -430,7 +433,7 @@ void main() {
       );
 
       final boton = tester.widget<OutlinedButton>(
-        find.widgetWithText(OutlinedButton, strings.e2eRun),
+        find.widgetWithText(OutlinedButton, strings.e2eRun.toUpperCase()),
       );
       expect(boton.onPressed, isNull);
     });
@@ -449,8 +452,8 @@ void main() {
       );
 
       expect(find.text(strings.e2eCorriendoPasos(1, 2)), findsOneWidget);
-      expect(find.text(strings.e2eRun), findsNothing);
-      expect(find.text(strings.e2eSee), findsOneWidget);
+      expect(find.text(strings.e2eRun.toUpperCase()), findsNothing);
+      expect(find.text(strings.e2eSee.toUpperCase()), findsOneWidget);
     });
   });
 
@@ -483,7 +486,7 @@ void main() {
         ],
       );
 
-      expect(find.text(strings.e2eUnattributed), findsOneWidget);
+      expect(find.text(strings.e2eUnattributed.toUpperCase()), findsOneWidget);
       expect(find.text('explora'), findsOneWidget);
     });
 
@@ -497,9 +500,9 @@ void main() {
         borrados: borrados,
       );
 
-      await tester.ensureVisible(find.text(strings.e2eDelete));
+      await tester.ensureVisible(find.text(strings.e2eDelete.toUpperCase()));
       await tester.pump();
-      await tester.tap(find.text(strings.e2eDelete));
+      await tester.tap(find.text(strings.e2eDelete.toUpperCase()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -520,7 +523,7 @@ void main() {
       // **A la vista y no en un desplegable**: se ve dónde va a correr antes
       // de pulsar nada.
       expect(find.byType(Opcion), findsNWidgets(2));
-      expect(find.text(strings.e2eDevice), findsOneWidget);
+      expect(find.text(strings.e2eDevice.toUpperCase()), findsOneWidget);
       expect(
         tester.widgetList<Opcion>(find.byType(Opcion)).where((o) => o.elegida),
         isEmpty,
@@ -551,11 +554,11 @@ void main() {
       tester,
     ) async {
       await _abrir(tester, encendidos: 2);
-      await tester.tap(find.text(strings.e2eRun));
+      await tester.tap(find.text(strings.e2eRun.toUpperCase()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text(strings.e2eDevice), findsWidgets);
+      expect(find.text(strings.e2eDevice.toUpperCase()), findsWidgets);
     });
   });
 
@@ -564,7 +567,10 @@ void main() {
       // El historial ya lo decía y la lista no, así que se leía como si las
       // pruebas fueran de nadie.
       await _abrir(tester);
-      expect(find.text('${strings.e2eLanzar} · tienda'), findsOneWidget);
+      expect(
+        find.text('${strings.e2eLanzar} · tienda'.toUpperCase()),
+        findsOneWidget,
+      );
     });
   });
 
@@ -612,8 +618,8 @@ void main() {
         ),
       );
 
-      expect(find.textContaining('login · 1/2'), findsOneWidget);
-      expect(find.text(strings.e2eSee), findsOneWidget);
+      expect(find.textContaining('LOGIN · 1/2'), findsOneWidget);
+      expect(find.text(strings.e2eSee.toUpperCase()), findsOneWidget);
       // Los pasos no se pintan aquí ni en ninguna pantalla de la app: van en una
       // ventana del sistema aparte, para no impedir seguir trabajando.
       expect(find.text('launchApp'), findsNothing);
@@ -630,15 +636,15 @@ void main() {
       // las veces.
       await _abrir(tester, encendidos: 0);
 
-      expect(find.text('Medium Phone 0'), findsOneWidget);
-      expect(find.text('Medium Phone 1'), findsOneWidget);
+      expect(find.text('MEDIUM PHONE 0'), findsOneWidget);
+      expect(find.text('MEDIUM PHONE 1'), findsOneWidget);
     });
 
     testWidgets('con uno solo apagado, el botón no pregunta cuál', (
       tester,
     ) async {
       await _abrir(tester, encendidos: 1);
-      expect(find.text(strings.e2eStartDevice), findsOneWidget);
+      expect(find.text(strings.e2eStartDevice.toUpperCase()), findsOneWidget);
     });
 
     testWidgets('con un dispositivo ya presente se sigue ofreciendo', (
@@ -651,15 +657,15 @@ void main() {
       // funciona de verdad.
       await _abrir(tester, encendidos: 0, conIphone: true);
 
-      expect(find.text('Medium Phone 0'), findsOneWidget);
+      expect(find.text('MEDIUM PHONE 0'), findsOneWidget);
     });
 
     testWidgets('sin ninguno apagado no se ofrece nada', (tester) async {
       // Con los dos arriba no hay nada que encender, y un botón que no puede hacer
       // nada es peor que ninguno: se traga la pulsación y no lo dice.
       await _abrir(tester, encendidos: 2);
-      expect(find.text(strings.e2eStartDevice), findsNothing);
-      expect(find.widgetWithText(BotonDeFila, 'Medium Phone 0'), findsNothing);
+      expect(find.text(strings.e2eStartDevice.toUpperCase()), findsNothing);
+      expect(find.widgetWithText(BotonDeFila, 'MEDIUM PHONE 0'), findsNothing);
     });
   });
 
@@ -687,7 +693,7 @@ void main() {
         tester,
         enMarcha: PruebaEnMarcha(flow: 'login', delFlow: [_paso('launchApp')]),
       );
-      expect(find.textContaining('login · 0/1'), findsOneWidget);
+      expect(find.textContaining('LOGIN · 0/1'), findsOneWidget);
     });
 
     testWidgets('la fila del historial tiene ver y borrar', (tester) async {
@@ -698,14 +704,14 @@ void main() {
         borrados: borrados,
       );
 
-      expect(find.text(strings.e2eSee), findsOneWidget);
-      expect(find.text(strings.e2eDelete), findsOneWidget);
+      expect(find.text(strings.e2eSee.toUpperCase()), findsOneWidget);
+      expect(find.text(strings.e2eDelete.toUpperCase()), findsOneWidget);
 
       // Ver abre su informe en la misma ventana aparte, no una segunda forma de
       // enseñar lo mismo.
-      await tester.ensureVisible(find.text(strings.e2eSee));
+      await tester.ensureVisible(find.text(strings.e2eSee.toUpperCase()));
       await tester.pump();
-      await tester.tap(find.text(strings.e2eSee));
+      await tester.tap(find.text(strings.e2eSee.toUpperCase()));
       await tester.pump();
       expect(borrados, ['ver:/donde/sea/login.json']);
     });
@@ -750,7 +756,7 @@ void main() {
         pasadas: [_corrida(dispositivo: 'emulator-5551')],
       );
 
-      await _tocarYEsperar(tester, find.text(strings.e2eRepeat));
+      await _tocarYEsperar(tester, find.text(strings.e2eRepeat.toUpperCase()));
 
       expect(lanzados, ['login@emulator-5551']);
     });
@@ -767,7 +773,7 @@ void main() {
         pasadas: [_corrida(dispositivo: 'emulator-9999')],
       );
 
-      await _tocarYEsperar(tester, find.text(strings.e2eRepeat));
+      await _tocarYEsperar(tester, find.text(strings.e2eRepeat.toUpperCase()));
 
       expect(lanzados, ['login@emulator-5550']);
     });
@@ -786,7 +792,7 @@ void main() {
         pasadas: [_corrida(dispositivo: 'emulator-5550')],
       );
 
-      await tester.tap(find.text(strings.e2eRepeat));
+      await tester.tap(find.text(strings.e2eRepeat.toUpperCase()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -798,7 +804,7 @@ void main() {
       // Sin saber en qué repo vive el flow, el botón solo podría contestar «no sé
       // de dónde salió esto», y eso es peor que no ofrecerlo.
       await _abrir(tester, pasadas: [_corrida(proyecto: null)]);
-      expect(find.text(strings.e2eRepeat), findsNothing);
+      expect(find.text(strings.e2eRepeat.toUpperCase()), findsNothing);
     });
 
     testWidgets('sin nada encendido, repetir tampoco se deja tocar', (
@@ -817,7 +823,7 @@ void main() {
       );
 
       final boton = tester.widget<BotonDeFila>(
-        find.widgetWithText(BotonDeFila, strings.e2eRepeat),
+        find.widgetWithText(BotonDeFila, strings.e2eRepeat.toUpperCase()),
       );
       expect(boton.onPulsar, isNull);
       expect(boton.tooltip, strings.e2eNoDevice);
@@ -903,7 +909,7 @@ void main() {
       pasadas: [_corrida(flow: 'un_nombre_de_prueba_bastante_largo_de_verdad')],
     );
 
-    expect(find.text(strings.e2eRepeat), findsOneWidget);
+    expect(find.text(strings.e2eRepeat.toUpperCase()), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -1013,7 +1019,7 @@ void main() {
 
       expect(motivo, findsOneWidget);
       final boton = tester.widget<OutlinedButton>(
-        find.widgetWithText(OutlinedButton, strings.e2eRun),
+        find.widgetWithText(OutlinedButton, strings.e2eRun.toUpperCase()),
       );
       expect(
         boton.onPressed,
@@ -1034,7 +1040,7 @@ void main() {
 
       await _tocarYEsperar(
         tester,
-        find.text(strings.e2eRun),
+        find.text(strings.e2eRun.toUpperCase()),
         hasta: () => lanzados.isNotEmpty,
       );
 
@@ -1063,20 +1069,20 @@ void main() {
       // segundo después se lee como un parpadeo, no como una opción.
       await _abrir(tester, encendidos: 2, demora: const Duration(seconds: 1));
 
-      expect(find.text(strings.e2eStartDevice), findsNothing);
+      expect(find.text(strings.e2eStartDevice.toUpperCase()), findsNothing);
 
       // Y al acabar tampoco, porque con los dos arriba no hay nada que encender.
       await tester.pump(const Duration(seconds: 2));
-      expect(find.text(strings.e2eStartDevice), findsNothing);
+      expect(find.text(strings.e2eStartDevice.toUpperCase()), findsNothing);
     });
 
     testWidgets('sin ninguno, al acabar sí se ofrece', (tester) async {
       await _abrir(tester, encendidos: 1, demora: const Duration(seconds: 1));
 
-      expect(find.text(strings.e2eStartDevice), findsNothing);
+      expect(find.text(strings.e2eStartDevice.toUpperCase()), findsNothing);
 
       await tester.pump(const Duration(seconds: 2));
-      expect(find.text(strings.e2eStartDevice), findsOneWidget);
+      expect(find.text(strings.e2eStartDevice.toUpperCase()), findsOneWidget);
     });
   });
 
@@ -1154,7 +1160,7 @@ void main() {
       // A la misma altura: son columnas, no secciones apiladas.
       expect(lanzar.top, closeTo(repo.top, 1));
       expect(repo.top, closeTo(historial.top, 1));
-      expect(find.text(strings.e2eHistorial), findsOneWidget);
+      expect(find.text(strings.e2eHistorial.toUpperCase()), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -1182,8 +1188,11 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text(strings.e2eCifraPasadas), findsOneWidget);
-      expect(find.text(strings.e2eCifraResultado), findsOneWidget);
+      expect(find.text(strings.e2eCifraPasadas.toUpperCase()), findsOneWidget);
+      expect(
+        find.text(strings.e2eCifraResultado.toUpperCase()),
+        findsOneWidget,
+      );
       // **El número, honesto**: la frase de lo que no se sabe se queda.
       expect(find.text(strings.e2eNumeroLimite), findsOneWidget);
     });
@@ -1207,7 +1216,7 @@ void main() {
       expect(
         tester
             .widget<BotonDeFila>(
-              find.widgetWithText(BotonDeFila, strings.e2eRepeat),
+              find.widgetWithText(BotonDeFila, strings.e2eRepeat.toUpperCase()),
             )
             .tono,
         TonoDeBoton.principal,

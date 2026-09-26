@@ -12,6 +12,7 @@ import 'package:nexus/features/remote/domain/tailscale.dart';
 import 'package:nexus/features/remote/presentation/pages/pairing_page.dart';
 import 'package:nexus/features/remote/presentation/providers/pairing_providers.dart';
 import 'package:nexus/features/remote/presentation/widgets/corner_frame.dart';
+import 'package:nexus/features/remote/presentation/widgets/mobile_chrome.dart';
 
 /// Si este teléfono está en Tailscale, y con qué dirección.
 ///
@@ -91,84 +92,134 @@ class _ScanPageState extends ConsumerState<ScanPage> {
     return Scaffold(
       backgroundColor: colors.void_,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: NexusSpacing.s5,
-            vertical: NexusSpacing.s4,
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: NexusSpacing.s5),
-              // Un rótulo y no un titular: el mockup pone el nombre de la pantalla en
-              // mono, mayúsculas y con tracking — la frase de debajo es la que habla.
-              Text(
-                strings.mobilePairTitle,
-                style: NexusTypography.label.copyWith(color: colors.mute),
-              ),
-              const SizedBox(height: NexusSpacing.s5),
-              Text(
-                strings.mobilePointAtCode,
-                textAlign: TextAlign.center,
-                style: NexusTypography.subtitleMobile.copyWith(
-                  color: colors.ink,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // La cabecera de siempre, diciendo lo que es verdad aquí: **todavía no
+            // hay Mac**. Sin ella esta era la única pantalla sin marca ni estado, y
+            // parecía de otra app justo en la puerta.
+            const MobileChrome(sinEmparejar: true),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  MedidasDelMovil.margen,
+                  0,
+                  MedidasDelMovil.margen,
+                  MedidasDelMovil.pie,
                 ),
-              ),
-              const SizedBox(height: NexusSpacing.s7),
-              // El visor cuadrado y con escuadras. Cuadrado porque un QR lo es: un
-              // visor ancho invita a encuadrarlo mal.
-              SizedBox(
-                width: 250,
-                height: 250,
-                child: Stack(
-                  alignment: Alignment.center,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
-                      child: SizedBox(
-                        width: 250,
-                        height: 250,
-                        child: MobileScanner(
-                          key: const ValueKey('el-visor'),
-                          controller: _camara,
-                          onDetect: _leido,
-                          errorBuilder: (context, error) =>
-                              _SinCamara(error: error),
+                    const SizedBox(height: NexusSpacing.s4),
+                    // Un rótulo y no un titular, alineado a la izquierda como el
+                    // resto de pantallas: el nombre de la pantalla en la letra del
+                    // instrumento, y la frase de debajo es la que habla.
+                    Text(
+                      strings.mobilePairTitle,
+                      style: NexusTypography.label.copyWith(color: colors.mute),
+                    ),
+                    const SizedBox(height: NexusSpacing.s2),
+                    // En `nota` y no en titular: es una indicación —dónde está el
+                    // código en el Mac— y el mockup la da la ruta entera de Ajustes,
+                    // que en letra grande ocupaba media pantalla.
+                    Text(
+                      strings.mobilePointAtCode,
+                      style: NexusTypography.nota.copyWith(
+                        color: colors.mute,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    // El visor cuadrado y con escuadras. Cuadrado porque un QR lo es:
+                    // un visor ancho invita a encuadrarlo mal. Se encoge si no cabe,
+                    // que es lo único que puede encoger sin perder nada.
+                    Flexible(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: 250,
+                            maxHeight: 250,
+                          ),
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: LayoutBuilder(
+                              builder: (context, caja) => Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Sin imagen de la cámara todavía, el hueco se
+                                  // pinta con el degradado del mockup y no en negro:
+                                  // un cuadrado negro se lee como un fallo.
+                                  DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [colors.rise, colors.deep],
+                                      ),
+                                    ),
+                                    child: MobileScanner(
+                                      key: const ValueKey('el-visor'),
+                                      controller: _camara,
+                                      onDetect: _leido,
+                                      placeholderBuilder: (_) =>
+                                          const SizedBox.expand(),
+                                      errorBuilder: (context, error) =>
+                                          _SinCamara(error: error),
+                                    ),
+                                  ),
+                                  IgnorePointer(
+                                    child: CornerFrame(
+                                      lado: caja.maxWidth,
+                                      largo: 28,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                    const IgnorePointer(child: CornerFrame(lado: 250)),
+                    const SizedBox(height: 18),
+                    Center(child: _Tailscale(estado: tailscale)),
+                    if (_problema != null) ...[
+                      const SizedBox(height: NexusSpacing.s3),
+                      Text(
+                        _decir(strings, _problema!),
+                        key: const ValueKey('problema-del-codigo'),
+                        textAlign: TextAlign.center,
+                        style: NexusTypography.nota.copyWith(
+                          color: colors.warn,
+                        ),
+                      ),
+                    ],
+                    const Spacer(),
+                    // Ancho y abajo, como en el mockup: es la otra ruta entera, no un
+                    // enlace de socorro escondido.
+                    WideAction(
+                      key: const ValueKey('a-mano'),
+                      texto: strings.mobileTypeCodeByHand,
+                      alTocar: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const PairingPage(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    // En sans: es una explicación de lo que es esta app, no un dato.
+                    Text(
+                      strings.mobilePhoneRunsNothing,
+                      textAlign: TextAlign.center,
+                      style: NexusTypography.nota.copyWith(
+                        color: colors.mute,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(height: NexusSpacing.s5),
-              _Tailscale(estado: tailscale),
-              if (_problema != null) ...[
-                const SizedBox(height: NexusSpacing.s4),
-                Text(
-                  _decir(strings, _problema!),
-                  key: const ValueKey('problema-del-codigo'),
-                  textAlign: TextAlign.center,
-                  style: NexusTypography.mono.copyWith(color: colors.warn),
-                ),
-              ],
-              const Spacer(),
-              // Ancho y abajo, como en el mockup: es la otra ruta entera, no un
-              // enlace de socorro escondido.
-              _BotonAncho(
-                key: const ValueKey('a-mano'),
-                texto: strings.mobileTypeCodeByHand,
-                alTocar: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const PairingPage()),
-                ),
-              ),
-              const SizedBox(height: NexusSpacing.s4),
-              Text(
-                strings.mobilePhoneRunsNothing,
-                textAlign: TextAlign.center,
-                style: NexusTypography.mono.copyWith(color: colors.faint),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -188,7 +239,12 @@ class _ScanPageState extends ConsumerState<ScanPage> {
   };
 }
 
-/// El chip y el dato del mockup, con lo único que aquí se puede saber de verdad.
+/// Si este teléfono está en Tailscale, en **una sola línea** con su punto de color,
+/// como el mockup: «● TAILSCALE ACTIVO · 100.73.35.12».
+///
+/// Estuvo en una caja con borde y la dirección debajo, y la caja se leía como un botón
+/// que no hacía nada. Es un estado —como el chip de la cabecera— y se dice igual: el
+/// punto y el color con la palabra, en verde si está y en ámbar si no.
 class _Tailscale extends StatelessWidget {
   const _Tailscale({required this.estado});
 
@@ -199,85 +255,65 @@ class _Tailscale extends StatelessWidget {
     final colors = context.colors;
     final strings = context.strings;
 
-    final (texto, dato, vivo) = switch (estado) {
+    final (texto, dato, pista, bien) = switch (estado) {
       AsyncData(value: final String dir) => (
         strings.mobileTailscaleActive,
         dir,
+        null,
         true,
       ),
       // **Sin Tailscale no va a conectar**, y decirlo aquí es lo que evita el
       // «reconectando» sin explicación que costó una tarde de depuración.
       AsyncData() => (
         strings.mobileNoTailscale,
+        null,
         strings.mobileNoTailscaleHint,
         false,
       ),
       AsyncError() => (
         strings.mobileTailscaleUnknown,
+        null,
         strings.mobileTailscaleUnknownHint,
         false,
       ),
-      _ => (strings.mobileCheckingTailscale, '', false),
+      _ => (strings.mobileCheckingTailscale, null, null, false),
     };
+    final color = bien ? colors.ok : colors.warn;
 
     return Column(
+      key: const ValueKey('tailscale-del-telefono'),
       children: [
-        Container(
-          key: const ValueKey('tailscale-del-telefono'),
-          padding: const EdgeInsets.symmetric(
-            horizontal: NexusSpacing.s3,
-            vertical: 5,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(2),
-            border: Border.all(
-              color: vivo ? colors.accent.withValues(alpha: 0.4) : colors.rule2,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
             ),
-          ),
-          child: Text(
-            texto,
-            style: NexusTypography.label.copyWith(
-              color: vivo ? colors.accent : colors.warn,
-            ),
-          ),
+            const SizedBox(width: 6),
+            Text(texto, style: NexusTypography.label.copyWith(color: color)),
+            // La dirección en mono, que es el dato; el rótulo en la letra del
+            // instrumento, que es lo que dice qué es.
+            if (dato != null)
+              Text(
+                ' · $dato',
+                style: NexusTypography.data.copyWith(color: color),
+              ),
+          ],
         ),
-        if (dato.isNotEmpty) ...[
-          const SizedBox(height: NexusSpacing.s2),
-          Text(dato, style: NexusTypography.data.copyWith(color: colors.mute)),
+        if (pista != null) ...[
+          const SizedBox(height: NexusSpacing.s1),
+          Text(
+            pista,
+            textAlign: TextAlign.center,
+            style: NexusTypography.nota.copyWith(
+              color: colors.mute,
+              fontSize: 12,
+            ),
+          ),
         ],
       ],
-    );
-  }
-}
-
-/// El botón ancho del mockup: borde fino, mono, mayúsculas, todo el ancho.
-class _BotonAncho extends StatelessWidget {
-  const _BotonAncho({super.key, required this.texto, required this.alTocar});
-
-  final String texto;
-  final VoidCallback alTocar;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return SizedBox(
-      width: double.infinity,
-      child: InkWell(
-        onTap: alTocar,
-        child: Container(
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s4),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(2),
-            border: Border.all(color: colors.rule2),
-          ),
-          child: Text(
-            texto.toUpperCase(),
-            style: NexusTypography.label.copyWith(color: colors.mute),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -316,7 +352,7 @@ class _SinCamara extends StatelessWidget {
                   ? strings.mobileCameraDenied
                   : strings.mobileCameraUnavailable,
               textAlign: TextAlign.center,
-              style: NexusTypography.mono.copyWith(color: colors.mute),
+              style: NexusTypography.nota.copyWith(color: colors.mute),
             ),
           ],
         ),

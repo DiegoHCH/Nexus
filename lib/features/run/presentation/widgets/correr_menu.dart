@@ -29,6 +29,17 @@ class CorrerMenu extends ConsumerWidget {
   /// lista global, porque la de un repo no significa nada en otro.
   final String? proyecto;
 
+  /// **420, la medida del mockup**, y no los 620 de antes. Con 620 el panel
+  /// era una franja que tapaba media conversación para enseñar dos o tres
+  /// opciones; a 420 las opciones se parten en líneas —«Pixel 9 · apagado»
+  /// baja a la siguiente— y el panel crece hacia abajo lo justo. Un nombre de
+  /// configuración largo, «Global66 (ci + mock PayIn Colombia)», sigue
+  /// cabiendo entero en una.
+  static const ancho = 420.0;
+
+  /// Los 16 del mockup a cada lado.
+  static const relleno = 16.0;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
@@ -41,12 +52,23 @@ class CorrerMenu extends ConsumerWidget {
     return PopupMenuButton<void>(
       color: colors.deep,
       tooltip: '',
+      // El panel del mockup: un filo `rule2` y 3 px de esquina, sin la sombra
+      // negra de Material, que lo dibujaba con un marco oscuro que no es de la
+      // app.
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(NexusRadius.md),
+        side: BorderSide(color: colors.rule2),
+      ),
       // **Sin esto el panel no puede pasar de 280 px.** Es el
       // `_kMenuMaxWidth` de Material —cinco pasos de 56— y recorta en silencio
       // lo que se le pida: un `SizedBox` de 620 se quedaba en 280 y salía un
       // desplegable con «Global66…» y otro con «E». Y explica los desbordes de 9
       // y 71 px de antes: eran contra 280, no contra el ancho que yo creía.
-      constraints: const BoxConstraints(minWidth: 620, maxWidth: 620),
+      constraints: const BoxConstraints(
+        minWidth: CorrerMenu.ancho,
+        maxWidth: CorrerMenu.ancho,
+      ),
       onOpened: () {
         if (proyecto case final p?) ref.invalidate(configsProvider(p));
         ref.invalidate(emuladoresProvider);
@@ -59,16 +81,9 @@ class CorrerMenu extends ConsumerWidget {
           // a cada lado que no se descuentan del ancho que se le pide, y el panel
           // desbordaba por menos de un píxel — suficiente para pintar la franja
           // amarilla de aviso encima de la barra.
-          padding: const EdgeInsets.symmetric(
-            horizontal: NexusSpacing.s3,
-            vertical: NexusSpacing.s2,
-          ),
+          padding: const EdgeInsets.all(CorrerMenu.relleno),
           child: SizedBox(
-            // **Ancho y bajo, no cuadrado.** Con las opciones a la vista, los
-            // nombres de configuración son largos —«Global66 (ci + mock PayIn
-            // Colombia)»— y a 620 caben dos o tres por línea: el panel crece
-            // hacia abajo lo justo en vez de volverse una columna.
-            width: 620,
+            width: CorrerMenu.ancho - 2 * CorrerMenu.relleno,
             child: _Panel(proyecto: proyecto),
           ),
         ),
@@ -243,8 +258,11 @@ class _PanelState extends ConsumerState<_Panel> {
         // De qué repo: las configuraciones son de este proyecto y de ningún
         // otro, y el panel se abre desde una conversación que puede tener otro
         // nombre en la cabeza.
+        //
+        // En mayúsculas, como todo rótulo del instrumento: el texto se guarda
+        // en minúscula de frase porque también se dice en voz alta.
         Text(
-          '${strings.runTitle} · ${proyecto.split('/').last}',
+          '${strings.runTitle} · ${proyecto.split('/').last}'.toUpperCase(),
           style: NexusTypography.label.copyWith(color: colors.mute),
         ),
         const SizedBox(height: NexusSpacing.s3),
@@ -616,8 +634,8 @@ class _Rotulo extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
     child: Text(
-      texto,
-      style: NexusTypography.label.copyWith(color: context.colors.faint),
+      texto.toUpperCase(),
+      style: NexusTypography.label.copyWith(color: context.colors.mute),
     ),
   );
 }

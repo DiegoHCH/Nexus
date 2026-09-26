@@ -331,9 +331,6 @@ mixin NucleoStrings {
   /// El interruptor de que Nexus hable solo. Ver `ElQueHablaPrimero`.
   String get avisosEnVozAltaOn;
 
-  /// Y lo que hace, que es sobre todo lo que **no** hace.
-  String get avisosEnVozAltaExplainer;
-
   /// Hablar también con la app delante. Ver `ElQueHablaPrimero`.
   String get avisosAunqueLaMiresOn;
 
@@ -357,7 +354,6 @@ mixin NucleoStrings {
   String get avisosCuanto;
   String get avisosCarpeta;
   String get avisosSinCarpeta;
-  String get avisosNota;
   String get avisosReleer;
   String get avisosProbar;
   String get avisoDePrueba;
@@ -392,7 +388,6 @@ mixin NucleoStrings {
   String get sinCarpetaDondeCorrer;
 
   String get whichImageModel;
-  String perImage(String precio);
   String get drawingIt;
   String get imageNeedsKey;
   String get noImageToEdit;
@@ -703,16 +698,14 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get sectionMemoria => 'Memoria';
   @override
   String get memoriaExplainer =>
-      'Lo que me has pedido que recuerde de ti. No sale del repositorio: viaja '
-      'con todos los encargos, de cualquier carpeta, y también a la voz. Se '
-      'apunta escribiendo «/recuerda» y lo que sea.';
+      'Lo que le has pedido que recuerde de ti. Se apunta escribiendo '
+      '«/recuerda» y lo que sea.';
   @override
-  String get memoriaOlvidar => 'Olvidar esto';
+  String get memoriaOlvidar => 'Olvidar';
   @override
   String memoriaNota(int cuantas) =>
-      'Se guardan las $cuantas últimas. Esto entra en lo que se le manda a '
-      'Claude en cada encargo, así que lo que crezca aquí se paga en cada '
-      'turno: van las más recientes.';
+      'Se guardan las $cuantas últimas. Lo que crezca aquí se paga en cada '
+      'turno.';
   @override
   String veoSinCommitear(int cuantos, int dias) =>
       'Llevas ${dias == 1 ? 'un día' : '$dias días'} con '
@@ -831,7 +824,7 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String get settings => 'AJUSTES';
   @override
-  String get closeEsc => 'CERRAR  ESC';
+  String get closeEsc => 'CERRAR · ESC';
   @override
   String get sectionVoice => 'Voz';
   @override
@@ -844,25 +837,23 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get sectionNombres => 'Nombres';
   @override
   String get nombresExplainer =>
-      'La app se seguirá llamando Nexus: eso va compilado dentro. Lo que se '
-      'elige aquí es cómo se llama quien te contesta, y cómo quieres que te '
-      'llame a ti.';
+      'La app se sigue llamando Nexus. Aquí se elige cómo se llama quien te '
+      'contesta, y cómo quieres que te llame a ti.';
   @override
-  String get comoSeLlamaElAgente => 'Cómo se llama quien te contesta';
+  String get comoSeLlamaElAgente => 'Cómo se llama';
   @override
   String get comoSeLlamaElAgentePista => 'Nexus';
   @override
-  String get comoTeLlamas => 'Cómo quieres que te llame';
+  String get comoTeLlamas => 'Cómo te llama';
   @override
   String get comoTeLlamasPista => 'Tu nombre, o vacío para que no te llame';
   @override
   String get asiSeVera => 'Así se verá';
   @override
   String get suNombreLaDespierta =>
-      'Con el oído encendido, decir su nombre la despierta y abre la voz sin '
-      'tocar nada. Un nombre corto como «Ciel» se confunde con «cielo»: mejor '
-      'uno de tres sílabas o más. Por escrito, nombrarla también le dice que '
-      'le hablas a ella.';
+      'Con el **oído** encendido, decir su nombre la despierta. Un nombre '
+      'corto como «Ciel» se confunde con «cielo»: mejor uno de tres sílabas o '
+      'más.';
   @override
   String ejemploDeLoQuePides(String agente) =>
       '$agente, ¿qué reuniones tengo hoy?';
@@ -871,33 +862,23 @@ mixin NucleoStringsEs implements NucleoStrings {
       '${vocativo}tienes tres: la primera a las nueve.';
   @override
   String get avisosExplainer =>
-      'Nexus te dice en voz alta que tienes una reunión, unos minutos antes. Es '
-      'lo único que hace sin que se lo pidas, así que nace apagado.\n\nMira el '
-      'calendario de la cuenta de Claude de la carpeta que elijas, y solo avisa '
-      'de lo que tiene invitados: los bloques tuyos no suenan.';
+      'Te dice en voz alta que tienes una reunión, unos minutos antes. Solo de '
+      'lo que tiene invitados.';
   @override
-  String get avisosOn => 'Avisarme de las reuniones';
+  String get avisosOn => 'Reuniones';
   @override
-  String get avisosPrOn => 'Avisarme cuando mezclen un PR mío';
+  String get avisosPrOn => 'Tus PR';
   @override
-  String get avisosEnVozAltaOn => 'Que me lo diga en voz alta';
-  @override
-  String get avisosEnVozAltaExplainer =>
-      'Cuando algo termina te lo dice hablando, además de dejarlo escrito. '
-      'Nunca en medio de una conversación de voz, y no repite lo mismo dos '
-      'veces.';
+  String get avisosEnVozAltaOn => 'Cuando algo termina';
   @override
   String get avisosAunqueLaMiresOn => 'También con Nexus delante';
   @override
-  String get elOidoOn => 'Que me oiga cuando la llame';
+  String get elOidoOn => 'Que te oiga cuando la llames';
   @override
   String elOidoExplainer(String nombre) =>
-      'Di «$nombre» y se abre la conversación de voz, sin tocar nada. Lo '
-      'reconoce este Mac: nada de lo que oye sale de aquí.\n\n'
-      'Mientras escucha, el indicador naranja del micrófono está encendido. Y '
-      'con auriculares Bluetooth, tener el micrófono abierto hace que macOS los '
-      'cambie al perfil de llamada, así que la música suena peor. Si otra app '
-      'ya lo está usando —una reunión—, no se mete.';
+      'Di «$nombre» y se abre la voz, sin tocar nada. Lo reconoce **este '
+      'Mac**: nada de lo que oye sale de aquí. Mientras escucha, el punto '
+      'naranja del micrófono de macOS está encendido.';
   @override
   String get loDisparoUnTrabajoDeFondo =>
       'Esto no contesta a lo último que escribiste: lo disparó un trabajo de '
@@ -914,15 +895,13 @@ mixin NucleoStringsEs implements NucleoStrings {
       'comparten. Toca para que esta siga por su cuenta.';
   @override
   String get avisosPrExplainer =>
-      'Mira cada dos minutos si alguno de tus PR pasó a mezclado, en cualquier '
-      'repositorio. Al encenderlo no avisa de los de antes: empieza a contar '
-      'desde ahora.';
+      'Mira cada dos minutos si alguno de tus PR pasó a mezclado.';
   @override
   String get avisosCuanto => 'CUÁNTO ANTES';
   @override
   String get avisosCarpeta => 'DE QUÉ CUENTA MIRA EL CALENDARIO';
   @override
-  String get avisosSinCarpeta => 'Elige una carpeta';
+  String get avisosSinCarpeta => 'Ninguna';
   @override
   String get avisosReleer => 'ACTUALIZAR EL CALENDARIO';
   @override
@@ -940,14 +919,9 @@ mixin NucleoStringsEs implements NucleoStrings {
       ? 'Hoy tienes una reunión:'
       : 'Hoy tienes $cuantas reuniones:';
   @override
-  String get avisosSinLeer => 'todavía sin leer';
+  String get avisosSinLeer => 'El calendario todavía no se ha leído';
   @override
-  String avisosLeidoA(String hora) => 'leído a las $hora';
-  @override
-  String get avisosNota =>
-      'Suena con la voz que elegiste en Voz, y también en el teléfono si está '
-      'conectado. Si estás hablando con Nexus, espera a que la conversación '
-      'termine; si no termina, lo deja en una notificación.';
+  String avisosLeidoA(String hora) => 'Calendario leído a las $hora';
   @override
   String reunionEnMinutos(String titulo, int minutos) =>
       '$titulo, en $minutos minutos.';
@@ -955,8 +929,6 @@ mixin NucleoStringsEs implements NucleoStrings {
   String reunionAhora(String titulo) => '$titulo, ahora.';
   @override
   String get whichImageModel => 'CON QUÉ MODELO SE DIBUJA';
-  @override
-  String perImage(String precio) => '$precio por imagen';
   @override
   String soloGit(String comando) =>
       'Por ahora «!» solo corre git, y eso era «$comando». Lo demás se le pide '
@@ -999,12 +971,9 @@ mixin NucleoStringsEs implements NucleoStrings {
       : 'No se pudo generar la imagen: $motivo';
   @override
   String get imagesExplainer =>
-      'Las imágenes se generan con una llave propia, aparte de la de voz, '
-      'porque su proyecto necesita '
-      'facturación: con una sola, encender las imágenes empezaría a cobrar '
-      'también las conversaciones.\n\nY hay una por cuenta de Claude: el gasto '
-      'sale de un bolsillo concreto, así que ponerla solo en una cuenta es la '
-      'forma de decir que desde las demás no se generan imágenes.';
+      'Va aparte de la de voz porque su proyecto necesita facturación, y hay '
+      'una por cuenta de Claude. Las llaves viven en **Qué puede hacer › '
+      'Llaves**.';
   @override
   String get imageKeyLabel => 'LLAVE DE IMÁGENES (GEMINI)';
   @override
@@ -1013,9 +982,8 @@ mixin NucleoStringsEs implements NucleoStrings {
       'tu saldo.';
   @override
   String get keysExplainer =>
-      'Lo que Nexus tiene guardado cifrado en este Mac. No se enseña ninguna: '
-      'solo si está puesta o no. Para comprobar si es la que crees, quítala y '
-      'pon la buena.';
+      'Lo que Nexus guarda cifrado en el llavero de este Mac. No se enseña '
+      'ninguna: solo si está puesta.';
   @override
   String get keyIsSaved => 'guardada';
   @override
@@ -1023,7 +991,7 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String get keyForget => 'OLVIDAR';
   @override
-  String get keyVoice => 'Llave de voz (Gemini)';
+  String get keyVoice => 'Llave de voz · Gemini';
   @override
   String get keyImages => 'Llave de imágenes (Gemini)';
   @override
@@ -1327,16 +1295,14 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get sectionMemoria => 'Memory';
   @override
   String get memoriaExplainer =>
-      'What you have asked me to remember about you. It does not come from the '
-      'repository: it travels with every errand, in any folder, and to the '
-      'voice too. You note it by typing “/recuerda” and whatever it is.';
+      'What you have asked her to remember about you. You note it by typing '
+      '“/recuerda” and whatever it is.';
   @override
-  String get memoriaOlvidar => 'Forget this';
+  String get memoriaOlvidar => 'Forget';
   @override
   String memoriaNota(int cuantas) =>
-      'The last $cuantas are kept. This goes into what Claude is sent on every '
-      'errand, so whatever grows here is paid for on every turn: the most '
-      'recent ones go.';
+      'The last $cuantas are kept. Whatever grows here is paid for on every '
+      'turn.';
   @override
   String veoSinCommitear(int cuantos, int dias) =>
       "You've had ${cuantos == 1 ? 'a file' : '$cuantos files'} uncommitted "
@@ -1453,7 +1419,7 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String get settings => 'SETTINGS';
   @override
-  String get closeEsc => 'CLOSE  ESC';
+  String get closeEsc => 'CLOSE · ESC';
   @override
   String get sectionVoice => 'Voice';
   @override
@@ -1466,25 +1432,23 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get sectionNombres => 'Names';
   @override
   String get nombresExplainer =>
-      'The app will still be called Nexus: that is compiled in. What you pick '
-      'here is what the one answering you is called, and how you want to be '
-      'addressed.';
+      'The app is still called Nexus. Here you pick what the one answering you '
+      'is called, and what you want her to call you.';
   @override
-  String get comoSeLlamaElAgente => 'What the one answering is called';
+  String get comoSeLlamaElAgente => 'What she is called';
   @override
   String get comoSeLlamaElAgentePista => 'Nexus';
   @override
-  String get comoTeLlamas => 'How you want to be addressed';
+  String get comoTeLlamas => 'What she calls you';
   @override
   String get comoTeLlamasPista => 'Your name, or empty for none';
   @override
   String get asiSeVera => 'How it will look';
   @override
   String get suNombreLaDespierta =>
-      'With hearing on, saying her name wakes her and opens voice without '
-      'touching anything. A short name like “Ciel” gets confused with other '
-      'words: better one of three syllables or more. In writing, naming her '
-      'also tells her you are talking to her.';
+      'With **hearing** on, saying her name wakes her. A short name like '
+      '“Ciel” gets confused with other words: better one of three syllables or '
+      'more.';
   @override
   String ejemploDeLoQuePides(String agente) =>
       '$agente, what meetings do I have today?';
@@ -1493,33 +1457,23 @@ mixin NucleoStringsEn implements NucleoStrings {
       '${vocativo}you have three: the first at nine.';
   @override
   String get avisosExplainer =>
-      'Nexus tells you out loud that you have a meeting, a few minutes before. '
-      'It is the only thing it does without being asked, so it starts off.\n\nIt '
-      'looks at the calendar of the Claude account of the folder you pick, and '
-      'only announces what has guests: your own blocks stay quiet.';
+      'She tells you out loud that you have a meeting, a few minutes before. '
+      'Only for events with guests.';
   @override
-  String get avisosOn => 'Tell me about meetings';
+  String get avisosOn => 'Meetings';
   @override
-  String get avisosPrOn => 'Tell me when a PR of mine is merged';
+  String get avisosPrOn => 'Your PRs';
   @override
-  String get avisosEnVozAltaOn => 'Say it out loud';
-  @override
-  String get avisosEnVozAltaExplainer =>
-      'When something finishes it says so out loud, as well as leaving it '
-      'written. Never in the middle of a voice conversation, and never the '
-      'same thing twice.';
+  String get avisosEnVozAltaOn => 'When something finishes';
   @override
   String get avisosAunqueLaMiresOn => 'Even with Nexus in front';
   @override
-  String get elOidoOn => 'Listen for its name';
+  String get elOidoOn => 'Hear you when you call her';
   @override
   String elOidoExplainer(String nombre) =>
-      'Say “$nombre” and the voice conversation opens, without touching '
-      'anything. This Mac does the recognising: nothing it hears leaves here.'
-      '\n\nWhile it listens, the orange microphone indicator is on. And with '
-      'Bluetooth headphones, an open microphone makes macOS switch them to the '
-      'call profile, so music sounds worse. If another app is already using it '
-      '—a meeting— it stays out.';
+      'Say “$nombre” and voice opens, without touching anything. **This Mac** '
+      'does the recognising: nothing it hears leaves here. While it listens, '
+      'the orange macOS microphone dot is on.';
   @override
   String get loDisparoUnTrabajoDeFondo =>
       'This is not answering what you last wrote: a background job triggered it '
@@ -1537,15 +1491,13 @@ mixin NucleoStringsEn implements NucleoStrings {
       'Tap to put this one on its own.';
   @override
   String get avisosPrExplainer =>
-      'Checks every two minutes whether any of your PRs got merged, in any '
-      'repository. Turning it on says nothing about the earlier ones: it starts '
-      'counting from now.';
+      'Checks every two minutes whether any of your PRs got merged.';
   @override
   String get avisosCuanto => 'HOW LONG BEFORE';
   @override
   String get avisosCarpeta => 'WHOSE CALENDAR IT LOOKS AT';
   @override
-  String get avisosSinCarpeta => 'Pick a folder';
+  String get avisosSinCarpeta => 'None';
   @override
   String get avisosReleer => 'REFRESH THE CALENDAR';
   @override
@@ -1563,14 +1515,9 @@ mixin NucleoStringsEn implements NucleoStrings {
       ? 'You have one meeting today:'
       : 'You have $cuantas meetings today:';
   @override
-  String get avisosSinLeer => 'not read yet';
+  String get avisosSinLeer => 'The calendar has not been read yet';
   @override
-  String avisosLeidoA(String hora) => 'read at $hora';
-  @override
-  String get avisosNota =>
-      'It speaks with the voice you picked under Voice, and on the phone too if '
-      'it is connected. If you are talking to Nexus it waits for the '
-      'conversation to end; if it does not, it leaves a notification.';
+  String avisosLeidoA(String hora) => 'Calendar read at $hora';
   @override
   String reunionEnMinutos(String titulo, int minutos) =>
       '$titulo, in $minutos minutes.';
@@ -1578,8 +1525,6 @@ mixin NucleoStringsEn implements NucleoStrings {
   String reunionAhora(String titulo) => '$titulo, now.';
   @override
   String get whichImageModel => 'WHICH MODEL DRAWS';
-  @override
-  String perImage(String precio) => '$precio per image';
   @override
   String soloGit(String comando) =>
       '"!" only runs git for now, and that was "$comando". Everything else goes '
@@ -1621,12 +1566,9 @@ mixin NucleoStringsEn implements NucleoStrings {
       : 'Could not generate the image: $motivo';
   @override
   String get imagesExplainer =>
-      'Images are generated with a key of their own, separate from the voice '
-      'one because its project needs '
-      'billing: with a single key, turning images on would start charging for '
-      'conversations too.\n\nAnd there is one per Claude account: the spend '
-      'comes out of a specific pocket, so setting it on one account only is how '
-      'you say images are not generated from the others.';
+      'It is separate from the voice key because its project needs billing, '
+      'and there is one per Claude account. The keys live in **What she can '
+      'do › Keys**.';
   @override
   String get imageKeyLabel => 'IMAGE KEY (GEMINI)';
   @override
@@ -1635,9 +1577,8 @@ mixin NucleoStringsEn implements NucleoStrings {
       'charged to your balance.';
   @override
   String get keysExplainer =>
-      'What Nexus keeps encrypted on this Mac. None of them is shown: only '
-      'whether it is set. To check whether it is the one you think, remove it '
-      'and put the right one in.';
+      'What Nexus keeps encrypted in this Mac’s keychain. None of them is '
+      'shown: only whether it is set.';
   @override
   String get keyIsSaved => 'saved';
   @override
@@ -1645,7 +1586,7 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String get keyForget => 'FORGET';
   @override
-  String get keyVoice => 'Voice key (Gemini)';
+  String get keyVoice => 'Voice key · Gemini';
   @override
   String get keyImages => 'Image key (Gemini)';
   @override

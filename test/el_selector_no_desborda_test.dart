@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/features/artifacts/domain/entities/modelo_de_imagen.dart';
-import 'package:nexus/features/workspace/presentation/pages/settings/settings_chooser.dart';
 
 /// «Hay overflow en el menú de imágenes.»
 ///
-/// El desplegable metía dos textos sueltos en un `Row` sin nada que los ciñera.
-/// Con las opciones que ya había —una voz, un idioma— cabían de casualidad; con
-/// «Nano Banana 2 Lite» y su precio detrás, dejaron de caber.
+/// Era el desplegable de Ajustes, que metía dos textos sueltos en un `Row` sin
+/// nada que los ciñera: con «Nano Banana 2 Lite» y su precio detrás, dejaron de
+/// caber. El desplegable ya no existe —Ajustes enseña las opciones a la vista,
+/// como el mockup— y la pregunta sigue siendo la misma: con los nombres más
+/// largos que hay, en la columna más estrecha, ¿cabe?
 ///
 /// Se prueba **con la columna estrecha**, que es donde ocurre: a lo ancho de un
 /// portátil no se ve, y por eso llegó hasta la pantalla de alguien.
@@ -25,12 +26,11 @@ void main() {
           body: Center(
             child: SizedBox(
               width: ancho,
-              child: SettingsChooser<ModeloDeImagen>(
-                value: ModeloDeImagen.nanoBanana2,
-                options: ModeloDeImagen.values,
-                label: (modelo) => modelo.nombre,
-                detail: (modelo) => '${modelo.precio} por imagen',
-                onSelected: (_) {},
+              child: ElegirDeAjustes<ModeloDeImagen>(
+                opciones: ModeloDeImagen.values,
+                elegida: ModeloDeImagen.nanoBanana2,
+                nombre: (modelo) => '${modelo.nombre} · ${modelo.precio}',
+                onElegir: (_) {},
               ),
             ),
           ),
@@ -39,22 +39,17 @@ void main() {
     );
   }
 
-  testWidgets('el selector cabe en una columna estrecha', (tester) async {
+  testWidgets('las opciones caben en una columna estrecha', (tester) async {
     await montar(tester, 320);
 
     expect(
       tester.takeException(),
       isNull,
-      reason: 'la fila del desplegable desborda con etiquetas largas',
+      reason: 'una opción con nombre y precio desborda la columna',
     );
-  });
-
-  testWidgets('y desplegado, cada opción también', (tester) async {
-    await montar(tester, 320);
-
-    await tester.tap(find.byType(SettingsChooser<ModeloDeImagen>));
-    await tester.pumpAndSettle();
-
-    expect(tester.takeException(), isNull);
+    // Y están todas: bajan de línea en vez de salirse o esconderse.
+    for (final modelo in ModeloDeImagen.values) {
+      expect(find.textContaining(modelo.nombre), findsWidgets);
+    }
   });
 }

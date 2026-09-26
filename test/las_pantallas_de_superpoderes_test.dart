@@ -260,7 +260,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.byTooltip(textos.mcpRemove),
+        find.text(textos.mcpRemove.toUpperCase()),
         findsOneWidget,
         reason: 'uno solo: el tuyo',
       );
@@ -348,9 +348,7 @@ void main() {
       // cientos de megas, y abrir la pestaña no puede costar eso.
       expect(find.textContaining('17'), findsNothing);
 
-      await tester.tap(
-        find.widgetWithText(OutlinedButton, 'Llamadas a Figma este mes'),
-      );
+      await tester.tap(find.text(textos.figmaUsoContar.toUpperCase()));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('17'), findsOneWidget);
@@ -374,9 +372,7 @@ void main() {
         ],
       );
 
-      await tester.tap(
-        find.widgetWithText(OutlinedButton, 'Llamadas a Figma este mes'),
-      );
+      await tester.tap(find.text(textos.figmaUsoContar.toUpperCase()));
       await tester.pumpAndSettle();
 
       expect(find.text('Ninguna llamada a Figma este mes.'), findsOneWidget);

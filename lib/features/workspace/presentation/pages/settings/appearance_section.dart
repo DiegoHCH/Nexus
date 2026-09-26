@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:nexus/features/workspace/presentation/pages/settings/settings_chooser.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/design_system/accent_preference.dart';
@@ -29,52 +28,36 @@ class AppearanceSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final strings = context.strings;
     final choice = ref.watch(themeControllerProvider);
 
     // Rueda: con el orbe y sus siete ajustes ya no cabe en el alto de la
     // ventana, y cada sección se encarga de su propio desplazamiento.
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            strings.themeTitle,
-            style: NexusTypography.label.copyWith(color: colors.faint),
-          ),
-          const SizedBox(height: NexusSpacing.s2),
-          Text(
-            strings.themeExplainer,
-            style: NexusTypography.nota.copyWith(color: colors.faint),
-          ),
-          const SizedBox(height: NexusSpacing.s5),
-          SettingsChooser<ThemeChoice>(
-            value: choice,
-            options: ThemeChoice.values,
-            label: (option) => switch (option) {
-              ThemeChoice.system => strings.themeSystem,
-              ThemeChoice.light => strings.themeLight,
-              ThemeChoice.dark => strings.themeDark,
-            },
-            onSelected: ref.read(themeControllerProvider.notifier).select,
-          ),
-          const SizedBox(height: NexusSpacing.s7),
-          Text(
-            strings.accentTitle,
-            style: NexusTypography.label.copyWith(color: colors.faint),
-          ),
-          const SizedBox(height: NexusSpacing.s2),
-          Text(
-            strings.accentExplainer,
-            style: NexusTypography.nota.copyWith(color: colors.faint),
-          ),
-          const SizedBox(height: NexusSpacing.s5),
-          const _AccentButton(),
-          const SizedBox(height: NexusSpacing.s7),
-          const OrbeAjustes(),
-        ],
-      ),
+    return BloquesDeAjustes(
+      bloques: [
+        BloqueDeAjustes(
+          rotulo: strings.themeTitle,
+          hijos: [
+            TextoDeAjustes(strings.themeExplainer),
+            ElegirDeAjustes<ThemeChoice>(
+              llave: 'tema',
+              opciones: ThemeChoice.values,
+              elegida: choice,
+              nombre: (option) => switch (option) {
+                ThemeChoice.system => strings.themeSystem,
+                ThemeChoice.light => strings.themeLight,
+                ThemeChoice.dark => strings.themeDark,
+              },
+              onElegir: ref.read(themeControllerProvider.notifier).select,
+            ),
+          ],
+        ),
+        BloqueDeAjustes(
+          rotulo: strings.accentTitle,
+          hijos: const [_AccentButton()],
+        ),
+        const OrbeAjustes(),
+      ],
     );
   }
 }
@@ -98,45 +81,53 @@ class _AccentButton extends ConsumerWidget {
     final acento = ref.watch(accentControllerProvider);
     final puesto = acento.forBrightness(Theme.of(context).brightness);
 
+    // El círculo, el nombre con su hexadecimal y un botón que dice lo que
+    // hace, como en el mockup. Todo el conjunto abre la rueda —el círculo es lo
+    // primero que se intenta pulsar—, y el botón está para que se vea que se
+    // puede.
     return Semantics(
       button: true,
       label: '${strings.accentPick}: ${_nombre(acento.name, strings)}',
       child: InkWell(
         key: const ValueKey('abrir-rueda-de-color'),
         onTap: () => AccentDialog.open(context),
-        borderRadius: BorderRadius.circular(NexusRadius.md),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: NexusSpacing.s3,
-            vertical: NexusSpacing.s3,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: puesto,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: colors.rule2),
-                ),
+        borderRadius: BorderRadius.circular(NexusRadius.sm),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(color: puesto, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              _nombre(acento.name, strings),
+              style: NexusTypography.control.copyWith(
+                fontSize: 14,
+                color: colors.ink,
               ),
-              const SizedBox(width: NexusSpacing.s4),
-              Text(
-                _nombre(acento.name, strings),
-                style: NexusTypography.control.copyWith(color: colors.ink),
+            ),
+            Text(
+              ' · ',
+              style: NexusTypography.control.copyWith(
+                fontSize: 14,
+                color: colors.mute,
               ),
-              const SizedBox(width: NexusSpacing.s3),
-              // El hexadecimal al lado del nombre: el nombre es aproximado —el
-              // matiz manda y nombrar un color con exactitud es imposible— y esto
-              // es el dato exacto para quien lo quiera.
-              Text(
-                acento.hex,
-                style: NexusTypography.mono.copyWith(color: colors.faint),
-              ),
-            ],
-          ),
+            ),
+            // El hexadecimal al lado del nombre: el nombre es aproximado —el
+            // matiz manda y nombrar un color con exactitud es imposible— y esto
+            // es el dato exacto para quien lo quiera.
+            Text(
+              acento.hex,
+              style: NexusTypography.mono.copyWith(color: colors.ink),
+            ),
+            const SizedBox(width: 10),
+            BotonDeAjustes(
+              texto: strings.accentPick,
+              onPulsar: () => AccentDialog.open(context),
+            ),
+          ],
         ),
       ),
     );

@@ -109,7 +109,7 @@ void main() {
 
     testWidgets('con el tour a mano, que es lo que ya existía', (tester) async {
       await abrirAyuda(tester);
-      expect(find.text(es.helpTourAction), findsOne);
+      expect(find.text(es.helpTourAction.toUpperCase()), findsOne);
     });
   });
 

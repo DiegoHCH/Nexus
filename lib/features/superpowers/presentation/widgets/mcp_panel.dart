@@ -60,6 +60,12 @@ class _McpPanelState extends ConsumerState<McpPanel> {
   var _contando = false;
   String? _error;
 
+  /// El catálogo y el formulario, cerrados hasta que se piden: se usan una vez
+  /// por servidor, y abiertos siempre empujaban la lista de los puestos —lo
+  /// que se mira a diario— hacia abajo de todo.
+  var _catalogo = false;
+  var _aMano = false;
+
   @override
   void dispose() {
     _name.dispose();
@@ -196,158 +202,130 @@ class _McpPanelState extends ConsumerState<McpPanel> {
     );
     final deLaCuenta = LaListaDeMcp.deLaCuenta(installed);
 
+    // Con la gramática de Ajustes, como el mockup: los puestos como filas con
+    // su punto de estado y su acción, y el catálogo y el formulario detrás de
+    // dos botones. Antes estaban los tres siempre abiertos, y la lista de lo
+    // que ya tienes —lo único que se mira a diario— quedaba en medio de lo que
+    // se usa una vez.
     return ListView(
+      padding: const EdgeInsets.only(bottom: 40),
       children: [
-        Text(
-          strings.mcpExplainer,
-          style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
-        const SizedBox(height: NexusSpacing.s5),
-
-        _Heading(strings.mcpInstalled),
+        TextoDeAjustes(strings.mcpExplainer),
+        const SizedBox(height: 9),
         if (installed.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: NexusSpacing.s3),
-            child: Text(
-              strings.mcpNone,
-              style: NexusTypography.nota.copyWith(color: colors.faint),
-            ),
+          TextoDeAjustes(strings.mcpNone)
+        else
+          FilasDeAjustes(
+            filas: [
+              for (final server in installed)
+                _ServerRow(
+                  server: server,
+                  enabled: !_busy,
+                  // Los de la cuenta no se quitan desde aquí —se gestionan en
+                  // claude.ai— y un botón que no funciona es peor que no
+                  // tenerlo.
+                  onRemove: server.fromAccount
+                      ? null
+                      : () => _remove(server.name),
+                  onRecheck: () {
+                    ref.invalidate(mcpHealthProvider(widget.configDir));
+                    setState(() => _preguntando = true);
+                  },
+                ),
+            ],
           ),
-        for (final server in installed)
-          _ServerRow(
-            server: server,
-            enabled: !_busy,
-            // Los de la cuenta no se quitan desde aquí —se gestionan en
-            // claude.ai— y un botón que no funciona es peor que no tenerlo.
-            onRemove: server.fromAccount ? null : () => _remove(server.name),
-          ),
-        if (deLaCuenta > 0)
-          Padding(
-            padding: const EdgeInsets.only(top: NexusSpacing.s2),
-            child: Text(
-              strings.mcpDeLaCuenta(deLaCuenta),
-              style: NexusTypography.label.copyWith(color: colors.faint),
-            ),
-          ),
-
-        const SizedBox(height: NexusSpacing.s4),
-        Row(
-          children: [
-            OutlinedButton(
-              onPressed: _busy
-                  ? null
-                  : () {
-                      ref.invalidate(mcpHealthProvider(widget.configDir));
-                      setState(() => _preguntando = true);
-                    },
-              child: Text(strings.mcpCheck),
-            ),
-            const SizedBox(width: NexusSpacing.s3),
-            Expanded(
-              child: Text(
-                strings.mcpCheckNote,
-                style: NexusTypography.label.copyWith(color: colors.faint),
-              ),
-            ),
-          ],
-        ),
+        if (deLaCuenta > 0) ...[
+          const SizedBox(height: 4),
+          TextoDeAjustes(strings.mcpDeLaCuenta(deLaCuenta), tamano: 12.5),
+        ],
         // 🔴 **La lista ya no se repinta aquí abajo.** Lo que llega del CLI
         // entra arriba, en la lista de verdad; esto solo dice en qué anda —o
         // que no se pudo—, que es lo único que no cabe en una fila.
-        if (health != null) ...[
-          const SizedBox(height: NexusSpacing.s3),
+        if (health != null)
           switch (health) {
-            AsyncLoading() => Text(
-              strings.mcpChecking,
-              style: NexusTypography.nota.copyWith(color: colors.faint),
+            AsyncLoading() => Padding(
+              padding: const EdgeInsets.only(top: 9),
+              child: EstadoDeAjustes(
+                tono: TonoDeAjustes.apagado,
+                texto: strings.mcpChecking,
+              ),
             ),
-            AsyncData(value: null) || AsyncError() => Text(
-              strings.mcpCheckFailed,
-              style: NexusTypography.nota.copyWith(color: colors.warn),
+            AsyncData(value: null) || AsyncError() => Padding(
+              padding: const EdgeInsets.only(top: 9),
+              child: EstadoDeAjustes(
+                tono: TonoDeAjustes.atencion,
+                texto: strings.mcpCheckFailed,
+              ),
             ),
             _ => const SizedBox.shrink(),
           },
-        ],
-
-        const SizedBox(height: NexusSpacing.s6),
-        _Heading(strings.figmaUso),
-        Row(
-          children: [
-            OutlinedButton(
-              onPressed: () {
-                ref.invalidate(elUsoDeFigmaProvider(widget.configDir));
-                setState(() => _contando = true);
-              },
-              child: Text(strings.figmaUso),
+        const SizedBox(height: 9),
+        AccionesDeAjustes(
+          botones: [
+            BotonDeAjustes(
+              texto: strings.mcpAnadirAMano,
+              tono: TonoDeBoton.principal,
+              onPulsar: () => setState(() => _aMano = !_aMano),
             ),
-            const SizedBox(width: NexusSpacing.s3),
-            Expanded(
-              child: Text(
-                strings.figmaUsoDeDonde,
-                style: NexusTypography.label.copyWith(color: colors.faint),
-              ),
+            BotonDeAjustes(
+              texto: strings.mcpVerElCatalogo,
+              onPulsar: () => setState(() => _catalogo = !_catalogo),
             ),
           ],
         ),
-        if (_contando) ...[
-          const SizedBox(height: NexusSpacing.s3),
-          switch (ref.watch(elUsoDeFigmaProvider(widget.configDir))) {
-            AsyncLoading() => Text(
-              strings.figmaUsoContando,
-              style: NexusTypography.nota.copyWith(color: colors.faint),
-            ),
-            AsyncError() => Text(
-              strings.figmaUsoNoSePudo,
-              style: NexusTypography.nota.copyWith(color: colors.warn),
-            ),
-            AsyncData(:final value) => _ElUso(uso: value),
-          },
-        ],
 
-        const SizedBox(height: NexusSpacing.s6),
-        _Heading(strings.mcpCatalog),
-        for (final entry in McpCatalog.entries)
-          _CatalogRow(
-            entry: entry,
-            already: names.contains(entry.name),
-            enabled: !_busy,
-            onAdd: () => _install(
-              entry.name,
-              url: entry.url,
-              command: entry.command,
-              comoSeInstala: entry.comoSeInstala,
-            ),
+        if (_catalogo) ...[
+          const SizedBox(height: 16),
+          RotuloDeAjustes(strings.mcpCatalog),
+          const SizedBox(height: 4),
+          FilasDeAjustes(
+            filas: [
+              for (final entry in McpCatalog.entries)
+                _CatalogRow(
+                  entry: entry,
+                  already: names.contains(entry.name),
+                  enabled: !_busy,
+                  onAdd: () => _install(
+                    entry.name,
+                    url: entry.url,
+                    command: entry.command,
+                    comoSeInstala: entry.comoSeInstala,
+                  ),
+                ),
+            ],
           ),
+        ],
 
-        const SizedBox(height: NexusSpacing.s6),
-        _Heading(strings.mcpManual),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 140,
-              child: _Field(controller: _name, hint: strings.mcpNameHint),
-            ),
-            const SizedBox(width: NexusSpacing.s3),
-            Expanded(
-              child: _Field(controller: _spec, hint: strings.mcpSpecHint),
-            ),
-            const SizedBox(width: NexusSpacing.s3),
-            OutlinedButton(
-              onPressed: _busy ? null : _addManual,
-              child: Text(strings.mcpAdd),
-            ),
-          ],
-        ),
-        // Debajo y a lo ancho, no en la misma fila: es opcional, y ponerla al
-        // lado de la URL sugeriría que hace falta siempre.
-        const SizedBox(height: NexusSpacing.s3),
-        _Field(controller: _header, hint: strings.mcpHeaderHint),
-        const SizedBox(height: 6),
-        Text(
-          strings.mcpHeaderNote,
-          style: NexusTypography.label.copyWith(color: colors.faint),
-        ),
+        if (_aMano) ...[
+          const SizedBox(height: 16),
+          RotuloDeAjustes(strings.mcpManual),
+          const SizedBox(height: 9),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              SizedBox(
+                width: 140,
+                child: _Field(controller: _name, hint: strings.mcpNameHint),
+              ),
+              const SizedBox(width: NexusSpacing.s3),
+              Expanded(
+                child: _Field(controller: _spec, hint: strings.mcpSpecHint),
+              ),
+              const SizedBox(width: NexusSpacing.s3),
+              BotonDeAjustes(
+                texto: strings.mcpAdd,
+                tono: TonoDeBoton.principal,
+                onPulsar: _busy ? null : _addManual,
+              ),
+            ],
+          ),
+          // Debajo y a lo ancho, no en la misma fila: es opcional, y ponerla
+          // al lado de la URL sugeriría que hace falta siempre.
+          const SizedBox(height: 9),
+          _Field(controller: _header, hint: strings.mcpHeaderHint),
+          const SizedBox(height: 6),
+          TextoDeAjustes(strings.mcpHeaderNote, tamano: 12.5),
+        ],
         if (_error case final message?) ...[
           const SizedBox(height: NexusSpacing.s3),
           // Lo que dijo el CLI, literal: «ya existe uno con ese nombre» o «no
@@ -358,70 +336,91 @@ class _McpPanelState extends ConsumerState<McpPanel> {
             style: NexusTypography.mono.copyWith(color: colors.err),
           ),
         ],
+
+        // Lo gastado de Figma, en su propio bloque y al final: se consulta de
+        // vez en cuando, y contar recorre los registros —tarda—.
+        const SizedBox(height: 16),
+        Divider(color: colors.rule, height: 1),
+        const SizedBox(height: 16),
+        RotuloDeAjustes(strings.figmaUso),
+        const SizedBox(height: 9),
+        TextoDeAjustes(strings.figmaUsoDeDonde, tamano: 12.5),
+        const SizedBox(height: 9),
+        AccionesDeAjustes(
+          botones: [
+            BotonDeAjustes(
+              texto: strings.figmaUsoContar,
+              onPulsar: () {
+                ref.invalidate(elUsoDeFigmaProvider(widget.configDir));
+                setState(() => _contando = true);
+              },
+            ),
+          ],
+        ),
+        if (_contando) ...[
+          const SizedBox(height: NexusSpacing.s3),
+          switch (ref.watch(elUsoDeFigmaProvider(widget.configDir))) {
+            AsyncLoading() => EstadoDeAjustes(
+              tono: TonoDeAjustes.apagado,
+              texto: strings.figmaUsoContando,
+            ),
+            AsyncError() => EstadoDeAjustes(
+              tono: TonoDeAjustes.atencion,
+              texto: strings.figmaUsoNoSePudo,
+            ),
+            AsyncData(:final value) => _ElUso(uso: value),
+          },
+        ],
       ],
     );
   }
 }
 
+/// Un servidor puesto: su punto de estado, su nombre, lo que lo arranca y la
+/// acción que le toca —quitarlo, o volver a preguntarle si no respondió—.
 class _ServerRow extends StatelessWidget {
-  const _ServerRow({required this.server, this.enabled = true, this.onRemove});
+  const _ServerRow({
+    required this.server,
+    required this.onRecheck,
+    this.enabled = true,
+    this.onRemove,
+  });
 
   final McpServer server;
   final bool enabled;
   final VoidCallback? onRemove;
+  final VoidCallback onRecheck;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
+    final strings = context.strings;
+    final (tono, estado) = switch (server.status) {
+      McpStatus.connected => (TonoDeAjustes.bien, strings.mcpConectado),
+      McpStatus.needsAuth => (TonoDeAjustes.atencion, strings.mcpPideEntrar),
+      McpStatus.failed => (TonoDeAjustes.fallo, strings.mcpNoResponde),
+      McpStatus.unknown => (TonoDeAjustes.apagado, null),
+    };
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          if (server.status != McpStatus.unknown) ...[
-            Icon(
-              switch (server.status) {
-                McpStatus.connected => Icons.check_circle_outline,
-                McpStatus.needsAuth => Icons.lock_outline,
-                _ => Icons.error_outline,
-              },
-              size: 13,
-              color: switch (server.status) {
-                McpStatus.connected => colors.ok,
-                McpStatus.needsAuth => colors.warn,
-                _ => colors.err,
-              },
-            ),
-            const SizedBox(width: NexusSpacing.s2),
-          ],
-          SizedBox(
-            width: 150,
-            child: Text(
-              server.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: NexusTypography.data.copyWith(color: colors.ink),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              server.spec,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: NexusTypography.mono.copyWith(color: colors.faint),
-            ),
-          ),
-          // Los conectores de claude.ai llegan con la sesión y se gestionan
-          // allí: un botón de quitar que no puede quitar es peor que ninguno.
-          if (onRemove != null && !server.fromAccount)
-            IconButton(
-              onPressed: enabled ? onRemove : null,
-              icon: Icon(Icons.close, size: 14, color: colors.faint),
-              splashRadius: 14,
-              tooltip: context.strings.mcpRemove,
-            ),
-        ],
-      ),
+    return FilaDeAjustes(
+      tono: tono,
+      titulo: server.name,
+      dato: [?estado, server.spec].join(' · '),
+      accion: switch (server.status) {
+        // El que no respondió se ofrece a volver a preguntar antes que a
+        // quitarse: casi siempre es que no estaba arrancado, no que sobre.
+        McpStatus.failed => BotonDeAjustes(
+          texto: strings.mcpCheck,
+          onPulsar: enabled ? onRecheck : null,
+        ),
+        // Los conectores de claude.ai llegan con la sesión y se gestionan
+        // allí: un botón de quitar que no puede quitar es peor que ninguno.
+        _ when onRemove != null && !server.fromAccount => BotonDeAjustes(
+          texto: strings.mcpRemove,
+          tono: TonoDeBoton.peligro,
+          onPulsar: enabled ? onRemove : null,
+        ),
+        _ => null,
+      },
     );
   }
 }
@@ -441,58 +440,21 @@ class _CatalogRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
+    final strings = context.strings;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 150,
-            child: Text(
-              entry.name,
-              style: NexusTypography.data.copyWith(
-                color: already ? colors.faint : colors.ink,
-              ),
+    return FilaDeAjustes(
+      tono: already ? TonoDeAjustes.bien : null,
+      titulo: entry.name,
+      dato: entry.what,
+      accion: already
+          ? null
+          : BotonDeAjustes(
+              texto: strings.mcpAdd,
+              tono: TonoDeBoton.principal,
+              onPulsar: enabled ? onAdd : null,
             ),
-          ),
-          Expanded(
-            child: Text(
-              entry.what,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: NexusTypography.nota.copyWith(color: colors.faint),
-            ),
-          ),
-          const SizedBox(width: NexusSpacing.s3),
-          if (already)
-            Icon(Icons.check, size: 14, color: colors.ok)
-          else
-            IconButton(
-              onPressed: enabled ? onAdd : null,
-              icon: Icon(Icons.add, size: 15, color: colors.accent),
-              splashRadius: 14,
-              tooltip: context.strings.mcpAdd,
-            ),
-        ],
-      ),
     );
   }
-}
-
-class _Heading extends StatelessWidget {
-  const _Heading(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
-    child: Text(
-      text,
-      style: NexusTypography.label.copyWith(color: context.colors.accent),
-    ),
-  );
 }
 
 class _Field extends StatelessWidget {
@@ -502,31 +464,11 @@ class _Field extends StatelessWidget {
   final String hint;
 
   @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return TextField(
-      controller: controller,
-      style: NexusTypography.mono.copyWith(color: colors.ink),
-      decoration: InputDecoration(
-        isDense: true,
-        hintText: hint,
-        hintStyle: NexusTypography.mono.copyWith(color: colors.rule2),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: NexusSpacing.s3,
-          vertical: NexusSpacing.s3,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: colors.rule),
-          borderRadius: BorderRadius.circular(NexusRadius.sm),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: colors.accent),
-          borderRadius: BorderRadius.circular(NexusRadius.sm),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => TextField(
+    controller: controller,
+    style: estiloDeCampoDeAjustes(context),
+    decoration: decoracionDeCampoDeAjustes(context, hint: hint),
+  );
 }
 
 /// Lo gastado de Figma este mes, en la cuenta que se está mirando.

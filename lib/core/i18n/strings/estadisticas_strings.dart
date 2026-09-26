@@ -16,11 +16,6 @@ mixin EstadisticasStrings {
   String get statsSessions;
   String get statsMessages;
   String get statsTotalTokens;
-  String get statsActiveDays;
-  String get statsCurrentStreak;
-  String get statsLongestStreak;
-  String get statsPeakHour;
-  String get statsFavoriteModel;
   String get statsReading;
   String get statsUnreadable;
   String get statsNothingYet;
@@ -40,25 +35,15 @@ mixin EstadisticasStringsEs implements EstadisticasStrings {
   @override
   String get statsRangeAll => 'Todo';
   @override
-  String get statsRange30 => '30d';
+  String get statsRange30 => '30 días';
   @override
-  String get statsRange7 => '7d';
+  String get statsRange7 => '7 días';
   @override
   String get statsSessions => 'Sesiones';
   @override
   String get statsMessages => 'Mensajes';
   @override
   String get statsTotalTokens => 'Tokens';
-  @override
-  String get statsActiveDays => 'Días activos';
-  @override
-  String get statsCurrentStreak => 'Racha actual';
-  @override
-  String get statsLongestStreak => 'Racha más larga';
-  @override
-  String get statsPeakHour => 'Hora punta';
-  @override
-  String get statsFavoriteModel => 'Modelo favorito';
   @override
   String get statsReading => 'Leyendo los transcritos…';
   @override
@@ -70,8 +55,7 @@ mixin EstadisticasStringsEs implements EstadisticasStrings {
   String get statsNoAccounts => 'No hay ninguna cuenta de Claude configurada.';
   @override
   String statsCachedFootnote(String amount) =>
-      'Además, $amount de tokens leídos o escritos en caché — fuera del total '
-      'porque lo eclipsaría.';
+      'además, $amount de tokens en caché';
   @override
   String statsDayTooltip(String day, int messages) =>
       '$day · $messages mensajes';
@@ -90,25 +74,15 @@ mixin EstadisticasStringsEn implements EstadisticasStrings {
   @override
   String get statsRangeAll => 'All';
   @override
-  String get statsRange30 => '30d';
+  String get statsRange30 => '30 days';
   @override
-  String get statsRange7 => '7d';
+  String get statsRange7 => '7 days';
   @override
   String get statsSessions => 'Sessions';
   @override
   String get statsMessages => 'Messages';
   @override
   String get statsTotalTokens => 'Tokens';
-  @override
-  String get statsActiveDays => 'Active days';
-  @override
-  String get statsCurrentStreak => 'Current streak';
-  @override
-  String get statsLongestStreak => 'Longest streak';
-  @override
-  String get statsPeakHour => 'Peak hour';
-  @override
-  String get statsFavoriteModel => 'Favorite model';
   @override
   String get statsReading => 'Reading the transcripts…';
   @override
@@ -119,9 +93,7 @@ mixin EstadisticasStringsEn implements EstadisticasStrings {
   @override
   String get statsNoAccounts => 'No Claude account is set up.';
   @override
-  String statsCachedFootnote(String amount) =>
-      'Plus $amount tokens read from or written to cache — kept out of the '
-      'total because it would dwarf it.';
+  String statsCachedFootnote(String amount) => 'plus $amount tokens in cache';
   @override
   String statsDayTooltip(String day, int messages) =>
       '$day · $messages messages';

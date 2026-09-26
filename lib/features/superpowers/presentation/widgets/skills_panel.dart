@@ -122,10 +122,7 @@ class _SkillsPanelState extends ConsumerState<SkillsPanel> {
 
     return ListView(
       children: [
-        Text(
-          strings.skillsExplainer,
-          style: NexusTypography.nota.copyWith(color: colors.faint),
-        ),
+        TextoDeAjustes(strings.skillsExplainer),
         const SizedBox(height: NexusSpacing.s5),
 
         _Heading(strings.skillsInstalled),
@@ -140,17 +137,18 @@ class _SkillsPanelState extends ConsumerState<SkillsPanel> {
         for (final skill in installed)
           _SkillRow(
             skill: skill,
-            trailing: IconButton(
-              onPressed: _busy
+            // Con su nombre y en rojo, como «Quitar» en el resto de Ajustes:
+            // una cruz gris de 14 px no decía qué hacía hasta pararse encima.
+            trailing: BotonDeAjustes(
+              texto: strings.skillsRemove,
+              tono: TonoDeBoton.peligro,
+              onPulsar: _busy
                   ? null
                   : () => _act(
                       () => ref
                           .read(skillsDataSourceProvider)
                           .remove(widget.configDir, skill.id),
                     ),
-              icon: Icon(Icons.close, size: 14, color: colors.faint),
-              splashRadius: 14,
-              tooltip: strings.skillsRemove,
             ),
           ),
 
@@ -162,11 +160,11 @@ class _SkillsPanelState extends ConsumerState<SkillsPanel> {
               child: _Field(controller: _repo, hint: 'usuario/repo'),
             ),
             const SizedBox(width: NexusSpacing.s3),
-            OutlinedButton(
-              onPressed: _busy
+            BotonDeAjustes(
+              texto: strings.skillsBrowse,
+              onPulsar: _busy
                   ? null
                   : () => setState(() => _browsing = _repo.text.trim()),
-              child: Text(strings.skillsBrowse),
             ),
           ],
         ),
@@ -193,8 +191,9 @@ class _SkillsPanelState extends ConsumerState<SkillsPanel> {
                 _SkillRow(
                   skill: skill,
                   dimmed: ids.contains(skill.id),
-                  trailing: IconButton(
-                    onPressed: _busy
+                  trailing: BotonDeAjustes(
+                    tono: TonoDeBoton.principal,
+                    onPulsar: _busy
                         ? null
                         : () => _act(
                             () => ref
@@ -213,13 +212,7 @@ class _SkillsPanelState extends ConsumerState<SkillsPanel> {
                     // Ya instalada se ofrece **actualizar**, no se apaga el
                     // botón: un repo de skills cambia, y la copia local es de
                     // cuando se instaló.
-                    icon: Icon(
-                      ids.contains(skill.id) ? Icons.refresh : Icons.add,
-                      size: 15,
-                      color: colors.accent,
-                    ),
-                    splashRadius: 14,
-                    tooltip: ids.contains(skill.id)
+                    texto: ids.contains(skill.id)
                         ? strings.skillsUpdate
                         : strings.skillsInstall,
                   ),
@@ -252,9 +245,10 @@ class _SkillsPanelState extends ConsumerState<SkillsPanel> {
               child: _Field(controller: _newName, hint: strings.skillsOwnHint),
             ),
             const SizedBox(width: NexusSpacing.s3),
-            OutlinedButton(
-              onPressed: _busy ? null : _create,
-              child: Text(strings.skillsCreate),
+            BotonDeAjustes(
+              texto: strings.skillsCreate,
+              tono: TonoDeBoton.principal,
+              onPulsar: _busy ? null : _create,
             ),
           ],
         ),
@@ -312,10 +306,11 @@ class _SkillRow extends StatelessWidget {
                 skill.description,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: NexusTypography.nota.copyWith(color: colors.faint),
+                style: NexusTypography.nota.copyWith(color: colors.mute),
               ),
             ),
           ),
+          const SizedBox(width: 10),
           trailing,
         ],
       ),
@@ -323,6 +318,7 @@ class _SkillRow extends StatelessWidget {
   }
 }
 
+/// El rótulo de un bloque del panel, con la voz de los rótulos de Ajustes.
 class _Heading extends StatelessWidget {
   const _Heading(this.text);
 
@@ -331,13 +327,12 @@ class _Heading extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
-    child: Text(
-      text,
-      style: NexusTypography.label.copyWith(color: context.colors.accent),
-    ),
+    child: RotuloDeAjustes(text),
   );
 }
 
+/// Un campo de línea, como los de Ajustes: lo que se escribe aquí es un dato
+/// —un repositorio, un nombre—, y una caja rellena se leía como formulario web.
 class _Field extends StatelessWidget {
   const _Field({required this.controller, required this.hint, this.onChanged});
 
@@ -346,30 +341,10 @@ class _Field extends StatelessWidget {
   final ValueChanged<String>? onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return TextField(
-      controller: controller,
-      onChanged: onChanged,
-      style: NexusTypography.mono.copyWith(color: colors.ink),
-      decoration: InputDecoration(
-        isDense: true,
-        hintText: hint,
-        hintStyle: NexusTypography.mono.copyWith(color: colors.rule2),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: NexusSpacing.s3,
-          vertical: NexusSpacing.s3,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: colors.rule),
-          borderRadius: BorderRadius.circular(NexusRadius.sm),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: colors.accent),
-          borderRadius: BorderRadius.circular(NexusRadius.sm),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => TextField(
+    controller: controller,
+    onChanged: onChanged,
+    style: estiloDeCampoDeAjustes(context),
+    decoration: decoracionDeCampoDeAjustes(context, hint: hint),
+  );
 }

@@ -71,13 +71,16 @@ class SettingsPage extends ConsumerStatefulWidget {
 
   /// El ancho de la hoja para una ventana dada.
   ///
-  /// Unos siete décimos, como el mockup —900 de 1280—, con suelo y techo: por
-  /// debajo de 800 las secciones no caben en su columna, y por encima de 1040
-  /// las líneas de las explicaciones se hacen tan largas que cuesta leerlas.
-  /// En una ventana más estrecha que el suelo, la hoja la ocupa entera.
+  /// La proporción del mockup —900 de 1280—, con suelo y techo: por debajo de
+  /// 800 las secciones no caben en su columna, y por encima de 1040 las líneas
+  /// de las explicaciones se hacen tan largas que cuesta leerlas. En una
+  /// ventana más estrecha que el suelo, la hoja la ocupa entera.
+  ///
+  /// Era 0,72 —921 a 1280— y el orbe de la sala se quedaba sin sitio: con la
+  /// del mockup quedan 380 px a la izquierda, lo justo para que se vea entero.
   @visibleForTesting
   static double anchoDeLaHoja(double ventana) =>
-      (ventana * 0.72).clamp(800.0, 1040.0).clamp(0.0, ventana);
+      (ventana * 900 / 1280).clamp(800.0, 1040.0).clamp(0.0, ventana);
 
   @override
   ConsumerState<SettingsPage> createState() => _SettingsPageState();
@@ -144,70 +147,86 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       bindings: {const SingleActivator(LogicalKeyboardKey.escape): _cerrar},
       child: Focus(
         autofocus: true,
-        child: LayoutBuilder(
-          builder: (context, constraints) => Row(
-            // Estirado a lo alto: sin esto el velo de la sala, que no tiene
-            // hijo, medía cero de alto — ni atenuaba ni se podía pulsar.
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // La sala, atenuada y a la vista. Pulsarla cierra: es lo que se
-              // espera de algo que está encima y no ocupa el sitio.
-              Expanded(
-                child: GestureDetector(
-                  key: const ValueKey('la-sala-detras'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _cerrar,
-                  child: ColoredBox(
-                    color: colors.scrim.withValues(alpha: 0.45),
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: SettingsPage.anchoDeLaHoja(constraints.maxWidth),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: Border(left: BorderSide(color: colors.rule2)),
-                  ),
-                  child: Scaffold(
-                    backgroundColor: colors.deep,
-                    body: IrASeccionDeAjustes(
-                      ir: _ir,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _SettingsTopBar(onClose: _cerrar),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                NexusSpacing.s6,
-                                NexusSpacing.s5,
-                                NexusSpacing.s6,
-                                0,
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                    width: 200,
-                                    child: _ElIndice(
-                                      actual: _section,
-                                      onElegir: _ir,
-                                    ),
-                                  ),
-                                  const SizedBox(width: NexusSpacing.s6),
-                                  Expanded(child: _LaSeccion(_section)),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 🔴 **La barra cruza la ventana entera, como en el mockup.** Iba
+            // dentro de la hoja, y la de la sala asomaba detrás del velo con
+            // su propio estado: dos barras, y la de la izquierda diciendo
+            // «dormido» mientras se estaba en Ajustes. Esta ocupa su sitio y
+            // dice dónde se está.
+            _SettingsTopBar(onClose: _cerrar),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) => Row(
+                  // Estirado a lo alto: sin esto el velo de la sala, que no
+                  // tiene hijo, medía cero de alto — ni atenuaba ni se podía
+                  // pulsar.
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // La sala, atenuada y a la vista. Pulsarla cierra: es lo
+                    // que se espera de algo que está encima y no ocupa el
+                    // sitio.
+                    Expanded(
+                      child: GestureDetector(
+                        key: const ValueKey('la-sala-detras'),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _cerrar,
+                        child: ColoredBox(
+                          color: colors.scrim.withValues(alpha: 0.45),
+                        ),
                       ),
                     ),
-                  ),
+                    SizedBox(
+                      width: SettingsPage.anchoDeLaHoja(constraints.maxWidth),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          border: Border(left: BorderSide(color: colors.rule2)),
+                        ),
+                        child: Scaffold(
+                          backgroundColor: colors.deep,
+                          body: IrASeccionDeAjustes(
+                            ir: _ir,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // El índice con su línea a la derecha: es lo
+                                // que lo separa de la sección sin un fondo
+                                // distinto, que lo haría parecer otro panel.
+                                Container(
+                                  width: 210,
+                                  decoration: BoxDecoration(
+                                    border: Border(
+                                      right: BorderSide(color: colors.rule),
+                                    ),
+                                  ),
+                                  child: _ElIndice(
+                                    actual: _section,
+                                    onElegir: _ir,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      44,
+                                      30,
+                                      44,
+                                      0,
+                                    ),
+                                    child: _LaSeccion(_section),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -235,12 +254,20 @@ class _LaSeccion extends StatelessWidget {
           seccion.pregunta.title(strings).toUpperCase(),
           style: NexusTypography.label.copyWith(color: colors.accent),
         ),
-        const SizedBox(height: NexusSpacing.s2),
+        const SizedBox(height: 20),
+        // A 28 y no a los 22 de un título de pantalla: es lo único grande de
+        // la hoja, y lo que dice de un vistazo dónde se está. Pegado a lo que
+        // sigue —cuatro píxeles— porque el primer bloque es de este título.
         Text(
           seccion.title(strings),
-          style: NexusTypography.title.copyWith(color: colors.ink),
+          style: NexusTypography.title.copyWith(
+            fontSize: 28,
+            height: 1.2,
+            letterSpacing: -0.56,
+            color: colors.ink,
+          ),
         ),
-        const SizedBox(height: NexusSpacing.s5),
+        const SizedBox(height: 4),
         Expanded(
           child: switch (seccion) {
             SeccionDeAjustes.voice => const VoiceSection(),
@@ -286,20 +313,23 @@ class _ElIndice extends StatelessWidget {
     // es que una columna fija se acerca al borde con cada una que se añade, y
     // la que lo cruce se lleva la culpa de todas.
     return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (final (i, pregunta) in PreguntaDeAjustes.values.indexed) ...[
             Padding(
               key: ValueKey('pregunta-${pregunta.name}'),
-              padding: EdgeInsets.only(
-                top: i == 0 ? 0 : NexusSpacing.s4,
-                bottom: NexusSpacing.s1,
-                left: NexusSpacing.s3,
-              ),
+              padding: EdgeInsets.only(top: i == 0 ? 0 : 16, bottom: 6),
+              // En `mute` y no en `faint`: la pregunta es lo que se busca al
+              // recorrer el índice, y en `faint` era lo menos legible de él.
               child: Text(
                 pregunta.title(strings).toUpperCase(),
-                style: NexusTypography.label.copyWith(color: colors.faint),
+                style: NexusTypography.label.copyWith(
+                  fontSize: 9.5,
+                  letterSpacing: 1.9,
+                  color: colors.mute,
+                ),
               ),
             ),
             for (final section in SeccionDeAjustes.de(pregunta))
@@ -357,18 +387,20 @@ class _SectionLink extends StatelessWidget {
           ),
         ),
         padding: EdgeInsets.only(
-          top: NexusSpacing.s2,
-          bottom: NexusSpacing.s2,
-          left: active ? NexusSpacing.s3 - 1 : NexusSpacing.s3,
+          top: 6,
+          bottom: 6,
+          left: active ? 11 : 12,
           right: NexusSpacing.s2,
         ),
-        // En `control` y en minúscula de frase, no en rótulo: los rótulos en
-        // mayúsculas son ahora las preguntas, y dieciocho enlaces en mayúsculas
-        // eran la lista plana que el mockup rechaza.
+        // En sans y en minúscula de frase, no en rótulo: los rótulos en
+        // mayúsculas son las preguntas, y dieciocho enlaces en mayúsculas eran
+        // la lista plana que el mockup rechaza. Sans y no el instrumento
+        // porque son nombres que se leen —«Cuentas de prueba»—, no mandos.
         child: Text(
           label,
-          style: NexusTypography.control.copyWith(
-            fontSize: 13,
+          style: NexusTypography.nota.copyWith(
+            fontSize: 13.5,
+            height: 1.35,
             color: active ? colors.ink : colors.mute,
           ),
         ),
@@ -377,6 +409,12 @@ class _SectionLink extends StatelessWidget {
   }
 }
 
+/// La barra de Ajustes: la marca, dónde se está y cómo se sale.
+///
+/// La misma gramática que la barra de la sala —marca en `mute`, estado en
+/// acento—, con «AJUSTES» donde la sala dice qué está haciendo: con la hoja
+/// abierta, lo que está pasando es que estás en Ajustes. Ver
+/// `nexus-orbe-plasma.html`, `#ajustes`.
 class _SettingsTopBar extends StatelessWidget {
   const _SettingsTopBar({required this.onClose});
 
@@ -385,45 +423,74 @@ class _SettingsTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final strings = context.strings;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: NexusSpacing.s6,
-        vertical: NexusSpacing.s4,
-      ),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: colors.rule)),
-      ),
-      child: Row(
-        children: [
-          // Sin la marca: la sala sigue a la vista a la izquierda con la suya,
-          // y repetirla en la hoja la hacía parecer otra ventana.
-          //
-          // `Expanded` y no `Flexible`: el segundo deja al hijo quedarse
-          // pequeño, así que el rótulo medía lo que su texto y «Cerrar» se
-          // pegaba a él. Con restricciones ajustadas el rótulo ocupa todo el
-          // sobrante y empuja el botón al borde, y en una hoja estrecha sigue
-          // encogiendo con puntos suspensivos.
-          Expanded(
-            child: Text(
-              context.strings.settings,
-              overflow: TextOverflow.ellipsis,
-              style: NexusTypography.label.copyWith(
-                color: colors.accent,
-                letterSpacing: 2,
+    // Con su propio `Material`: la barra vive fuera del `Scaffold` de la hoja,
+    // y sin uno encima los textos salían con el subrayado amarillo de Flutter
+    // y el botón sin dónde pintar su tinta.
+    return Material(
+      color: colors.void_,
+      child: Container(
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: colors.rule)),
+        ),
+        child: Row(
+          children: [
+            Text(
+              strings.brand,
+              style: NexusTypography.brand.copyWith(color: colors.mute),
+            ),
+            const SizedBox(width: 18),
+            // `Expanded` y no `Flexible`: el segundo deja al hijo quedarse
+            // pequeño, así que el rótulo medía lo que su texto y «Cerrar» se
+            // pegaba a él. Con restricciones ajustadas el rótulo ocupa todo el
+            // sobrante y empuja el botón al borde, y en una ventana estrecha
+            // sigue encogiendo con puntos suspensivos.
+            Expanded(
+              child: Text(
+                strings.settings,
+                overflow: TextOverflow.ellipsis,
+                style: NexusTypography.label.copyWith(
+                  fontSize: 11,
+                  color: colors.accent,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: NexusSpacing.s5),
-          // El interruptor de permisos ya no vive aquí: es del espacio de
-          // trabajo entero, y en la cabecera salía en **todas** las secciones
-          // sin nada que lo explicase. Se cambia en Permisos, con su título y
-          // su explicación, y junto a la caja de escribir.
-          OutlinedButton(
-            onPressed: onClose,
-            child: Text(context.strings.closeEsc),
-          ),
-        ],
+            const SizedBox(width: NexusSpacing.s5),
+            // El interruptor de permisos ya no vive aquí: es del espacio de
+            // trabajo entero, y en la cabecera salía en **todas** las secciones
+            // sin nada que lo explicase. Se cambia en Permisos, con su título y
+            // su explicación, y junto a la caja de escribir.
+            //
+            // Pequeño y en `mute`: salir es lo que menos se decide de la hoja, y
+            // el botón de 44 px de alto de fábrica pesaba más que el título.
+            OutlinedButton(
+              onPressed: onClose,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 8,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                side: BorderSide(color: colors.rule2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(NexusRadius.sm),
+                ),
+              ),
+              child: Text(
+                strings.closeEsc,
+                style: NexusTypography.label.copyWith(
+                  letterSpacing: 1.6,
+                  height: 1,
+                  color: colors.mute,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

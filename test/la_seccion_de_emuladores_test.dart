@@ -255,7 +255,7 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
-  testWidgets('los teléfonos enchufados salen aparte y sin botón', (
+  testWidgets('los teléfonos enchufados salen en la lista y sin arrancar', (
     tester,
   ) async {
     await _montar(
@@ -272,7 +272,8 @@ void main() {
       ),
     );
 
-    expect(find.text(strings.emulatorsConnected.toUpperCase()), findsOneWidget);
+    // En la misma lista que los emuladores, como el mockup, y con su verbo:
+    // uno de estos ya está, así que no se ofrece arrancarlo.
     expect(find.text('24069PC21G'), findsOneWidget);
     // El id debajo, que es lo que pide `-d`.
     expect(find.textContaining('36c56d94'), findsOneWidget);
@@ -280,9 +281,10 @@ void main() {
     expect(find.text(strings.emulatorsLaunch.toUpperCase()), findsOneWidget);
   });
 
-  testWidgets('sin teléfonos enchufados no hay grupo vacío', (tester) async {
+  testWidgets('sin teléfonos enchufados no hay fila de más', (tester) async {
     await _montar(tester, _Falsa([_android]));
-    expect(find.text(strings.emulatorsConnected.toUpperCase()), findsNothing);
+    expect(find.text(strings.emulatorsConnected), findsNothing);
+    expect(find.textContaining('36c56d94'), findsNothing);
   });
 
   testWidgets('una máquina sin emuladores lo dice', (tester) async {

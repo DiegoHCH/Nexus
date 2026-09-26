@@ -173,7 +173,9 @@ abstract final class NexusTheme {
       textButtonTheme: TextButtonThemeData(
         style: ButtonStyle(
           foregroundColor: WidgetStatePropertyAll(colors.mute),
-          textStyle: WidgetStatePropertyAll(NexusTypography.control),
+          // Los botones hablan como mandos: `boton`, en mayúsculas. Ver
+          // [NexusTypography.boton].
+          textStyle: WidgetStatePropertyAll(NexusTypography.boton),
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(NexusRadius.sm),
@@ -184,7 +186,9 @@ abstract final class NexusTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: ButtonStyle(
           foregroundColor: WidgetStatePropertyAll(colors.mute),
-          textStyle: WidgetStatePropertyAll(NexusTypography.control),
+          // Los botones hablan como mandos: `boton`, en mayúsculas. Ver
+          // [NexusTypography.boton].
+          textStyle: WidgetStatePropertyAll(NexusTypography.boton),
           minimumSize: const WidgetStatePropertyAll(Size(0, 44)),
           side: WidgetStatePropertyAll(BorderSide(color: colors.rule2)),
           shape: WidgetStatePropertyAll(
@@ -199,7 +203,7 @@ abstract final class NexusTheme {
           backgroundColor: WidgetStatePropertyAll(colors.accent),
           foregroundColor: WidgetStatePropertyAll(colors.void_),
           textStyle: WidgetStatePropertyAll(
-            NexusTypography.control.copyWith(
+            NexusTypography.boton.copyWith(
               fontWeight: FontWeight.w600,
               fontVariations: const [FontVariation('wght', 600)],
             ),

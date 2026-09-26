@@ -62,7 +62,7 @@ class BotonDelRegistro extends StatelessWidget {
         ),
       ),
       child: Text(
-        texto,
+        texto.toUpperCase(),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: NexusTypography.label.copyWith(

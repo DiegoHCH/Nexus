@@ -243,12 +243,12 @@ class _AccentDialogState extends ConsumerState<AccentDialog> {
                     onPressed: () => ref
                         .read(accentControllerProvider.notifier)
                         .select(Accent.cyan.chosen),
-                    child: Text(strings.accentReset),
+                    child: Text(strings.accentReset.toUpperCase()),
                   ),
                 const Spacer(),
                 FilledButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text(strings.close),
+                  child: Text(strings.close.toUpperCase()),
                 ),
               ],
             ),

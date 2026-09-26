@@ -188,12 +188,12 @@ class _FilaState extends ConsumerState<_Fila> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(contexto).pop(false),
-            child: Text(strings.cancel),
+            child: Text(strings.cancel.toUpperCase()),
           ),
           TextButton(
             onPressed: () => Navigator.of(contexto).pop(true),
             style: TextButton.styleFrom(foregroundColor: colors.err),
-            child: Text(strings.keyForget),
+            child: Text(strings.keyForget.toUpperCase()),
           ),
         ],
       ),

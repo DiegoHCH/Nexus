@@ -481,7 +481,7 @@ class _SettingsTopBar extends StatelessWidget {
                 ),
               ),
               child: Text(
-                strings.closeEsc,
+                strings.closeEsc.toUpperCase(),
                 style: NexusTypography.label.copyWith(
                   letterSpacing: 1.6,
                   height: 1,

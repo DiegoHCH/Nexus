@@ -1155,7 +1155,8 @@ class _FirstRunState extends ConsumerState<_FirstRun> {
                                     en: SeccionDeAjustes.permissions,
                                   ),
                                   child: Text(
-                                    context.strings.pairAFolderToStart,
+                                    context.strings.pairAFolderToStart
+                                        .toUpperCase(),
                                     style: NexusTypography.label.copyWith(
                                       color: colors.accent,
                                     ),

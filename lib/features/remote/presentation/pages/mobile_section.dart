@@ -366,13 +366,13 @@ class _PhraseDialogState extends ConsumerState<_PhraseDialog> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: Text(strings.cancel),
+                    child: Text(strings.cancel.toUpperCase()),
                   ),
                   const Spacer(),
                   FilledButton(
                     key: const ValueKey('guardar-la-frase'),
                     onPressed: _guardar,
-                    child: Text(strings.phraseSave),
+                    child: Text(strings.phraseSave.toUpperCase()),
                   ),
                 ],
               ),

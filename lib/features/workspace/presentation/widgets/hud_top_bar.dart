@@ -106,7 +106,7 @@ class HudTopBar extends ConsumerWidget {
           if (workspace.folders.isEmpty)
             OutlinedButton(
               onPressed: controller.pairFolder,
-              child: Text(context.strings.pairFolder),
+              child: Text(context.strings.pairFolder.toUpperCase()),
             ),
           if (atajos case final dichos?) ...[
             const SizedBox(width: NexusSpacing.s4),

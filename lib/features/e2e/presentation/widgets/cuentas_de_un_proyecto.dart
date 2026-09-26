@@ -264,11 +264,14 @@ class _FormularioDeCuentaState extends ConsumerState<_FormularioDeCuenta> {
               Navigator.of(context).pop();
             },
             child: Text(
-              strings.e2eAccountDelete,
+              strings.e2eAccountDelete.toUpperCase(),
               style: TextStyle(color: colors.err),
             ),
           ),
-        TextButton(onPressed: _guardar, child: Text(strings.e2eAccountSave)),
+        TextButton(
+          onPressed: _guardar,
+          child: Text(strings.e2eAccountSave.toUpperCase()),
+        ),
       ],
     );
   }

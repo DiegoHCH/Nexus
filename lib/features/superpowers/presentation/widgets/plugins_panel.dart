@@ -79,7 +79,7 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(context.strings.close),
+            child: Text(context.strings.close.toUpperCase()),
           ),
         ],
       ),

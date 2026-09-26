@@ -88,11 +88,19 @@ class ArtifactsDataSource {
   Future<void> textos({
     required String permitir,
     required String permitirAyuda,
+    String? apagado,
+    String? encendido,
+    String? pieDeLaConsola,
   }) async {
     try {
       await _channel.invokeMethod<bool>('textos', {
         'permitir': permitir,
         'permitirAyuda': permitirAyuda,
+        // El estado del permiso, dicho en el botón del título, y el pie de la
+        // consola: textos de ventanas nativas, así que viajan con los demás.
+        'apagado': ?apagado,
+        'encendido': ?encendido,
+        'pieDeLaConsola': ?pieDeLaConsola,
       });
     } on PlatformException {
       // Sin rótulos el visor usa los suyos: se ve en otro idioma, no se rompe.

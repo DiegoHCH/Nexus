@@ -58,6 +58,9 @@ class _StatusPresenceState extends ConsumerState<StatusPresence> {
         .textos(
           permitir: strings.allowScriptsAndNetwork,
           permitirAyuda: strings.allowScriptsExplainer,
+          apagado: strings.allowScriptsOff,
+          encendido: strings.allowScriptsOn,
+          pieDeLaConsola: strings.consolaSoloConLaCopia,
         );
     StatusItemChannel.onAction(
       talk: () => ref

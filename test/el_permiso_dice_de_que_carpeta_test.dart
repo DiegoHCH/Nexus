@@ -71,7 +71,8 @@ void main() {
     // «Escribe en front-mobile-b2c». Las opciones quedan con su nombre corto,
     // como en la maqueta.
     expect(
-      find.text(textos.permisoEn('front-mobile-b2c')),
+      // En mayúsculas: la cabecera es el rótulo del menú.
+      find.text(textos.permisoEn('front-mobile-b2c').toUpperCase()),
       findsOneWidget,
       reason: 'sin el nombre no se sabe a qué carpeta se le está dando',
     );

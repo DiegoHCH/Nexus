@@ -79,7 +79,11 @@ class _UpdateToastState extends ConsumerState<UpdateToast> {
       });
     });
 
-    if (estado.stage is UpdateIdle) return const SizedBox.shrink();
+    // Apartado con «Más tarde» a media descarga: no pinta nada mientras baja,
+    // y vuelve solo al estar lista (ver `UpdatesState.enSegundoPlano`).
+    if (estado.stage is UpdateIdle || estado.enSegundoPlano) {
+      return const SizedBox.shrink();
+    }
 
     return Align(
       alignment: Alignment.topRight,
@@ -96,19 +100,15 @@ class _UpdateToastState extends ConsumerState<UpdateToast> {
             opacity: _dentro ? 1 : 0,
             child: Material(
               color: Colors.transparent,
+              // El globo de los menús: `deep` con su filo `rule2` y sin
+              // sombra, como el `.pop` del mockup. La sombra de antes sobre
+              // el fondo `void` se leía como un segundo borde negro.
               child: Container(
-                width: 340,
+                width: 360,
                 decoration: BoxDecoration(
-                  color: colors.rise,
+                  color: colors.deep,
                   border: Border.all(color: colors.rule2),
                   borderRadius: BorderRadius.circular(NexusRadius.md),
-                  boxShadow: [
-                    BoxShadow(
-                      color: colors.shadow,
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
                 ),
                 padding: const EdgeInsets.all(NexusSpacing.s4),
                 child: _Cuerpo(estado: estado),
@@ -121,6 +121,16 @@ class _UpdateToastState extends ConsumerState<UpdateToast> {
   }
 }
 
+/// Lo de dentro del aviso, fase por fase.
+///
+/// **La forma es la del mockup (`#sistema`)**: el rótulo de qué pasa en el
+/// color que le toca, «Nexus 1.26.0» en grande, la frase de lo que implica, la
+/// barra con su cuenta debajo y los botones a la izquierda. Antes era un título
+/// en negrita con una cruz, el salto «1.25.0 → 1.26.0» en mono y los botones a
+/// la derecha: se leía como un diálogo del sistema y no como parte de Nexus.
+///
+/// Sin cruz: cada fase que se queda tiene su «Más tarde», que dice qué pasa al
+/// pulsarlo; la cruz no decía si cancelaba la descarga o solo la escondía.
 class _Cuerpo extends ConsumerWidget {
   const _Cuerpo({required this.estado});
 
@@ -132,138 +142,176 @@ class _Cuerpo extends ConsumerWidget {
     final strings = context.strings;
     final control = ref.read(updatesControllerProvider.notifier);
     final corriendo = estado.notice?.current;
+    // A qué versión se va. Se lee del aviso y no solo de «encontrada»: al
+    // bajar y al estar lista la fase ya no la lleva, y el título tiene que
+    // seguir diciéndola.
+    final destino = switch (estado.stage) {
+      final UpdateFound encontrada => encontrada.version,
+      _ => estado.notice?.latest,
+    };
 
-    // `cerrable` en falso solo mientras instala: ahí ya no hay nada que
-    // descartar —la app está a punto de reiniciarse— y una cruz que no deshace
-    // nada promete algo que no puede cumplir.
-    Widget titulo(String texto, {bool cerrable = true}) => Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Text(
-            texto,
-            style: NexusTypography.body.copyWith(
-              color: colors.ink,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        if (cerrable) _Cerrar(onTap: control.descartar),
-      ],
+    Widget rotulo(String texto, Color color) => Text(
+      texto.toUpperCase(),
+      style: NexusTypography.label.copyWith(color: color),
     );
 
-    Widget linea(String texto) => Padding(
-      padding: const EdgeInsets.only(top: NexusSpacing.s2),
-      child: Text(
-        texto,
-        style: NexusTypography.label.copyWith(color: colors.mute),
+    Widget? titulo(String? version) => version == null || version.isEmpty
+        ? null
+        : Text(
+            strings.updateNexus(version),
+            style: NexusTypography.title.copyWith(color: colors.ink),
+          );
+
+    Widget frase(String texto, {Color? color}) => Text(
+      texto,
+      style: NexusTypography.nota.copyWith(
+        fontSize: 14,
+        height: 1.55,
+        color: color ?? colors.mute,
       ),
     );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: switch (estado.stage) {
+    final hijos = <Widget?>[
+      ...switch (estado.stage) {
         // Nunca se ve: el toast entero no se monta en reposo. Está por el
         // `switch`, que es exhaustivo a propósito.
-        UpdateIdle() => const [SizedBox.shrink()],
+        UpdateIdle() => const <Widget?>[],
 
         UpdateChecking() => [
-          titulo(strings.updateChecking),
-          const Padding(
-            padding: EdgeInsets.only(top: NexusSpacing.s3),
-            child: _Barra(fraction: null),
-          ),
+          rotulo(strings.updateChecking, colors.mute),
+          const _Barra(fraction: null),
         ],
 
         UpdateUpToDate() => [
-          titulo(strings.updateUpToDate),
-          linea(strings.updateUpToDateBody(corriendo ?? '—')),
+          rotulo(strings.updateUpToDate, colors.ok),
+          titulo(corriendo),
+          frase(strings.updateUpToDateBody(corriendo ?? '—')),
         ],
 
         // Se anuncia, pero no se ofrece lo que no se puede cumplir: desde una
         // copia traslocada no hay nada que reemplazar.
-        final UpdateFound encontrada
+        UpdateFound()
             when !(ref.watch(installabilityProvider).value ??
                     Installability.unknown)
                 .canInstall =>
           [
-            titulo(strings.updateMoveTitle),
-            _Salto(desde: corriendo ?? '—', hasta: encontrada.version),
-            linea(strings.updateMoveBody),
+            rotulo(strings.updateFoundTitle, colors.accent),
+            titulo(destino),
+            frase(strings.updateMoveTitle, color: colors.ink),
+            frase(strings.updateMoveBody),
+            _Acciones([(strings.updateLater, control.descartar, false)]),
           ],
 
         final UpdateFound encontrada => [
-          titulo(strings.updateFoundTitle),
-          _Salto(desde: corriendo ?? '—', hasta: encontrada.version),
+          rotulo(strings.updateFoundTitle, colors.accent),
+          titulo(destino),
           if (encontrada.notes case final texto? when texto.trim().isNotEmpty)
             _Notas(texto),
-          if (encontrada.bytes case final peso?
-              when !encontrada.alreadyDownloaded)
-            linea(strings.updateWeight(_enMegas(peso))),
-          _Acciones(
-            secundaria: (strings.updateLater, control.descartar),
-            principal: (
+          // El peso se dice antes de empezar —solo si queda algo por bajar—,
+          // y en la misma frase que el reinicio: son las dos cosas que se
+          // pesan antes de decir que sí.
+          frase(
+            strings.updateFoundBody(
               encontrada.alreadyDownloaded
-                  ? strings.updateRestart
-                  : strings.updateInstall,
-              control.instalar,
+                  ? null
+                  : switch (encontrada.bytes) {
+                      final peso? => _enMegas(peso),
+                      null => null,
+                    },
             ),
           ),
+          _Acciones([
+            if (encontrada.alreadyDownloaded)
+              (strings.updateRestart, control.reiniciarCuandoPueda, true)
+            else
+              (strings.updateInstall, control.instalar, true),
+            (strings.updateLater, control.descartar, false),
+          ]),
         ],
 
         final UpdateDownloading bajando => [
-          titulo(strings.updateDownloading),
-          Padding(
-            padding: const EdgeInsets.only(top: NexusSpacing.s3),
-            child: _Barra(fraction: bajando.fraction),
+          rotulo(strings.updateFoundTitle, colors.accent),
+          titulo(destino),
+          frase(
+            strings.updateFoundBody(switch (bajando.total) {
+              final peso? => _enMegas(peso),
+              null => null,
+            }),
           ),
-          linea(switch (bajando.total) {
-            final peso? => strings.updateDownloadedOf(
-              _enMegas(bajando.received),
-              _enMegas(peso),
-            ),
-            _ => _enMegas(bajando.received),
-          }),
-          _Acciones(secundaria: (strings.cancel, control.cancelar)),
+          _Barra(fraction: bajando.fraction),
+          rotulo(
+            '${strings.updateDownloading} · ${switch (bajando.total) {
+              final peso? => strings.updateDownloadedOf(_enMegas(bajando.received), _enMegas(peso)),
+              null => _enMegas(bajando.received),
+            }}',
+            colors.mute,
+          ),
+          // «Más tarde» **no cancela**: aparta el aviso y la descarga sigue.
+          // Vuelve a salir cuando está lista, que es cuando hay algo que
+          // decidir. Y «Reiniciar al terminar» ahorra esa segunda pregunta.
+          if (estado.reiniciaAlTerminar)
+            rotulo(strings.updateRestartsWhenDone, colors.accent),
+          _Acciones([
+            if (!estado.reiniciaAlTerminar)
+              (
+                strings.updateRestartWhenDone,
+                control.reiniciarAlTerminar,
+                true,
+              ),
+            (strings.updateLater, control.apartar, false),
+          ]),
         ],
 
         final UpdateExtracting sacando => [
-          titulo(strings.updateExtracting),
-          Padding(
-            padding: const EdgeInsets.only(top: NexusSpacing.s3),
-            child: _Barra(fraction: sacando.progress),
-          ),
+          rotulo(strings.updateFoundTitle, colors.accent),
+          titulo(destino),
+          _Barra(fraction: sacando.progress),
+          rotulo(strings.updateExtracting, colors.mute),
         ],
 
         UpdateReady() => [
-          titulo(strings.updateReadyTitle),
-          // El aviso se queda aunque el sitio sea pequeño: reiniciar puede cortar
-          // un encargo a media escritura, y eso no se decide sin leerlo.
-          linea(strings.updateReadyBody),
-          _Acciones(
-            secundaria: (strings.updateLater, control.descartar),
-            principal: (strings.updateRestart, control.instalar),
+          rotulo(strings.updateReadyTitle, colors.accent),
+          titulo(destino),
+          // Reiniciar **espera** a lo que esté en marcha: si ya se pidió y
+          // hay algo a medias, se dice que se está esperando en vez de
+          // volver a ofrecer el botón.
+          frase(
+            estado.esperaATerminar
+                ? strings.updateWaitingToRestart
+                : strings.updateReadyBody,
           ),
+          _Acciones([
+            if (!estado.esperaATerminar)
+              (strings.updateRestart, control.reiniciarCuandoPueda, true),
+            (strings.updateLater, control.descartar, false),
+          ]),
         ],
 
         UpdateInstalling() => [
-          titulo(strings.updateInstalling, cerrable: false),
-          const Padding(
-            padding: EdgeInsets.only(top: NexusSpacing.s3),
-            child: _Barra(fraction: null),
-          ),
-          linea(strings.updateInstallingBody),
+          rotulo(strings.updateInstalling, colors.accent),
+          titulo(destino),
+          const _Barra(fraction: null),
+          frase(strings.updateInstallingBody),
         ],
 
         final UpdateFailed fallo => [
-          titulo(strings.updateFailedTitle),
-          linea(
+          rotulo(strings.updateFailedTitle, colors.err),
+          frase(
             fallo.message.isEmpty ? strings.updateFailedBody : fallo.message,
           ),
-          _Acciones(principal: (strings.updateRetry, control.comprobarAhora)),
+          _Acciones([
+            (strings.updateRetry, control.comprobarAhora, true),
+            (strings.updateLater, control.descartar, false),
+          ]),
         ],
       },
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      spacing: NexusSpacing.s2,
+      children: [...hijos.nonNulls],
     );
   }
 
@@ -271,38 +319,8 @@ class _Cuerpo extends ConsumerWidget {
       '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 }
 
-/// De qué versión a qué versión.
-class _Salto extends StatelessWidget {
-  const _Salto({required this.desde, required this.hasta});
-
-  final String desde;
-  final String hasta;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Padding(
-      padding: const EdgeInsets.only(top: NexusSpacing.s2),
-      child: Row(
-        children: [
-          Text(
-            desde,
-            style: NexusTypography.data.copyWith(color: colors.faint),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: NexusSpacing.s2),
-            child: Icon(Icons.arrow_forward, size: 12, color: colors.faint),
-          ),
-          Text(
-            hasta,
-            style: NexusTypography.data.copyWith(color: colors.accent),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
+/// La barra de progreso: tres píxeles, recta, como la `.barra-prog` del
+/// mockup. Sin valor, indeterminada.
 class _Barra extends StatelessWidget {
   const _Barra({required this.fraction});
 
@@ -311,82 +329,75 @@ class _Barra extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(NexusRadius.sm),
-      child: LinearProgressIndicator(
-        value: fraction,
-        minHeight: 3,
-        backgroundColor: colors.rule,
-        valueColor: AlwaysStoppedAnimation<Color>(colors.accent),
-      ),
+    return LinearProgressIndicator(
+      value: fraction,
+      minHeight: 3,
+      backgroundColor: colors.rule,
+      valueColor: AlwaysStoppedAnimation<Color>(colors.accent),
     );
   }
 }
 
-/// Los botones, pequeños y a la derecha.
+/// Los botones, a la izquierda y en contorno, como los `.btn` del mockup: el
+/// principal en acento y el resto en tinta.
 ///
-/// Compactos a propósito: en 320 px de ancho los botones de una modal ocupan la
-/// mitad del cartel y lo convierten otra vez en algo que reclama atención.
+/// `Wrap` y no `Row`: en 360 px «Reiniciar al terminar» junto a «Más tarde»
+/// cabe, pero en inglés o con un rótulo más largo volvería a desbordar — ya
+/// pasó una vez, medido con una prueba que sacó la franja amarilla.
 class _Acciones extends StatelessWidget {
-  const _Acciones({this.secundaria, this.principal});
+  const _Acciones(this.botones);
 
-  final (String, VoidCallback)? secundaria;
-  final (String, VoidCallback)? principal;
+  /// Texto, acción y si es el principal.
+  final List<(String, VoidCallback, bool)> botones;
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: NexusSpacing.s4),
-    // `Wrap` y no `Row`: en 320 px «Más tarde» junto a «Reiniciar e instalar»
-    // desbordaba 120 px, y con otro idioma o un rótulo más largo volvería a
-    // pasar. Así se apilan en vez de romperse — medido con una prueba que sacó
-    // la franja amarilla.
+    padding: const EdgeInsets.only(top: NexusSpacing.s1),
     child: Wrap(
-      alignment: WrapAlignment.end,
       spacing: NexusSpacing.s2,
       runSpacing: NexusSpacing.s2,
       children: [
-        if (secundaria case (final texto, final accion)?)
-          TextButton(
-            onPressed: accion,
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: NexusSpacing.s3),
-              minimumSize: const Size(0, 30),
-              visualDensity: VisualDensity.compact,
-            ),
-            child: Text(texto, style: NexusTypography.label),
-          ),
-        if (principal case (final texto, final accion)?)
-          FilledButton(
-            onPressed: accion,
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: NexusSpacing.s4),
-              minimumSize: const Size(0, 30),
-              visualDensity: VisualDensity.compact,
-            ),
-            child: Text(texto, style: NexusTypography.label),
-          ),
+        for (final (texto, accion, principal) in botones)
+          _Boton(texto: texto, onPulsar: accion, principal: principal),
       ],
     ),
   );
 }
 
-class _Cerrar extends StatelessWidget {
-  const _Cerrar({required this.onTap});
+class _Boton extends StatelessWidget {
+  const _Boton({
+    required this.texto,
+    required this.onPulsar,
+    required this.principal,
+  });
 
-  final VoidCallback onTap;
+  final String texto;
+  final VoidCallback onPulsar;
+  final bool principal;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final color = principal ? colors.accent : colors.ink;
     return Semantics(
       button: true,
-      label: context.strings.close,
       child: InkWell(
-        onTap: onTap,
+        onTap: onPulsar,
         borderRadius: BorderRadius.circular(NexusRadius.sm),
-        child: Padding(
-          padding: const EdgeInsets.all(2),
-          child: Icon(Icons.close, size: 14, color: colors.faint),
+        hoverColor: colors.accent.withValues(alpha: 0.12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+          decoration: BoxDecoration(
+            border: Border.all(color: principal ? colors.accent : colors.rule2),
+            borderRadius: BorderRadius.circular(NexusRadius.sm),
+          ),
+          child: Text(
+            texto.toUpperCase(),
+            style: NexusTypography.label.copyWith(
+              color: color,
+              letterSpacing: 1.4,
+            ),
+          ),
         ),
       ),
     );
@@ -411,18 +422,20 @@ class _Notas extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     return Container(
-      margin: const EdgeInsets.only(top: NexusSpacing.s3),
       constraints: const BoxConstraints(maxHeight: 84),
       decoration: BoxDecoration(
-        color: colors.deep,
+        color: colors.void_,
+        border: Border.all(color: colors.rule),
         borderRadius: BorderRadius.circular(NexusRadius.sm),
       ),
       padding: const EdgeInsets.all(NexusSpacing.s3),
-      width: double.infinity,
       child: SingleChildScrollView(
         child: Text(
           texto.trim(),
-          style: NexusTypography.label.copyWith(color: colors.mute),
+          style: NexusTypography.nota.copyWith(
+            color: colors.mute,
+            fontSize: 12,
+          ),
         ),
       ),
     );

@@ -56,6 +56,23 @@ mixin ArranqueStrings {
   String get updateExtracting;
   String get updateReadyTitle;
   String get updateReadyBody;
+
+  /// El título del aviso cuando se sabe a qué versión se va: «Nexus 1.26.0».
+  String updateNexus(String version);
+
+  /// Qué pasa al actualizar, dicho antes de empezar: el peso, si se sabe, y
+  /// que reiniciar **espera** a lo que esté en marcha en vez de cortarlo.
+  String updateFoundBody(String? size);
+
+  /// Durante la descarga: que al acabar se reinicie sola, sin volver a
+  /// preguntar.
+  String get updateRestartWhenDone;
+
+  /// Ya pedido: lo que se lee en lugar del botón.
+  String get updateRestartsWhenDone;
+
+  /// Lista, pedida, y esperando a que termine lo que está en marcha.
+  String get updateWaitingToRestart;
   String get updateInstalling;
   String get updateInstallingBody;
   String get updateFailedTitle;
@@ -122,6 +139,16 @@ mixin ArranqueStrings {
   /// ejecutar sus scripts ni salir a la red; esto es cómo se le concede.
   String get allowScriptsAndNetwork;
   String get allowScriptsExplainer;
+
+  /// El estado del permiso, al lado de su nombre en el botón del visor:
+  /// «Permitir scripts y red · apagado». Dicho con palabra y no solo con una
+  /// casilla, porque en la barra del título una casilla se lee como un adorno.
+  String get allowScriptsOff;
+  String get allowScriptsOn;
+
+  /// El pie de la ventana de la consola de la app: de dónde sale y qué no
+  /// toca.
+  String get consolaSoloConLaCopia;
 
   /// Lo mismo, en el ancho de un teléfono.
   String get allowScriptsShort;
@@ -254,8 +281,21 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   String get updateReadyTitle => 'Lista para instalarse';
   @override
   String get updateReadyBody =>
-      'Nexus se cerrará y volverá a abrirse. Si tienes un encargo en marcha, '
-      'reiniciar lo corta a media escritura: espera a que termine.';
+      'Nexus se cerrará y volverá a abrirse. Si está hablando o trabajando, '
+      'reiniciar espera a que termine en vez de cortarlo.';
+  @override
+  String updateNexus(String version) => 'Nexus $version';
+  @override
+  String updateFoundBody(String? size) =>
+      '${size == null ? '' : 'La descarga pesa $size. '}Nexus se cerrará y '
+      'volverá a abrirse: lo que esté hablando o trabajando termina antes.';
+  @override
+  String get updateRestartWhenDone => 'Reiniciar al terminar';
+  @override
+  String get updateRestartsWhenDone => 'Se reiniciará al terminar la descarga';
+  @override
+  String get updateWaitingToRestart =>
+      'Esperando a que termine lo que está en marcha para reiniciar.';
   @override
   String get updateInstalling => 'Instalando';
   @override
@@ -456,6 +496,13 @@ mixin ArranqueStringsEs implements ArranqueStrings {
       'Este documento lo escribió Claude. Sin permiso no ejecuta sus scripts ni '
       'carga nada de internet. Se recarga solo si cambia.';
   @override
+  String get allowScriptsOff => 'apagado';
+  @override
+  String get allowScriptsOn => 'encendido';
+  @override
+  String get consolaSoloConLaCopia =>
+      'Solo con la copia «con la consola» que guarda Nexus: el repo no se toca.';
+  @override
   String get allowScriptsShort => 'Scripts y red';
   @override
   String get sectionExits => 'Qué sale';
@@ -635,8 +682,21 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   String get updateReadyTitle => 'Ready to install';
   @override
   String get updateReadyBody =>
-      'Nexus will quit and open again. If an errand is running, restarting '
-      'cuts it mid-write: wait until it finishes.';
+      'Nexus will quit and open again. If it is talking or working, '
+      'restarting waits for it to finish instead of cutting it.';
+  @override
+  String updateNexus(String version) => 'Nexus $version';
+  @override
+  String updateFoundBody(String? size) =>
+      '${size == null ? '' : 'The download is $size. '}Nexus will quit and '
+      'open again: whatever it is saying or doing finishes first.';
+  @override
+  String get updateRestartWhenDone => 'Restart when done';
+  @override
+  String get updateRestartsWhenDone => 'It will restart when the download ends';
+  @override
+  String get updateWaitingToRestart =>
+      'Waiting for what is running to finish before restarting.';
   @override
   String get updateInstalling => 'Installing';
   @override
@@ -833,6 +893,14 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   String get allowScriptsExplainer =>
       'Claude wrote this document. Without permission it runs no scripts and '
       'loads nothing from the internet. It reloads by itself when it changes.';
+  @override
+  String get allowScriptsOff => 'off';
+  @override
+  String get allowScriptsOn => 'on';
+  @override
+  String get consolaSoloConLaCopia =>
+      'Only with the «with the console» copy Nexus keeps: the repo is not '
+      'touched.';
   @override
   String get allowScriptsShort => 'Scripts & network';
   @override

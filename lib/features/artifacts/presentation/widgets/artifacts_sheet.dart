@@ -732,7 +732,7 @@ class _Vista extends ConsumerWidget {
 /// Con el mismo pintor que el chat y no con el visor del sistema: `WKWebView` no
 /// interpreta markdown, así que enseñaría las almohadillas y los guiones. Y con el
 /// texto seleccionable, que es la mitad de para qué se abre un informe.
-class _MarkdownSheet extends StatelessWidget {
+class _MarkdownSheet extends StatefulWidget {
   const _MarkdownSheet({required this.ruta});
 
   final String ruta;
@@ -744,31 +744,87 @@ class _MarkdownSheet extends StatelessWidget {
       );
 
   @override
+  State<_MarkdownSheet> createState() => _MarkdownSheetState();
+}
+
+class _MarkdownSheetState extends State<_MarkdownSheet> {
+  /// Leído **una vez**, al abrir. Creado dentro de `build` se volvía a leer
+  /// el archivo en cada reconstrucción —cada fotograma de la animación de
+  /// entrada— y el `FutureBuilder` volvía a empezar de cero cada vez.
+  late final Future<String> _texto = File(widget.ruta).readAsString();
+
+  String get ruta => widget.ruta;
+
+  @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
+    // La forma de las ventanas aparte del mockup (`#ventanas`): una barra con
+    // el nombre del archivo como marca y «Cerrar» a la derecha, su raya
+    // debajo, y el documento. Antes el nombre iba en acento sin barra ni
+    // botón, y la única salida era adivinar que se cerraba pulsando fuera.
     return Dialog(
-      backgroundColor: colors.rise,
+      backgroundColor: colors.deep,
       shape: RoundedRectangleBorder(
         side: BorderSide(color: colors.rule2),
         borderRadius: BorderRadius.circular(NexusRadius.md),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 760, maxHeight: 620),
-        child: Padding(
-          padding: const EdgeInsets.all(NexusSpacing.s6),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                ruta.split('/').last,
-                style: NexusTypography.label.copyWith(color: colors.accent),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              height: 52,
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: colors.rule)),
               ),
-              const SizedBox(height: NexusSpacing.s4),
-              Expanded(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      ruta.split('/').last.toUpperCase(),
+                      overflow: TextOverflow.ellipsis,
+                      style: NexusTypography.brand.copyWith(color: colors.mute),
+                    ),
+                  ),
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: Size.zero,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 11,
+                        vertical: 8,
+                      ),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      side: BorderSide(color: colors.rule2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(NexusRadius.sm),
+                      ),
+                    ),
+                    child: Text(
+                      context.strings.close.toUpperCase(),
+                      style: NexusTypography.label.copyWith(
+                        color: colors.mute,
+                        letterSpacing: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Flexible(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  NexusSpacing.s7,
+                  NexusSpacing.s6,
+                  NexusSpacing.s7,
+                  NexusSpacing.s6,
+                ),
                 child: FutureBuilder<String>(
-                  future: File(ruta).readAsString(),
+                  future: _texto,
                   builder: (context, estado) {
                     if (estado.hasError) {
                       return Text(
@@ -796,8 +852,8 @@ class _MarkdownSheet extends StatelessWidget {
                   },
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

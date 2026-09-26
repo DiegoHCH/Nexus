@@ -40,9 +40,9 @@ mixin EstadisticasStringsEs implements EstadisticasStrings {
   @override
   String get statsRangeAll => 'Todo';
   @override
-  String get statsRange30 => '30d';
+  String get statsRange30 => '30 días';
   @override
-  String get statsRange7 => '7d';
+  String get statsRange7 => '7 días';
   @override
   String get statsSessions => 'Sesiones';
   @override
@@ -70,8 +70,7 @@ mixin EstadisticasStringsEs implements EstadisticasStrings {
   String get statsNoAccounts => 'No hay ninguna cuenta de Claude configurada.';
   @override
   String statsCachedFootnote(String amount) =>
-      'Además, $amount de tokens leídos o escritos en caché — fuera del total '
-      'porque lo eclipsaría.';
+      'además, $amount de tokens en caché';
   @override
   String statsDayTooltip(String day, int messages) =>
       '$day · $messages mensajes';
@@ -90,9 +89,9 @@ mixin EstadisticasStringsEn implements EstadisticasStrings {
   @override
   String get statsRangeAll => 'All';
   @override
-  String get statsRange30 => '30d';
+  String get statsRange30 => '30 days';
   @override
-  String get statsRange7 => '7d';
+  String get statsRange7 => '7 days';
   @override
   String get statsSessions => 'Sessions';
   @override
@@ -119,9 +118,7 @@ mixin EstadisticasStringsEn implements EstadisticasStrings {
   @override
   String get statsNoAccounts => 'No Claude account is set up.';
   @override
-  String statsCachedFootnote(String amount) =>
-      'Plus $amount tokens read from or written to cache — kept out of the '
-      'total because it would dwarf it.';
+  String statsCachedFootnote(String amount) => 'plus $amount tokens in cache';
   @override
   String statsDayTooltip(String day, int messages) =>
       '$day · $messages messages';

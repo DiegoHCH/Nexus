@@ -111,11 +111,29 @@ class _SuperpowersSectionState extends ConsumerState<SuperpowersSection> {
             // `.claude.json` de cada directorio, y con eso quien mira esta
             // pantalla reconoce la cuenta sin tener que aprender qué es un
             // perfil.
-            child: RotuloDeAjustes(
-              [
-                strings.superpowersDeLaCuenta(nombres.single),
-                ?profiles.single.correo,
-              ].join(' · '),
+            //
+            // El nombre como rótulo y el correo como dato, en mono y sin pasar
+            // a mayúsculas: un correo en mayúsculas ya no es el que se teclea.
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: strings
+                        .superpowersDeLaCuenta(nombres.single)
+                        .toUpperCase(),
+                    style: NexusTypography.label.copyWith(
+                      color: context.colors.mute,
+                    ),
+                  ),
+                  if (profiles.single.correo case final correo?)
+                    TextSpan(
+                      text: ' · $correo',
+                      style: NexusTypography.data.copyWith(
+                        color: context.colors.mute,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         if (profiles.length > 1) ...[

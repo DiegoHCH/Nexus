@@ -230,7 +230,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       await tester.enterText(find.byType(TextField).last, 'la-llave-nueva');
-      await tester.tap(find.text(es.geminiKeySave));
+      await tester.tap(find.text(es.geminiKeySave.toUpperCase()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 

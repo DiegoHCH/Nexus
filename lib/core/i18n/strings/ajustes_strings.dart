@@ -87,6 +87,18 @@ mixin AjustesStrings {
   String get emulatorsChecking;
   String flowsEn(String ruta);
   String e2eVariables(int cuantas);
+  // Estadísticas: la frase de debajo de las cifras y cómo se escriben.
+  String statsHoraPunta(String hora);
+  String statsModeloFavorito(String modelo);
+  String statsRachaMasLarga(int dias);
+  String get statsDiasDeRacha;
+  String get separadorDeMiles;
+  String get separadorDecimal;
+  // Ayuda: la versión dicha como estado, y el rótulo de la guía.
+  String helpVersion(String version);
+  String helpVersionAlDia(String version);
+  String helpVersionConNueva(String version, String nueva);
+  String get guiaTitle;
 }
 
 mixin AjustesStringsEs implements AjustesStrings {
@@ -220,6 +232,28 @@ mixin AjustesStringsEs implements AjustesStrings {
   @override
   String e2eVariables(int cuantas) =>
       cuantas == 1 ? '1 variable' : '$cuantas variables';
+  @override
+  String statsHoraPunta(String hora) => 'Hora punta $hora';
+  @override
+  String statsModeloFavorito(String modelo) => 'modelo favorito $modelo';
+  @override
+  String statsRachaMasLarga(int dias) =>
+      dias == 1 ? 'racha más larga de 1 día' : 'racha más larga de $dias días';
+  @override
+  String get statsDiasDeRacha => 'Días de racha';
+  @override
+  String get separadorDeMiles => '.';
+  @override
+  String get separadorDecimal => ',';
+  @override
+  String helpVersion(String version) => 'Nexus $version';
+  @override
+  String helpVersionAlDia(String version) => 'Nexus $version · al día';
+  @override
+  String helpVersionConNueva(String version, String nueva) =>
+      'Nexus $version · hay una nueva: $nueva';
+  @override
+  String get guiaTitle => 'Guía';
 }
 
 mixin AjustesStringsEn implements AjustesStrings {
@@ -355,4 +389,26 @@ mixin AjustesStringsEn implements AjustesStrings {
   @override
   String e2eVariables(int cuantas) =>
       cuantas == 1 ? '1 variable' : '$cuantas variables';
+  @override
+  String statsHoraPunta(String hora) => 'Peak hour $hora';
+  @override
+  String statsModeloFavorito(String modelo) => 'favourite model $modelo';
+  @override
+  String statsRachaMasLarga(int dias) =>
+      dias == 1 ? 'longest streak 1 day' : 'longest streak $dias days';
+  @override
+  String get statsDiasDeRacha => 'Day streak';
+  @override
+  String get separadorDeMiles => ',';
+  @override
+  String get separadorDecimal => '.';
+  @override
+  String helpVersion(String version) => 'Nexus $version';
+  @override
+  String helpVersionAlDia(String version) => 'Nexus $version · up to date';
+  @override
+  String helpVersionConNueva(String version, String nueva) =>
+      'Nexus $version · a new one is out: $nueva';
+  @override
+  String get guiaTitle => 'Guide';
 }

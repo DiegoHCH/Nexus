@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:nexus/features/assistant/presentation/widgets/el_asa_del_chat.dart';
 import 'package:nexus/features/assistant/presentation/widgets/el_escenario.dart';
 import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
 import 'package:nexus/features/oido/presentation/providers/el_oido_que_espera.dart';
@@ -387,6 +388,20 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 right: MediaQuery.sizeOf(context).width * 0.25,
                                 child: laFranja,
                               ),
+                            // Con algo dicho, el chat queda asomando al
+                            // costado: pulsarlo lo vuelve a abrir.
+                            if (hasChat)
+                              Positioned(
+                                right: 0,
+                                top:
+                                    (cajaDelHud.maxHeight - ElAsaDelChat.alto) /
+                                    2,
+                                child: ElAsaDelChat(
+                                  abierto: false,
+                                  onPulsar: () =>
+                                      setState(() => _escenarioElegido = false),
+                                ),
+                              ),
                           ],
                         );
                       }
@@ -565,6 +580,20 @@ class _HomePageState extends ConsumerState<HomePage> {
                               left: izquierda,
                               right: _margenDerecho,
                               child: laFranja,
+                            ),
+                          // Recoger el chat al costado: el orbe vuelve a su
+                          // tamaño de escenario y el chat queda en su asa.
+                          if (hasChat)
+                            Positioned(
+                              right: 0,
+                              top:
+                                  (cajaDelHud.maxHeight - ElAsaDelChat.alto) /
+                                  2,
+                              child: ElAsaDelChat(
+                                abierto: true,
+                                onPulsar: () =>
+                                    setState(() => _escenarioElegido = true),
+                              ),
                             ),
                         ],
                       );

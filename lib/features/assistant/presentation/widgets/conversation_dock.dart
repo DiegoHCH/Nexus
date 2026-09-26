@@ -288,16 +288,26 @@ class AbrirOtraConversacion extends ConsumerWidget {
           context.strings.cabenAbiertas(Conversations.max, abiertas),
         ),
       ],
+      // Compacto, **en la misma caja que un miniorbe del escenario** —26 con el
+      // círculo de 18 abajo a la izquierda, que es donde la ✕ deja sitio—: si
+      // no, el «+» queda a otra altura que los orbes de su lado.
       child: compacto
-          ? Container(
-              width: 14,
-              height: 14,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: colors.rule2),
+          ? SizedBox(
+              width: 26,
+              height: 26,
+              child: Align(
+                alignment: Alignment.bottomLeft,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colors.rule2),
+                  ),
+                  child: Icon(Icons.add, size: 12, color: colors.mute),
+                ),
               ),
-              child: Icon(Icons.add, size: 10, color: colors.mute),
             )
           // Un círculo discontinuo con «Nueva» dentro, del tamaño de un
           // miniorbe: el sitio de la siguiente conversación.

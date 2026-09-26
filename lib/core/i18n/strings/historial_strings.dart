@@ -113,6 +113,11 @@ mixin HistorialStrings {
   /// Lo que contesta si la llamas sin ninguna conversación abierta: sin eso
   /// la llamabas y no pasaba nada. Dice qué falta y qué hacer.
   String alLlamarlaSinConversacion(String? tuyo);
+
+  /// Lo que contesta si la llamas con delante una conversación de una carpeta
+  /// en solo texto: dicho, porque desde el otro lado de la habitación el aviso
+  /// escrito no se ve.
+  String alLlamarlaSoloTexto(String? tuyo, String carpeta);
   // Archivo de conversaciones
   String get archiveTitle;
   String get archiveExplainer;
@@ -293,6 +298,11 @@ mixin HistorialStringsEs implements HistorialStrings {
   String alLlamarlaSinConversacion(String? tuyo) =>
       '${tuyo == null ? 'Te oigo' : 'Te oigo, $tuyo'}, pero no tengo ninguna '
       'conversación abierta. Abre una carpeta en Nexus y vuelve a llamarme.';
+  @override
+  String alLlamarlaSoloTexto(String? tuyo, String carpeta) =>
+      '${tuyo == null ? 'Te oigo' : 'Te oigo, $tuyo'}, pero $carpeta está en '
+      'solo texto, así que ahí no puedo hablar. Cámbiala a voz en Ajustes, '
+      'Permisos, o llámame desde una conversación de otra carpeta.';
   @override
   String get archiveTitle => 'DÓNDE SE GUARDAN LAS CONVERSACIONES';
   @override
@@ -509,6 +519,11 @@ mixin HistorialStringsEn implements HistorialStrings {
   String alLlamarlaSinConversacion(String? tuyo) =>
       '${tuyo == null ? 'I hear you' : 'I hear you, $tuyo'}, but there is no '
       'conversation open. Open a folder in Nexus and call me again.';
+  @override
+  String alLlamarlaSoloTexto(String? tuyo, String carpeta) =>
+      '${tuyo == null ? 'I hear you' : 'I hear you, $tuyo'}, but $carpeta is '
+      'text only, so I cannot talk there. Switch it to voice in Settings, '
+      'Permissions, or call me from a conversation in another folder.';
   @override
   String get archiveTitle => 'WHERE CONVERSATIONS ARE KEPT';
   @override

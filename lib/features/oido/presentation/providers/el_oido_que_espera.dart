@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
+import 'package:nexus/features/assistant/domain/usecases/la_puerta_de_la_voz.dart';
 import 'package:nexus/core/design_system/accent_preference.dart';
 import 'package:nexus/core/design_system/orbe_preference.dart';
 import 'package:nexus/core/design_system/theme_preference.dart';
@@ -194,7 +196,8 @@ class ElOidoQueEspera {
     final cual = _ref.read(conversationsProvider).focused?.id;
     if (cual == null ||
         _llamando ||
-        _ref.read(assistantControllerProvider(cual)).voiceActive) {
+        _ref.read(assistantControllerProvider(cual)).voiceActive ||
+        _laCarpetaQueNoHabla() != null) {
       return;
     }
     unawaited(
@@ -219,6 +222,14 @@ class ElOidoQueEspera {
         (cual != null &&
             _ref.read(assistantControllerProvider(cual)).voiceActive)) {
       debugPrint('escucha · te llamaron con la voz ya abierta: se ignora');
+      return;
+    }
+    // 🔴 **Con delante una conversación de solo texto la voz no se abre**, y
+    // antes el orbe salía igual y se quedaba fuera quince segundos sin decir
+    // por qué. Ahora no sale, y ella dice qué pasa y qué hacer.
+    if (_laCarpetaQueNoHabla() case final carpeta?) {
+      debugPrint('escucha · te llamaron en una carpeta de solo texto');
+      unawaited(_decirQueEsDeSoloTexto(carpeta));
       return;
     }
     if (cual == null) {
@@ -264,6 +275,41 @@ class ElOidoQueEspera {
             primeraFrase: resto.isEmpty ? null : resto,
           ),
     );
+  }
+
+  /// El nombre de la carpeta que no deja abrir la voz en la conversación que
+  /// tienes delante —la suya, o la emparejada donde cae el cajón de
+  /// documentos—, o `null` si se puede hablar. La misma regla que usa
+  /// `toggleVoice`: ver [SiSePuedeAbrirLaVoz].
+  String? _laCarpetaQueNoHabla() {
+    final enFoco = _ref.read(conversationsProvider).focused;
+    if (enFoco == null) return null;
+    final workspace = _ref.read(workspaceControllerProvider);
+    final estorba = SiSePuedeAbrirLaVoz.loQueEstorba(
+      carpeta: workspace.folders
+          .where((f) => f.path == enFoco.folderPath)
+          .firstOrNull,
+      duenoDelCajon: workspace.textOnlyOwnerOf(
+        _ref.read(artifactsFolderProvider),
+      ),
+    );
+    return switch (estorba) {
+      LaCarpetaEsDeSoloTexto(:final carpeta) => carpeta.name,
+      ElCajonCaeEnUnaDeSoloTexto(:final carpeta) => carpeta.name,
+      _ => null,
+    };
+  }
+
+  Future<void> _decirQueEsDeSoloTexto(String carpeta) async {
+    await _ref
+        .read(laVozQueAvisaProvider)
+        .decir(
+          titulo: _ref.read(losNombresProvider).agente ?? 'Nexus',
+          frase: _ref
+              .read(stringsProvider)
+              .alLlamarlaSoloTexto(_ref.read(losNombresProvider).tuyo, carpeta),
+        );
+    if (_ref.mounted) await cuadrar();
   }
 
   Future<void> _decirQueNoHayConversacion() async {

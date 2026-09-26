@@ -83,8 +83,13 @@ void main() {
     // «NUEVA» abre un menú para elegir dónde. Que el menú aparezca **es** lo
     // que esta prueba mira: significa que la pulsación llegó al hueco y no se
     // la tragó el orbe, que ahora ocupa la pantalla entera y es opaco al tacto.
+    //
+    // 🔴 **Por la ruta, no por el nombre.** Se buscaba `proyecto` a secas y lo
+    // encontraba la ficha del compositor, con menú o sin él: la prueba pasaba
+    // aunque el menú no se abriera. La ficha va ahora en versales, y lo que
+    // lleva la ruta en minúsculas es solo la opción del menú.
     expect(
-      find.text('proyecto'),
+      find.textContaining('/proyecto'),
       findsOneWidget,
       reason: 'el orbe de debajo no puede robarle las pulsaciones al dock',
     );

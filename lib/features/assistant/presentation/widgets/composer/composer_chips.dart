@@ -185,17 +185,15 @@ class ComposerChips extends ConsumerWidget {
             ),
           ],
           child: _Chip(
-            icon: suelta
-                ? Icons.auto_awesome_outlined
-                : paired == null
-                ? Icons.folder_off_outlined
-                : Icons.folder_outlined,
             label: suelta
                 ? strings.noProject
                 : paired?.name ?? strings.chooseFolder,
             // Sin proyecto no es un aviso: es una elección legítima, y pintarla
             // en ámbar la haría parecer un estado a medio arreglar.
             warn: paired == null && !suelta,
+            // La carpeta es **dónde** se trabaja: la primera y en tinta, como
+            // en el mockup. Lo demás la matiza.
+            principal: true,
           ),
         ),
         // Con varios repos dentro, el chip elige. Es el caso de una carpeta
@@ -247,36 +245,28 @@ class ComposerChips extends ConsumerWidget {
                   ),
                 ),
             ],
-            child: _Chip(
-              icon: Icons.hub_outlined,
-              label: git?.repository ?? paired.name,
-            ),
+            child: _Chip(label: git?.repository ?? paired.name),
           )
         else if (git != null) ...[
           // El repositorio aparte de la carpeta porque no siempre coinciden: se
           // puede trabajar sobre un subdirectorio de un repo, y entonces la
           // carpeta dice una cosa y el repo otra.
-          _Chip(icon: Icons.hub_outlined, label: git.repository),
+          _Chip(label: git.repository),
         ],
         // La rama, a secas. **Abría la hoja de la corrida y ya no**: eso era del marco
         // flow, que se fue entero al plugin.
-        if (git?.branch case final branch?)
-          _Chip(icon: Icons.alt_route, label: branch),
+        if (git?.branch case final branch?) _Chip(label: branch),
         if (git == null && paired != null)
           // Sin repositorio no hay nada que deshacer, y eso hay que decirlo
           // donde se ve el permiso: es la red de seguridad que falta.
-          _Chip(
-            icon: Icons.warning_amber,
-            label: strings.noGitRepo,
-            warn: true,
-          ),
+          _Chip(label: strings.noGitRepo, warn: true),
         // La cuenta solo se enseña si hay más de una en el Mac: con una sola,
         // decir cuál se usa es contestar una pregunta que nadie tiene.
         if (ref.watch(claudeProfilesProvider).value case final cuentas?)
           if (cuentas.length > 1)
             if (paired?.claudeProfile?.split('/').last case final profile?)
               if (profile.startsWith('.claude-'))
-                _Chip(icon: Icons.badge_outlined, label: profile.substring(8)),
+                _Chip(label: profile.substring(8)),
         // 🔴 **Que este chat no es un hilo aparte.** La sesión de Claude es de
         // la carpeta, así que dos conversaciones sobre el mismo repo reanudan
         // **la misma**: comparten el contexto del modelo, lo pedido y el
@@ -296,7 +286,6 @@ class ComposerChips extends ConsumerWidget {
         // empezar de cero manda a esta por su cuenta.
         if (comparten > 1)
           _Chip(
-            icon: Icons.merge_type,
             // 🔴 **El tiempo verbal.** Sin sesión guardada todavía no comparten
             // nada: la crea la primera que escriba y la segunda se engancha.
             // Decirlo en presente era afirmar algo que aún no había pasado —
@@ -319,17 +308,29 @@ class ComposerChips extends ConsumerWidget {
   }
 }
 
+/// Una ficha de la fila de arriba: el rótulo en su caja y nada más.
+///
+/// **Sin icono, como en el mockup**: carpeta, rama y cuenta se distinguen por lo
+/// que dicen y por el orden, y un icono delante de cada una era ruido que la
+/// fila leía antes que el nombre.
+///
+/// En versales y en la letra del instrumento, como las fichas del mockup: son
+/// controles, no texto que se lee de corrido. El nombre de una rama distingue
+/// mayúsculas y aquí se pinta en versales; el nombre exacto sigue en el menú de
+/// la carpeta, que es donde se elige.
 class _Chip extends StatelessWidget {
   const _Chip({
-    required this.icon,
     required this.label,
     this.warn = false,
+    this.principal = false,
     this.alTocar,
     this.explica,
   });
 
-  final IconData icon;
   final String label;
+
+  /// La ficha que manda —la carpeta—, en tinta. Las demás en tenue.
+  final bool principal;
 
   /// Qué hace al pulsarlo, si hace algo. Casi ninguno hace nada: son estado.
   final VoidCallback? alTocar;
@@ -344,25 +345,24 @@ class _Chip extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final chip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         border: Border.all(
-          color: warn ? colors.warn.withValues(alpha: 0.5) : colors.rule,
+          color: warn ? colors.warn.withValues(alpha: 0.5) : colors.rule2,
         ),
         borderRadius: BorderRadius.circular(NexusRadius.sm),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: warn ? colors.warn : colors.faint),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: NexusTypography.control.copyWith(
-              color: warn ? colors.warn : colors.mute,
-            ),
-          ),
-        ],
+      child: Text(
+        label.toUpperCase(),
+        style: NexusTypography.label.copyWith(
+          color: warn
+              ? colors.warn
+              : principal
+              ? colors.ink
+              : colors.mute,
+          letterSpacing: 1.4,
+          height: 1,
+        ),
       ),
     );
 
@@ -379,7 +379,7 @@ class _Chip extends StatelessWidget {
           );
 
     return Padding(
-      padding: const EdgeInsets.only(right: NexusSpacing.s3),
+      padding: const EdgeInsets.only(right: 6),
       child: explica == null
           ? envuelto
           : Tooltip(message: explica!, child: envuelto),

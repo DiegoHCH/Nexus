@@ -26,9 +26,9 @@ import 'package:nexus/features/assistant/domain/usecases/la_sesion_de_puerta.dar
 import 'package:nexus/features/assistant/presentation/providers/voice_input_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/voice_session_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
-import 'package:nexus/features/assistant/presentation/widgets/activity_button.dart';
 import 'package:nexus/features/assistant/presentation/widgets/chat_panel.dart';
 import 'package:nexus/features/assistant/presentation/widgets/la_franja_de_avisos.dart';
+import 'package:nexus/features/assistant/presentation/widgets/los_pasos_del_turno.dart';
 import 'package:nexus/features/assistant/presentation/widgets/las_carpetas_de_la_puerta.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/programadas/domain/usecases/como_se_lee_la_cita.dart';
@@ -194,10 +194,15 @@ class _HomePageState extends ConsumerState<HomePage> {
       live: working || hud.voiceActive,
       folderPath: focused.folderPath,
       centrada: escenario,
+      // De cerca es una barra de ventana con los atajos que valen ahora: parar
+      // mientras trabaja y, si no, volver a verla de lejos —que sin esto no se
+      // decía en ningún sitio—.
+      atajos: escenario
+          ? null
+          : working
+          ? context.strings.atajosTrabajando
+          : context.strings.atajosEnReposo,
     );
-    final anchoDelOrbe = hasChat
-        ? MediaQuery.sizeOf(context).width * 0.42
-        : MediaQuery.sizeOf(context).width;
 
     // Los avisos de esta conversación, montados una vez y puestos en el sitio
     // que toque: dentro de la columna cuando hay algo que leer, flotando
@@ -359,17 +364,22 @@ class _HomePageState extends ConsumerState<HomePage> {
                           ],
                         );
                       }
-                      // El muelle de conversaciones flota sobre este mismo
-                      // `Stack`, en la esquina de abajo a la izquierda — justo
-                      // donde vive el orbe. Se le aparta su franja **solo si de
-                      // verdad se cruzan**: con varias abiertas la pila subía
-                      // hasta la mitad del orbe y quedaba una encima de la otra
-                      // según el orden de pintado, que no es una decisión de
-                      // diseño sino un accidente; pero en la pantalla de arranque
-                      // no se tocan y restarla solo encogía el orbe.
-                      final franjaDelMuelle = ConversationDock.franjaQueEstorba(
-                        Size(anchoDelOrbe, cajaDelHud.maxHeight),
-                        conversaciones,
+                      // **De cerca, como en el mockup**: el orbe fijo arriba a
+                      // la izquierda, bajo él los pasos mientras trabaja, y la
+                      // conversación a la derecha como un registro. El muelle y
+                      // el compositor van abajo, en su propia fila: ver
+                      // `abajo`.
+                      //
+                      // El orbe tiene **su tamaño y no la columna entera**.
+                      // Llenaba la caja de la izquierda de arriba abajo, y con
+                      // eso chocaba con el muelle —hubo que calcular una franja
+                      // para apartarlos— y no dejaba sitio para decir qué está
+                      // haciendo justo debajo, que es donde se mira.
+                      final izquierda = _laColumnaDelOrbe(cajaDelHud.maxWidth);
+                      final ladoDelOrbe = _elLadoDelOrbe(
+                        columna: izquierda,
+                        alto: cajaDelHud.maxHeight,
+                        conPasos: working,
                       );
 
                       return Stack(
@@ -378,13 +388,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                           // centro a un lado según el estado; con la conversación
                           // siempre a la derecha, ese baile movía media pantalla cada
                           // vez que empezaba o terminaba un turno.
-                          AnimatedPositioned(
-                            duration: const Duration(milliseconds: 420),
-                            curve: Curves.easeInOutCubic,
-                            left: 0,
-                            top: 0,
-                            bottom: franjaDelMuelle,
-                            width: anchoDelOrbe,
+                          Positioned(
+                            left: (izquierda - 10 - ladoDelOrbe) / 2,
+                            top: _arribaDelOrbe,
+                            width: ladoDelOrbe,
+                            height: ladoDelOrbe,
                             child: TourAnchor(
                               stop: TourStop.orb,
                               // El orbe es el mando principal de la app y para un
@@ -403,11 +411,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 child: GestureDetector(
                                   onTap: controller.toggleVoice,
                                   behavior: HitTestBehavior.opaque,
-                                  // Llenando su caja, que aquí es apaisada: el
-                                  // muelle se lleva la franja de abajo y lo que
-                                  // queda es ancho y bajo. La fracción de siempre
-                                  // mide contra el alto y dejaba el orbe pequeño
-                                  // con sitio de sobra alrededor.
                                   child: NexusOrb(
                                     state: hud.orbState,
                                     fillsBox: true,
@@ -428,10 +431,37 @@ class _HomePageState extends ConsumerState<HomePage> {
                               ),
                             ),
                           ),
+                          // **Los pasos, al lado del orbe.** Mientras trabaja,
+                          // bajo el orbe va el mismo resumen que el reactor: en
+                          // qué paso va y los últimos. El detalle entero abre la
+                          // ventana de actividad.
+                          //
+                          // Antes era una línea «Actividad» al pie de la
+                          // conversación, y el problema no era el tamaño sino de
+                          // quién lo quitaba: cualquier cosa ahí empuja hacia
+                          // arriba lo que se acaba de responder, justo mientras
+                          // se lee.
+                          if (working)
+                            Positioned(
+                              left: 40,
+                              width: izquierda - 90,
+                              top: _arribaDelOrbe + ladoDelOrbe + 20,
+                              child: LosPasosDelTurno(
+                                items: hud.activity,
+                                onVer: () => unawaited(
+                                  ref
+                                      .read(laVentanaDeActividadProvider)
+                                      .seguir(focused.id),
+                                ),
+                                onDetener: controller.stopWork,
+                                enCola: hud.enCola,
+                                onDecirseloAhora: controller.decirseloAhora,
+                              ),
+                            ),
                           if (hasChat)
                             Positioned(
-                              left: MediaQuery.sizeOf(context).width * 0.44,
-                              right: NexusSpacing.s7,
+                              left: izquierda,
+                              right: _margenDerecho,
                               // **Le deja sitio al aviso cuando el aviso está.**
                               //
                               // El chip de «micro abierto» / «trabajando» flota en una capa
@@ -440,13 +470,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                               // columna en vez de mover el chip porque el chip **tiene** que
                               // estar arriba y centrado —es el aviso de que se está
                               // grabando— y la conversación sí puede empezar más abajo.
-                              //
-                              // Y solo mientras está: dejar el hueco siempre regalaría una
-                              // franja vacía en la vista normal, que es la de casi siempre.
-                              top: hud.voiceActive
-                                  ? NexusSpacing.s6 + _altoDelAviso
-                                  : NexusSpacing.s6,
-                              bottom: NexusSpacing.s4,
+                              top: hud.voiceActive ? 14 + _altoDelAviso : 14,
+                              bottom: 0,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
@@ -455,10 +480,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   // `top` fijo y se pintaban sobre el primer
                                   // mensaje: reportado como «queda texto sobre
                                   // texto». En la columna empujan la
-                                  // conversación en vez de taparla, que es lo
-                                  // que ya se hacía para el chip de voz — y lo
-                                  // que faltaba para estos, que son los de cada
-                                  // día. Ver [LaFranjaDeAvisos].
+                                  // conversación en vez de taparla. Ver
+                                  // [LaFranjaDeAvisos].
                                   laFranja,
                                   Expanded(
                                     child: ChatPanel(
@@ -489,128 +512,32 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       onCorrer: controller.submit,
                                     ),
                                   ),
-                                  // 🔴 Aquí había un segundo botón de «ver los
-                                  // archivos que tocó», y salía **a la vez** que el
-                                  // que cuelga del mensaje: el mismo botón dos veces,
-                                  // uno encima del otro. Este es el que sobra — el
-                                  // del mensaje es el que se guarda con la
-                                  // conversación y el que conserva lo suyo cuando
-                                  // pides la segunda cosa. Su propio comentario en
-                                  // `chat_panel` ya explicaba que esta barra
-                                  // enseñaba solo el último encargo; lo que faltó
-                                  // fue borrarla al mudarlo.
-                                  // La actividad no desaparece: se resume en una
-                                  // línea al pie de la conversación, y el detalle se
-                                  // abre aparte.
-                                  //
-                                  // Antes era la lista entera aquí abajo, con hasta
-                                  // el 40% del alto para ella. El problema no era el
-                                  // tamaño sino de quién lo quitaba: quince pasos
-                                  // empujando hacia arriba lo que se acababa de
-                                  // responder, justo mientras se lee.
-                                  //
-                                  // Detener sigue a mano sin abrir nada: **⌘.** está
-                                  // atado arriba, en esta misma pantalla.
-                                  if (working)
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.start,
-                                      children: [
-                                        Flexible(
-                                          child: ActivityButton(
-                                            items: hud.activity,
-                                            onOpen: () => unawaited(
-                                              ref
-                                                  .read(
-                                                    laVentanaDeActividadProvider,
-                                                  )
-                                                  .seguir(focused.id),
-                                            ),
-                                          ),
-                                        ),
-                                        // 🔴 **Adelantar lo que escribiste mientras
-                                        // contestaba.** Solo cuando hay algo
-                                        // esperando: un botón que casi nunca
-                                        // sirve es peor que uno que aparece
-                                        // cuando hace falta — el mismo criterio
-                                        // del «empezar de cero» del aviso.
-                                        if (hud.enCola > 0)
-                                          Tooltip(
-                                            message: context.strings
-                                                .decirseloAhoraTooltip(
-                                                  hud.enCola,
-                                                ),
-                                            child: TextButton(
-                                              onPressed:
-                                                  controller.decirseloAhora,
-                                              child: Text(
-                                                context.strings.decirseloAhora,
-                                                style: NexusTypography.label
-                                                    .copyWith(
-                                                      color:
-                                                          context.colors.accent,
-                                                    ),
-                                              ),
-                                            ),
-                                          ),
-                                        // Detener, al lado y no dentro de la ventana.
-                                        //
-                                        // Vivía al pie de la lista de pasos, y esa
-                                        // lista se fue a una ventana aparte: dejarlo
-                                        // allí obligaría a abrirla para poder parar.
-                                        // ⌘. sigue atado arriba, pero un atajo sin
-                                        // nada que lo enseñe solo lo usa quien ya lo
-                                        // sabe.
-                                        Tooltip(
-                                          message: context.strings.stopButton,
-                                          child: IconButton(
-                                            onPressed: controller.stopWork,
-                                            icon: const Icon(
-                                              Icons.stop,
-                                              size: 16,
-                                            ),
-                                            color: context.colors.faint,
-                                            splashRadius: 16,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
                                 ],
                               ),
                             ),
                           if (hud.voiceActive)
                             Positioned(
-                              top: NexusSpacing.s5,
-                              left: 0,
-                              right: 0,
+                              top: NexusSpacing.s3,
+                              left: izquierda,
+                              right: _margenDerecho,
                               child: _LiveBadge(
                                 working: hud.orbState == NexusOrbState.think,
                               ),
                             ),
-                          const Positioned(
-                            left: NexusSpacing.s6,
-                            bottom: ConversationDock.alDelSuelo,
-                            child: TourAnchor(
-                              stop: TourStop.dock,
-                              child: ConversationDock(),
-                            ),
-                          ),
                           // **Solo cuando no hay conversación donde ponerlos.**
                           // Con conversación van dentro de la columna, arriba del
                           // panel: ver [LaFranjaDeAvisos] y el `laFranja` de ahí
-                          // arriba. Aquí flotan porque no hay nada debajo que
-                          // puedan tapar — la pantalla es el orbe y poco más.
+                          // arriba. Aquí flotan en el sitio de la columna porque
+                          // no hay nada debajo que puedan tapar.
                           if (!hasChat && laFranja.hayAlgo)
                             Positioned(
                               // Debajo del chip de voz cuando lo hay, que se
                               // ancla a esta misma coordenada. Compartirla es
                               // exactamente lo que dibujaba un texto sobre otro,
                               // y aquí no hay columna que aparte a nadie.
-                              top: hud.voiceActive
-                                  ? NexusSpacing.s5 + _altoDelAviso
-                                  : NexusSpacing.s5,
-                              left: NexusSpacing.s6,
-                              right: NexusSpacing.s6,
+                              top: hud.voiceActive ? 14 + _altoDelAviso : 14,
+                              left: izquierda,
+                              right: _margenDerecho,
                               child: laFranja,
                             ),
                         ],
@@ -629,30 +556,68 @@ class _HomePageState extends ConsumerState<HomePage> {
                 : Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Los ajustes de la conversación viven aquí, junto a la
-                      // caja, y ya no arriba del todo: se leen justo antes de pedir
-                      // algo y se cambian sin cruzar la pantalla.
-                      TourAnchor(
-                        stop: TourStop.composer,
-                        child: ComposerBar(
-                          alSepararse: () => unawaited(controller.irSola()),
-                          onSubmit: (texto, adjuntos) =>
-                              controller.submit(texto, attachments: adjuntos),
-                          onFocusChanged: controller.setListening,
-                          // El historial de las flechas: lo que ya escribiste en esta
-                          // conversación. Sale de los turnos que ya están y no de un
-                          // almacén nuevo — son lo mismo, y dos sitios con lo mismo hay
-                          // que mantenerlos de acuerdo para siempre.
-                          loQueYaEscribi: [
-                            for (final mensaje in hud.messages)
-                              if (mensaje.author == ChatAuthor.user)
-                                mensaje.text,
-                          ],
-                          folderPath: focused.folderPath,
-                          meter: hud.meter,
-                          voiceActive: hud.voiceActive,
-                          onToggleVoice: controller.toggleVoice,
-                        ),
+                      // **El muelle y el compositor, en la misma fila.** El
+                      // muelle abajo a la izquierda, bajo el orbe; el
+                      // compositor en la columna de la conversación, con su
+                      // mismo borde izquierdo: se escribe debajo de lo que se
+                      // lee, como en el mockup. A lo ancho de la ventana, el
+                      // compositor pasaba por debajo del orbe y el muelle
+                      // tenía que flotar encima de él.
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          SizedBox(
+                            width: _laColumnaDelOrbe(
+                              MediaQuery.sizeOf(context).width,
+                            ),
+                            child: const Padding(
+                              padding: EdgeInsets.only(left: 30, bottom: 30),
+                              child: Align(
+                                alignment: Alignment.bottomLeft,
+                                child: TourAnchor(
+                                  stop: TourStop.dock,
+                                  child: ConversationDock(),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            // Los ajustes de la conversación viven aquí, junto a
+                            // la caja, y ya no arriba del todo: se leen justo
+                            // antes de pedir algo y se cambian sin cruzar la
+                            // pantalla.
+                            child: TourAnchor(
+                              stop: TourStop.composer,
+                              child: ComposerBar(
+                                margen: const EdgeInsets.fromLTRB(
+                                  0,
+                                  NexusSpacing.s3,
+                                  _margenDerecho,
+                                  22,
+                                ),
+                                alSepararse: () =>
+                                    unawaited(controller.irSola()),
+                                onSubmit: (texto, adjuntos) => controller
+                                    .submit(texto, attachments: adjuntos),
+                                onFocusChanged: controller.setListening,
+                                // El historial de las flechas: lo que ya
+                                // escribiste en esta conversación. Sale de los
+                                // turnos que ya están y no de un almacén nuevo —
+                                // son lo mismo, y dos sitios con lo mismo hay
+                                // que mantenerlos de acuerdo para siempre.
+                                loQueYaEscribi: [
+                                  for (final mensaje in hud.messages)
+                                    if (mensaje.author == ChatAuthor.user)
+                                      mensaje.text,
+                                ],
+                                folderPath: focused.folderPath,
+                                meter: hud.meter,
+                                voiceActive: hud.voiceActive,
+                                onToggleVoice: controller.toggleVoice,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       // Fuera del `Stack` a propósito: se pinta en el `Overlay` de la app,
                       // así que su sitio en el árbol da igual — pero **dentro** del Stack
@@ -1305,6 +1270,39 @@ class _ConLaBotoneraDelante extends StatelessWidget {
       abajo,
     ],
   );
+}
+
+/// El ancho de la columna del orbe, de cerca: 370 de 1280 en el mockup.
+///
+/// En proporción y con topes: en una ventana estrecha el orbe no puede bajar
+/// de un tamaño en que se lea su estado, y en una muy ancha no tiene por qué
+/// comerse el sitio de la conversación, que es lo que se lee.
+double _laColumnaDelOrbe(double ancho) =>
+    (ancho * 370 / 1280).clamp(320.0, 460.0);
+
+/// Lo que baja el orbe desde la barra: 68 en el mockup.
+const _arribaDelOrbe = 68.0;
+
+/// El aire a la derecha de la conversación y del compositor.
+const _margenDerecho = 30.0;
+
+/// Lo que ocupan los pasos bajo el orbe, con su aire: el rótulo, tres filas y
+/// el botón. Se reserva para que el orbe encoja antes que taparlos.
+const _altoDeLosPasos = 200.0;
+
+/// El lado del orbe de cerca: 300 en el mockup, que es la columna menos su
+/// aire, y más pequeño si la ventana es baja.
+///
+/// Se encoge por el alto **antes** que dejar los pasos fuera: lo que dice qué
+/// está haciendo pesa más que el tamaño del dibujo.
+double _elLadoDelOrbe({
+  required double columna,
+  required double alto,
+  required bool conPasos,
+}) {
+  final porAncho = columna - 70;
+  final porAlto = alto - _arribaDelOrbe - (conPasos ? _altoDeLosPasos : 0) - 16;
+  return porAncho < porAlto ? porAncho : porAlto.clamp(120.0, porAncho);
 }
 
 /// Una palabra para lo que está pasando, como el «Dormido» del mockup.

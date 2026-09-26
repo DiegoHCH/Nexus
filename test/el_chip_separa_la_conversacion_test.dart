@@ -90,7 +90,7 @@ void main() {
     await pintar(tester, sesion: 'e5e1d988');
     await tester.pump();
 
-    expect(find.textContaining('memoria compartida'), findsOneWidget);
+    expect(find.textContaining('MEMORIA COMPARTIDA'), findsOneWidget);
   });
 
   testWidgets('sin sesión todavía, compartirán', (tester) async {
@@ -98,7 +98,7 @@ void main() {
     await tester.pump();
 
     expect(
-      find.textContaining('compartirán memoria'),
+      find.textContaining('COMPARTIRÁN MEMORIA'),
       findsOneWidget,
       reason:
           'decirlo en presente afirma algo que no ha pasado: la sesión la crea '
@@ -115,7 +115,7 @@ void main() {
     );
     await tester.pump();
 
-    await tester.tap(find.textContaining('memoria compartida'));
+    await tester.tap(find.textContaining('MEMORIA COMPARTIDA'));
     expect(
       separada,
       isTrue,

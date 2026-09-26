@@ -55,9 +55,8 @@ class ElEscenario extends ConsumerWidget {
   final int? hechos;
   final bool oido;
 
-  /// Lo que el orbe tiene que dejar libre abajo: la franja del muelle de
-  /// conversaciones cuando se cruzaría con él. Ver
-  /// `ConversationDock.franjaQueEstorba`.
+  /// Lo que el orbe tiene que dejar libre abajo, cuando algo se cruzaría con
+  /// él.
   final double reservaAbajo;
 
   /// Lo que la pantalla le pone alrededor al orbe —su parada del tour, su

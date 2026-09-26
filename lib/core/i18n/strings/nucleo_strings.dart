@@ -562,8 +562,7 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String get nexus => 'NEXUS';
   @override
-  String get composerHint =>
-      'Escribe una instrucción…   ⇧↵ para salto de línea';
+  String get composerHint => 'Escribe una instrucción…';
   @override
   String get clearWhatYouWrote => 'Borrar lo escrito';
   @override
@@ -1189,7 +1188,7 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String get nexus => 'NEXUS';
   @override
-  String get composerHint => 'Type an instruction…   ⇧↵ for a new line';
+  String get composerHint => 'Type an instruction…';
   @override
   String get clearWhatYouWrote => 'Clear what you wrote';
   @override

@@ -1,11 +1,9 @@
 import 'package:flutter/services.dart';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/features/assistant/data/datasources/conversations_data_source.dart';
-import 'package:nexus/features/assistant/domain/entities/conversation.dart';
 import 'package:nexus/features/assistant/presentation/orb/nexus_orb_painter.dart';
 import 'package:nexus/features/assistant/presentation/pages/home_page.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
@@ -21,12 +19,13 @@ import 'package:nexus/features/workspace/presentation/providers/workspace_provid
 
 import 'support/screen_harness.dart';
 
-/// El orbe y el muelle de conversaciones **comparten esquina**: los dos viven
-/// en el mismo `Stack`, el orbe ocupando la columna izquierda entera y el
-/// muelle flotando abajo a la izquierda. Sin reservarle su franja al muelle,
-/// la pila de conversaciones subía hasta la mitad del orbe y quedaba una
-/// encima de la otra según el orden de pintado — que no es una decisión de
-/// diseño, es el accidente de quién se declaró después.
+/// El orbe y el muelle de conversaciones **comparten columna**: el orbe arriba
+/// a la izquierda y el muelle, en fila, abajo. Cuando el orbe llenaba la
+/// columna entera y el muelle se apilaba en vertical, la pila subía hasta la
+/// mitad del orbe y quedaba una encima de la otra según el orden de pintado —
+/// que no es una decisión de diseño, es el accidente de quién se declaró
+/// después—. Ahora el orbe tiene su tamaño y el muelle va en fila, como en el
+/// mockup, y esto comprueba que siguen sin tocarse.
 ///
 /// Es geometría, no lógica: no hay estado que mirar, solo dos rectángulos que
 /// no se pueden cruzar. Por eso se mide, que es la única forma de que no se
@@ -98,43 +97,12 @@ void main() {
     );
   });
 
-  /// Lo que se rompió al reservar la franja siempre: en la pantalla de arranque
-  /// el orbe es lo único que hay que mirar, y encogía **por abrir
-  /// conversaciones que nunca lo tocaron**.
-  testWidgets('sin cruce, el orbe no cede nada de su caja', (tester) async {
-    const caja = Size(1400, 800);
-
-    expect(
-      ConversationDock.franjaQueEstorba(caja, const Conversations()),
-      0,
-      reason: 'con la ventana entera el círculo no llega al muelle',
-    );
-
-    // Y con una abierta tampoco: la franja crece hacia arriba por la
-    // izquierda, y el círculo sigue empezando muy a la derecha del muelle.
-    expect(
-      ConversationDock.franjaQueEstorba(caja, _conAbiertas(1)),
-      0,
-      reason: 'una abierta no acerca el muelle al círculo',
-    );
-
-    // Lo que sí lo acerca es que el muelle se parta en dos columnas, que es
-    // cuando de verdad llega hasta donde el orbe se pinta. Eso no es el fallo
-    // que se arregla aquí: es un cruce real, y ceder la franja es correcto.
-    final dosColumnas = _conAbiertas(Conversations.porColumna);
-    expect(
-      ConversationDock.anchoOcupado(dosColumnas),
-      greaterThan(ConversationDock.tabWidth),
-      reason: 'con cuatro piezas el muelle mide dos columnas',
-    );
-  });
-
   /// 🔴 **Un nombre largo desbordaba la ficha**, y el desbordamiento se pinta:
   /// la franja amarilla y negra de Flutter salía atravesada encima de la
   /// conversación, que es lo primero que se ve al abrir la app. Eran 2.8
   /// píxeles —el orbe, su hueco y un ancho de texto escrito a mano sumaban 184
   /// en una tarjeta de 176— y se reportó con una captura.
-  testWidgets('un nombre largo se corta, no desborda la ficha', (tester) async {
+  testWidgets('un nombre largo no desborda: va en el tooltip', (tester) async {
     const larga = '/Users/alguien/front-mobile-b2c';
 
     await pumpScreen(
@@ -165,42 +133,31 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await _deCerca(tester);
 
-    // Dos: el de la ficha del muelle y el de la chapa del compositor.
-    expect(find.text('front-mobile-b2c'), findsNWidgets(2));
+    // El muelle ya no escribe el nombre —va en fila de miniorbes, como en el
+    // mockup—: queda el de la chapa del compositor, en versales como sus
+    // fichas, y en el muelle, el tooltip con la ruta.
+    expect(find.text('FRONT-MOBILE-B2C'), findsOneWidget);
     expect(
-      tester.takeException(),
-      isNull,
-      reason: 'la ficha mide 176 y el nombre tiene que caber dentro',
+      find.descendant(
+        of: find.byType(ConversationDock),
+        matching: find.byWidgetPredicate(
+          (w) => w is Tooltip && (w.message ?? '').endsWith('front-mobile-b2c'),
+        ),
+      ),
+      findsOneWidget,
+      reason: 'el nombre no se pierde: se mueve al tooltip',
     );
+    expect(tester.takeException(), isNull);
   });
 
   _laAlineacion();
-
-  testWidgets('con la caja estrecha sí la cede, que es para lo que existe', (
-    tester,
-  ) async {
-    // La caja del orbe con la conversación abierta: el 42 % del ancho. Ahí el
-    // círculo mide el ancho entero y su borde llega al margen izquierdo, justo
-    // donde está el muelle.
-    const caja = Size(1400 * 0.42, 800);
-    final abiertas = _conAbiertas(Conversations.porColumna);
-
-    expect(
-      ConversationDock.franjaQueEstorba(caja, abiertas),
-      ConversationDock.espacioReservado(abiertas),
-      reason: 'aquí sí se cruzan, y la franja es justo lo que se le aparta',
-    );
-  });
 }
 
-/// Las dos columnas del muelle, alineadas entre sí.
+/// El muelle, **en una sola fila** y con todos los miniorbes en el mismo suelo.
 ///
-/// Con más de [Conversations.porColumna] abiertas el muelle se parte en
-/// columnas puestas en un `Row` alineado por abajo. La separación entre fichas
-/// la ponía **cada ficha**, con un `Padding` de abajo, y el hueco de «NUEVA» no
-/// lo llevaba: la columna que acaba en «NUEVA» medía esos 8 px menos y se
-/// hundía enteros, dejando dos columnas de fichas del mismo alto desalineadas
-/// entre sí. Se reportó mirando la pantalla, que es la única forma de verlo.
+/// Cuando eran fichas en columnas de tres, la columna que acababa en «NUEVA»
+/// medía 8 px menos y se hundía: dos columnas del mismo alto desalineadas entre
+/// sí. En fila eso no puede pasar si todos miden lo mismo, y esto lo comprueba.
 void _laAlineacion() {
   const carpetas = [
     '/Users/alguien/uno',
@@ -213,7 +170,7 @@ void _laAlineacion() {
   setUp(() => support = prepareScreenTest());
   tearDown(() => support.deleteSync(recursive: true));
 
-  testWidgets('las dos columnas del muelle apoyan en el mismo suelo', (
+  testWidgets('el muelle va en fila, con todos en el mismo suelo', (
     tester,
   ) async {
     await pumpScreen(
@@ -251,43 +208,35 @@ void _laAlineacion() {
     await tester.pump(const Duration(milliseconds: 100));
     await _deCerca(tester);
 
-    // Cuatro abiertas con columnas de tres: tres en la primera, la cuarta y
-    // «NUEVA» en la segunda. Las fichas se agrupan por su borde izquierdo, que
-    // es lo que dice en qué columna cayó cada una.
-    final columnas = <double, List<double>>{};
-    for (final ficha
-        in find
-            .descendant(
-              of: find.byType(ConversationDock),
-              matching: find.byType(InkWell),
-            )
-            .evaluate()) {
-      final r = tester.getRect(find.byElementPredicate((e) => e == ficha));
-      if (r.width != ConversationDock.tabWidth) continue;
-      columnas.putIfAbsent(r.left, () => []).add(r.bottom);
-    }
+    // Los cuatro miniorbes y el hueco de «NUEVA», del mismo lado y en fila:
+    // mismo suelo, y cada uno a la derecha del anterior.
+    final piezas = [
+      for (final pieza
+          in find
+              .descendant(
+                of: find.byType(ConversationDock),
+                matching: find.byWidgetPredicate(
+                  (w) =>
+                      w is SizedBox &&
+                      w.width == ConversationDock.lado &&
+                      w.height == ConversationDock.lado,
+                ),
+              )
+              .evaluate())
+        tester.getRect(find.byElementPredicate((e) => e == pieza)),
+    ];
 
-    expect(columnas.length, 2, reason: 'dos columnas con cuatro abiertas');
-    // **Coinciden por abajo, no por arriba.** Las columnas tienen distinto
-    // número de fichas y van alineadas por el suelo, así que la corta arranca
-    // más abajo — eso es lo correcto. Lo que no puede pasar es que sus suelos
-    // se separen: ahí es donde se hundían los 8 px.
-    final suelos = [for (final ys in columnas.values) ys.reduce(max)];
-    expect(
-      suelos.first,
-      moreOrLessEquals(suelos.last, epsilon: 0.5),
-      reason: 'una columna se hundía 8 px por el hueco que le falta a «NUEVA»',
-    );
+    expect(piezas, hasLength(5), reason: 'cuatro abiertas y «NUEVA»');
+    for (var i = 1; i < piezas.length; i++) {
+      expect(
+        piezas[i].bottom,
+        moreOrLessEquals(piezas.first.bottom, epsilon: 0.5),
+        reason: 'todas en el mismo suelo',
+      );
+      expect(piezas[i].left, greaterThan(piezas[i - 1].right));
+    }
   });
 }
-
-Conversations _conAbiertas(int cuantas) => Conversations(
-  items: [
-    for (var i = 0; i < cuantas; i++)
-      Conversation(id: 'c$i', folderPath: '/Users/alguien/p$i'),
-  ],
-  focusedId: 'c0',
-);
 
 /// El orbe grande, y no los pequeños de cada ficha del muelle: hay un `NexusOrb`
 /// por conversación abierta, así que buscar por tipo devuelve cuatro.

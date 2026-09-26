@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:nexus/core/i18n/strings/ajustes_strings.dart';
 import 'package:nexus/core/i18n/strings/arranque_strings.dart';
+import 'package:nexus/core/i18n/strings/conversacion_strings.dart';
 import 'package:nexus/core/i18n/strings/documentos_strings.dart';
 import 'package:nexus/core/i18n/strings/escenario_strings.dart';
 import 'package:nexus/core/i18n/strings/ejecucion_strings.dart';
@@ -50,6 +51,7 @@ abstract class NexusStrings
         EjecucionStrings,
         ArranqueStrings,
         EscenarioStrings,
+        ConversacionStrings,
         MovilStrings,
         AjustesStrings {
   const NexusStrings();
@@ -72,6 +74,7 @@ class NexusStringsEs extends NexusStrings
         EjecucionStringsEs,
         ArranqueStringsEs,
         EscenarioStringsEs,
+        ConversacionStringsEs,
         MovilStringsEs,
         AjustesStringsEs {
   const NexusStringsEs();
@@ -88,6 +91,7 @@ class NexusStringsEn extends NexusStrings
         EjecucionStringsEn,
         ArranqueStringsEn,
         EscenarioStringsEn,
+        ConversacionStringsEn,
         MovilStringsEn,
         AjustesStringsEn {
   const NexusStringsEn();

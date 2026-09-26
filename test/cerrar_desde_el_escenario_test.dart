@@ -4,6 +4,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/features/assistant/data/datasources/conversations_data_source.dart';
 import 'package:nexus/features/assistant/presentation/pages/home_page.dart';
+import 'package:nexus/features/assistant/presentation/widgets/conversation_dock.dart';
+import 'package:nexus/features/assistant/presentation/widgets/el_escenario.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/history/data/datasources/local_conversation_store.dart';
 import 'package:nexus/features/history/domain/entities/conversation_summary.dart';
@@ -41,7 +43,7 @@ void main() {
             Workspace(
               folders: [
                 for (final path in carpetas)
-                  PairedFolder(path: path, modality: FolderModality.textOnly),
+                  PairedFolder(path: path, modality: FolderModality.voice),
               ],
               activePath: carpetas.first,
             ),
@@ -72,6 +74,56 @@ void main() {
     expect(find.byTooltip('front-mobile-b2c'), findsNothing);
     expect(find.byTooltip('nexus'), findsOneWidget);
   });
+  // 🔴 En una carpeta de solo texto no se habla nunca, y el escenario es la
+  // sala para hablar: se quedaba en el orbe con la caja de escribir escondida,
+  // justo donde escribir es la única forma.
+  for (final (modo, escenario) in [
+    (FolderModality.textOnly, false),
+    (FolderModality.voice, true),
+  ]) {
+    testWidgets(
+      'sin mensajes, ${modo.name} abre ${escenario ? 'el escenario' : 'de cerca'}',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          const HomePage(),
+          overrides: [
+            workspaceControllerProvider.overrideWith(
+              () => FixedWorkspace(
+                Workspace(
+                  folders: [
+                    PairedFolder(path: '/Users/x/nexus', modality: modo),
+                  ],
+                  activePath: '/Users/x/nexus',
+                ),
+              ),
+            ),
+            localConversationStoreProvider.overrideWithValue(
+              const _ConAlgoDicho(['c0']),
+            ),
+            conversationsDataSourceProvider.overrideWithValue(
+              _Disco({
+                'items': [
+                  {'id': 'c0', 'folderPath': '/Users/x/nexus'},
+                ],
+                'focusedId': 'c0',
+              }),
+            ),
+          ],
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(
+          find.byType(ElEscenario),
+          escenario ? findsOneWidget : findsNothing,
+        );
+        expect(
+          find.byType(ConversationDock),
+          escenario ? findsNothing : findsOneWidget,
+        );
+      },
+    );
+  }
 }
 
 class _Disco implements ConversationsDataSource {

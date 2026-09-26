@@ -95,12 +95,34 @@ class _HomePageState extends ConsumerState<HomePage> {
   /// mensajes y sin voz, de cerca: es cuando se trabaja leyendo y escribiendo.
   /// Lo que elijas con ⌘E manda hasta que la voz se
   /// abra o se cierre, que es cuando cambia el tipo de conversación.
-  bool _verElEscenario(AssistantHudState hud) {
+  ///
+  /// 🔴 **Una carpeta de solo texto abre de cerca, siempre.** Ahí no se habla
+  /// nunca, y el escenario es la sala para hablar con ella: sin mensajes
+  /// todavía se quedaba en el orbe, con la caja de escribir escondida, justo
+  /// en la conversación donde escribir es la única forma. ⌘E sigue pudiendo
+  /// cambiarlo.
+  bool _verElEscenario(AssistantHudState hud, {required bool puedeHablar}) {
     if (hud.voiceActive != _habiaVoz) {
       _habiaVoz = hud.voiceActive;
       _escenarioElegido = null;
     }
-    return _escenarioElegido ?? (hud.voiceActive || hud.messages.isEmpty);
+    return _escenarioElegido ??
+        (puedeHablar && (hud.voiceActive || hud.messages.isEmpty));
+  }
+
+  /// Si en la conversación de [folderPath] se puede abrir la voz: la misma
+  /// regla que `toggleVoice`, ver [SiSePuedeAbrirLaVoz].
+  bool _puedeHablarEn(String folderPath) {
+    final workspace = ref.read(workspaceControllerProvider);
+    return SiSePuedeAbrirLaVoz.loQueEstorba(
+          carpeta: workspace.folders
+              .where((f) => f.path == folderPath)
+              .firstOrNull,
+          duenoDelCajon: workspace.textOnlyOwnerOf(
+            ref.read(artifactsFolderProvider),
+          ),
+        ) ==
+        null;
   }
 
   @override
@@ -186,7 +208,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     // algo que leer: repartir la pantalla en dos para dejar media vacía sería
     // pedirle al ojo que ignore un hueco.
     final hasChat = hud.messages.isNotEmpty;
-    final escenario = _verElEscenario(hud);
+    // Se mira el workspace para reconstruir si cambia el modo de la carpeta.
+    ref.watch(workspaceControllerProvider);
+    final escenario = _verElEscenario(
+      hud,
+      puedeHablar: _puedeHablarEn(focused.folderPath),
+    );
     // La barra, compartida por las dos distancias. De cerca va encima de todo;
     // en el escenario va **dentro** de la sala, en la misma fila que las
     // esquinas de arriba, como en el mockup.
@@ -272,15 +299,13 @@ class _HomePageState extends ConsumerState<HomePage> {
             SettingsPage.open(context),
         // ⌘E: de lejos o de cerca. Ver [_verElEscenario].
         const SingleActivator(LogicalKeyboardKey.keyE, meta: true): () =>
-            setState(
-              () => _escenarioElegido = !_verElEscenario(
-                ref.read(
-                  assistantControllerProvider(
-                    ref.read(conversationsProvider).focused!.id,
-                  ),
-                ),
-              ),
-            ),
+            setState(() {
+              final enFoco = ref.read(conversationsProvider).focused!;
+              _escenarioElegido = !_verElEscenario(
+                ref.read(assistantControllerProvider(enFoco.id)),
+                puedeHablar: _puedeHablarEn(enFoco.folderPath),
+              );
+            }),
         // ⌘. es el «cancelar» de toda la vida en macOS, y el que pide el
         // diseño junto al botón Detener.
         const SingleActivator(LogicalKeyboardKey.period, meta: true):

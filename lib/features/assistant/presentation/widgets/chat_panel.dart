@@ -12,6 +12,7 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:nexus/core/design_system/el_resaltado_del_codigo.dart';
 import 'package:nexus/features/workspace/domain/usecases/el_comando_directo.dart';
 import 'package:nexus/core/design_system/design_system.dart';
+import 'package:nexus/features/assistant/presentation/widgets/boton_del_registro.dart';
 import 'package:nexus/features/assistant/presentation/widgets/attachment_strip.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/assistant/domain/usecases/los_enlaces_del_texto.dart';
@@ -200,6 +201,10 @@ class _ChatPanelState extends State<ChatPanel> {
           }
           return _Turn(
             message: widget.messages[index],
+            sigue: _sigueElTurno(
+              index == 0 ? null : widget.messages[index - 1],
+              widget.messages[index],
+            ),
             etiqueta: widget.etiquetaDelAgente,
             onRetry: widget.onRetry,
             onPasarElTrabajo: widget.onPasarElTrabajo,
@@ -211,6 +216,30 @@ class _ChatPanelState extends State<ChatPanel> {
       ),
     );
   }
+}
+
+/// Si [mensaje] es **parte del mismo turno** que el de arriba y no uno nuevo.
+///
+/// La pregunta de permiso llega como un mensaje propio —el controlador sella la
+/// respuesta antes de preguntar, para que lo siguiente no se pegue bajo los
+/// botones—, y pintada como tal salía con su línea y su etiqueta: dos turnos de
+/// ella seguidos donde el mockup pone **uno**, con el permiso dentro. Así que la
+/// pregunta, y lo que ella siga diciendo después, cuelgan del turno de arriba.
+bool _sigueElTurno(ChatMessage? anterior, ChatMessage mensaje) =>
+    anterior != null &&
+    anterior.author == ChatAuthor.nexus &&
+    mensaje.author == ChatAuthor.nexus &&
+    (mensaje.permiso != null || anterior.permiso != null);
+
+/// Lo que escribiste, si es un comando suelto de la casa —`/ayuda`, `/parte`—.
+///
+/// Un comando sin nada detrás no es algo que se lea: es qué se pidió. Por eso
+/// va en la etiqueta, «Tú · /ayuda», como en la lámina de los comandos, y no
+/// como un párrafo de una palabra. Con argumentos sí es texto y se pinta.
+String? _elComandoSolo(String texto) {
+  final limpio = texto.trim();
+  if (limpio.length < 2 || limpio.contains(RegExp(r'\s'))) return null;
+  return limpio.startsWith('/') ? limpio : null;
 }
 
 /// **Sigue en esto**, con el rato corriendo.
@@ -283,6 +312,7 @@ class _PensandoState extends State<_Pensando> {
 class _Turn extends StatelessWidget {
   const _Turn({
     required this.message,
+    this.sigue = false,
     this.etiqueta,
     this.onRetry,
     this.onPasarElTrabajo,
@@ -305,6 +335,11 @@ class _Turn extends StatelessWidget {
   final String? etiqueta;
 
   final ChatMessage message;
+
+  /// Es parte del turno de arriba: va sin línea ni etiqueta. Ver
+  /// [_sigueElTurno].
+  final bool sigue;
+
   final void Function(ChatMessage mensaje)? onRetry;
 
   /// Pasarle al marco la salida de un trabajo largo. Ver [ElTrabajoQueSalio].
@@ -313,34 +348,66 @@ class _Turn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final strings = context.strings;
     final isUser = message.author == ChatAuthor.user;
+    final comando = isUser ? _elComandoSolo(message.text) : null;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: NexusSpacing.s5),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    // **Una etiqueta y no una fila de piezas**: quién, a qué hora y si fue
+    // hablado, en una línea — «Tú · 11:02 · hablado». Así lo pide el mockup
+    // («un registro, no burbujas»), y es lo que se lee de un vistazo al subir.
+    // Antes la hora iba sola al otro extremo de la fila y el «hablado» era un
+    // icono que había que saber leer.
+    final quien = isUser
+        ? strings.you
+        // El parte lo dice en su rótulo: es lo que se busca al subir por la
+        // conversación para mandarlo.
+        : message.esElParte
+        ? '${etiqueta ?? strings.nexus} · ${strings.parteDelDia}'
+        : etiqueta ?? strings.nexus;
+    final rotulo = [
+      quien,
+      if (message.enviadoEl case final cuando?)
+        ComoSeLeeUnTurno.laHoraDelTurno(cuando, hoy: DateTime.now()),
+      // Marcado como hablado: si la transcripción se equivocó, saber que venía
+      // del micrófono explica el disparate.
+      if (message.spoken) strings.turnoHablado,
+      ?comando,
+    ].join(' · ').toUpperCase();
+
+    // La imagen que dejó el encargo se enseña en su tarjeta, y si lo que dijo
+    // es solo «Listo: nombre», eso **es** la tarjeta: repetirlo encima sería
+    // decir dos veces lo mismo. Ver [_LaImagen].
+    final documento = message.documento;
+    final imagen = documento != null && Artifact.isImage(documento)
+        ? documento
+        : null;
+    final laImagenLoDice =
+        imagen != null &&
+        message.text.trim() == strings.imageDone(imagen.split('/').last);
+
+    final coste = switch (message.loQueCosto) {
+      final coste? => ComoSeLeeUnTurno.loQueCosto(
+        tokens: coste.tokens,
+        duracion: coste.duracion,
+      ),
+      null => null,
+    };
+
+    final cuerpo = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (!sigue)
           Row(
             children: [
-              Text(
-                isUser
-                    ? context.strings.you
-                    // El parte lo dice en su rótulo: es lo que se busca al
-                    // subir por la conversación para mandarlo.
-                    : message.esElParte
-                    ? '${etiqueta ?? context.strings.nexus} · '
-                          '${context.strings.parteDelDia}'
-                    : etiqueta ?? context.strings.nexus,
-                style: NexusTypography.label.copyWith(
-                  color: isUser ? colors.faint : colors.accent,
+              Flexible(
+                child: Text(
+                  rotulo,
+                  // El nombre de ella va en el acento; el tuyo en gris.
+                  style: NexusTypography.label.copyWith(
+                    color: isUser ? colors.mute : colors.accent,
+                  ),
                 ),
               ),
-              if (message.spoken) ...[
-                const SizedBox(width: NexusSpacing.s2),
-                // Marcado como hablado: si la transcripción se equivocó, saber
-                // que venía del micrófono explica el disparate.
-                Icon(Icons.graphic_eq, size: 11, color: colors.faint),
-              ],
               // 🔴 **Y si lo disparó un trabajo de fondo, que se vea.**
               //
               // Reportado como «me respondió dos veces». No lo eran: eran dos
@@ -353,149 +420,132 @@ class _Turn extends StatelessWidget {
               if (message.porUnAvisoDeFondo) ...[
                 const SizedBox(width: NexusSpacing.s2),
                 Tooltip(
-                  message: context.strings.loDisparoUnTrabajoDeFondo,
+                  message: strings.loDisparoUnTrabajoDeFondo,
                   child: Icon(Icons.bolt, size: 12, color: colors.faint),
                 ),
               ],
+              const Spacer(),
               // Al otro extremo de la fila, y **solo si falló**.
               //
               // Sin esto, un encargo que se cae deja como única salida copiar
               // el mensaje y pegarlo otra vez — teniéndolo escrito ahí mismo.
-              // Va aquí y no en el aviso de arriba porque el aviso es de «lo
-              // último» y esto es de **este** mensaje: si mientras tanto
-              // pediste otra cosa, un botón suelto ya no sabría a qué se
-              // refiere.
-              if (message.fallo && onRetry != null) ...[
-                const Spacer(),
+              // Va aquí y no en un aviso de arriba porque el aviso es de «lo
+              // último» y esto es de **este** mensaje.
+              if (message.fallo && onRetry != null)
                 _Reintentar(onTap: () => onRetry!(message)),
-              ],
               // 🔴 **Lo único que se hace con la salida de un gate.** Está en
               // pantalla y lo siguiente que hace cualquiera es copiarla al
               // marco: ahí se pierde justo lo que importa, medido dos días
-              // seguidos con un comando retranscrito a medias. El mismo círculo
-              // que ya cerró «pasarle el error a Claude».
+              // seguidos con un comando retranscrito a medias.
               if (message.trabajo case final trabajo?
-                  when onPasarElTrabajo != null) ...[
-                const Spacer(),
+                  when onPasarElTrabajo != null)
                 _PasarloAlMarco(onTap: () => onPasarElTrabajo!(trabajo)),
-              ],
-              // Cuándo se dijo, al otro extremo de la fila del nombre.
-              //
-              // El `Spacer` va **solo si no lo puso ya** uno de los botones de
-              // arriba: dos empujan a partes iguales y dejarían la fecha a
-              // media fila en vez de al borde.
-              if (message.enviadoEl case final cuando?) ...[
-                if (!message.fallo && message.trabajo == null) const Spacer(),
-                const SizedBox(width: NexusSpacing.s3),
-                Text(
-                  ComoSeLeeUnTurno.laFechaYLaHora(cuando),
-                  style: NexusTypography.data.copyWith(color: colors.faint),
-                ),
-              ],
             ],
           ),
-          const SizedBox(height: 4),
-          // A qué pregunta contesta, **cuando no es la de justo arriba**.
-          //
-          // La cola introdujo el problema: escribes tres cosas seguidas y las
-          // tres respuestas llegan después, así que el orden deja de decir a
-          // cuál contesta cada una. En un intercambio normal esto no aparece,
-          // porque ahí la respuesta va pegada a su pregunta y citarla sería
-          // ruido.
-          if (message.respondeA case final pregunta?) ...[
-            _LaPreguntaCitada(pregunta),
-            const SizedBox(height: NexusSpacing.s2),
-          ],
-          // Lo tuyo se enseña tal cual lo escribiste: interpretar markdown en
-          // lo que uno teclea convertiría un `*` en cursiva sin haberlo
-          // pedido. Lo que responde Claude sí viene en markdown —tablas,
-          // listas, bloques de código— y hasta ahora salía crudo.
-          // Los adjuntos, con su miniatura, encima del texto: es el orden en
-          // que ocurrió —primero sueltas el archivo, luego escribes— y es la
-          // misma tira que ya veías en la caja al adjuntarlo. Sin la ✕: aquí
-          // el mensaje ya salió y quitarlo no significaría nada.
-          if (message.attachments.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: AttachmentStrip(paths: message.attachments),
-            ),
-          // `Text` y no `SelectableText`: la selección la pone el área que
-          // envuelve la conversación entera, y una isla propia aquí volvería a
-          // cortar el arrastre justo al pasar de tu mensaje a la respuesta.
-          if (isUser && message.text.trim().isNotEmpty)
-            Text(
-              message.text,
-              style: NexusTypography.body.copyWith(
-                color: colors.mute,
-                height: 1.5,
-              ),
-            )
-          else if (!isUser && message.esLaAyuda)
-            const _LaAyuda()
-          else if (!isUser)
-            _Answer(text: message.text, onCorrer: onCorrer),
-          // Lo que este turno dejó, al pie de su propio mensaje.
-          //
-          // Aquí y no en una barra bajo la conversación, que es donde estaba:
-          // esa barra enseñaba **solo el último** encargo, así que al pedir la
-          // segunda cosa desaparecía lo que había hecho la primera. Colgado del
-          // mensaje, cada turno conserva lo suyo aunque subas.
-          // **Y el parte cuenta como «algo que dejó»**, aunque no toque ningún
-          // archivo — que es lo normal: se pide sin permiso de escritura. Esta
-          // condición se escribió cuando solo había cambios y documento, y al
-          // añadir el parte se quedó fuera: el botón existía y no se dibujaba
-          // nunca, porque el bloque entero se saltaba antes de llegar a él.
-          // La pregunta de permiso, con sus salidas. Va **debajo del texto** y
-          // no en la fila del autor como `_Reintentar`, porque aquí el texto es
-          // la pregunta y los botones son su respuesta: separarlos rompería lo
-          // único que hace que se entienda de un vistazo.
-          if (message.permiso case final peticion?)
-            _ElPermiso(
-              peticion: peticion,
-              decision: message.decision,
-              onPermiso: onPermiso,
-            ),
-          // La propuesta de repetirlo, con la misma forma y por el mismo
-          // motivo: el texto es la pregunta y los botones son su respuesta.
-          // La lista de lo que se repite. Lee del estado vivo, no del
-          // mensaje: ver [ChatMessage.esLaListaDeProgramadas].
-          if (message.esLaListaDeProgramadas) const _LasProgramadas(),
-          if (message.propuesta case final propuesta?)
-            _LaPropuesta(
-              propuesta: propuesta,
-              decidido: message.decidido,
-              onResponder: onPropuesta,
-            ),
-          if (message.cambios != null ||
-              message.documento != null ||
-              message.esElParte ||
-              message.actividad.isNotEmpty)
-            _LoQueDejo(message: message),
-          // Lo que costó, al pie y a la derecha.
-          //
-          // **Etiqueta y no parte del mensaje**: se pide así porque no es algo
-          // que Nexus haya dicho, es una medida de lo que dijo. Por eso va con
-          // el mismo tono apagado que la fecha de arriba y fuera del texto, que
-          // además es lo que se copia al seleccionar la conversación.
-          if (message.loQueCosto case final coste?)
-            if (ComoSeLeeUnTurno.loQueCosto(
-                  tokens: coste.tokens,
-                  duracion: coste.duracion,
-                )
-                case final dicho?)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Text(
-                    dicho,
-                    textAlign: TextAlign.right,
-                    style: NexusTypography.data.copyWith(color: colors.faint),
-                  ),
-                ),
-              ),
+        // A qué pregunta contesta, **cuando no es la de justo arriba**.
+        //
+        // La cola introdujo el problema: escribes tres cosas seguidas y las
+        // tres respuestas llegan después, así que el orden deja de decir a
+        // cuál contesta cada una.
+        if (message.respondeA case final pregunta?) ...[
+          const SizedBox(height: NexusSpacing.s2),
+          _LaPreguntaCitada(pregunta),
         ],
-      ),
+        // Los adjuntos, con su miniatura, encima del texto: es el orden en que
+        // ocurrió —primero sueltas el archivo, luego escribes—. Sin la ✕: aquí
+        // el mensaje ya salió y quitarlo no significaría nada.
+        if (message.attachments.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: NexusSpacing.s2),
+            child: AttachmentStrip(paths: message.attachments),
+          ),
+        // Lo tuyo se enseña tal cual lo escribiste: interpretar markdown en lo
+        // que uno teclea convertiría un `*` en cursiva sin haberlo pedido. Lo
+        // que responde Claude sí viene en markdown.
+        //
+        // `Text` y no `SelectableText`: la selección la pone el área que
+        // envuelve la conversación entera. Ver [ChatPanel].
+        if (isUser && comando == null && message.text.trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: NexusSpacing.s1),
+            child: Text(
+              message.text,
+              style: NexusTypography.body.copyWith(color: colors.ink),
+            ),
+          )
+        else if (!isUser && message.esLaAyuda)
+          const Padding(
+            padding: EdgeInsets.only(top: NexusSpacing.s1),
+            child: _LaAyuda(),
+          )
+        // La pregunta de permiso **es** el texto de su mensaje: se pinta como
+        // título del bloque del permiso, no como un párrafo encima de él.
+        else if (!isUser && message.permiso == null && !laImagenLoDice)
+          Padding(
+            padding: const EdgeInsets.only(top: NexusSpacing.s1),
+            child: _Answer(text: message.text, onCorrer: onCorrer),
+          ),
+        // La pregunta de permiso, con sus salidas, **dentro del turno**: no es
+        // un diálogo, no te saca de lo que estás leyendo.
+        if (message.permiso case final peticion?)
+          _ElPermiso(
+            pregunta: message.text,
+            peticion: peticion,
+            decision: message.decision,
+            onPermiso: onPermiso,
+          ),
+        // La lista de lo que se repite. Lee del estado vivo, no del mensaje:
+        // ver [ChatMessage.esLaListaDeProgramadas].
+        if (message.esLaListaDeProgramadas) const _LasProgramadas(),
+        // La propuesta de repetirlo, con la misma forma y por el mismo motivo
+        // que el permiso: la pregunta y sus respuestas, en el sitio.
+        if (message.propuesta case final propuesta?)
+          _LaPropuesta(
+            propuesta: propuesta,
+            decidido: message.decidido,
+            onResponder: onPropuesta,
+          ),
+        if (imagen != null)
+          _LaImagen(
+            ruta: imagen,
+            texto: laImagenLoDice
+                ? message.text.trim()
+                : imagen.split('/').last,
+          ),
+        // Lo que este turno dejó y lo que costó, **en una fila al pie**: los
+        // botones a la izquierda y el coste al final, como en el mockup.
+        //
+        // Aquí y no en una barra bajo la conversación, que es donde estuvo:
+        // esa barra enseñaba **solo el último** encargo, así que al pedir la
+        // segunda cosa desaparecía lo que había hecho la primera. Colgado del
+        // mensaje, cada turno conserva lo suyo aunque subas.
+        //
+        // **Y el parte cuenta como «algo que dejó»**, aunque no toque ningún
+        // archivo — que es lo normal: se pide sin permiso de escritura.
+        if (message.cambios != null ||
+            (documento != null && imagen == null) ||
+            message.esElParte ||
+            message.actividad.isNotEmpty ||
+            coste != null)
+          _ElPie(message: message, coste: coste),
+      ],
+    );
+
+    // Un bloque con su línea encima, no una burbuja: esto es un registro de lo
+    // que se hizo, y la línea de 1 px es lo que separa un turno del siguiente.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: NexusSpacing.s3),
+      child: sigue
+          ? cuerpo
+          : DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: colors.rule)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: cuerpo,
+              ),
+            ),
     );
   }
 }
@@ -507,13 +557,21 @@ class _Turn extends StatelessWidget {
 /// tapa lo que estabas leyendo y no deja mirar el resto de la conversación para
 /// decidir. Aquí la pregunta se queda donde ocurrió, se puede subir a releerla
 /// después, y el turno conserva qué se contestó.
+///
+/// La forma es la del mockup: un filo ámbar a la izquierda, la pregunta, lo que
+/// modifica **dicho en una frase**, y las salidas debajo — «Solo esta vez»
+/// primero, que es la que se pulsa casi siempre, y «No» al final y en rojo.
 class _ElPermiso extends StatelessWidget {
   const _ElPermiso({
+    required this.pregunta,
     required this.peticion,
     required this.decision,
     required this.onPermiso,
   });
 
+  /// «¿Le dejas usar Bash?»: el texto del mensaje, que el controlador ya
+  /// escribe así.
+  final String pregunta;
   final PeticionDePermiso peticion;
   final DecisionDePermiso? decision;
   final void Function(String id, DecisionDePermiso decision)? onPermiso;
@@ -522,45 +580,77 @@ class _ElPermiso extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final strings = context.strings;
+    // Lo que el CLI redacta —«reescribe el golden del resumen»— se lee como
+    // frase. Sin eso, lo que queda es el argumento en crudo —el comando, la
+    // ruta— y eso es un dato: va en su caja, en mono.
+    final dicho = peticion.descripcion?.trim();
+    final hayFrase = dicho != null && dicho.isNotEmpty;
 
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Qué exactamente. Es lo que se aprueba —el nombre de la herramienta
-          // no dice nada— y por eso va antes que los botones y no plegado.
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(NexusSpacing.s3),
-            decoration: BoxDecoration(
-              color: colors.deep,
-              borderRadius: BorderRadius.circular(NexusRadius.sm),
-              border: Border.all(color: colors.rule),
-            ),
-            // Con tope: un `Write` trae el archivo entero, y sin esto la
-            // conversación se convierte en el archivo.
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 160),
-              child: SingleChildScrollView(
-                child: Text(
-                  peticion.resumen,
-                  style: NexusTypography.mono.copyWith(color: colors.faint),
-                ),
-              ),
+      padding: const EdgeInsets.only(top: NexusSpacing.s2),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(NexusSpacing.s3, 6, 0, 6),
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(
+              // Contestada ya no espera a nadie: el filo se apaga y queda el
+              // rastro de lo que se dijo.
+              color: decision == null ? colors.warn : colors.rule2,
+              width: 2,
             ),
           ),
-          if (peticion.escribe)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                strings.permisoEscribe,
-                style: NexusTypography.label.copyWith(color: colors.warn),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (pregunta.trim().isNotEmpty)
+              Text(
+                pregunta,
+                style: NexusTypography.nota.copyWith(
+                  color: colors.ink,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: switch (decision) {
+            const SizedBox(height: 6),
+            if (hayFrase)
+              Text(
+                peticion.escribe ? strings.permisoModifica(dicho) : dicho,
+                style: NexusTypography.nota.copyWith(color: colors.mute),
+              )
+            else ...[
+              if (peticion.escribe)
+                Text(
+                  strings.permisoEscribe,
+                  style: NexusTypography.nota.copyWith(color: colors.mute),
+                ),
+              // Qué exactamente. Es lo que se aprueba —el nombre de la
+              // herramienta no dice nada— y por eso va antes que los botones y
+              // no plegado.
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(top: NexusSpacing.s1),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: colors.void_,
+                  borderRadius: BorderRadius.circular(NexusRadius.sm),
+                  border: Border.all(color: colors.rule),
+                ),
+                // Con tope: un `Write` trae el archivo entero, y sin esto la
+                // conversación se convierte en el archivo.
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 160),
+                  child: SingleChildScrollView(
+                    child: Text(
+                      peticion.resumen,
+                      style: NexusTypography.mono.copyWith(color: colors.ink),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: NexusSpacing.s2),
+            switch (decision) {
               // Contestado: quedan el qué y el qué se dijo, sin botones. Subir
               // por la conversación tiene que contar lo que autorizaste.
               final DecisionDePermiso ya => Row(
@@ -606,70 +696,35 @@ class _ElPermiso extends StatelessWidget {
                 spacing: NexusSpacing.s2,
                 runSpacing: NexusSpacing.s2,
                 children: [
-                  _BotonDePermiso(
-                    texto: strings.permisoDenegar,
-                    color: colors.err,
-                    onTap: () => onPermiso?.call(
-                      peticion.id,
-                      DecisionDePermiso.denegado,
-                    ),
-                  ),
-                  _BotonDePermiso(
-                    texto: strings.permisoConceder,
-                    color: colors.ink,
-                    onTap: () => onPermiso?.call(
+                  BotonDelRegistro(
+                    texto: strings.permisoConceder.toUpperCase(),
+                    tono: TonoDeBoton.principal,
+                    onPulsar: () => onPermiso?.call(
                       peticion.id,
                       DecisionDePermiso.concedido,
                     ),
                   ),
-                  _BotonDePermiso(
-                    texto: strings.permisoConcederTodo(peticion.nombreVisible),
-                    color: colors.accent,
-                    onTap: () => onPermiso?.call(
+                  BotonDelRegistro(
+                    texto: strings
+                        .permisoConcederTodo(peticion.nombreVisible)
+                        .toUpperCase(),
+                    onPulsar: () => onPermiso?.call(
                       peticion.id,
                       DecisionDePermiso.concedidoTodo,
+                    ),
+                  ),
+                  BotonDelRegistro(
+                    texto: strings.permisoDenegar.toUpperCase(),
+                    tono: TonoDeBoton.peligro,
+                    onPulsar: () => onPermiso?.call(
+                      peticion.id,
+                      DecisionDePermiso.denegado,
                     ),
                   ),
                 ],
               ),
             },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BotonDePermiso extends StatelessWidget {
-  const _BotonDePermiso({
-    required this.texto,
-    required this.color,
-    required this.onTap,
-  });
-
-  final String texto;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Semantics(
-      button: true,
-      label: texto,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(NexusRadius.sm),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(NexusRadius.sm),
-            border: Border.all(color: colors.rule),
-          ),
-          child: Text(
-            texto,
-            style: NexusTypography.label.copyWith(color: color),
-          ),
+          ],
         ),
       ),
     );
@@ -760,75 +815,140 @@ class _Reintentar extends StatelessWidget {
   }
 }
 
-/// Los botones de lo que produjo un turno: los cambios y el documento.
+/// El pie de un turno: lo que produjo —los cambios, los pasos, el documento, el
+/// parte— y, al final de la misma fila, lo que costó.
 ///
-/// Solo aparecen si hay algo detrás. Un botón que a veces no lleva a ningún
-/// sitio enseña a no pulsarlo, y entonces tampoco se pulsa el día que sí lleva.
-class _LoQueDejo extends ConsumerWidget {
-  const _LoQueDejo({required this.message});
+/// Los botones solo aparecen si hay algo detrás. Un botón que a veces no lleva a
+/// ningún sitio enseña a no pulsarlo, y entonces tampoco se pulsa el día que sí
+/// lleva.
+///
+/// **El coste va en la fila y no debajo**, como en el mockup: es una medida de
+/// lo que se dijo y se lee junto a lo que dejó. Sigue siendo etiqueta y no parte
+/// del mensaje —el tono apagado de la hora y fuera del texto—, que es lo que
+/// evita que se lo lleve quien copie la conversación.
+class _ElPie extends ConsumerWidget {
+  const _ElPie({required this.message, required this.coste});
 
   final ChatMessage message;
+  final String? coste;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
     final strings = context.strings;
+    final documento = message.documento;
 
-    // **Una imagen se enseña, no se anuncia.** Con el botón de siempre, lo que
-    // acababa de generarse era un nombre de archivo: para saber si había salido
-    // bien había que abrirla. Se pinta con la misma tira que los adjuntos —la
-    // miniatura del sistema, la del Finder— porque es el mismo gesto por el otro
-    // lado: tú le pasas una imagen al chat y la ves; él te devuelve una y
-    // también.
-    final imagen = message.documento;
+    final botones = [
+      if (message.cambios case final cambios?)
+        BotonDelRegistro(
+          texto: strings.changedFiles(cambios.fileCount).toUpperCase(),
+          onPulsar: () => ref
+              .read(elVisorDeCambiosProvider)
+              .abrir(cambios, strings.changesTitle),
+        ),
+      // Los pasos de ESTE turno, cuando ya terminó.
+      //
+      // Los del encargo en curso van bajo el orbe y desaparecen al acabar —
+      // tienen que desaparecer, porque lo que anuncian es que hay algo
+      // corriendo—. Lo que hizo se mira después, y después es aquí: colgado del
+      // turno, guardado con la conversación, y sin caducar cuando pides la
+      // segunda cosa.
+      if (message.actividad.isNotEmpty)
+        BotonDelRegistro(
+          texto: strings.stepsTaken(message.actividad.length).toUpperCase(),
+          onPulsar: () =>
+              ref.read(laVentanaDeActividadProvider).ver(message.actividad),
+        ),
+      // El documento que se lee, con su nombre. La imagen no va aquí: tiene su
+      // tarjeta, ver [_LaImagen].
+      if (documento != null && !Artifact.isImage(documento))
+        BotonDelRegistro(
+          texto: documento.split('/').last.toUpperCase(),
+          onPulsar: () => ref.read(artifactsDataSourceProvider).open(documento),
+        ),
+      // Solo en el parte, y solo si Slack está configurado: un botón de enviar
+      // que a veces no puede enviar enseña a no pulsarlo.
+      if (message.esElParte && ref.watch(slackControllerProvider).listo)
+        _ElBotonDeSlack(texto: message.text),
+    ];
 
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Column(
+      padding: const EdgeInsets.only(top: NexusSpacing.s2),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (imagen != null && Artifact.isImage(imagen))
-            AttachmentStrip(paths: [imagen]),
-          Wrap(
-            spacing: NexusSpacing.s2,
-            children: [
-              if (message.cambios case final cambios?)
-                _Boton(
-                  icono: Icons.difference,
-                  texto: strings.changedFiles(cambios.fileCount),
-                  onTap: () => ref
-                      .read(elVisorDeCambiosProvider)
-                      .abrir(cambios, strings.changesTitle),
-                ),
-              // Los pasos de ESTE turno, cuando ya terminó.
-              //
-              // El botón con el giro que hay al pie de la conversación es el
-              // del encargo en curso y desaparece al acabar — tiene que
-              // desaparecer, porque lo que anuncia es que hay algo corriendo.
-              // Lo que hizo se mira después, y después es aquí: colgado del
-              // turno, guardado con la conversación, y sin caducar cuando pides
-              // la segunda cosa.
-              if (message.actividad.isNotEmpty)
-                _Boton(
-                  icono: Icons.list_alt,
-                  texto: strings.stepsTaken(message.actividad.length),
-                  onTap: () => ref
-                      .read(laVentanaDeActividadProvider)
-                      .ver(message.actividad),
-                ),
-              if (message.documento case final documento?)
-                _Boton(
-                  icono: Icons.article_outlined,
-                  texto: documento.split('/').last,
-                  onTap: () =>
-                      ref.read(artifactsDataSourceProvider).open(documento),
-                ),
-              // Solo en el parte, y solo si Slack está configurado: un botón de
-              // enviar que a veces no puede enviar enseña a no pulsarlo.
-              if (message.esElParte && ref.watch(slackControllerProvider).listo)
-                _ElBotonDeSlack(texto: message.text),
-            ],
+          Expanded(
+            child: Wrap(
+              spacing: NexusSpacing.s2,
+              runSpacing: NexusSpacing.s2,
+              children: botones,
+            ),
           ),
+          if (coste case final dicho?)
+            Padding(
+              // A la altura del texto de los botones, no de su borde.
+              padding: EdgeInsets.only(
+                top: botones.isEmpty ? 0 : 7,
+                left: NexusSpacing.s3,
+              ),
+              child: Text(
+                dicho,
+                style: NexusTypography.data.copyWith(color: colors.mute),
+              ),
+            ),
         ],
+      ),
+    );
+  }
+}
+
+/// La imagen que dejó el encargo: la miniatura grande, lo que dijo y «Abrir».
+///
+/// **Una imagen se enseña, no se anuncia.** Con el botón de siempre, lo que
+/// acababa de generarse era un nombre de archivo: para saber si había salido
+/// bien había que abrirla. Es la tarjeta del mockup —«Listo: icono-nexus.webp»
+/// con su cuadro al lado—, con la misma miniatura que ya se veía en la caja al
+/// adjuntar: es el mismo gesto por el otro lado.
+class _LaImagen extends ConsumerWidget {
+  const _LaImagen({required this.ruta, required this.texto});
+
+  final String ruta;
+  final String texto;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: NexusSpacing.s2),
+      child: Container(
+        padding: const EdgeInsets.all(NexusSpacing.s2),
+        decoration: BoxDecoration(
+          border: Border.all(color: colors.rule),
+          borderRadius: BorderRadius.circular(NexusRadius.sm),
+        ),
+        child: Row(
+          children: [
+            MiniaturaDelArchivo(path: ruta, lado: 64),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                texto,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: NexusTypography.data.copyWith(
+                  color: colors.ink,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const SizedBox(width: NexusSpacing.s2),
+            BotonDelRegistro(
+              texto: context.strings.abrirLoQueDejo.toUpperCase(),
+              onPulsar: () => ref.read(artifactsDataSourceProvider).open(ruta),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -900,10 +1020,12 @@ class _ElBotonDeSlackState extends ConsumerState<_ElBotonDeSlack> {
       crossAxisAlignment: WrapCrossAlignment.center,
       spacing: NexusSpacing.s2,
       children: [
-        _Boton(
-          icono: Icons.send_outlined,
-          texto: strings.parteAlSlack,
-          onTap: _mandando || enviado ? () {} : () => unawaited(_mandar()),
+        // «Mandar a Slack» en el acento: es la acción que toca con el parte
+        // delante. Mandado, se queda —apagado— para que se vea qué se pulsó.
+        BotonDelRegistro(
+          texto: strings.parteAlSlack.toUpperCase(),
+          tono: TonoDeBoton.principal,
+          onPulsar: _mandando || enviado ? null : () => unawaited(_mandar()),
         ),
         if ((color, estado) case (final color?, final estado?))
           Row(
@@ -935,32 +1057,6 @@ class _Punto extends StatelessWidget {
     height: 7,
     decoration: BoxDecoration(shape: BoxShape.circle, color: color),
   );
-}
-
-class _Boton extends StatelessWidget {
-  const _Boton({required this.icono, required this.texto, required this.onTap});
-
-  final IconData icono;
-  final String texto;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return TextButton.icon(
-      onPressed: onTap,
-      icon: Icon(icono, size: 13, color: colors.accent),
-      label: Text(
-        texto,
-        style: NexusTypography.control.copyWith(color: colors.accent),
-      ),
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-    );
-  }
 }
 
 /// La respuesta de Claude, con su markdown puesto.
@@ -1031,8 +1127,12 @@ class _Answer extends StatelessWidget {
       // una conversación en la que un turno ocupa cinco pantallas deja de poder
       // recorrerse.
       builders: {
+        // El código de un bloque, en tinta y no en acento: es lo que el mockup
+        // pinta —el comando se lee como texto, y el resaltado ya pone el color
+        // donde hace falta—. El acento se queda para el código suelto de una
+        // frase, que ahí sí tiene que destacar del párrafo.
         'pre': _CodigoPlegable(
-          estilo: mono,
+          estilo: NexusTypography.mono.copyWith(color: colors.ink),
           relleno: _rellenoDelCodigo,
           onCorrer: onCorrer,
         ),
@@ -1056,7 +1156,7 @@ class _Answer extends StatelessWidget {
         code: mono,
         codeblockPadding: _rellenoDelCodigo,
         codeblockDecoration: BoxDecoration(
-          color: colors.void_.withValues(alpha: 0.5),
+          color: colors.void_,
           border: Border.all(color: colors.rule),
           borderRadius: BorderRadius.circular(NexusRadius.sm),
         ),
@@ -1091,7 +1191,7 @@ class _Answer extends StatelessWidget {
 /// aplica **dentro** del scroll horizontal, no en la caja: quien pinta el
 /// contenido a mano tiene que ponerlo él, y dos valores distintos se ven como
 /// un bloque que salta de sitio según su largo.
-const _rellenoDelCodigo = EdgeInsets.all(NexusSpacing.s3);
+const _rellenoDelCodigo = EdgeInsets.all(10);
 
 /// Cuántas líneas se ven de un bloque plegado.
 const _lineasAlaVista = 5;
@@ -1201,6 +1301,46 @@ class _BloqueDeCodigoState extends State<_BloqueDeCodigo> {
         ? lineas.take(_lineasAlaVista)
         : lineas;
     final escondidas = lineas.length - _lineasAlaVista;
+    final codigo = Text.rich(
+      ElResaltadoDelCodigo.enSpans(
+        visibles.join('\n'),
+        lenguaje: widget.lenguaje,
+        colores: colors,
+        base: widget.estilo,
+      ),
+    );
+
+    // **Una línea es una fila**: el lenguaje, el comando y «Correr» al lado,
+    // como en el mockup. Es el caso de casi todo lo que se ofrece correr —un
+    // comando suelto— y apilado en tres alturas un comando de una línea
+    // ocupaba el triple de lo que dice.
+    if (lineas.length == 1) {
+      return Padding(
+        padding: widget.relleno,
+        child: Row(
+          children: [
+            if (widget.lenguaje != null) ...[
+              _ElLenguaje(widget.lenguaje!),
+              const SizedBox(width: 10),
+            ],
+            Expanded(
+              child: Scrollbar(
+                controller: _scroll,
+                child: SingleChildScrollView(
+                  controller: _scroll,
+                  scrollDirection: Axis.horizontal,
+                  child: codigo,
+                ),
+              ),
+            ),
+            if (_comando case final comando?) ...[
+              const SizedBox(width: 10),
+              _CorrerEsto(onTap: () => widget.onCorrer!(comando)),
+            ],
+          ],
+        ),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1235,14 +1375,7 @@ class _BloqueDeCodigoState extends State<_BloqueDeCodigo> {
             controller: _scroll,
             scrollDirection: Axis.horizontal,
             padding: widget.relleno,
-            child: Text.rich(
-              ElResaltadoDelCodigo.enSpans(
-                visibles.join('\n'),
-                lenguaje: widget.lenguaje,
-                colores: colors,
-                base: widget.estilo,
-              ),
-            ),
+            child: codigo,
           ),
         ),
         // El botón va **fuera** del scroll horizontal: dentro se iría de la
@@ -1357,8 +1490,12 @@ class _ElLenguaje extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(
-    lenguaje,
-    style: NexusTypography.label.copyWith(color: context.colors.faint),
+    lenguaje.toUpperCase(),
+    style: NexusTypography.label.copyWith(
+      color: context.colors.mute,
+      fontSize: 9,
+      letterSpacing: 1.3,
+    ),
   );
 }
 
@@ -1374,34 +1511,13 @@ class _CorrerEsto extends StatelessWidget {
 
   final VoidCallback onTap;
 
+  /// Un botón de fila como los demás del turno, y no un enlace con icono: al
+  /// lado del comando es la acción que se ofrece, y tiene que parecerlo.
   @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final texto = context.strings.runThisCommand;
-
-    return Semantics(
-      button: true,
-      label: texto,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(NexusRadius.sm),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.play_arrow_rounded, size: 13, color: colors.accent),
-              const SizedBox(width: 3),
-              Text(
-                texto,
-                style: NexusTypography.label.copyWith(color: colors.accent),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => BotonDelRegistro(
+    texto: context.strings.runThisCommand.toUpperCase(),
+    onPulsar: onTap,
+  );
 }
 
 /// Una tarea que se repetiría, con lo que hace falta para decir que sí.
@@ -1439,71 +1555,57 @@ class _LaPropuesta extends StatelessWidget {
       todosLosDias: strings.todosLosDiasDicho,
     );
 
+    final detalle = [
+      ritmo,
+      encargo.carpeta.split('/').last,
+      if (propuesta.proxima case final proxima?)
+        strings.laProximaCita(
+          ComoSeLeeLaCita.laProxima(proxima, nombres: strings.diasCortos),
+        ),
+    ].join(' · ');
+
+    // La forma del permiso, con el filo en el acento y no en ámbar: esto no
+    // modifica nada todavía, solo pregunta.
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(NexusSpacing.s3),
-            decoration: BoxDecoration(
-              color: colors.deep,
-              borderRadius: BorderRadius.circular(NexusRadius.sm),
-              border: Border.all(color: colors.rule),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Qué se repetiría, con sus palabras y no con un resumen.
-                Text(
-                  encargo.tarea,
-                  style: NexusTypography.nota.copyWith(color: colors.ink),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Icon(Icons.schedule, size: 12, color: colors.accent),
-                    const SizedBox(width: 4),
-                    Text(
-                      ritmo,
-                      style: NexusTypography.label.copyWith(
-                        color: colors.accent,
-                      ),
-                    ),
-                    const SizedBox(width: NexusSpacing.s3),
-                    Icon(Icons.folder_outlined, size: 12, color: colors.faint),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        encargo.carpeta.split('/').last,
-                        overflow: TextOverflow.ellipsis,
-                        style: NexusTypography.label.copyWith(
-                          color: colors.faint,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (propuesta.proxima case final proxima?)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      strings.laProximaCita(
-                        ComoSeLeeLaCita.laProxima(
-                          proxima,
-                          nombres: strings.diasCortos,
-                        ),
-                      ),
-                      style: NexusTypography.label.copyWith(color: colors.mute),
-                    ),
-                  ),
-              ],
+      padding: const EdgeInsets.only(top: NexusSpacing.s2),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(NexusSpacing.s3, 6, 0, 6),
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(
+              color: decidido == null ? colors.accent : colors.rule2,
+              width: 2,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: switch (decidido) {
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              strings.propuestaPregunta,
+              style: NexusTypography.nota.copyWith(
+                color: colors.ink,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 6),
+            // Qué se repetiría, con sus palabras y no con un resumen. El mockup
+            // no lo pone —ahí la frase de arriba ya lo dice—, pero lo que se
+            // aprueba es **lo que se entendió**, y eso puede no ser lo que se
+            // escribió: se enseña para poder pillarlo antes de decir que sí.
+            Text(
+              encargo.tarea,
+              style: NexusTypography.nota.copyWith(color: colors.ink),
+            ),
+            // Cuándo, dónde y la primera vez, en una línea: lo que distingue
+            // «de lunes a viernes a las 5» de «el viernes a las 5».
+            Text(
+              detalle,
+              style: NexusTypography.nota.copyWith(color: colors.mute),
+            ),
+            const SizedBox(height: NexusSpacing.s2),
+            switch (decidido) {
               // Contestada: queda lo que se decidió, sin botones. Subir por la
               // conversación tiene que contar qué se programó y qué no.
               final DecisionDeProgramar ya => Row(
@@ -1527,31 +1629,32 @@ class _LaPropuesta extends StatelessWidget {
                   ),
                 ],
               ),
+              // «Programar» primero y en el acento: es lo que se ofrece. «Solo
+              // ahora» no tira el encargo, lo manda a Claude una vez.
               null => Wrap(
                 spacing: NexusSpacing.s2,
                 runSpacing: NexusSpacing.s2,
                 children: [
-                  _BotonDePermiso(
-                    texto: strings.soloEstaVez,
-                    color: colors.ink,
-                    onTap: () => onResponder?.call(
-                      propuesta.encargo.id,
-                      DecisionDeProgramar.soloAhora,
-                    ),
-                  ),
-                  _BotonDePermiso(
-                    texto: strings.programarlo,
-                    color: colors.accent,
-                    onTap: () => onResponder?.call(
+                  BotonDelRegistro(
+                    texto: strings.programarlo.toUpperCase(),
+                    tono: TonoDeBoton.principal,
+                    onPulsar: () => onResponder?.call(
                       propuesta.encargo.id,
                       DecisionDeProgramar.programada,
+                    ),
+                  ),
+                  BotonDelRegistro(
+                    texto: strings.soloEstaVez.toUpperCase(),
+                    onPulsar: () => onResponder?.call(
+                      propuesta.encargo.id,
+                      DecisionDeProgramar.soloAhora,
                     ),
                   ),
                 ],
               ),
             },
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1676,18 +1779,18 @@ class _UnaProgramada extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: NexusSpacing.s3),
-          _BotonDePermiso(
-            texto: encargo.activo ? strings.apagarla : strings.encenderla,
-            color: colors.ink,
-            onTap: () => unawaited(
+          BotonDelRegistro(
+            texto: (encargo.activo ? strings.apagarla : strings.encenderla)
+                .toUpperCase(),
+            onPulsar: () => unawaited(
               vigilante.apagar(encargo.id, apagada: encargo.activo),
             ),
           ),
           const SizedBox(width: NexusSpacing.s2),
-          _BotonDePermiso(
-            texto: strings.borrarla,
-            color: colors.err,
-            onTap: () => unawaited(vigilante.borrar(encargo.id)),
+          BotonDelRegistro(
+            texto: strings.borrarla.toUpperCase(),
+            tono: TonoDeBoton.peligro,
+            onPulsar: () => unawaited(vigilante.borrar(encargo.id)),
           ),
         ],
       ),

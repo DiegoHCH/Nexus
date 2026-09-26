@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nexus/core/design_system/design_system.dart';
+import 'package:nexus/features/assistant/presentation/widgets/boton_del_registro.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 
 /// Lo que se puede hacer con un aviso, cuando se puede hacer algo.
@@ -82,6 +83,10 @@ class LaFranjaDeAvisos extends StatelessWidget {
             AvisoChip(
               message: error.texto,
               color: colors.err,
+              enTinta: true,
+              // Lo que un fallo ofrece es lo que lo arregla —entrar con la
+              // cuenta—, así que va en el acento.
+              principal: true,
               onDismiss: error.alCerrar,
               acciones: [?error.accion],
             ),
@@ -112,6 +117,7 @@ class LaFranjaDeAvisos extends StatelessWidget {
               // minuto —la cita sigue pendiente— y un aviso que vuelve es como
               // se enseña a ignorarlos. Las dos salidas cierran la decisión.
               onDismiss: perdidas[i].saltarla,
+              principal: true,
               acciones: [
                 (
                   texto: context.strings.hacerlaAhora,
@@ -130,11 +136,12 @@ class LaFranjaDeAvisos extends StatelessWidget {
   }
 }
 
-/// Una línea que se puede cerrar, del color de lo que cuenta.
+/// Una franja que se puede cerrar, del color de lo que cuenta.
 ///
-/// Va acotado y con punto delante —el mismo recurso del interruptor de
-/// permisos— y se puede descartar: un error que no se va obliga a convivir con
-/// él aunque ya lo hayas leído.
+/// La del mockup: ancha como la conversación, con un filo de 2 px a la izquierda
+/// en el color del aviso, el texto, sus acciones como botones de fila y la ✕ al
+/// final. **Cada aviso trae su salida** —«Entrar», «Hacerlo ahora»— y se cierra:
+/// un error que no se va obliga a convivir con él aunque ya lo hayas leído.
 ///
 /// El color entra por parámetro y no por el tipo del mensaje: son el mismo
 /// objeto en pantalla y solo cambia lo que significan, así que duplicar el
@@ -146,11 +153,22 @@ class AvisoChip extends StatelessWidget {
     required this.onDismiss,
     super.key,
     this.acciones = const [],
+    this.enTinta = false,
+    this.principal = false,
   });
 
   final String message;
   final Color color;
   final VoidCallback onDismiss;
+
+  /// El texto en tinta y el color solo en el filo. Es el caso del fallo: en el
+  /// mockup, «la sesión caducó» se lee en tinta con el filo rojo; un aviso
+  /// ámbar sí lleva el texto en su color.
+  final bool enTinta;
+
+  /// La primera acción es **la que toca**: se pinta en el acento. Es el
+  /// «Entrar» de la sesión caducada, que es lo único que desbloquea.
+  final bool principal;
 
   /// 🔴 **Una lista y no una sola.** Empezó siendo una porque el único aviso
   /// con salida era la sesión caducada; la tarea que se pasó tiene dos —hacerla
@@ -161,85 +179,76 @@ class AvisoChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final strings = context.strings;
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 620),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            // 🔴 **Opaco, y esta es la mitad del arreglo.** Antes era solo
-            // `color.withValues(alpha: 0.1)`: sin nada detrás, lo que había
-            // debajo se leía a través del aviso. El tinte se queda —es lo que
-            // le da el color— pero ahora va **sobre** una superficie, no sobre
-            // la conversación.
-            color: Color.alphaBlend(color.withValues(alpha: 0.12), colors.rise),
-            border: Border.all(color: color.withValues(alpha: 0.35)),
-            borderRadius: BorderRadius.circular(NexusRadius.sm),
-            // Un aviso es una capa de encima, y decirlo con una sombra es lo
-            // que lo separa del texto en vez de confundirlo con él.
-            boxShadow: [
-              BoxShadow(
-                color: colors.shadow.withValues(alpha: 0.28),
-                blurRadius: 12,
-                offset: const Offset(0, 3),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        // 🔴 **Opaco, y esta es la mitad del arreglo de «texto sobre texto».**
+        // Antes era solo `color.withValues(alpha: 0.1)`: sin nada detrás, lo
+        // que había debajo se leía a través del aviso. En la columna ya no tapa
+        // nada, pero en el escenario sigue flotando, y ahí el fondo es lo que
+        // lo separa de lo que haya debajo.
+        color: colors.deep,
+        border: Border(
+          top: BorderSide(color: colors.rule2),
+          right: BorderSide(color: colors.rule2),
+          bottom: BorderSide(color: colors.rule2),
+          left: BorderSide(color: color, width: 2),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          NexusSpacing.s3,
+          NexusSpacing.s2,
+          NexusSpacing.s2,
+          NexusSpacing.s2,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                message,
+                style: NexusTypography.nota.copyWith(
+                  color: enTinta ? colors.ink : color,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            for (final (i, accion) in acciones.indexed) ...[
+              const SizedBox(width: NexusSpacing.s2),
+              BotonDelRegistro(
+                texto: accion.texto.toUpperCase(),
+                tono: principal && i == 0
+                    ? TonoDeBoton.principal
+                    : TonoDeBoton.neutro,
+                onPulsar: accion.alPulsar,
               ),
             ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              NexusSpacing.s3,
-              NexusSpacing.s2,
-              NexusSpacing.s2,
-              NexusSpacing.s2,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: color,
-                  ),
-                ),
-                const SizedBox(width: NexusSpacing.s3),
-                Flexible(
-                  child: Text(
-                    message,
-                    style: NexusTypography.nota.copyWith(
-                      color: color,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-                for (final accion in acciones) ...[
-                  const SizedBox(width: NexusSpacing.s3),
-                  InkWell(
-                    onTap: accion.alPulsar,
-                    child: Text(
-                      accion.texto,
-                      style: NexusTypography.control.copyWith(
-                        color: color,
-                        fontWeight: FontWeight.w600,
-                        decoration: TextDecoration.underline,
-                        decorationColor: color.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(width: NexusSpacing.s2),
-                InkWell(
+            const SizedBox(width: NexusSpacing.s2),
+            // La ✕ con su caja, como un botón más de la fila: suelta y en
+            // tenue no se veía que se pudiera cerrar.
+            Tooltip(
+              message: strings.cerrarElAviso,
+              child: Semantics(
+                button: true,
+                label: strings.cerrarElAviso,
+                child: InkWell(
                   onTap: onDismiss,
-                  child: Icon(
-                    Icons.close,
-                    size: 13,
-                    color: color.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(NexusRadius.sm),
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: colors.rule2),
+                      borderRadius: BorderRadius.circular(NexusRadius.sm),
+                    ),
+                    child: Icon(Icons.close, size: 12, color: colors.ink),
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

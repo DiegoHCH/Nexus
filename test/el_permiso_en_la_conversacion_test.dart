@@ -345,11 +345,13 @@ void main() {
         ),
       );
 
-      // El argumento, que es lo que se aprueba de verdad.
-      expect(find.text('a.txt'), findsOneWidget);
-      expect(find.text(strings.permisoEscribe), findsOneWidget);
+      // El argumento, que es lo que se aprueba de verdad, dicho en una frase
+      // con lo que modifica — como en el mockup.
+      expect(find.text(strings.permisoModifica('a.txt')), findsOneWidget);
 
-      await tester.tap(find.text(strings.permisoConcederTodo('Write')));
+      await tester.tap(
+        find.text(strings.permisoConcederTodo('Write').toUpperCase()),
+      );
       expect(pulsado, [('req-1', DecisionDePermiso.concedidoTodo)]);
     });
 
@@ -368,8 +370,11 @@ void main() {
       );
 
       expect(find.text(strings.permisoDichoDenegado), findsOneWidget);
-      expect(find.text(strings.permisoConceder), findsNothing);
-      expect(find.text(strings.permisoConcederTodo('Write')), findsNothing);
+      expect(find.text(strings.permisoConceder.toUpperCase()), findsNothing);
+      expect(
+        find.text(strings.permisoConcederTodo('Write').toUpperCase()),
+        findsNothing,
+      );
     });
 
     // 🔴 **Antes esta prueba decía lo contrario, y la decisión cambió con un
@@ -397,7 +402,9 @@ void main() {
       );
 
       expect(
-        find.text(const NexusStringsEs().permisoConcederTodo('Read')),
+        find.text(
+          const NexusStringsEs().permisoConcederTodo('Read').toUpperCase(),
+        ),
         findsOne,
       );
       // Y leer no se anuncia como escritura.

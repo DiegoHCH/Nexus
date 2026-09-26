@@ -13,8 +13,9 @@ import 'package:nexus/features/assistant/presentation/widgets/chat_panel.dart';
 ///
 /// Con el botón de siempre, lo que acababa de generarse era un nombre de
 /// archivo: para saber si había salido bien había que abrirla. Se pinta con la
-/// misma tira que los adjuntos porque es el mismo gesto por el otro lado — tú
-/// le pasas una imagen al chat y la ves, él te devuelve una y también.
+/// misma miniatura que los adjuntos porque es el mismo gesto por el otro lado —
+/// tú le pasas una imagen al chat y la ves, él te devuelve una y también—, en
+/// su tarjeta con «Abrir», como en el mockup.
 void main() {
   Widget conversacion(List<ChatMessage> mensajes) => ProviderScope(
     child: MaterialApp(
@@ -39,7 +40,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byType(AttachmentStrip), findsOneWidget);
+    expect(find.byType(MiniaturaDelArchivo), findsOneWidget);
   });
 
   // Un documento que se lee no se mira: llenar la conversación de miniaturas de
@@ -56,7 +57,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byType(AttachmentStrip), findsNothing);
+    expect(find.byType(MiniaturaDelArchivo), findsNothing);
   });
 
   group('qué cuenta como imagen', () {

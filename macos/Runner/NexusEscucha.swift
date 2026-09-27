@@ -254,7 +254,7 @@ final class NexusEscucha: NSObject {
 
     escuchando = true
     Self.log.notice(
-      "escuchando · \(self.palabras.joined(separator: ", "), privacy: .public) · \(reconocedor.locale.identifier, privacy: .public)")
+      "escuchando · \(self.palabras.joined(separator: ", "), privacy: .public) · \(reconocedor.locale.identifier, privacy: .public) · \(formato.sampleRate, privacy: .public) Hz \(formato.channelCount, privacy: .public) ch")
     return true
   }
 
@@ -368,13 +368,8 @@ final class NexusEscucha: NSObject {
   static func loQueSigueAlNombre(_ dicho: String, siendo palabras: [String]) -> String {
     let sueltas = dicho.split(separator: " ").map(String.init)
     let limpias = sueltas.map { normalizar($0).filter { $0.isLetter } }
-    func esElNombre(_ oida: String) -> Bool {
-      palabras.contains { oida == $0 || seParecen(oida, $0) || seParecen(comoSuena(oida), comoSuena($0)) }
-    }
-    // La última palabra que es el nombre, o las dos primeras juntas —ver
-    // [leLlamaron]—: «sí, él, qué hora es» deja «qué hora es».
     let ultima = limpias.indices.last { i in
-      esElNombre(limpias[i]) || (i == 1 && esElNombre(limpias[0] + limpias[1]))
+      palabras.contains { esElNombre(limpias[i], $0) }
     }
     guard let ultima else { return "" }
     return sueltas[(ultima + 1)...]
@@ -415,22 +410,34 @@ final class NexusEscucha: NSObject {
   /// parecerse a demasiadas cosas, y una escucha que abre sola cuando hablas de
   /// otra cosa es peor que una que a veces no abre.
   static func leLlamaron(_ dicho: String, siendo palabras: [String]) -> Bool {
-    if palabras.contains(where: { dicho.contains($0) }) { return true }
     let sueltas = dicho.split(whereSeparator: { !$0.isLetter }).map(String.init)
-    // 🔴 **Y las dos primeras, juntas.** Un nombre que el idioma no tiene se
-    // parte en palabras que sí tiene: «Ciel» sale «sí, él», «Hestia» sale «es
-    // tía». Solo al principio, que es donde va el nombre al llamarla: en
-    // mitad de una frase, «si el test pasa» abriría la voz sin que nadie la
-    // llamara.
-    let juntas = sueltas.count >= 2 ? [sueltas[0] + sueltas[1]] : []
     for palabra in palabras {
-      let suya = Self.comoSuena(palabra)
-      for oida in sueltas + juntas
-      where Self.seParecen(oida, palabra) || Self.seParecen(Self.comoSuena(oida), suya) {
-        return true
+      // Un nombre de varias palabras —«señor jarvis»— se busca entero.
+      if palabra.contains(" ") {
+        if " \(sueltas.joined(separator: " ")) ".contains(" \(palabra) ") { return true }
+        continue
       }
+      if sueltas.contains(where: { esElNombre($0, palabra) }) { return true }
     }
     return false
+  }
+
+  /// Si una palabra oída es el nombre.
+  ///
+  /// 🔴 **Palabra por palabra, no «que lo contenga».** Buscarlo dentro de lo
+  /// dicho abría con «cielo» siendo «Ciel», y juntar las dos primeras palabras
+  /// —la 1.27.2— abría con cualquier frase que empezara por «si el». Visto el
+  /// 27 sep con la tele encendida.
+  ///
+  /// Suena igual, siempre vale: el reconocedor escribe lo que le suena, y
+  /// «Siel» es «Ciel». La letra de diferencia solo se tolera en nombres de
+  /// cinco o más: en uno de cuatro, una letra es otra palabra —«piel», «miel»,
+  /// «cien»—, y una escucha que abre sola es peor que una que a veces no abre.
+  static func esElNombre(_ oida: String, _ palabra: String) -> Bool {
+    let suena = comoSuena(oida), suya = comoSuena(palabra)
+    if oida == palabra || suena == suya { return true }
+    guard palabra.count >= 5 else { return false }
+    return seParecen(oida, palabra) || seParecen(suena, suya)
   }
 
   /// Cómo suena una palabra en español, para comparar lo oído con el nombre

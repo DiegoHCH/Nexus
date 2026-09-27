@@ -794,6 +794,9 @@ class _MarkdownSheetState extends State<_MarkdownSheet> {
                     onPressed: () => Navigator.of(context).pop(),
                     style: OutlinedButton.styleFrom(
                       minimumSize: Size.zero,
+                      // Sin la densidad compacta de escritorio: resta 8 px del relleno
+                      // vertical y dejaba el texto cortado por arriba. Ver [BotonDeFila].
+                      visualDensity: VisualDensity.standard,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 11,
                         vertical: 8,

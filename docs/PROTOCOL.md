@@ -217,6 +217,21 @@ La superficie de Nexus es mucho menor que la de La Oficina —allí el triaje co
   Se dice y no se deduce del orbe: `sleep` también sale al terminar un encargo escrito.
 - Va en un evento propio, `orb`, y **no dentro de `turn`**: `streaming` y el orbe
   cambian en momentos distintos, y juntarlos haría que uno arrastrara al otro.
+- **Desde cuándo piensa**, dentro del mismo evento `orb`: `since`, en milisegundos desde
+  la época, **solo** cuando el estado es `ponder`. Es el instante con el que el Mac
+  cuenta su «Pensando · 2m 10s», y el teléfono lo necesita para su fila: un «Pensando»
+  quieto se lee igual que un cuelgue. Va como **instante y no como duración** porque un
+  evento puede llegar tarde —en un resync— y un «lleva 40 s» reenviado un minuto
+  después mentiría. Es opcional en los dos sentidos: un teléfono viejo lee `state` y no
+  mira lo demás, y uno nuevo frente a un Mac viejo dice «Pensando» sin el rato.
+- **Cuál tiene el foco**, en su propio evento `focus` (`{conversation, focused}`). Solo
+  viajaba en la lista, y el foco se mueve en el Mac sin que la lista cambie: la fila
+  del teléfono seguía diciendo «te escucha» de la que ya no hasta que alguien tiraba
+  para refrescar. Una conversación que nace sin foco no manda nada —`false` es lo que
+  se supone—, y un teléfono viejo ignora el evento, como ignora cualquier clase que no
+  conoce. La lista sigue mandando `focused` igual que antes.
+- Los dos van también en la **foto**: cada conversación del snapshot lleva
+  `ponderingSince` y `focused` cuando los tiene.
 - Con cada conversación viaja también **su nombre**: el primer encargo, aplanado a una
   línea. Va en la vista y no solo en la lista porque una conversación **nace de un
   evento** —se abre desde el teléfono— y hasta la siguiente lista no tenía carpeta ni

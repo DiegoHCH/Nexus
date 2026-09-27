@@ -74,7 +74,14 @@ class EventPublisher {
     }
 
     for (final id in vivas) {
-      if (_escuchas.containsKey(id)) continue;
+      if (_escuchas.containsKey(id)) {
+        // 🔴 **Las que ya se escuchaban se vuelven a mirar**, porque la lista es la
+        // que sabe cuál tiene el foco y el foco se mueve sin que cambie nada de la
+        // conversación. El puente resta contra lo último que mandó, así que si nada
+        // cambió no sale ningún evento: mirarlas de más no cuesta nada por el canal.
+        bridge.observar(_mirar(id, ref.read(assistantControllerProvider(id))));
+        continue;
+      }
       _escuchas[id] = ref.listen(
         assistantControllerProvider(id),
         (_, hud) => bridge.observar(_mirar(id, hud)),
@@ -115,6 +122,10 @@ class EventPublisher {
       // desincroniza en el primer estado que se añada.
       orb: hud.orbState,
       title: _titulo(id, hud),
+      focused: ref.read(conversationsProvider).focusedId == id,
+      // El mismo instante con el que el Mac cuenta su «pensando»: así el teléfono
+      // cuenta el mismo rato y no uno propio que empezaría al llegar el evento.
+      ponderingSince: hud.pensandoDesde,
       reply: ultima.text,
       // Quien decide cuándo acaba la voz es el Mac —su sesión se cierra sola por
       // inactividad— así que se dice, y el teléfono cierra su micrófono al oírlo.

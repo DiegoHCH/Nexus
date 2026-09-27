@@ -216,9 +216,32 @@ class EventBridge {
     // Aparte del turno y no dentro: `streaming` y el orbe cambian en momentos
     // distintos —el micro se abre sin que haya nada corriendo— y meterlos en el
     // mismo evento haría que uno arrastrara al otro.
-    if (antes?.orb != ahora.orb) {
+    //
+    // Con `since` cuando está pensando: desde cuándo lleva callado, en milisegundos
+    // desde la época. 🔴 **Un instante y no una duración**, porque el evento puede
+    // llegar tarde —un resync, un túnel— y «lleva 40 s» reenviado un minuto después
+    // mentiría; un instante sigue siendo cierto cuando llegue. Un teléfono viejo lee
+    // `state` y no mira lo demás, así que añadirlo no le rompe nada.
+    if (antes?.orb != ahora.orb ||
+        antes?.ponderingSince != ahora.ponderingSince) {
       salida.add(
-        log.emitir('orb', {'conversation': id, 'state': ahora.orb.name}),
+        log.emitir('orb', {
+          'conversation': id,
+          'state': ahora.orb.name,
+          'since': ?ahora.ponderingSince?.millisecondsSinceEpoch,
+        }),
+      );
+    }
+
+    // ── el foco ─────────────────────────────────────────────────────────────
+    //
+    // Cuál es la que te escucha si dices su nombre. Solo viajaba en la lista, así que
+    // mover el foco en el Mac no llegaba al teléfono hasta que alguien refrescara: la
+    // fila seguía diciendo «te escucha» de la que ya no. Una conversación que nace sin
+    // foco no manda nada: `false` es lo que el teléfono ya supone.
+    if ((antes?.focused ?? false) != ahora.focused) {
+      salida.add(
+        log.emitir('focus', {'conversation': id, 'focused': ahora.focused}),
       );
     }
 
@@ -308,6 +331,8 @@ class ConversationView {
     required this.meter,
     required this.orb,
     required this.title,
+    this.focused = false,
+    this.ponderingSince,
     this.error,
     this.notice,
   });
@@ -359,6 +384,20 @@ class ConversationView {
   /// entonces era su identificador, que no dice nada.
   final String title;
 
+  /// Si es la que tiene el foco en el Mac: la que oye si dices su nombre.
+  ///
+  /// Viaja en la vista y no solo en la lista porque **el foco se mueve sin que la
+  /// lista cambie**, y el teléfono solo pide la lista al conectar o al tirar hacia
+  /// abajo.
+  final bool focused;
+
+  /// Desde cuándo lleva callado el turno, mientras el orbe está pensando.
+  ///
+  /// Es el mismo instante con el que el Mac cuenta su «Pensando · 2m 10s», y viaja
+  /// para que el teléfono cuente lo mismo: 🔴 **un rótulo quieto se lee como un
+  /// cuelgue**, y lo que tranquiliza es el número que se mueve.
+  final DateTime? ponderingSince;
+
   /// La respuesta en curso, **completa**. El puente ya se encarga de mandar solo lo
   /// que falta; guardarla entera aquí es lo que permite calcularlo.
   final String reply;
@@ -380,6 +419,8 @@ class ConversationView {
     'streaming': streaming,
     'orb': orb.name,
     'title': title,
+    if (focused) 'focused': true,
+    'ponderingSince': ?ponderingSince?.millisecondsSinceEpoch,
     'reply': reply,
     'steps': [for (final p in steps) p.toJson()],
     'meter': meter.toJson(),

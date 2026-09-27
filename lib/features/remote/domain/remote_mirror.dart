@@ -65,13 +65,10 @@ class RemoteMirror {
       // desde el teléfono nace así: sin esto se quedaba con su identificador hasta la
       // siguiente vez que se pidiera la lista.
       'title' => antes.copyWith(title: evento.data['title'] as String?),
-      'orb' => antes.copyWith(
-        orb:
-            NexusOrbState.values
-                .where((e) => e.name == evento.data['state'])
-                .firstOrNull ??
-            antes.orb,
-      ),
+      'orb' => _conOrbe(antes, evento.data),
+      // Cuál te escucha. Llega aparte de la lista porque el foco se mueve en el Mac
+      // sin que la lista cambie; con un Mac que no lo manda, manda la lista.
+      'focus' => antes.copyWith(focused: evento.data['focused'] == true),
       'activity' => antes.copyWith(
         steps: [
           for (final crudo in (evento.data['steps'] as List? ?? const []))
@@ -107,6 +104,30 @@ class RemoteMirror {
       // Una conversación que aparece por un evento se añade al final. Pasa de verdad:
       // se abre una en el Mac mientras el teléfono mira otra.
       order: order.contains(id) ? order : [...order, id],
+    );
+  }
+
+  /// El orbe de un evento `orb`, con su «desde cuándo piensa» si lo trae.
+  ///
+  /// `since` es **opcional**: un Mac anterior no lo manda, y entonces la fila dice
+  /// «Pensando» sin el rato, que es lo que decía antes. Fuera de `ponder` se borra
+  /// siempre, lo traiga o no: un rato de otro estado no cuenta nada.
+  static MirroredConversation _conOrbe(
+    MirroredConversation antes,
+    Map<String, Object?> datos,
+  ) {
+    final orbe =
+        NexusOrbState.values
+            .where((e) => e.name == datos['state'])
+            .firstOrNull ??
+        antes.orb;
+    final desde = orbe == NexusOrbState.ponder
+        ? MirroredConversation.instante(datos['since'])
+        : null;
+    return antes.copyWith(
+      orb: orbe,
+      ponderingSince: desde,
+      sinPensar: desde == null,
     );
   }
 
@@ -187,6 +208,7 @@ class MirroredConversation {
     this.focused = false,
     this.streaming = false,
     this.orb = NexusOrbState.sleep,
+    this.ponderingSince,
     this.title,
     this.reply = '',
     this.ask = '',
@@ -206,8 +228,10 @@ class MirroredConversation {
     return MirroredConversation(
       id: j['id']! as String,
       folder: j['folder'] as String?,
+      focused: j['focused'] == true,
       streaming: j['streaming'] == true,
       title: j['title'] as String?,
+      ponderingSince: instante(j['ponderingSince']),
       orb:
           NexusOrbState.values.where((e) => e.name == j['orb']).firstOrNull ??
           NexusOrbState.sleep,
@@ -240,6 +264,16 @@ class MirroredConversation {
   /// El estado del orbe en el Mac. `sleep` de partida, que es lo que le toca a una
   /// conversación de la que todavía no ha llegado nada.
   final NexusOrbState orb;
+
+  /// Desde cuándo piensa, **con el reloj del Mac**, mientras [orb] es `ponder`.
+  /// `null` si no piensa o si el Mac es de antes de mandarlo.
+  final DateTime? ponderingSince;
+
+  /// Lee un instante del canal: milisegundos desde la época. Lo que no sea un número
+  /// es que no vino, no un fallo.
+  static DateTime? instante(Object? crudo) => crudo is int
+      ? DateTime.fromMillisecondsSinceEpoch(crudo, isUtc: true).toLocal()
+      : null;
 
   /// El nombre que manda el Mac: el primer encargo, o la cola de la carpeta.
   final String? title;
@@ -334,6 +368,9 @@ class MirroredConversation {
   Map<String, Object?> toJson() => {
     'id': id,
     'folder': ?folder,
+    // El nombre también: sin él, abrir sin red enseñaba las rutas en vez de los
+    // nombres que se les pusieron.
+    'title': ?title,
     if (focused) 'focused': true,
     if (streaming) 'streaming': true,
     'reply': reply,
@@ -359,6 +396,8 @@ class MirroredConversation {
     bool? focused,
     bool? streaming,
     NexusOrbState? orb,
+    DateTime? ponderingSince,
+    bool sinPensar = false,
     String? title,
     String? reply,
     String? ask,
@@ -380,6 +419,8 @@ class MirroredConversation {
     focused: focused ?? this.focused,
     streaming: streaming ?? this.streaming,
     orb: orb ?? this.orb,
+    // Como el error: «ya no piensa» es un `null` que hay que poder decir.
+    ponderingSince: sinPensar ? null : (ponderingSince ?? this.ponderingSince),
     title: title ?? this.title,
     ask: ask ?? this.ask,
     voiceOnMac: voiceOnMac ?? this.voiceOnMac,

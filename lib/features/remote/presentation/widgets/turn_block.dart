@@ -88,13 +88,26 @@ class TurnBlock extends StatelessWidget {
               data: text,
               selectable: true,
               styleSheet: MarkdownStyleSheet(
-                p: NexusTypography.body.copyWith(color: colors.mute),
+                // A 14 y 1,45, como el `.bloque-m p` del mockup y como lo tuyo: con
+                // el cuerpo de 15 del escritorio, lo de ella se leía más grande que
+                // lo que se le pidió, y en un registro más corto cabía la mitad.
+                p: NexusTypography.body.copyWith(
+                  color: colors.mute,
+                  fontSize: 14,
+                  height: 1.45,
+                ),
                 h1: NexusTypography.subtitleMobile.copyWith(color: colors.ink),
                 h2: NexusTypography.lead.copyWith(color: colors.ink),
                 h3: NexusTypography.body.copyWith(color: colors.ink),
-                strong: NexusTypography.body.copyWith(color: colors.ink),
+                strong: NexusTypography.body.copyWith(
+                  color: colors.ink,
+                  fontSize: 14,
+                  height: 1.45,
+                ),
                 em: NexusTypography.body.copyWith(
                   color: colors.mute,
+                  fontSize: 14,
+                  height: 1.45,
                   fontStyle: FontStyle.italic,
                 ),
                 code: NexusTypography.mono.copyWith(color: colors.accent),
@@ -110,7 +123,11 @@ class TurnBlock extends StatelessWidget {
                 tableBorder: TableBorder.all(color: colors.rule),
                 tableHead: NexusTypography.label.copyWith(color: colors.ink),
                 tableBody: NexusTypography.mono.copyWith(color: colors.mute),
-                listBullet: NexusTypography.body.copyWith(color: colors.faint),
+                listBullet: NexusTypography.body.copyWith(
+                  color: colors.faint,
+                  fontSize: 14,
+                  height: 1.45,
+                ),
                 horizontalRuleDecoration: BoxDecoration(
                   border: Border(top: BorderSide(color: colors.rule)),
                 ),

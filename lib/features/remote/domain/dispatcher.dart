@@ -1,3 +1,4 @@
+import 'package:nexus/features/remote/domain/actualizacion_del_mac.dart';
 import 'package:nexus/features/remote/domain/remote_surface.dart';
 import 'package:nexus/features/remote/domain/write_phrase.dart';
 import 'package:nexus_protocol/nexus_protocol.dart';
@@ -15,10 +16,18 @@ class Dispatcher {
     required this.surface,
     required this.unlock,
     required this.phrases,
+    this.actualizador,
     Deduplicator? dedupe,
   }) : dedupe = dedupe ?? Deduplicator(ttl: const Duration(minutes: 10));
 
   final RemoteSurface surface;
+
+  /// El actualizador del Mac, si lo hay.
+  ///
+  /// Opcional porque no siempre existe —en las pruebas, o fuera de macOS, no hay
+  /// Sparkle detrás— y sin él lo honesto es contestar que no hay nada que instalar,
+  /// no fingir que se instaló.
+  final ActualizadorRemoto? actualizador;
 
   /// Quien concede y caduca el permiso de escritura.
   final WriteUnlock unlock;
@@ -101,6 +110,29 @@ class Dispatcher {
         message:
             'ese documento ocupa ${error.bytes ~/ 1024} KB y no cabe por aquí: '
             '${error.id} se abre en el Mac',
+      );
+    } on SinActualizacionEnElMac {
+      yield Failure(
+        id: call.id,
+        code: 'noUpdate',
+        message: 'el Mac no tiene ninguna versión nueva que aceptar ahora',
+      );
+    } on NoSePuedeInstalarEnElMac {
+      yield Failure(
+        id: call.id,
+        code: 'cannotInstall',
+        message:
+            'esta copia de Nexus no puede reemplazarse: hay que moverla '
+            'a Aplicaciones en el Mac',
+      );
+    } on OtraVersionEnElMac catch (error) {
+      // **El sí se dio a una versión concreta.** Si entre que el teléfono la vio y
+      // la aceptó el Mac encontró otra, instalar la nueva sería decir que sí por
+      // alguien a algo que no ha visto.
+      yield Failure(
+        id: call.id,
+        code: 'updateChanged',
+        message: 'el Mac ofrece ahora la ${error.ofrecida}',
       );
     } on FormatException catch (error) {
       yield Failure(id: call.id, code: 'badParams', message: error.message);
@@ -257,6 +289,40 @@ class Dispatcher {
 
       case RemoteMethod.unlockWrites:
         return _abrirEscritura(call);
+
+      // 🔴 **Actualizar el Mac no pide la frase de escritura**, y la decisión merece
+      // quedar escrita porque parece que debería.
+      //
+      // La frase existe para una cosa: que quien se lleve el teléfono no pueda
+      // **escribir en los archivos del usuario** (`acceptEdits`, 2.4). Esto no los
+      // toca. Y tampoco es lo que la regla de La Oficina teme de un canal que
+      // «instala cosas»: el teléfono no elige qué se instala —ni versión ni
+      // dirección; no hay parámetro que llegue a Sparkle—, solo contesta al aviso
+      // que el Mac ya tiene, con una versión del feed de Nexus que Sparkle comprobó
+      // con su firma. Es elegir entre lo que el Mac ofrece, como abrir una
+      // conversación sobre una carpeta ya emparejada.
+      //
+      // Lo que sí hace es **interrumpir el Mac**, y eso se cubre con la regla del
+      // propio aviso y no con un secreto: reiniciar espera a que termine lo que
+      // esté hablando o trabajando. Lo peor que puede hacer quien tenga el token es
+      // adelantar una actualización oficial que el Mac iba a ofrecer igual — y el
+      // registro de la 2.5 dice quién la pidió.
+      case RemoteMethod.installUpdate:
+        final actualizador = this.actualizador;
+        if (actualizador == null) throw const SinActualizacionEnElMac();
+        final version = call.params['version'];
+        final tras = await actualizador.actualizarYReiniciar(
+          version: version is String && version.isNotEmpty ? version : null,
+        );
+        // El resultado dice **qué va a pasar**, no que ya pasó: «reinicia» es que el
+        // Mac se va ahora, y el teléfono tiene que saberlo antes de perderlo.
+        return Result(id: call.id, data: {'outcome': tras.cable});
+
+      case RemoteMethod.postponeUpdate:
+        // Sin actualizador no hay nada que apartar, y decir que se apartó es cierto:
+        // «luego» sobre nada deja lo mismo.
+        await actualizador?.dejarParaLuego();
+        return Result(id: call.id, data: {'postponed': true});
     }
   }
 

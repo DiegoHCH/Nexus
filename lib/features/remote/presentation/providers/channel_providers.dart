@@ -16,6 +16,7 @@ import 'package:nexus/features/remote/domain/gatekeeper.dart';
 import 'package:nexus/features/remote/domain/tailscale.dart';
 import 'package:nexus/features/remote/presentation/assistant_surface.dart';
 import 'package:nexus/features/remote/presentation/event_publisher.dart';
+import 'package:nexus/features/remote/presentation/providers/actualizar_el_mac_providers.dart';
 import 'package:nexus/features/remote/presentation/providers/channel_token_providers.dart';
 import 'package:nexus/features/remote/presentation/providers/write_phrase_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -187,6 +188,16 @@ class ChannelController extends Notifier<ChannelState> {
           tirar: puente.descartarLoQueSuena,
         );
 
+    // La versión que corre, **leída antes de escuchar**: ver `versionDelMacProvider`.
+    // No cambia mientras el proceso vive, así que se lee una vez. Si no se puede
+    // leer, el saludo va sin ella y el teléfono simplemente no afirma nada.
+    String? version;
+    try {
+      version = await ref.read(versionDelMacProvider.future);
+    } on Object catch (error) {
+      debugPrint('el canal no pudo leer la versión: $error');
+    }
+
     final servidor = ChannelServer(
       // El despacho se construye al encender y no en un proveedor propio, porque
       // el deduplicador es suyo y tiene memoria: uno por encendido significa que
@@ -197,6 +208,7 @@ class ChannelController extends Notifier<ChannelState> {
         surface: ref.read(remoteSurfaceProvider),
         unlock: ref.read(writeUnlockProvider),
         phrases: ref.read(writePhraseStoreProvider),
+        actualizador: ref.read(actualizadorRemotoProvider),
       ),
       gatekeeper: Gatekeeper(
         token: token.value,
@@ -211,6 +223,11 @@ class ChannelController extends Notifier<ChannelState> {
       // Se lee en cada saludo, no al encender: cambiar el acento en el Mac tiene que
       // llegar al teléfono en su siguiente conexión.
       acento: () => ref.read(accentControllerProvider).chosen.toARGB32(),
+      // Las dos de la actualización, también al saludar: la versión que corre es la
+      // prueba de que un reinicio salió bien, y el aviso de ahora es lo que ve quien
+      // conecta después de que se anunciara.
+      version: () => version,
+      actualizacion: () => ref.read(actualizacionDelMacProvider)?.toJson(),
       // El micrófono del teléfono entra por aquí. El base64 se deshace en este punto
       // y no en la fuente, para que la fuente no sepa de transporte: recibe bytes,
       // igual que el micrófono del Mac.

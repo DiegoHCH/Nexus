@@ -4,9 +4,11 @@ import 'package:nexus/features/assistant/presentation/providers/assistant_contro
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
 import 'package:nexus/features/assistant/presentation/state/chat_message.dart';
+import 'package:nexus/features/remote/domain/actualizacion_del_mac.dart';
 import 'package:nexus/features/remote/domain/event_bridge.dart';
 import 'package:nexus/features/remote/domain/remote_surface.dart';
 import 'package:nexus/core/design_system/accent_preference.dart';
+import 'package:nexus/features/remote/presentation/providers/actualizar_el_mac_providers.dart';
 
 /// Engancha el estado de la app al puente de eventos.
 ///
@@ -28,6 +30,7 @@ class EventPublisher {
   final _escuchas = <String, ProviderSubscription<AssistantHudState>>{};
   ProviderSubscription<Conversations>? _deLaLista;
   ProviderSubscription<Accent>? _delAcento;
+  ProviderSubscription<ActualizacionDelMac?>? _deLaActualizacion;
 
   void arrancar() {
     // Con `fireImmediately`: quien acaba de conectar necesita el estado de ahora, no
@@ -46,6 +49,15 @@ class EventPublisher {
       if (antes?.chosen == ahora.chosen) return;
       bridge.acento(ahora.chosen.toARGB32());
     });
+
+    // La actualización, en vivo, y **sin `fireImmediately`** por lo mismo que el
+    // acento: la de ahora ya viaja en el saludo. Lo que falta es cada cambio —la
+    // descarga que avanza, el «luego» pulsado en el Mac— para que el aviso del
+    // teléfono no se quede diciendo algo que en el Mac ya no es verdad.
+    _deLaActualizacion = ref.listen(
+      actualizacionDelMacProvider,
+      (_, ahora) => bridge.actualizacion(ahora),
+    );
   }
 
   void parar() {
@@ -57,6 +69,8 @@ class EventPublisher {
     _deLaLista = null;
     _delAcento?.close();
     _delAcento = null;
+    _deLaActualizacion?.close();
+    _deLaActualizacion = null;
     bridge.cerrar();
   }
 
@@ -74,7 +88,14 @@ class EventPublisher {
     }
 
     for (final id in vivas) {
-      if (_escuchas.containsKey(id)) continue;
+      if (_escuchas.containsKey(id)) {
+        // 🔴 **Las que ya se escuchaban se vuelven a mirar**, porque la lista es la
+        // que sabe cuál tiene el foco y el foco se mueve sin que cambie nada de la
+        // conversación. El puente resta contra lo último que mandó, así que si nada
+        // cambió no sale ningún evento: mirarlas de más no cuesta nada por el canal.
+        bridge.observar(_mirar(id, ref.read(assistantControllerProvider(id))));
+        continue;
+      }
       _escuchas[id] = ref.listen(
         assistantControllerProvider(id),
         (_, hud) => bridge.observar(_mirar(id, hud)),
@@ -115,6 +136,10 @@ class EventPublisher {
       // desincroniza en el primer estado que se añada.
       orb: hud.orbState,
       title: _titulo(id, hud),
+      focused: ref.read(conversationsProvider).focusedId == id,
+      // El mismo instante con el que el Mac cuenta su «pensando»: así el teléfono
+      // cuenta el mismo rato y no uno propio que empezaría al llegar el evento.
+      ponderingSince: hud.pensandoDesde,
       reply: ultima.text,
       // Quien decide cuándo acaba la voz es el Mac —su sesión se cierra sola por
       // inactividad— así que se dice, y el teléfono cierra su micrófono al oírlo.

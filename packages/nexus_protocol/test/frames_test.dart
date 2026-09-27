@@ -150,6 +150,64 @@ void main() {
     }
   });
 
+  // Actualizar el Mac desde el teléfono: el saludo gana la versión del Mac y la
+  // actualización que ofrece, y el contrato gana los dos métodos para contestarla.
+  // Todo opcional, porque los dos extremos se actualizan por su cuenta —y este es
+  // justo el cambio que va a cruzar esa frontera en cuanto se use—.
+  group('la actualización del Mac', () {
+    test('la bienvenida lleva la versión del Mac y su aviso, y vuelven', () {
+      final vuelta = ida<Welcome>(
+        const Welcome(
+          protocol: ProtocolRange.mine,
+          seq: 3,
+          app: '1.29.0',
+          update: {'phase': 'available', 'version': '1.30.0'},
+        ),
+      );
+      expect(vuelta.app, '1.29.0');
+      expect(vuelta.update, {'phase': 'available', 'version': '1.30.0'});
+    });
+
+    test('un Mac viejo no los manda, y el teléfono nuevo no se cae', () {
+      // El saludo de un Mac de antes de esto: sin `app` ni `update`. Para el
+      // teléfono es «no hay aviso», no un saludo roto.
+      final f = Frame.decode(
+        '{"t":"welcome","protocol":{"min":1,"current":1},"seq":0}',
+      );
+      expect(f, isA<Welcome>());
+      expect((f as Welcome).app, isNull);
+      expect(f.update, isNull);
+    });
+
+    test('sin aviso, el saludo no lleva la clave', () {
+      // Ausente y no `null`: es lo que ve un teléfono viejo en cualquier caso, y así
+      // un Mac al día sin nada que ofrecer saluda igual que siempre.
+      final json = const Welcome(protocol: ProtocolRange.mine, seq: 0).toJson();
+      expect(json.containsKey('update'), isFalse);
+      expect(json.containsKey('app'), isFalse);
+    });
+
+    test('un aviso que no es un objeto se descarta, no revienta', () {
+      final f = Frame.decode(
+        '{"t":"welcome","protocol":{"min":1,"current":1},"seq":0,"update":7}',
+      );
+      expect((f as Welcome).update, isNull);
+    });
+
+    test('los dos métodos existen y viajan por su nombre', () {
+      for (final metodo in [
+        RemoteMethod.installUpdate,
+        RemoteMethod.postponeUpdate,
+      ]) {
+        final c = ida<Call>(
+          Call(id: 'u', method: metodo.name, params: {'version': '1.30.0'}),
+        );
+        expect(c.known, metodo);
+        expect(c.params['version'], '1.30.0');
+      }
+    });
+  });
+
   group('el audio del teléfono', () {
     test('va y vuelve entero', () {
       const marco = Audio(seq: 7, pcmBase64: 'AAECAwQ=');

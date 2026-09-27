@@ -26,6 +26,8 @@ class ChannelServer {
     this.despacho,
     this.snapshot,
     this.acento,
+    this.version,
+    this.actualizacion,
     this.registro,
     this.diario,
     ProtocolRange? protocolo,
@@ -56,6 +58,21 @@ class ChannelServer {
   /// reconecta después de cambiarlo recoge el nuevo. Con un valor fijo se congelaría
   /// al encender el canal, que es el mismo error que meterlo en el QR.
   final int Function()? acento;
+
+  /// La versión de Nexus que corre aquí, para el saludo.
+  ///
+  /// Una función por lo mismo que [acento]: se lee al saludar. Y es lo que deja al
+  /// teléfono comprobar que una actualización salió bien — tras reiniciar, el
+  /// primer saludo es de la versión nueva o no lo es.
+  final String? Function()? version;
+
+  /// La actualización que el Mac ofrece ahora, ya en forma de cable. `null` si no
+  /// hay ninguna.
+  ///
+  /// En el saludo porque quien conecta con la versión nueva ya anunciada no vio el
+  /// evento que la anunció, y los eventos viejos no se le mandan a quien acaba de
+  /// llegar.
+  final Map<String, Object?>? Function()? actualizacion;
 
   /// El estado entero, para quien pide desde un `seq` que ya se tiró.
   ///
@@ -409,6 +426,8 @@ class ChannelServer {
             // móvil salga en cian de fábrica cuando el escritorio lleva meses en otro
             // tono lo delata como una app distinta.
             accent: acento?.call(),
+            app: version?.call(),
+            update: actualizacion?.call(),
           ),
         );
         _anotar(

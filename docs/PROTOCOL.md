@@ -217,6 +217,21 @@ La superficie de Nexus es mucho menor que la de La Oficina —allí el triaje co
   Se dice y no se deduce del orbe: `sleep` también sale al terminar un encargo escrito.
 - Va en un evento propio, `orb`, y **no dentro de `turn`**: `streaming` y el orbe
   cambian en momentos distintos, y juntarlos haría que uno arrastrara al otro.
+- **Desde cuándo piensa**, dentro del mismo evento `orb`: `since`, en milisegundos desde
+  la época, **solo** cuando el estado es `ponder`. Es el instante con el que el Mac
+  cuenta su «Pensando · 2m 10s», y el teléfono lo necesita para su fila: un «Pensando»
+  quieto se lee igual que un cuelgue. Va como **instante y no como duración** porque un
+  evento puede llegar tarde —en un resync— y un «lleva 40 s» reenviado un minuto
+  después mentiría. Es opcional en los dos sentidos: un teléfono viejo lee `state` y no
+  mira lo demás, y uno nuevo frente a un Mac viejo dice «Pensando» sin el rato.
+- **Cuál tiene el foco**, en su propio evento `focus` (`{conversation, focused}`). Solo
+  viajaba en la lista, y el foco se mueve en el Mac sin que la lista cambie: la fila
+  del teléfono seguía diciendo «te escucha» de la que ya no hasta que alguien tiraba
+  para refrescar. Una conversación que nace sin foco no manda nada —`false` es lo que
+  se supone—, y un teléfono viejo ignora el evento, como ignora cualquier clase que no
+  conoce. La lista sigue mandando `focused` igual que antes.
+- Los dos van también en la **foto**: cada conversación del snapshot lleva
+  `ponderingSince` y `focused` cuando los tiene.
 - Con cada conversación viaja también **su nombre**: el primer encargo, aplanado a una
   línea. Va en la vista y no solo en la lista porque una conversación **nace de un
   evento** —se abre desde el teléfono— y hasta la siguiente lista no tenía carpeta ni
@@ -305,6 +320,22 @@ La superficie de Nexus es mucho menor que la de La Oficina —allí el triaje co
   lo que uno quiere cuando ya entendió por dónde va. Callar no cancela el turno, y se le
   dice al Mac en vez de silenciarlo solo aquí para que deje de mandar audio que nadie va
   a oír.
+
+- **La actualización del Mac**: el teléfono ve el mismo aviso que el Mac —«hay una
+  versión nueva», bajando, lista, esperando— y puede
+  **actualizar el Mac y reiniciarlo** o **dejar la actualización para luego**. Es
+  contestar al aviso que el Mac ya tiene, no instalar nada por red: el teléfono no
+  elige versión ni dirección
+  —ningún parámetro suyo llega a Sparkle—, solo dice que sí a la que Sparkle encontró
+  en el feed de Nexus y comprobó con su firma. Es el mismo razonamiento que abrir una
+  conversación sobre una carpeta ya emparejada: elegir entre lo que el Mac ofrece.
+  **No pide la frase de escritura**, porque no toca los archivos del usuario, que es
+  lo único que la frase protege. Lo que sí hace es **interrumpir el Mac**, y eso se
+  cubre con la regla del propio aviso: reiniciar **espera** a que termine lo que esté
+  hablando, escuchando o trabajando, se pida desde donde se pida — y el teléfono lo
+  dice antes de que se pulse. Lo peor que puede hacer quien tenga el token es
+  adelantar una actualización oficial que el Mac iba a ofrecer igual, y la 2.5 anota
+  quién la pidió. La forma de los mensajes está en la 4.8.
 
 ### Se queda en el Mac
 
@@ -421,12 +452,77 @@ Los códigos, que son lo que el móvil convierte en algo que enseñar:
 | `wrongPhrase` | la frase no era | volver a pedirla |
 | `tooManyAttempts` | se gastó el cupo de intentos | esperar |
 | `unavailable` | el canal no atiende peticiones | reconectar |
+| `noUpdate` | el Mac no tiene ninguna versión nueva que aceptar ahora | quitar el aviso |
+| `updateChanged` | el Mac ofrece ya otra versión que la aceptada | enseñar la nueva antes de aceptar |
+| `cannotInstall` | esa copia de Nexus no puede reemplazarse (sin mover a Aplicaciones) | decirlo; se arregla en el Mac |
 | `internal` | algo se rompió por dentro | reintentar |
 
 Dos reglas sobre lo que **no** viaja. El `internal` va **sin detalles**: lo que sabe
 el Mac se queda en su registro. Y la frase de escritura no aparece nunca en un marco
 de respuesta ni en el registro — el registro anota el método y jamás los parámetros,
 porque `debugPrint` acaba en el registro del sistema.
+
+### 4.8 · La actualización del Mac
+
+Todo **opcional y aditivo**, sin subir la versión del protocolo: un teléfono viejo
+ignora el evento nuevo y los campos nuevos del saludo, y un teléfono nuevo contra un
+Mac viejo no ve nada — sin aviso y sin fallo.
+
+**En el saludo** (`welcome`), dos campos:
+
+- `app`: la versión de Nexus que corre en el Mac. Es lo que deja al teléfono
+  **comprobar** que una actualización salió bien en vez de suponerlo: tras reiniciar,
+  el primer saludo es de la versión nueva o no lo es.
+- `update`: el aviso de ahora, si hay uno, con la forma de abajo. Ausente si no hay.
+  Va en el saludo además de en su evento por lo mismo que el acento: quien conecta
+  con la versión ya anunciada no vio el evento que la anunció.
+
+**El evento `update`**, sin `conversation` —es del Mac entero— y numerado como todo,
+para que el resync lo traiga. Es **una foto, no un cambio**: cada uno sustituye al
+anterior entero.
+
+| clave | qué es |
+|---|---|
+| `phase` | `available`, `downloading`, `extracting`, `ready`, `installing`, `failed` — o `none`, que es «ya no hay aviso» (se instaló, se dejó para luego) |
+| `version` | a la que se va |
+| `current` | la que corre |
+| `progress` | 0–100 **en pasos de cinco**, al bajar y al preparar. En pasos porque cada cambio ocupa sitio en el búfer del resync y Sparkle avisa por cada trozo |
+| `downloaded` | ya estaba bajada: aceptar reinicia en el acto |
+| `restartWhenDone` | ya se dijo que sí a media descarga: reiniciará al terminar |
+| `waiting` | aceptada y **esperando a que termine lo que está en marcha** |
+| `busy` | ahora hay algo hablando, escuchando o trabajando: el teléfono lo dice antes de que se pulse |
+| `installable` | `false` si esa copia no puede reemplazarse (ausente es `true`) |
+| `message` | lo que dijo el actualizador al fallar |
+
+Una `phase` que el teléfono no conozca se lee como «no hay aviso»: un aviso que no se
+entiende es mejor no enseñarlo que enseñarlo mal.
+
+El teléfono enseña el aviso **cuando lo enseña el Mac**: sin aviso en el Mac —en
+reposo, o apartado con «Más tarde» a media descarga— no hay evento que lo pinte.
+«Buscando» y «estás al día» no viajan: solo existen tras una comprobación pedida
+delante del Mac.
+
+**Los dos métodos**:
+
+- `installUpdate`, con `version` —la que vio quien acepta—. Hace **lo mismo que el sí
+  del aviso del Mac en la fase en que esté**: por bajar, bajarla y reiniciar al
+  terminar; bajando, reiniciar al terminar; lista, reiniciar. Reiniciar espera siempre
+  a que termine lo que está en marcha. El `result` dice qué va a pasar en `outcome`:
+  `restarting` (se va ya), `waiting` (esperando a que termine algo) o `downloading`
+  (reiniciará al terminar de bajar). Si el Mac ofrece otra versión que la de
+  `version`, contesta `updateChanged` en vez de aceptar por nadie la que no se vio.
+- `postponeUpdate`: lo mismo que «Más tarde» en el Mac. A media descarga la aparta sin
+  cancelarla; en cualquier otra fase quita el aviso.
+
+Los dos se reintentan con el mismo `clientMsgId` (4.3): aceptar lo aceptado sigue
+esperando lo mismo, y un «luego» perdido dejaría el aviso puesto en el Mac.
+
+**El tramo en el que el Mac no está lo lleva el teléfono**, porque el Mac no puede
+contarlo: si el enlace cae con el Mac comprometido a reiniciarse —`installing`, o
+`ready` con `waiting` o `restartWhenDone`, o tras un `restarting`— el teléfono dice
+«actualizando el Mac» en vez de «se perdió el enlace», llama a la puerta cada pocos
+segundos en vez de esperar la escalera de reintentos, y al volver compara `app` con la
+versión esperada. Si en dos minutos no ha vuelto, lo dice y ofrece volver a intentar.
 
 ---
 

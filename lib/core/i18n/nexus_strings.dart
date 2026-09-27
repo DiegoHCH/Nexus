@@ -53,6 +53,7 @@ abstract class NexusStrings
         EscenarioStrings,
         ConversacionStrings,
         MovilStrings,
+        MovilActualizarStrings,
         AjustesStrings {
   const NexusStrings();
 
@@ -76,6 +77,7 @@ class NexusStringsEs extends NexusStrings
         EscenarioStringsEs,
         ConversacionStringsEs,
         MovilStringsEs,
+        MovilActualizarStringsEs,
         AjustesStringsEs {
   const NexusStringsEs();
 }
@@ -93,6 +95,7 @@ class NexusStringsEn extends NexusStrings
         EscenarioStringsEn,
         ConversacionStringsEn,
         MovilStringsEn,
+        MovilActualizarStringsEn,
         AjustesStringsEn {
   const NexusStringsEn();
 }

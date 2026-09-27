@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:nexus/features/assistant/presentation/widgets/el_riel_de_la_sala.dart';
 import 'package:nexus/features/artifacts/presentation/widgets/artifacts_sheet.dart';
 import 'package:nexus/features/assistant/presentation/widgets/el_escenario.dart';
+import 'package:nexus/features/assistant/presentation/widgets/el_subtitulo_al_compas.dart';
 import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
 import 'package:nexus/features/oido/presentation/providers/el_oido_que_espera.dart';
 import 'package:nexus/core/audio/el_nivel_de_la_voz.dart';
@@ -1093,31 +1094,24 @@ class _ConLaPreguntaTenue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final (dicho, pregunta) = ElAdelantoDeLaPuerta.laPreguntaAparte(texto);
     // 🔴 **Un subtítulo, no una nota**: el `.subt-d` del mockup, Instrument
     // Sans 300 a 30 px. A 13 px la frase de la puerta se leía como la ayuda de
     // un campo, cuando es lo único que hay que leer en la pantalla —la voz
     // pregunta, y esto es lo mismo escrito para quien no pueda oírla—.
     final estilo = NexusTypography.subtitle.copyWith(
-      color: colors.ink,
       fontSize: 30,
       letterSpacing: -0.6,
       height: 1.3,
     );
-    return Text.rich(
-      TextSpan(
-        text: dicho,
-        children: [
-          if (pregunta.isNotEmpty)
-            TextSpan(
-              text: pregunta,
-              style: estilo.copyWith(color: colors.faint),
-            ),
-        ],
-      ),
-      textAlign: TextAlign.center,
-      style: estilo,
+    // 🔴 **Al compás de la voz, no con la pregunta en gris fijo.** La
+    // pregunta iba siempre en tenue, y con la voz ya diciéndola se leía como
+    // que el subtítulo se había quedado atascado a la mitad (reportado el 27
+    // sep). Ahora lo que falta por decir va en gris y se enciende al decirlo.
+    return ElSubtituloAlCompas(
+      texto: '$dicho$pregunta',
+      estilo: estilo,
+      entero: true,
     );
   }
 }

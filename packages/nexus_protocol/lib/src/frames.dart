@@ -103,12 +103,25 @@ final class Hello extends Frame {
 
 /// El servidor acepta y dice por dónde va la numeración de eventos.
 final class Welcome extends Frame {
-  const Welcome({required this.protocol, required this.seq, this.accent});
+  const Welcome({
+    required this.protocol,
+    required this.seq,
+    this.accent,
+    this.app,
+    this.update,
+  });
 
   factory Welcome.fromJson(Map<String, Object?> j) => Welcome(
     protocol: ProtocolRange.fromJson(j['protocol']! as Map<String, Object?>),
     seq: j['seq']! as int,
     accent: j['accent'] as int?,
+    app: j['app'] as String?,
+    // Solo si es un objeto: cualquier otra cosa es un Mac que no se entiende, y un
+    // aviso que no se entiende no se enseña — no se revienta por él.
+    update: switch (j['update']) {
+      final Map<String, Object?> datos => datos,
+      _ => null,
+    },
   );
 
   final ProtocolRange protocol;
@@ -130,6 +143,30 @@ final class Welcome extends Frame {
   /// justo para no tener que hacer eso.
   final int? accent;
 
+  /// La versión de Nexus que corre en el Mac. `null` si el Mac es más viejo que este
+  /// campo.
+  ///
+  /// Hace falta para **decir que la actualización salió bien** y no suponerlo: el
+  /// teléfono pide «actualizar y reiniciar», el Mac se va, y lo único que prueba que
+  /// volvió en la versión nueva es que lo diga al saludar. Sin esto el teléfono solo
+  /// podría creer que funcionó.
+  ///
+  /// Es el gemelo de [Hello.appVersion], que va en el otro sentido.
+  final String? app;
+
+  /// Si el Mac tiene una versión nueva que ofrecer, y por dónde va, en la forma que
+  /// describe `docs/PROTOCOL.md` (el evento `update`). `null` si no hay nada —o si
+  /// el Mac es más viejo que este campo, que para el teléfono es lo mismo: no hay
+  /// aviso que enseñar—.
+  ///
+  /// Un mapa y no un tipo propio por lo mismo que [Event.data]: el paquete es el
+  /// sobre, y lo que va dentro lo leen los dos extremos con su propio modelo.
+  ///
+  /// Va en el saludo **además** de en su evento porque quien conecta con la
+  /// actualización ya ofrecida no vería el evento que la anunció — igual que el
+  /// acento.
+  final Map<String, Object?>? update;
+
   /// El último evento emitido. Con esto el cliente sabe si va al día o le faltan
   /// cosas, **sin pedir el snapshot entero**.
   final int seq;
@@ -140,6 +177,8 @@ final class Welcome extends Frame {
     'protocol': protocol.toJson(),
     'seq': seq,
     'accent': ?accent,
+    'app': ?app,
+    'update': ?update,
   };
 }
 

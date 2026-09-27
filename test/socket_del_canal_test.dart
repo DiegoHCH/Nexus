@@ -34,6 +34,8 @@ void main() {
     Dispatcher? despacho,
     Snapshot Function()? snapshot,
     EventLog? registroEventos,
+    String? Function()? version,
+    Map<String, Object?>? Function()? actualizacion,
   }) async {
     final registro = <String>[];
     // Se pide un puerto libre primero, se cierra, y se reusa: es la única forma de
@@ -51,6 +53,8 @@ void main() {
       log: registroEventos ?? EventLog(),
       despacho: despacho,
       snapshot: snapshot,
+      version: version,
+      actualizacion: actualizacion,
       registro: registro.add,
     );
     await s.start(direccion: InternetAddress.loopbackIPv4, puerto: libre);
@@ -277,6 +281,39 @@ void main() {
       );
       await ws.close();
     });
+
+    test(
+      'la bienvenida dice qué versión corre y qué actualización ofrece',
+      () async {
+        // Se leen **al saludar**: es lo que deja al teléfono comprobar, tras un
+        // reinicio, que el Mac volvió en la versión nueva.
+        servidor = await servidorListo(
+          version: () => '1.29.0',
+          actualizacion: () => const {'phase': 'ready', 'version': '1.30.0'},
+        );
+        final ws = await conectar(servidor);
+        final recibido = Completer<Frame>();
+        ws.listen((dynamic d) {
+          if (!recibido.isCompleted) {
+            recibido.complete(Frame.decode(d as String));
+          }
+        });
+        ws.add(
+          const Hello(
+            protocol: ProtocolRange.mine,
+            peer: Peer.mobile,
+            appVersion: '0.0.8',
+          ).encode(),
+        );
+
+        final bienvenida =
+            await recibido.future.timeout(const Duration(seconds: 5))
+                as Welcome;
+        expect(bienvenida.app, '1.29.0');
+        expect(bienvenida.update?['phase'], 'ready');
+        await ws.close();
+      },
+    );
 
     test('un cliente viejo recibe «actualízate tú», no un fallo raro', () async {
       servidor = await servidorListo();

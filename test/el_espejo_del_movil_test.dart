@@ -67,8 +67,12 @@ void main() {
     String? aviso,
     NexusOrbState orbe = NexusOrbState.sleep,
     String titulo = 'un encargo',
+    bool foco = false,
+    DateTime? pensandoDesde,
   }) => ConversationView(
     conversationId: id,
+    focused: foco,
+    ponderingSince: pensandoDesde,
     streaming: streaming,
     reply: reply,
     ask: pregunta,
@@ -279,6 +283,85 @@ void main() {
       expect(conv.steps.single.done, isTrue);
       expect(conv.percent, 50);
       expect(conv.error, 'algo pasó');
+    });
+  });
+
+  group('lo que la fila de la lista necesita', () {
+    // La fila dice en qué anda cada una: «Pensando · 2 min 10 s», «te escucha». El
+    // rato y el foco no viajaban por eventos, así que el teléfono no podía decirlos.
+
+    test('el rato pensando viaja con el orbe, y se borra al dejar de pensar', () {
+      var espejo = const RemoteMirror();
+      final desde = DateTime.utc(2026, 9, 27, 10, 0, 0);
+      puente.observar(
+        vista(
+          'a',
+          streaming: true,
+          orbe: NexusOrbState.ponder,
+          pensandoDesde: desde,
+        ),
+      );
+      pasarElTiempo();
+      espejo = reflejar(espejo);
+
+      final pensando = espejo.conversations['a']!;
+      expect(pensando.orb, NexusOrbState.ponder);
+      // El mismo instante, con el reloj del Mac: el teléfono cuenta el mismo rato.
+      expect(pensando.ponderingSince!.isAtSameMomentAs(desde), isTrue);
+
+      puente.observar(vista('a', streaming: true, orbe: NexusOrbState.speak));
+      pasarElTiempo();
+      espejo = reflejar(espejo);
+      expect(espejo.conversations['a']!.ponderingSince, isNull);
+    });
+
+    test('un Mac que no manda el rato deja «pensando» sin él', () {
+      // Hacia atrás: un Mac anterior manda `orb` con `state` y nada más.
+      final espejo = const RemoteMirror().aplicar(
+        const Event(
+          seq: 1,
+          kind: 'orb',
+          data: {'conversation': 'a', 'state': 'ponder'},
+        ),
+      );
+      expect(espejo.conversations['a']!.orb, NexusOrbState.ponder);
+      expect(espejo.conversations['a']!.ponderingSince, isNull);
+    });
+
+    test('el foco se mueve sin pedir la lista', () {
+      var espejo = const RemoteMirror();
+      puente.observar(vista('a', foco: true));
+      puente.observar(vista('b'));
+      pasarElTiempo();
+      espejo = reflejar(espejo);
+      expect(espejo.conversations['a']!.focused, isTrue);
+      expect(espejo.conversations['b']?.focused ?? false, isFalse);
+
+      // El foco pasa a la otra en el Mac: las dos filas se enteran solas.
+      puente.observar(vista('a'));
+      puente.observar(vista('b', foco: true));
+      pasarElTiempo();
+      espejo = reflejar(espejo);
+      expect(espejo.conversations['a']!.focused, isFalse);
+      expect(espejo.conversations['b']!.focused, isTrue);
+    });
+
+    test('el foco y el rato también van en la foto', () {
+      final desde = DateTime.utc(2026, 9, 27, 10);
+      puente.observar(
+        vista(
+          'a',
+          foco: true,
+          orbe: NexusOrbState.ponder,
+          pensandoDesde: desde,
+        ),
+      );
+      pasarElTiempo();
+      final conv = RemoteMirror.desdeSnapshot(
+        puente.snapshot(),
+      ).conversations['a']!;
+      expect(conv.focused, isTrue);
+      expect(conv.ponderingSince!.isAtSameMomentAs(desde), isTrue);
     });
   });
 

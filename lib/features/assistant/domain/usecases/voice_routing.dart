@@ -38,6 +38,30 @@ abstract final class VoiceRouting {
     caseSensitive: false,
   );
 
+  /// Si solo se pregunta la hora o la fecha, que ella lee del reloj del Mac.
+  ///
+  /// 🔴 **Iba a Claude**, y era lo correcto mientras ella no tenía reloj: de
+  /// memoria decía una hora inventada con toda seguridad. Ahora la hora de
+  /// este Mac viaja en su prompt —ver `GeminiVoiceGateway.laHoraDeAhora`— y
+  /// mandar a Claude «¿qué hora es?» era pagar un encargo entero por lo que
+  /// sabe cualquier reloj (reportado el 27 sep). La frase entera tiene que
+  /// ser eso: «¿qué hora es en Tokio?» sigue siendo un encargo.
+  static bool esElReloj(String utterance) =>
+      _elReloj.hasMatch(_limpia(utterance));
+
+  static final _elReloj = RegExp(
+    '^(?:(?:$_relleno|$_cortesia) )*(?:$_laHora)(?: (?:$_relleno|$_cortesia))*\$',
+    caseSensitive: false,
+  );
+
+  static const _laHora =
+      r'qu[eé] hora es|qu[eé] horas son|qu[eé] hora tienes|me dices la hora|'
+      r'dime la hora|la hora|qu[eé] d[ií]a es hoy|qu[eé] d[ií]a es|'
+      r'qu[eé] fecha es hoy|qu[eé] fecha es|a cu[aá]ntos estamos|'
+      r'en qu[eé] d[ií]a estamos|what time is it|what.?s the time|'
+      r'what day is it|what day is it today|what.?s the date|'
+      r'what.?s today.?s date';
+
   /// Si con esto te despides: se cierra la conversación al acabar de sonar su
   /// respuesta, sin esperar al plazo de inactividad.
   ///
@@ -165,6 +189,7 @@ abstract final class VoiceRouting {
     if (clean.isEmpty) return false;
     // Lo suyo, primero: ver [_quienEres] para por qué va delante del tope.
     if (esSobreElla(clean)) return false;
+    if (esElReloj(clean)) return false;
     if (clean.split(' ').length > _maxSmallTalkWords) return true;
     return !_smallTalk.hasMatch(clean);
   }

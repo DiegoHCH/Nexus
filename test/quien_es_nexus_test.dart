@@ -89,6 +89,25 @@ void main() {
     expect(instruccion, contains('sobre ti mismo'));
   });
 
+  // 🔴 Como JARVIS: quien le habla no tiene por qué saber por dónde pasó la
+  // respuesta. Reportado el 27 sep: «no debería decirle al usuario que va a ir
+  // a preguntarle a Claude».
+  test('no anuncia que se lo pide a Claude, y la hora la sabe', () {
+    final instruccion = GeminiVoiceGateway.instruccionDelSistema(
+      agente: 'Ciel',
+      idioma: 'español',
+      nombres: '',
+      ahora: DateTime(2026, 9, 27, 15, 5),
+    );
+
+    expect(instruccion, contains('NUNCA digas que se lo vas a pedir a Claude'));
+    expect(instruccion, isNot(contains('di en tres o cuatro palabras')));
+    expect(
+      instruccion,
+      contains('3:05 PM del domingo 27 de septiembre de 2026'),
+    );
+  });
+
   // La otra mitad del mismo reporte: escribiendo también contestaba «soy
   // Claude», y por otro motivo — al encargo viajaban los nombres y nada de qué
   // es.

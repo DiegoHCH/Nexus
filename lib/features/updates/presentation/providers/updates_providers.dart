@@ -162,6 +162,73 @@ class UpdatesController extends Notifier<UpdatesState> {
     });
   }
 
+  /// «Actualizar y reiniciar» de una sola vez: **lo que el aviso del Mac hace al
+  /// decirle que sí, en el paso en que esté**. Lo usa el teléfono, que tiene un
+  /// solo botón donde el Mac tiene uno por fase.
+  ///
+  /// No es una tercera forma de instalar: cada rama es el botón principal que el
+  /// aviso enseña en esa fase —«Actualizar», «Reiniciar al terminar», «Reiniciar»—
+  /// y ninguna hace nada que el aviso no haga. En particular **reiniciar sigue
+  /// esperando** a que termine lo que está en marcha ([reiniciarCuandoPueda]):
+  /// pedirlo desde lejos no da permiso para cortar una frase que no se ve.
+  Future<TrasActualizar> actualizarYReiniciar() async {
+    final instalable =
+        (ref.read(installabilityProvider).value ?? Installability.unknown)
+            .canInstall;
+
+    switch (state.stage) {
+      // El aviso tampoco lo ofrece: desde una copia traslocada no hay nada que
+      // reemplazar, y aceptar solo llevaría a un fallo al final de la descarga.
+      case UpdateFound() when !instalable:
+        return TrasActualizar.noSePuede;
+
+      // Ya bajada de una vuelta anterior: el aviso ofrece «Reiniciar».
+      case UpdateFound(alreadyDownloaded: true):
+      case UpdateReady():
+        await reiniciarCuandoPueda();
+        return state.esperaATerminar
+            ? TrasActualizar.espera
+            : TrasActualizar.reinicia;
+
+      // Por bajar: «Actualizar» del aviso, con «Reiniciar al terminar» ya dicho.
+      // Se apunta **antes** de pedir la descarga para que el `ready` que llegue la
+      // encuentre apuntada.
+      case UpdateFound():
+        reiniciarAlTerminar();
+        await instalar();
+        return TrasActualizar.descarga;
+
+      // Bajando o preparándose: «Reiniciar al terminar». Si se había apartado con
+      // «Más tarde», vuelve a la vista: quien acaba de decir que sí quiere verlo.
+      case UpdateDownloading():
+      case UpdateExtracting():
+        state = state.copyWith(reiniciaAlTerminar: true, enSegundoPlano: false);
+        return TrasActualizar.descarga;
+
+      case UpdateIdle():
+      case UpdateChecking():
+      case UpdateUpToDate():
+      case UpdateInstalling():
+      case UpdateFailed():
+        return TrasActualizar.nadaQueAceptar;
+    }
+  }
+
+  /// «Más tarde», en el paso en que esté: a media descarga la aparta sin
+  /// cancelarla ([apartar]); en cualquier otro, quita el aviso ([descartar]).
+  ///
+  /// Es lo mismo que decide el aviso con sus botones, dicho en un solo sitio para
+  /// que el «luego» del teléfono no pueda hacer otra cosa que el del Mac.
+  Future<void> dejarParaLuego() async {
+    switch (state.stage) {
+      case UpdateDownloading():
+      case UpdateExtracting():
+        apartar();
+      case _:
+        await descartar();
+    }
+  }
+
   /// «Reiniciar al terminar», pulsado mientras baja: se apunta, y al llegar
   /// «lista» se reinicia sola —esperando, si hace falta—.
   void reiniciarAlTerminar() {
@@ -294,6 +361,24 @@ class UpdatesController extends Notifier<UpdatesState> {
 
     debugPrint('actualizaciones · ${evento.name} → ${state.stage.runtimeType}');
   }
+}
+
+/// Qué pasó con un «actualizar y reiniciar».
+enum TrasActualizar {
+  /// Se va ya.
+  reinicia,
+
+  /// Aceptada, esperando a que termine lo que está en marcha.
+  espera,
+
+  /// Aceptada, bajando primero: reiniciará al terminar.
+  descarga,
+
+  /// No había nada que aceptar en ese momento.
+  nadaQueAceptar,
+
+  /// Esta copia no puede reemplazarse a sí misma.
+  noSePuede,
 }
 
 final updatesControllerProvider =

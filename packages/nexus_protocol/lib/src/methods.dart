@@ -111,6 +111,22 @@ enum RemoteMethod {
   /// solo aquí para que deje de mandar audio que nadie va a oír.
   silenceReply('callar la respuesta y seguir leyendo'),
 
+  /// Aceptar la versión nueva que el Mac ya ofrece: instalarla y reiniciar Nexus.
+  ///
+  /// Es **el mismo sí que se da en el aviso del Mac**, y nada más: el teléfono no
+  /// elige qué se instala —ni versión ni dirección—, solo contesta a lo que Sparkle
+  /// ya encontró en el feed de Nexus y comprobó con su firma. Y el reinicio **espera**
+  /// a que termine lo que esté en marcha, igual que al pulsarlo en el Mac.
+  ///
+  /// **No pide la frase de escritura**: la frase protege los archivos del usuario, y
+  /// esto no los toca. Lo que hace es interrumpir el Mac, y por eso respeta la misma
+  /// espera que el Mac en vez de saltársela.
+  installUpdate('actualizar el Mac y reiniciarlo'),
+
+  /// «Luego»: lo mismo que «Más tarde» en el aviso del Mac. Aparta la versión nueva
+  /// sin instalarla y sin cancelar una descarga en curso.
+  postponeUpdate('dejar la actualización para luego'),
+
   unlockWrites('subir el permiso');
 
   const RemoteMethod(this.enElDocumento);

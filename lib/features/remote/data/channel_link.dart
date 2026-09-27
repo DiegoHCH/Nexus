@@ -292,6 +292,31 @@ class ChannelLink {
   /// nadie lo pida.
   Stream<int> get acento => _acento.stream;
 
+  final _actualizacion = StreamController<DelMac>.broadcast();
+
+  /// Lo que el Mac cuenta de su propia actualización: en cada saludo —con la versión
+  /// que corre— y cada vez que cambia.
+  ///
+  /// **Un solo stream para los dos**, y no uno para la versión y otro para el aviso:
+  /// al volver de un reinicio es la pareja la que dice si salió bien —«corre la
+  /// nueva y no hay nada pendiente»—, y en dos streams el orden en que llegan ya no
+  /// sería cosa de este archivo.
+  Stream<DelMac> get actualizacion => _actualizacion.stream;
+
+  /// Lo último que llegó por [actualizacion], para quien empiece a escuchar tarde.
+  ///
+  /// Hace falta porque el stream es de difusión y no guarda nada: quien se suscribe
+  /// después del saludo —el aviso se monta cuando ya se está conectando— perdería
+  /// la versión que el Mac anunció al entrar. Y basta con lo último porque cada
+  /// mensaje es una foto entera, no un cambio.
+  DelMac? get ultimaActualizacion => _ultimaActualizacion;
+  DelMac? _ultimaActualizacion;
+
+  void _contarActualizacion(DelMac delMac) {
+    _ultimaActualizacion = delMac;
+    if (!_actualizacion.isClosed) _actualizacion.add(delMac);
+  }
+
   ChannelSocket? _socket;
   StreamSubscription<String>? _escucha;
 
@@ -327,6 +352,7 @@ class ChannelLink {
     await _eventos.close();
     await _fotos.close();
     await _acento.close();
+    await _actualizacion.close();
     await _audio.close();
     await _descartar.close();
   }
@@ -412,7 +438,12 @@ class ChannelLink {
     // abrir dos veces es una sesión, cerrar lo cerrado es lo mismo. Con id nuevo, **un
     // cierre perdido dejaría el micrófono abierto**, que es el peor final de esta lista.
     RemoteMethod.startVoice ||
-    RemoteMethod.stopVoice => true,
+    RemoteMethod.stopVoice ||
+    // Aceptar y aplazar la actualización del Mac cambian algo, y los dos se pueden
+    // repetir sin daño —aceptar lo ya aceptado sigue esperando lo mismo—, así que con
+    // el mismo id: con uno nuevo, un «luego» perdido dejaría el aviso puesto en el Mac.
+    RemoteMethod.installUpdate ||
+    RemoteMethod.postponeUpdate => true,
     // **Terminar de sonar es un hecho, no un efecto**, y por eso va abajo con las
     // lecturas aunque no lea nada: reintentado con el mismo id volvería «duplicada» y
     // ninguna respuesta, y el Mac se quedaría esperando un aviso que ya no se manda.
@@ -569,8 +600,12 @@ class ChannelLink {
     }
 
     switch (marco) {
-      case Welcome(:final seq, :final accent):
+      case Welcome(:final seq, :final accent, :final app, :final update):
         if (accent != null && !_acento.isClosed) _acento.add(accent);
+        // **Siempre**, aunque no traiga aviso: un saludo sin `update` es «no hay
+        // nada», y es justo lo que dice un Mac que acaba de volver de instalar. Un
+        // Mac viejo tampoco lo trae, y para él es igual de cierto.
+        _contarActualizacion(DelMac(version: app, datos: update, saludo: true));
         // **El `seq` de la bienvenida dice si vamos al día sin pedir nada.** Si
         // coincide con lo último visto, no hay resync que hacer; si no, se pide.
         //
@@ -695,6 +730,13 @@ class ChannelLink {
       return;
     }
 
+    // La actualización tampoco es de ninguna conversación: va a su propio stream,
+    // por lo mismo que el acento.
+    if (evento.kind == 'update') {
+      _contarActualizacion(DelMac(datos: evento.data));
+      return;
+    }
+
     if (evento.kind == 'accent') {
       final argb = evento.data['argb'];
       if (argb is int && !_acento.isClosed) _acento.add(argb);
@@ -748,6 +790,26 @@ class ChannelLink {
     _ahora = nuevo;
     _estado.add(nuevo);
   }
+}
+
+/// Lo que el Mac dijo de su actualización, tal como llegó.
+///
+/// Crudo a propósito: el enlace es el sobre y no sabe qué forma tiene un aviso —eso
+/// es del dominio, que es quien lo lee—.
+@immutable
+class DelMac {
+  const DelMac({this.version, this.datos, this.saludo = false});
+
+  /// La versión de Nexus que corre en el Mac. Solo en el saludo, y `null` si el Mac
+  /// es más viejo que el campo.
+  final String? version;
+
+  /// El aviso, o `null` si no hay ninguno.
+  final Map<String, Object?>? datos;
+
+  /// Si llegó con el saludo. Importa porque solo el saludo dice qué versión corre:
+  /// un evento suelto no prueba que el Mac haya vuelto.
+  final bool saludo;
 }
 
 class _VersionIncompatible implements Exception {

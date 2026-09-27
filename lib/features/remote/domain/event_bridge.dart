@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:nexus/features/remote/domain/actualizacion_del_mac.dart';
 import 'package:nexus/features/remote/domain/event_log.dart';
 import 'package:nexus/features/remote/domain/remote_surface.dart';
 import 'package:nexus_protocol/nexus_protocol.dart';
@@ -102,6 +103,31 @@ class EventBridge {
   void acento(int argb) {
     if (_cerrado) return;
     publicar(log.emitir('accent', {'argb': argb}));
+  }
+
+  /// Lo último que se contó de la actualización del Mac.
+  ///
+  /// Para no repetirlo: quien llama avisa en cada cambio del actualizador —y la
+  /// descarga cambia por cada trozo—, pero aquí solo sale lo que el teléfono
+  /// vería distinto.
+  ActualizacionDelMac? _actualizacionEnviada;
+  var _actualizacionContada = false;
+
+  /// Avisa de cómo va la actualización del Mac. `null` es que ya no hay aviso: se
+  /// instaló, se dejó para luego o se apartó la descarga.
+  ///
+  /// **Sin conversación**, como el acento: la versión es del Mac entero. Y por el
+  /// registro numerado para que un teléfono que se reincorpora la reciba en su
+  /// resync sin un camino aparte — el saludo ya lleva la de ahora para quien
+  /// conecta de nuevas.
+  void actualizacion(ActualizacionDelMac? vista) {
+    if (_cerrado) return;
+    if (_actualizacionContada && vista == _actualizacionEnviada) return;
+    _actualizacionContada = true;
+    _actualizacionEnviada = vista;
+    publicar(
+      log.emitir('update', vista?.toJson() ?? ActualizacionDelMac.ninguna),
+    );
   }
 
   /// «Tira lo que te quede por sonar.»

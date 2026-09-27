@@ -4,9 +4,11 @@ import 'package:nexus/features/assistant/presentation/providers/assistant_contro
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
 import 'package:nexus/features/assistant/presentation/state/chat_message.dart';
+import 'package:nexus/features/remote/domain/actualizacion_del_mac.dart';
 import 'package:nexus/features/remote/domain/event_bridge.dart';
 import 'package:nexus/features/remote/domain/remote_surface.dart';
 import 'package:nexus/core/design_system/accent_preference.dart';
+import 'package:nexus/features/remote/presentation/providers/actualizar_el_mac_providers.dart';
 
 /// Engancha el estado de la app al puente de eventos.
 ///
@@ -28,6 +30,7 @@ class EventPublisher {
   final _escuchas = <String, ProviderSubscription<AssistantHudState>>{};
   ProviderSubscription<Conversations>? _deLaLista;
   ProviderSubscription<Accent>? _delAcento;
+  ProviderSubscription<ActualizacionDelMac?>? _deLaActualizacion;
 
   void arrancar() {
     // Con `fireImmediately`: quien acaba de conectar necesita el estado de ahora, no
@@ -46,6 +49,15 @@ class EventPublisher {
       if (antes?.chosen == ahora.chosen) return;
       bridge.acento(ahora.chosen.toARGB32());
     });
+
+    // La actualización, en vivo, y **sin `fireImmediately`** por lo mismo que el
+    // acento: la de ahora ya viaja en el saludo. Lo que falta es cada cambio —la
+    // descarga que avanza, el «luego» pulsado en el Mac— para que el aviso del
+    // teléfono no se quede diciendo algo que en el Mac ya no es verdad.
+    _deLaActualizacion = ref.listen(
+      actualizacionDelMacProvider,
+      (_, ahora) => bridge.actualizacion(ahora),
+    );
   }
 
   void parar() {
@@ -57,6 +69,8 @@ class EventPublisher {
     _deLaLista = null;
     _delAcento?.close();
     _delAcento = null;
+    _deLaActualizacion?.close();
+    _deLaActualizacion = null;
     bridge.cerrar();
   }
 

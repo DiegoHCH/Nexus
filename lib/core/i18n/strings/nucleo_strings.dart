@@ -328,6 +328,15 @@ mixin NucleoStrings {
   String get personalidadDeLaCasa;
   String get personalidadAbrir;
   String get personalidadGuardada;
+
+  /// Las preguntas con opciones de Claude. Ver [LaPreguntaDeClaude].
+  String get preguntaEnEspera;
+  String get preguntaRecomendada;
+  String get preguntaOtra;
+  String get preguntaResponder;
+  String get preguntaNoContestar;
+  String get preguntaNoContestadaMotivo;
+  String get preguntaSinContestar;
   String ejemploDeLoQuePides(String agente);
   String ejemploDeLoQueContesta(String vocativo);
   String get avisosExplainer;
@@ -878,6 +887,22 @@ mixin NucleoStringsEs implements NucleoStrings {
   @override
   String get personalidadGuardada =>
       'Guardada: vale desde la próxima conversación.';
+  @override
+  String get preguntaEnEspera =>
+      'Claude está esperando tu respuesta para seguir.';
+  @override
+  String get preguntaRecomendada => 'Recomendada';
+  @override
+  String get preguntaOtra => 'Otra respuesta…';
+  @override
+  String get preguntaResponder => 'Responder';
+  @override
+  String get preguntaNoContestar => 'Prefiero no contestar';
+  @override
+  String get preguntaNoContestadaMotivo =>
+      'Prefirió no contestar. Sigue sin esa respuesta, o pregúntalo en texto.';
+  @override
+  String get preguntaSinContestar => 'Sin contestar';
   @override
   String ejemploDeLoQuePides(String agente) =>
       '$agente, ¿qué reuniones tengo hoy?';
@@ -1489,6 +1514,21 @@ mixin NucleoStringsEn implements NucleoStrings {
   @override
   String get personalidadGuardada =>
       'Saved: it applies from the next conversation.';
+  @override
+  String get preguntaEnEspera => 'Claude is waiting for your answer to go on.';
+  @override
+  String get preguntaRecomendada => 'Recommended';
+  @override
+  String get preguntaOtra => 'Another answer…';
+  @override
+  String get preguntaResponder => 'Answer';
+  @override
+  String get preguntaNoContestar => "I'd rather not answer";
+  @override
+  String get preguntaNoContestadaMotivo =>
+      'They chose not to answer. Go on without it, or ask in plain text.';
+  @override
+  String get preguntaSinContestar => 'Not answered';
   @override
   String ejemploDeLoQuePides(String agente) =>
       '$agente, what meetings do I have today?';

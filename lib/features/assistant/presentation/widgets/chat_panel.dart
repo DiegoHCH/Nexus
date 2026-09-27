@@ -17,6 +17,8 @@ import 'package:nexus/features/assistant/presentation/widgets/attachment_strip.d
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/assistant/domain/usecases/los_enlaces_del_texto.dart';
 import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart';
+import 'package:nexus/features/assistant/domain/entities/pregunta_de_claude.dart';
+import 'package:nexus/features/assistant/presentation/widgets/la_pregunta_de_claude.dart';
 import 'package:nexus/features/assistant/domain/usecases/como_se_lee_un_turno.dart';
 import 'package:nexus/features/assistant/domain/usecases/los_comandos_de_la_casa.dart';
 import 'package:nexus/features/assistant/presentation/state/chat_message.dart';
@@ -42,6 +44,8 @@ class ChatPanel extends StatefulWidget {
     this.onRetry,
     this.onPasarElTrabajo,
     this.onPermiso,
+    this.onPregunta,
+    this.onNoContestar,
     this.onPropuesta,
     this.onCorrer,
     this.etiquetaDelAgente,
@@ -81,6 +85,11 @@ class ChatPanel extends StatefulWidget {
   /// [onRetry]: el panel no sabe de qué conversación es, y los completers que
   /// hay al otro lado sí son de una.
   final void Function(String id, DecisionDePermiso decision)? onPermiso;
+
+  /// Contestar a una pregunta con opciones de Claude. Ver
+  /// [LaPreguntaDeClaude].
+  final void Function(String id, Map<String, String> respuestas)? onPregunta;
+  final void Function(String id)? onNoContestar;
 
   /// Qué se contesta a una propuesta de repetir algo.
   ///
@@ -209,6 +218,8 @@ class _ChatPanelState extends State<ChatPanel> {
             onRetry: widget.onRetry,
             onPasarElTrabajo: widget.onPasarElTrabajo,
             onPermiso: widget.onPermiso,
+            onPregunta: widget.onPregunta,
+            onNoContestar: widget.onNoContestar,
             onPropuesta: widget.onPropuesta,
             onCorrer: widget.onCorrer,
           );
@@ -317,11 +328,18 @@ class _Turn extends StatelessWidget {
     this.onRetry,
     this.onPasarElTrabajo,
     this.onPermiso,
+    this.onPregunta,
+    this.onNoContestar,
     this.onPropuesta,
     this.onCorrer,
   });
 
   final void Function(String id, DecisionDePermiso decision)? onPermiso;
+
+  /// Contestar a una pregunta con opciones de Claude. Ver
+  /// [LaPreguntaDeClaude].
+  final void Function(String id, Map<String, String> respuestas)? onPregunta;
+  final void Function(String id)? onNoContestar;
   final void Function(String id, DecisionDeProgramar decision)? onPropuesta;
 
   /// Correr el comando de un bloque de código, tal cual está escrito.
@@ -487,7 +505,16 @@ class _Turn extends StatelessWidget {
           ),
         // La pregunta de permiso, con sus salidas, **dentro del turno**: no es
         // un diálogo, no te saca de lo que estás leyendo.
-        if (message.permiso case final peticion?)
+        if (message.permiso case final peticion?
+            when LaPreguntaDeClaude.es(peticion))
+          LaPreguntaDeClaudeEnElChat(
+            peticion: peticion,
+            decision: message.decision,
+            respuestas: message.respuestas,
+            onResponder: onPregunta,
+            onNoContestar: onNoContestar,
+          )
+        else if (message.permiso case final peticion?)
           _ElPermiso(
             pregunta: message.text,
             peticion: peticion,

@@ -35,11 +35,21 @@ class _Espia implements ClaudeCliDataSource {
   }
 }
 
-Future<List<String>> _negadasCon({required bool canEdit}) async {
+Future<List<String>> _negadasCon({
+  required bool canEdit,
+  bool conAQuienPreguntar = false,
+}) async {
   final espia = _Espia();
-  await ClaudeBridgeImpl(
-    espia,
-  ).ask('lo que sea', workingDirectory: '/tmp', canEdit: canEdit).drain<void>();
+  await ClaudeBridgeImpl(espia)
+      .ask(
+        'lo que sea',
+        workingDirectory: '/tmp',
+        canEdit: canEdit,
+        alPedirPermiso: conAQuienPreguntar
+            ? (_) async => const PermisoDenegado('')
+            : null,
+      )
+      .drain<void>();
   return espia.negadas;
 }
 
@@ -71,8 +81,15 @@ void main() {
     expect(espia.negadas, contains('AskUserQuestion'));
   });
 
-  // La lista existe para vaciarse: el día que el diálogo se pinte de verdad,
-  // esto se queda sin motivo y se borra entero.
+  // 🔴 Ahora se pinta, **donde hay a quién preguntar**: la pregunta viaja por el
+  // canal de los permisos. Ver [LaPreguntaDeClaude].
+  test('con alguien a quien preguntar, sí se le ofrece', () async {
+    expect(
+      await _negadasCon(canEdit: true, conAQuienPreguntar: true),
+      isNot(contains('AskUserQuestion')),
+    );
+  });
+
   test('la lista dice qué falta por pintar, y hoy es una sola cosa', () {
     expect(LoQueNoSePuedePintar.herramientas, ['AskUserQuestion']);
   });

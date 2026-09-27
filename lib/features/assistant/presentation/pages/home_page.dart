@@ -342,6 +342,10 @@ class _HomePageState extends ConsumerState<HomePage> {
         onRetry: controller.reintentar,
         onPasarElTrabajo: controller.pasarElTrabajoAlMarco,
         onPermiso: controller.responderPermiso,
+        // Y las preguntas con opciones, que llegan por el mismo canal. Ver
+        // [LaPreguntaDeClaude].
+        onPregunta: controller.responderPregunta,
+        onNoContestar: controller.noContestarPregunta,
         onPropuesta: (id, decision) =>
             unawaited(controller.responderPropuesta(id, decision)),
         // El comando se manda **tal cual se ve**: es lo que evita el error que

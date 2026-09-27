@@ -15,9 +15,11 @@
 /// escribiéndola como texto, que es lo que **sí** funciona aquí — así que
 /// negarla no le quita nada: le quita el camino que no lleva a ninguna parte.
 ///
-/// **Se niega siempre**, escriba la carpeta o no: esto no es un permiso, es que
-/// la interfaz no existe. El día que se pinte de verdad —con sus opciones, como
-/// se pinta la petición de permiso— esta lista se queda vacía y se borra.
+/// **Ahora sí se pinta** —con sus opciones, en el chat: ver
+/// [LaPreguntaDeClaude]—, pero solo donde hay canal de vuelta: la pregunta
+/// viaja por el de los permisos, y un encargo sin nadie a quien preguntar
+/// —solo lectura, el teléfono sin la frase— no lo abre. Ahí se sigue negando,
+/// y Claude pregunta en texto, que es lo que funciona.
 abstract final class LoQueNoSePuedePintar {
   static const herramientas = ['AskUserQuestion'];
 }

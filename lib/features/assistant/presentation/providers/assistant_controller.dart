@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:nexus/features/assistant/domain/entities/pregunta_de_claude.dart';
+
 import 'package:flutter/foundation.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -598,6 +600,12 @@ class AssistantController extends Notifier<AssistantHudState> {
   /// Claude quiere usar algo que no tiene concedido: se pregunta **en la
   /// conversación**, como un turno más.
   Future<RespuestaDePermiso> _pedirPermiso(PeticionDePermiso peticion) {
+    // 🔴 **Una pregunta con opciones no es un permiso**, aunque llegue por su
+    // canal: va antes que las reglas de abajo, que la concederían sin
+    // preguntar —es una herramienta de casa— y Claude se quedaría sin
+    // respuesta. Ver [LaPreguntaDeClaude].
+    if (LaPreguntaDeClaude.es(peticion)) return _preguntar(peticion);
+
     // 🔴 **Con la carpeta en «puede editar» no se pregunta por lo de casa.** El
     // interruptor de abajo **es** el permiso: decía «puede editar» y la pantalla
     // preguntaba por cada comando, y ese desajuste es lo que se reportó dos
@@ -648,6 +656,68 @@ class AssistantController extends Notifier<AssistantHudState> {
       notice: strings.permisoEnEspera,
     );
     return espera;
+  }
+
+  /// Claude duda y pregunta con opciones: se pinta en la conversación, con su
+  /// recomendada y su respuesta libre, y se espera a que se conteste.
+  Future<RespuestaDePermiso> _preguntar(PeticionDePermiso peticion) {
+    final strings = ref.read(stringsProvider);
+    _sealLast();
+    final espera = _permisos.abrir(
+      peticion,
+      cancelado: strings.permisoCanceladoMotivo,
+    );
+    state = state.copyWith(
+      messages: [
+        ...state.messages,
+        ChatMessage(
+          author: ChatAuthor.nexus,
+          text: LaPreguntaDeClaude.comoTexto(LaPreguntaDeClaude.de(peticion)),
+          permiso: peticion,
+        ),
+      ],
+      notice: strings.preguntaEnEspera,
+    );
+    return espera;
+  }
+
+  /// Lo que se eligió en una pregunta con opciones: pregunta → respuesta.
+  void responderPregunta(String id, Map<String, String> respuestas) {
+    final mensajes = [...state.messages];
+    final donde = mensajes.indexWhere((m) => m.permiso?.id == id);
+    final peticion = donde == -1 ? null : mensajes[donde].permiso;
+    if (peticion == null) return;
+    final contestada = _permisos.contestar(
+      id,
+      LaPreguntaDeClaude.contestada(peticion, respuestas),
+    );
+    if (!contestada) return;
+    mensajes[donde] = mensajes[donde].copyWith(
+      decision: DecisionDePermiso.concedido,
+      respuestas: respuestas,
+    );
+    state = state.copyWith(
+      messages: mensajes,
+      notice: _permisos.hayAlguna ? state.notice : null,
+    );
+  }
+
+  /// «Prefiero no contestar»: Claude sigue, sabiendo que no hubo respuesta.
+  void noContestarPregunta(String id) {
+    final contestada = _permisos.contestar(
+      id,
+      PermisoDenegado(ref.read(stringsProvider).preguntaNoContestadaMotivo),
+    );
+    if (!contestada) return;
+    state = state.copyWith(
+      messages: [
+        for (final m in state.messages)
+          m.permiso?.id == id
+              ? m.copyWith(decision: DecisionDePermiso.denegado)
+              : m,
+      ],
+      notice: _permisos.hayAlguna ? state.notice : null,
+    );
   }
 
   /// Si esto es un comando del marco de trabajo y su sesión no lo tiene

@@ -72,8 +72,9 @@ void main() {
 
   ({ProviderContainer container, _PuenteQuePregunta puente}) montar({
     FilePermission permiso = FilePermission.canEdit,
+    PeticionDePermiso lo = _deFuera,
   }) {
-    final puente = _PuenteQuePregunta();
+    final puente = _PuenteQuePregunta(lo);
     final container = ProviderContainer(
       overrides: [
         conversationFolderProvider(
@@ -198,6 +199,82 @@ void main() {
       await hasta(() => elPermiso(container)?.permiso?.id == 'req-2');
 
       expect(puente.segunda, isNull, reason: 'sigue esperando tu respuesta');
+    });
+  });
+
+  // 🔴 Pedido el 27 sep: que cuando Claude dude pregunte con opciones y una
+  // recomendada, como en la terminal. Llega por el canal del permiso y la
+  // respuesta viaja dentro de él —medido contra el binario—.
+  group('una pregunta con opciones', () {
+    const laDuda = PeticionDePermiso(
+      id: 'req-1',
+      herramienta: 'AskUserQuestion',
+      nombreVisible: 'AskUserQuestion',
+      entrada: {
+        'questions': [
+          {
+            'question': '¿Qué color prefieres?',
+            'header': 'Color',
+            'options': [
+              {'label': 'Azul (Recomendado)', 'description': 'El de siempre'},
+              {'label': 'Rojo'},
+            ],
+            'multiSelect': false,
+          },
+        ],
+      },
+    );
+
+    Future<({ProviderContainer container, _PuenteQuePregunta puente})>
+    dudando() async {
+      final m = montar(lo: laDuda);
+      unawaited(mando(m.container).submit('elige un color'));
+      await hasta(() => elPermiso(m.container) != null);
+      return m;
+    }
+
+    test(
+      'se pinta aunque la carpeta pueda editar, y no se concede sola',
+      () async {
+        final m = await dudando();
+        expect(m.puente.contestado, isNull);
+        expect(elPermiso(m.container)!.text, '¿Qué color prefieres?');
+        expect(
+          m.container.read(assistantControllerProvider(conversationId)).notice,
+          m.container.read(stringsProvider).preguntaEnEspera,
+        );
+      },
+    );
+
+    test('lo elegido viaja dentro del permiso y queda dicho', () async {
+      final m = await dudando();
+      mando(m.container).responderPregunta('req-1', {
+        '¿Qué color prefieres?': 'Azul (Recomendado)',
+      });
+      await hasta(() => m.puente.contestado != null);
+
+      final concedido = m.puente.contestado! as PermisoConcedido;
+      expect(concedido.entrada['answers'], {
+        '¿Qué color prefieres?': 'Azul (Recomendado)',
+      });
+      expect(concedido.entrada['questions'], isNotNull);
+      final mensaje = elPermiso(m.container)!;
+      expect(mensaje.decision, DecisionDePermiso.concedido);
+      expect(mensaje.respuestas, {
+        '¿Qué color prefieres?': 'Azul (Recomendado)',
+      });
+    });
+
+    test('«prefiero no contestar» llega como negación con motivo', () async {
+      final m = await dudando();
+      mando(m.container).noContestarPregunta('req-1');
+      await hasta(() => m.puente.contestado != null);
+
+      expect(
+        (m.puente.contestado! as PermisoDenegado).motivo,
+        m.container.read(stringsProvider).preguntaNoContestadaMotivo,
+      );
+      expect(elPermiso(m.container)!.decision, DecisionDePermiso.denegado);
     });
   });
 
@@ -414,6 +491,10 @@ void main() {
 }
 
 class _PuenteQuePregunta implements ClaudeBridge {
+  _PuenteQuePregunta([this.lo = _deFuera]);
+
+  /// Lo que pide: un permiso de fuera, o una pregunta con opciones.
+  final PeticionDePermiso lo;
   RespuestaDePermiso? contestado;
   var leDieronAQuienPreguntar = false;
   var termino = false;
@@ -448,7 +529,7 @@ class _PuenteQuePregunta implements ClaudeBridge {
       yield const ClaudeTurnCompleted(result: 'sin preguntar');
       return;
     }
-    contestado = await alPedirPermiso(_deFuera);
+    contestado = await alPedirPermiso(lo);
     yield const ClaudeTurnCompleted(result: 'listo');
   }
 }

@@ -1068,10 +1068,42 @@ final class LaFraseTrasElNombreTests: XCTestCase {
       "corre los tests")
   }
 
+  func testUnNombrePartidoEnDosDejaLoDeDespues() {
+    XCTAssertEqual(
+      NexusEscucha.loQueSigueAlNombre("Sí, él, ¿qué hora es?", siendo: ["ciel"]),
+      "¿qué hora es?")
+  }
+
   func testSiSaleDosVecesCuentaLaUltima() {
     XCTAssertEqual(
       NexusEscucha.loQueSigueAlNombre("Hestia, no, Hestia, abre el repo", siendo: ["hestia"]),
       "abre el repo")
+  }
+}
+
+/// Si en lo que se oyó está su nombre, escrito como lo escriba el reconocedor.
+///
+/// 🔴 Con «Ciel» no abría: un nombre que el español no tiene sale con s o
+/// partido en dos, y ninguna de las dos formas se parecía a «ciel».
+final class ElNombreQueSeOyeTests: XCTestCase {
+  func testComoSuenaIgualAunqueSeEscribaDistinto() {
+    XCTAssertEqual(NexusEscucha.comoSuena("ciel"), NexusEscucha.comoSuena("siel"))
+    XCTAssertEqual(NexusEscucha.comoSuena("hestia"), NexusEscucha.comoSuena("estia"))
+    XCTAssertEqual(NexusEscucha.comoSuena("zyel"), NexusEscucha.comoSuena("siel"))
+    XCTAssertEqual(NexusEscucha.comoSuena("chema"), "chema")
+  }
+
+  func testLaOyeConSOPartidaEnDos() {
+    XCTAssertTrue(NexusEscucha.leLlamaron("siel que hora es", siendo: ["ciel"]))
+    XCTAssertTrue(NexusEscucha.leLlamaron("si el que hora es", siendo: ["ciel"]))
+    XCTAssertTrue(NexusEscucha.leLlamaron("es tia abre el repo", siendo: ["hestia"]))
+  }
+
+  func testNoAbreConOtraCosa() {
+    XCTAssertFalse(NexusEscucha.leLlamaron("pasame el cafe", siendo: ["ciel"]))
+    XCTAssertFalse(NexusEscucha.leLlamaron("hablemos de la reunion", siendo: ["hestia"]))
+    // Partido en dos solo vale al principio, donde va el nombre al llamarla.
+    XCTAssertFalse(NexusEscucha.leLlamaron("vale si el test pasa lo subimos", siendo: ["ciel"]))
   }
 }
 

@@ -322,6 +322,11 @@ final class NexusEscucha: NSObject {
       return
     }
     let limpio = Self.normalizar(dicho)
+    #if DEBUG
+    // Solo en desarrollo: lo que transcribe, para saber por qué un nombre no
+    // abre. En la app instalada no se escribe lo que se dice cerca del Mac.
+    Self.log.debug("oído · «\(limpio, privacy: .public)»")
+    #endif
     guard Self.leLlamaron(limpio, siendo: palabras) else { return }
     // Un segundo entre avisos: la transcripción llega creciendo y todas sus
     // versiones contienen la palabra.
@@ -362,9 +367,14 @@ final class NexusEscucha: NSObject {
   /// última. Vacío si no se dijo nada más.
   static func loQueSigueAlNombre(_ dicho: String, siendo palabras: [String]) -> String {
     let sueltas = dicho.split(separator: " ").map(String.init)
-    let ultima = sueltas.lastIndex { suelta in
-      let limpia = normalizar(suelta).filter { $0.isLetter }
-      return palabras.contains { limpia == $0 || seParecen(limpia, $0) }
+    let limpias = sueltas.map { normalizar($0).filter { $0.isLetter } }
+    func esElNombre(_ oida: String) -> Bool {
+      palabras.contains { oida == $0 || seParecen(oida, $0) || seParecen(comoSuena(oida), comoSuena($0)) }
+    }
+    // La última palabra que es el nombre, o las dos primeras juntas —ver
+    // [leLlamaron]—: «sí, él, qué hora es» deja «qué hora es».
+    let ultima = limpias.indices.last { i in
+      esElNombre(limpias[i]) || (i == 1 && esElNombre(limpias[0] + limpias[1]))
     }
     guard let ultima else { return "" }
     return sueltas[(ultima + 1)...]
@@ -407,12 +417,42 @@ final class NexusEscucha: NSObject {
   static func leLlamaron(_ dicho: String, siendo palabras: [String]) -> Bool {
     if palabras.contains(where: { dicho.contains($0) }) { return true }
     let sueltas = dicho.split(whereSeparator: { !$0.isLetter }).map(String.init)
+    // 🔴 **Y las dos primeras, juntas.** Un nombre que el idioma no tiene se
+    // parte en palabras que sí tiene: «Ciel» sale «sí, él», «Hestia» sale «es
+    // tía». Solo al principio, que es donde va el nombre al llamarla: en
+    // mitad de una frase, «si el test pasa» abriría la voz sin que nadie la
+    // llamara.
+    let juntas = sueltas.count >= 2 ? [sueltas[0] + sueltas[1]] : []
     for palabra in palabras {
-      for oida in sueltas where Self.seParecen(oida, palabra) {
+      let suya = Self.comoSuena(palabra)
+      for oida in sueltas + juntas
+      where Self.seParecen(oida, palabra) || Self.seParecen(Self.comoSuena(oida), suya) {
         return true
       }
     }
     return false
+  }
+
+  /// Cómo suena una palabra en español, para comparar lo oído con el nombre
+  /// sin que cuente la ortografía: el reconocedor escribe lo que le suena, y
+  /// «Ciel», «Siel» o «Zyel» se dicen igual.
+  ///
+  /// 🔴 Visto con «Ciel»: el nombre se escribía con c y el reconocedor, que
+  /// no lo conoce, lo escribía con s o partido en dos, y nunca se parecían.
+  static func comoSuena(_ palabra: String) -> String {
+    var s = palabra.lowercased()
+    for (de, a) in [
+      ("ch", "\u{1}"), ("ll", "y"), ("qu", "k"), ("gue", "ge"), ("gui", "gi"),
+      ("ce", "se"), ("ci", "si"), ("ca", "ka"), ("co", "ko"), ("cu", "ku"),
+      ("z", "s"), ("v", "b"), ("w", "u"), ("x", "ks"), ("h", ""),
+    ] {
+      s = s.replacingOccurrences(of: de, with: a)
+    }
+    // La y como vocal —«Cyel»— y la c que queda suelta suenan a i y a k. Antes
+    // de devolver la «ch», que esa c no es una k.
+    s = s.replacingOccurrences(of: "y", with: "i")
+    s = s.replacingOccurrences(of: "c", with: "k")
+    return s.replacingOccurrences(of: "\u{1}", with: "ch")
   }
 
   /// Si dos palabras se diferencian como mucho en una letra —cambiada, de más

@@ -269,6 +269,9 @@ class BotonDeLaHoja extends StatelessWidget {
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
         minimumSize: Size.zero,
+        // Sin la densidad compacta de escritorio: resta 8 px del relleno
+        // vertical y dejaba el texto cortado por arriba. Ver [BotonDeFila].
+        visualDensity: VisualDensity.standard,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         side: BorderSide(color: apagado ? colors.rule : borde),
         foregroundColor: color,

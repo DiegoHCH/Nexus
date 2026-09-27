@@ -57,6 +57,7 @@ class ElOidoQueEspera {
       unawaited(EscuchaChannel.parar());
       _mirando?.close();
       _siNoLlegaAAbrirse?.cancel();
+      _otraVez?.cancel();
       unawaited(OrbeChannel.ocultar());
     });
   }
@@ -133,7 +134,27 @@ class ElOidoQueEspera {
     if (!_ref.mounted) return;
     _puesto = await EscuchaChannel.empezar(_lasPalabras());
     debugPrint('escucha · ${_puesto ? 'puesta' : 'no se pudo poner'}');
+    if (!_puesto) _volverAProbar();
   }
+
+  /// 🔴 **Si no pudo ponerse, se vuelve a probar en un rato**, en vez de
+  /// quedarse sin oír hasta que algo cambie. Lo que más la tumba es el
+  /// micrófono ocupado —una reunión, otra app, o la propia app que aún no lo
+  /// soltó al reiniciar— y eso se pasa solo. Visto el 27 sep: al arrancar
+  /// encontró el micrófono en uso, no volvió a intentarlo, y llamarla no hacía
+  /// nada aunque el ajuste dijera que escuchaba.
+  void _volverAProbar() {
+    _otraVez?.cancel();
+    _otraVez = Timer(entreIntentos, () {
+      if (_ref.mounted) unawaited(cuadrar());
+    });
+  }
+
+  Timer? _otraVez;
+
+  /// Cuánto se espera entre intentos cuando no pudo ponerse.
+  @visibleForTesting
+  static const entreIntentos = Duration(seconds: 30);
 
   /// Le cambiaste el nombre: si estaba escuchando, vuelve a empezar con el
   /// nuevo. Sin esto seguiría abriendo con el de antes hasta reiniciar la app.

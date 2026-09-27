@@ -35,8 +35,15 @@ class GeminiVoiceGateway implements VoiceGateway {
     this._readNames,
     this._readAgentName,
     this._readMemoria,
-    this._ajustesYaLeidos,
-  );
+    this._ajustesYaLeidos, {
+    String? Function()? leerLaPersonalidad,
+  }) : _leerLaPersonalidad = leerLaPersonalidad ?? _ninguna;
+
+  static String? _ninguna() => null;
+
+  /// La personalidad escrita por quien la usa, o `null` para la de la casa.
+  /// Se consulta al conectar, como la voz. Ver [LaPersonalidad].
+  final String? Function() _leerLaPersonalidad;
 
   /// La llave se pide en el momento de conectar, no se guarda aquí: así una
   /// llave cambiada en Ajustes vale desde la siguiente sesión sin reconstruir
@@ -183,15 +190,22 @@ class GeminiVoiceGateway implements VoiceGateway {
     /// contarle algo escribiendo y que hablando no lo sepa sería tener dos
     /// asistentes con el mismo nombre. Ver [LoQueSeSabeDeTi].
     String? loQueSeSabeDeTi,
+
+    /// La hora de este Mac al abrir la conversación. Ver [laHoraDeAhora].
+    DateTime? ahora,
+
+    /// La que escribió quien la usa, o `null` para la de la casa.
+    String? personalidad,
   }) =>
       // 🔴 **La identidad va aquí y sale de un solo sitio.** Antes esto era
       // «Eres <nombre>, un asistente de voz» y nada más: al preguntarle quién
       // era, contestaba lo que sí sabía de sí mismo —el modelo que lo mueve—.
       // Ver [QuienEsNexus], donde está escrito lo que es y lo que hace.
-      '${QuienEsNexus.comoSePresenta(agente)}\n'
+      '${QuienEsNexus.comoSePresenta(agente, personalidad: personalidad)}\n'
       '${enQueIdioma(idioma)}'
       '$nombres'
       '${loQueSeSabeDeTi == null || loQueSeSabeDeTi.isEmpty ? '' : '$loQueSeSabeDeTi\n'}'
+      '${ahora == null ? '' : laHoraDeAhora(ahora)}'
       'REGLA PRINCIPAL: absolutamente todo lo que te pidan —cualquier '
       'pregunta, consulta, tarea o encargo, sea de código o no— se lo pasas a '
       'Claude llamando a pedir_a_claude, y después cuentas lo que devolvió. '
@@ -199,23 +213,28 @@ class GeminiVoiceGateway implements VoiceGateway {
       'Claude pone el trabajo.\n'
       'Solo contestas tú, sin llamar a nadie, a lo que no es un encargo: '
       'saludos, agradecimientos, "para", "espera", cuando te pidan repetir '
-      'algo que acabas de decir, y **lo que te pregunten sobre ti mismo** '
+      'algo que acabas de decir, la hora y la fecha de hoy —con el reloj de '
+      'arriba—, y **lo que te pregunten sobre ti mismo** '
       '—quién eres, cómo te llamas, qué eres, para qué sirves, qué puedes '
       'hacer—. Eso último lo contestas tú porque es lo único que Claude no '
       'sabe: él no sabe quién eres. Esa lista es completa: no la amplíes — y la '
       'app la comprueba, así que si contestas de memoria otra cosa, se lo '
       'preguntará a Claude igual y tendrás que rectificar en voz alta.\n'
-      'ZONA GRIS, medida: preguntas como "¿qué opinas de Riverpod?", "¿qué '
-      'hora es?", "¿cuánto ocupa este repo?" o "¿qué versión tengo instalada?" '
+      'ZONA GRIS, medida: preguntas como "¿qué opinas de Riverpod?", '
+      '"¿cuánto ocupa este repo?" o "¿qué versión tengo instalada?" '
       'SÍ son encargos y van a Claude, aunque creas saber la respuesta: la '
       'tuya sale de tu memoria y la de Claude sale de esta máquina. Ante la '
       'duda, llama a la herramienta — equivocarse llamando cuesta unos '
       'segundos, y equivocarse contestando de memoria cuesta un dato falso '
       'dicho con seguridad.\n'
-      'Antes de llamar a una herramienta di en tres o cuatro palabras qué vas '
-      'a hacer, para que no haya un silencio largo mientras se trabaja.\n'
-      'Si el sistema te entrega una respuesta de Claude, cuéntala tal cual y '
-      'sigue la conversación sin disculparte ni explicar por qué llega.\n'
+      'CÓMO SUENA: eres una sola asistente, como JARVIS. Quien te habla no '
+      'tiene por qué saber cómo resuelves las cosas: NUNCA digas que se lo '
+      'vas a pedir a Claude, que vas a consultar a otro sistema, ni nombres '
+      'herramientas. Si vas a tardar, di algo muy breve y natural —«un '
+      'momento», «déjame ver», «ahora lo miro»— y nada más.\n'
+      'Cuando el sistema te entregue lo que devolvió Claude, cuéntalo como '
+      'tuyo, en primera persona —«ya lo miré», «encontré»—, sin decir de '
+      'dónde viene, sin disculparte ni explicar por qué llega.\n'
       'EL PARTE: «dame el daily», «el parte», «el standup» o «qué hice ayer» '
       'no son un encargo suelto para Claude: llama a pedir_el_parte, que trae '
       'el material del día ya reunido. Cuando vuelva, resúmelo en dos o tres '
@@ -226,6 +245,44 @@ class GeminiVoiceGateway implements VoiceGateway {
       'tarea que ya se ha repetido— ofrécele crear una skill con crear_skill, '
       'en una frase y sin insistir. Ofrécelo **después** de resolver lo que te '
       'pidieron, nunca en vez de resolverlo, y solo si él acepta.';
+
+  /// La hora de este Mac, para que la hora y la fecha las conteste ella.
+  ///
+  /// Se toma al abrir la conversación: una sesión de voz se cierra a los
+  /// pocos segundos de silencio, así que dura minutos, no horas.
+  @visibleForTesting
+  static String laHoraDeAhora(DateTime ahora) {
+    const dias = [
+      'lunes',
+      'martes',
+      'miércoles',
+      'jueves',
+      'viernes',
+      'sábado',
+      'domingo',
+    ];
+    const meses = [
+      'enero',
+      'febrero',
+      'marzo',
+      'abril',
+      'mayo',
+      'junio',
+      'julio',
+      'agosto',
+      'septiembre',
+      'octubre',
+      'noviembre',
+      'diciembre',
+    ];
+    final h12 = ahora.hour % 12 == 0 ? 12 : ahora.hour % 12;
+    final minutos = ahora.minute.toString().padLeft(2, '0');
+    final ampm = ahora.hour < 12 ? 'AM' : 'PM';
+    return 'LA HORA: en el reloj de este Mac son las $h12:$minutos $ampm del '
+        '${dias[ahora.weekday - 1]} ${ahora.day} de ${meses[ahora.month - 1]} '
+        'de ${ahora.year}. Si te preguntan la hora o la fecha, contéstalo tú '
+        'con esto, en tu idioma.\n';
+  }
 
   /// Los nombres, con su salto de línea, o vacío.
   ///
@@ -331,6 +388,8 @@ class GeminiVoiceGateway implements VoiceGateway {
                     idioma: _readLanguage(),
                     nombres: _losNombres(),
                     loQueSeSabeDeTi: _readMemoria(),
+                    ahora: DateTime.now(),
+                    personalidad: _leerLaPersonalidad(),
                   ) +
                   (saludo == null ? '' : alLlamarla(saludo)),
             ComoLaPuerta() => laPuerta(perfil),

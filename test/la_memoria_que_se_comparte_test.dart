@@ -333,6 +333,23 @@ void main() {
       expect(Conversation.fromJson(crudo)?.memoriaPropia, isTrue);
     });
 
+    // 🔴 `/clear` pone la marca y justo después apunta el registro nuevo: esa
+    // copia la perdía, y al reabrir salía el aviso de «esta carpeta ya tenía
+    // una conversación» en la misma que se acababa de limpiar.
+    test('y no la pierde al apuntar el registro ni al renombrarla', () {
+      final sola = const Conversation(
+        id: 'c1',
+        folderPath: _carpeta,
+      ).conMemoriaPropia();
+
+      expect(sola.conRegistro('r2').memoriaPropia, isTrue);
+      expect(sola.conNombre('otro').memoriaPropia, isTrue);
+      expect(
+        Conversation.fromJson(sola.conRegistro('r2').toJson())?.memoriaPropia,
+        isTrue,
+      );
+    });
+
     // Lo de siempre sigue leyéndose igual: las fichas guardadas antes de esto no
     // traen la marca, y eso significa que comparten, que es lo que hacían.
     test('y una ficha de antes no se inventa nada', () {

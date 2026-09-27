@@ -514,7 +514,10 @@ void main() {
       session.emit(const VoiceTurnCompleted());
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
-      session.emit(const VoiceUserTranscript('y ahora mira el historial'));
+      // Ya contestó: la siguiente lleva su nombre. Ver [ElAudioAjeno].
+      session.emit(
+        const VoiceUserTranscript('nexus, y ahora mira el historial'),
+      );
       session.emit(const VoiceTurnCompleted());
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
@@ -1665,7 +1668,9 @@ void _elAudioAjeno() {
       final subscription = conversation().listen(vistos.add);
       await Future<void>.delayed(Duration.zero);
 
-      for (final pregunta in ['¿Cómo estás?', 'No, no tengo nada. Adiós.']) {
+      // La segunda con su nombre: tras contestar, es como se le sigue
+      // hablando. Ver [ElAudioAjeno].
+      for (final pregunta in ['¿Cómo estás?', 'Nexus, no tengo nada. Adiós.']) {
         session.emit(VoiceUserTranscript(pregunta));
         session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
         session.emit(VoiceReplyAudio(Uint8List.fromList([2])));
@@ -1719,6 +1724,79 @@ void _elAudioAjeno() {
         await subscription.cancel();
       },
     );
+
+    // 🔴 Visto el 27 sep con el micrófono del Mac y la tele encendida: después
+    // de contestar, contestaba a la tele, y cada frase de fondo reiniciaba la
+    // cuenta de inactividad, así que la conversación no se cerraba nunca.
+    test('ya contestó: sin su nombre se ignora y no suena', () async {
+      final session = _Session();
+      final bridge = _Bridge();
+      final altavoz = _Altavoz();
+      final conversation = _conversation(session, bridge, altavoz: altavoz);
+
+      final vistos = <VoiceEvent>[];
+      final subscription = conversation().listen(vistos.add);
+      await Future<void>.delayed(Duration.zero);
+
+      session.emit(const VoiceUserTranscript('mira el historial de git'));
+      session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
+      session.emit(const VoiceTurnCompleted());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      final sonaron = altavoz.sonaron;
+
+      // La tele, con ella callada.
+      session.emit(
+        const VoiceUserTranscript('y ahora el pronóstico para mañana'),
+      );
+      session.emit(VoiceReplyAudio(Uint8List.fromList([2])));
+      session.emit(const VoiceTurnCompleted());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(vistos.whereType<VoiceIgnorado>(), hasLength(1));
+      expect(
+        altavoz.sonaron,
+        sonaron,
+        reason: 'su respuesta a la tele no suena',
+      );
+      expect(bridge.asked, hasLength(1));
+
+      // Con su nombre, se atiende.
+      session.emit(const VoiceUserTranscript('nexus, ¿y los PR abiertos?'));
+      session.emit(const VoiceTurnCompleted());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(bridge.asked, hasLength(2));
+
+      await subscription.cancel();
+    });
+
+    // Si acaba preguntando, lo siguiente es tu respuesta: un «sí» no necesita
+    // su nombre delante.
+    test('si ella preguntó, la respuesta vale sin su nombre', () async {
+      final session = _Session();
+      final bridge = _Bridge();
+      final conversation = _conversation(session, bridge);
+
+      final vistos = <VoiceEvent>[];
+      final subscription = conversation().listen(vistos.add);
+      await Future<void>.delayed(Duration.zero);
+
+      session.emit(const VoiceUserTranscript('revisa por qué falló el CI'));
+      session.emit(
+        const VoiceReplyTranscript('Falló el golden. ¿Lo regenero?'),
+      );
+      session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
+      session.emit(const VoiceTurnCompleted());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      session.emit(const VoiceUserTranscript('sí, regenéralo'));
+      session.emit(const VoiceTurnCompleted());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(vistos.whereType<VoiceIgnorado>(), isEmpty);
+      expect(bridge.asked.last, contains('regenéralo'));
+
+      await subscription.cancel();
+    });
   });
 
   // 🔴 Tras «En nada, adiós» el micro seguía abierto los 6 s del plazo, como si

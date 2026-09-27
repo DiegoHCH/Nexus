@@ -57,11 +57,17 @@ class Conversation {
   /// en disco.
   final String? recordId;
 
+  // 🔴 **Las dos copias llevan la marca de memoria propia.** No la llevaban:
+  // `/clear` la ponía y, justo después, apuntar el registro nuevo rehacía la
+  // ficha sin ella. Al reabrir la app la conversación volvía a compartir la
+  // sesión de la carpeta y salía «esta carpeta ya tenía una conversación con
+  // Claude» en la misma que se acababa de limpiar (reportado el 27 sep).
   Conversation conNombre(String? nuevo) => Conversation(
     id: id,
     folderPath: folderPath,
     name: nuevo,
     recordId: recordId,
+    memoriaPropia: memoriaPropia,
   );
 
   Conversation conRegistro(String? adoptado) => Conversation(
@@ -69,6 +75,7 @@ class Conversation {
     folderPath: folderPath,
     name: name,
     recordId: adoptado,
+    memoriaPropia: memoriaPropia,
   );
 
   Conversation conMemoriaPropia() => Conversation(

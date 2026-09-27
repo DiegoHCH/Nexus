@@ -48,6 +48,14 @@ class MirrorController extends Notifier<RemoteMirror> {
     // que ya llegó del Mac con una foto de anoche es peor que no tener caché.
     unawaited(_restaurar());
 
+    // Si se construye con el enlace ya conectado, el aviso de «conectado» ya pasó y no
+    // va a volver: se pide la lista ahora, o las tarjetas esperarían al próximo corte.
+    if (enlace.ahora == LinkState.conectado) {
+      Future.microtask(() {
+        if (ref.mounted) unawaited(refrescar());
+      });
+    }
+
     return const RemoteMirror();
   }
 

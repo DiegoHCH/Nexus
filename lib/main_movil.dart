@@ -13,6 +13,7 @@ import 'package:nexus/features/remote/presentation/pages/connecting_page.dart';
 import 'package:nexus/features/remote/presentation/pages/conversations_page.dart';
 import 'package:nexus/features/remote/presentation/pages/scan_page.dart';
 import 'package:nexus/features/remote/presentation/pages/sin_mac_page.dart';
+import 'package:nexus/features/remote/presentation/providers/mirror_providers.dart';
 import 'package:nexus/features/remote/presentation/providers/pairing_providers.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
@@ -158,6 +159,14 @@ class _ConectadoState extends ConsumerState<_Conectado> {
 
   @override
   Widget build(BuildContext context) {
+    // 🔴 **El espejo, antes que el enlace.** Lo que llega al conectar —el resync, el
+    // snapshot, los eventos de lo que pasó mientras tanto— sale por flujos que no
+    // guardan nada para quien llegue tarde, y el espejo nacía con la lista: cinco
+    // segundos después, detrás de la pantalla de «buscando tu Mac». Todo lo que el Mac
+    // contó en ese rato se perdía, y la lista salía con las carpetas y sin decir en qué
+    // andaba cada una —ni el orbe, ni lo que decía, ni el paso—, que es lo que se vio
+    // en el teléfono de verdad. Leído aquí escucha desde el primer marco.
+    ref.watch(mirrorProvider);
     // Leerlo es lo que dispara conectar, y vive en un provider porque conectar
     // sobrevive a navegar: morir al entrar en una conversación desconectaría justo
     // al abrirla.

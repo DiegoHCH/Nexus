@@ -175,6 +175,14 @@ mixin MovilStrings {
   String get mobileFoldersUnavailable;
   String get mobileBusy;
   String get mobileReadOnlyChip;
+
+  // ── Fidelidad al mockup del teléfono ──────────────────────────────────────
+  // En su propio bloque para que las fusiones con otros cambios del teléfono no se
+  // pisen.
+
+  /// La fila que piensa, con el rato: «Pensando · 2 min 10 s». El rato llega ya
+  /// escrito por `ElRatoPensando`, que no depende del idioma.
+  String mobileRowThinkingFor(String rato);
 }
 
 mixin MovilStringsEs implements MovilStrings {
@@ -468,6 +476,10 @@ mixin MovilStringsEs implements MovilStrings {
   String get mobileBusy => 'Ocupada';
   @override
   String get mobileReadOnlyChip => 'Solo lectura';
+
+  // ── Fidelidad al mockup del teléfono ──────────────────────────────────────
+  @override
+  String mobileRowThinkingFor(String rato) => 'Pensando · $rato';
 }
 
 mixin MovilStringsEn implements MovilStrings {
@@ -759,4 +771,8 @@ mixin MovilStringsEn implements MovilStrings {
   String get mobileBusy => 'Busy';
   @override
   String get mobileReadOnlyChip => 'Read only';
+
+  // ── Fidelidad al mockup del teléfono ──────────────────────────────────────
+  @override
+  String mobileRowThinkingFor(String rato) => 'Thinking · $rato';
 }

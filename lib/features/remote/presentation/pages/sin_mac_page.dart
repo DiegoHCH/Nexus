@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:nexus/features/remote/presentation/pages/utility_pages.dart';
+import 'package:nexus/features/remote/presentation/widgets/mobile_drawer.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/remote/data/channel_link.dart';
@@ -60,6 +62,15 @@ class SinMacPage extends ConsumerWidget {
   /// motivo para no poder leerlo.
   final VoidCallback alVerLoGuardado;
 
+  /// Cierra el menú y abre la pantalla, como en la lista: dejarlo abierto lo haría
+  /// reaparecer encima de la pantalla nueva al volver.
+  void _ir(BuildContext context, Widget pantalla) {
+    Navigator.of(context).pop();
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => pantalla));
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = context.strings;
@@ -82,6 +93,15 @@ class SinMacPage extends ConsumerWidget {
         apagado: true,
         titulo: strings.mobileUnreachableTitle,
         cuerpo: strings.mobileUnreachableBody,
+        // Con el menú, como el mockup: sin Mac, lo que el menú todavía sirve es
+        // **olvidarlo** —el Mac cambió, o ya no es este—, y sin el hamburguesa
+        // la única salida de aquí era esperar a llegar. Las otras tres entradas
+        // llevan a sus pantallas, que ya saben decir que no pudieron preguntar.
+        menu: MobileDrawer(
+          alAbrirNueva: () => _ir(context, const FoldersPage()),
+          alAbrirArchivo: () => _ir(context, const ArchivePage()),
+          alAbrirArtifacts: () => _ir(context, const ArtifactsPage()),
+        ),
         // Sin la dirección debajo, como el mockup: el chip de la cabecera ya dice
         // «no llego · ¿Tailscale?», y lo que se viene a leer aquí es qué hacer.
         acciones: [

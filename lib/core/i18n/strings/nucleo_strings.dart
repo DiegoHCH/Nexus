@@ -320,6 +320,14 @@ mixin NucleoStrings {
 
   /// Lo que despierta su nombre: con el oído, decirlo abre la voz.
   String get suNombreLaDespierta;
+
+  /// Su personalidad, escrita por quien la usa. Ver [LaPersonalidad].
+  String get personalidad;
+  String get personalidadExplainer;
+  String get personalidadGuardar;
+  String get personalidadDeLaCasa;
+  String get personalidadAbrir;
+  String get personalidadGuardada;
   String ejemploDeLoQuePides(String agente);
   String ejemploDeLoQueContesta(String vocativo);
   String get avisosExplainer;
@@ -854,6 +862,22 @@ mixin NucleoStringsEs implements NucleoStrings {
       'Con el **oído** encendido, decir su nombre la despierta. Un nombre '
       'corto como «Ciel» se confunde con «cielo»: mejor uno de tres sílabas o '
       'más.';
+  @override
+  String get personalidad => 'Su personalidad';
+  @override
+  String get personalidadExplainer =>
+      'Cómo habla, no cómo trabaja. Se guarda en **personalidad.md**, en la '
+      'carpeta de la app: escríbela aquí o ábrela en tu editor. Vale desde la '
+      'próxima conversación.';
+  @override
+  String get personalidadGuardar => 'Guardar';
+  @override
+  String get personalidadDeLaCasa => 'La de la casa';
+  @override
+  String get personalidadAbrir => 'Abrir el archivo';
+  @override
+  String get personalidadGuardada =>
+      'Guardada: vale desde la próxima conversación.';
   @override
   String ejemploDeLoQuePides(String agente) =>
       '$agente, ¿qué reuniones tengo hoy?';
@@ -1449,6 +1473,22 @@ mixin NucleoStringsEn implements NucleoStrings {
       'With **hearing** on, saying her name wakes her. A short name like '
       '“Ciel” gets confused with other words: better one of three syllables or '
       'more.';
+  @override
+  String get personalidad => 'Her personality';
+  @override
+  String get personalidadExplainer =>
+      'How she talks, not how she works. It lives in **personalidad.md**, in '
+      "the app's folder: write it here or open it in your editor. It applies "
+      'from the next conversation.';
+  @override
+  String get personalidadGuardar => 'Save';
+  @override
+  String get personalidadDeLaCasa => 'The default one';
+  @override
+  String get personalidadAbrir => 'Open the file';
+  @override
+  String get personalidadGuardada =>
+      'Saved: it applies from the next conversation.';
   @override
   String ejemploDeLoQuePides(String agente) =>
       '$agente, what meetings do I have today?';

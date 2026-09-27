@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexus/features/personalidad/domain/la_personalidad.dart';
 import 'package:nexus/features/assistant/data/datasources/gemini_live_data_source.dart';
 import 'package:nexus/features/assistant/data/repositories/gemini_voice_gateway.dart';
 import 'package:nexus/features/assistant/data/repositories/project_context_prompt.dart';
@@ -65,20 +66,28 @@ void main() {
       );
     });
 
-    // 🔴 Contestaba como un folleto. Lo que se pidió fue una identidad: la de
-    // Ciel, de Tensura, de tú y llamándole «Master» (27 sep).
-    test('tiene personalidad, y no se presenta con la lista', () {
-      final dicho = QuienEsNexus.comoSePresenta('Ciel');
-
-      expect(dicho, contains(QuienEsNexus.personalidad));
-      expect(dicho, contains('Tensura'));
-      expect(dicho, contains('Tratas de tú'));
-      expect(dicho, contains('sin listar lo que sabes hacer'));
-      expect(
-        dicho,
-        contains('no cómo trabajas'),
-        reason: 'el personaje no cambia el análisis ni el código',
+    // 🔴 Contestaba como un folleto, y la personalidad tiene que ser de quien
+    // la usa: «Ciel se llama la mía, pero no todos la llamarían así» (27 sep).
+    test('lleva la personalidad escrita, o la de la casa', () {
+      final escrita = QuienEsNexus.comoSePresenta(
+        'Ciel',
+        personalidad: 'Tu carácter es el de Ciel, de Tensura.',
       );
+      expect(escrita, contains('Tu carácter es el de Ciel, de Tensura.'));
+      expect(escrita, isNot(contains(LaPersonalidad.deLaCasa.trim())));
+
+      final deLaCasa = QuienEsNexus.comoSePresenta('Hal');
+      expect(deLaCasa, contains(LaPersonalidad.deLaCasa.trim()));
+      expect(deLaCasa, isNot(contains('Tensura')));
+
+      for (final dicho in [escrita, deLaCasa]) {
+        expect(dicho, contains('sin listar lo que sabes hacer'));
+        expect(
+          dicho,
+          contains('no cómo trabajas'),
+          reason: 'el personaje no cambia el análisis ni el código',
+        );
+      }
     });
 
     test('dice para qué sirve, que es la mitad de la respuesta', () {

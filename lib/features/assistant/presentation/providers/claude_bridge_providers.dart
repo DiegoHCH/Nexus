@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/features/personalidad/presentation/providers/la_personalidad_provider.dart';
 import 'package:nexus/features/assistant/data/datasources/las_sesiones_del_marco.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
@@ -132,6 +133,7 @@ final askClaudeProvider = Provider.family<AskClaude, String>((
         // hablando. Ver [QuienEsNexus].
         identidad: QuienEsNexus.comoSePresenta(
           ref.read(losNombresProvider).agente,
+          personalidad: ref.read(laPersonalidadProvider),
         ),
         // Lo que le pediste que recordara de ti. Global como los nombres, y por
         // el mismo motivo elevado a regla: lo tuyo no cambia según el repo.

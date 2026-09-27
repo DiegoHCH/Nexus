@@ -35,8 +35,15 @@ class GeminiVoiceGateway implements VoiceGateway {
     this._readNames,
     this._readAgentName,
     this._readMemoria,
-    this._ajustesYaLeidos,
-  );
+    this._ajustesYaLeidos, {
+    String? Function()? leerLaPersonalidad,
+  }) : _leerLaPersonalidad = leerLaPersonalidad ?? _ninguna;
+
+  static String? _ninguna() => null;
+
+  /// La personalidad escrita por quien la usa, o `null` para la de la casa.
+  /// Se consulta al conectar, como la voz. Ver [LaPersonalidad].
+  final String? Function() _leerLaPersonalidad;
 
   /// La llave se pide en el momento de conectar, no se guarda aquí: así una
   /// llave cambiada en Ajustes vale desde la siguiente sesión sin reconstruir
@@ -186,12 +193,15 @@ class GeminiVoiceGateway implements VoiceGateway {
 
     /// La hora de este Mac al abrir la conversación. Ver [laHoraDeAhora].
     DateTime? ahora,
+
+    /// La que escribió quien la usa, o `null` para la de la casa.
+    String? personalidad,
   }) =>
       // 🔴 **La identidad va aquí y sale de un solo sitio.** Antes esto era
       // «Eres <nombre>, un asistente de voz» y nada más: al preguntarle quién
       // era, contestaba lo que sí sabía de sí mismo —el modelo que lo mueve—.
       // Ver [QuienEsNexus], donde está escrito lo que es y lo que hace.
-      '${QuienEsNexus.comoSePresenta(agente)}\n'
+      '${QuienEsNexus.comoSePresenta(agente, personalidad: personalidad)}\n'
       '${enQueIdioma(idioma)}'
       '$nombres'
       '${loQueSeSabeDeTi == null || loQueSeSabeDeTi.isEmpty ? '' : '$loQueSeSabeDeTi\n'}'
@@ -379,6 +389,7 @@ class GeminiVoiceGateway implements VoiceGateway {
                     nombres: _losNombres(),
                     loQueSeSabeDeTi: _readMemoria(),
                     ahora: DateTime.now(),
+                    personalidad: _leerLaPersonalidad(),
                   ) +
                   (saludo == null ? '' : alLlamarla(saludo)),
             ComoLaPuerta() => laPuerta(perfil),

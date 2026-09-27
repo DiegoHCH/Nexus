@@ -2,6 +2,7 @@ import 'package:nexus/features/e2e/presentation/providers/correr_una_prueba_desd
 import 'package:nexus/features/history/presentation/providers/el_parte_desde_la_voz.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/features/personalidad/presentation/providers/la_personalidad_provider.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/features/assistant/data/datasources/gemini_live_data_source.dart';
 import 'package:nexus/features/assistant/data/datasources/native_audio_data_source.dart';
@@ -73,6 +74,8 @@ final voiceGatewayProvider = Provider<VoiceGateway>((ref) {
     // tener dos asistentes con el mismo nombre. Ver [LoQueSeSabeDeTi].
     () => LoQueSeSabeDeTi.paraElPrompt(ref.read(loQueRecuerdaDeTiProvider)),
     ref.watch(losAjustesQueSuenanProvider),
+    // Cómo es ella, la misma escribiendo y hablando. Ver [LaPersonalidad].
+    leerLaPersonalidad: () => ref.read(laPersonalidadProvider),
   );
 });
 

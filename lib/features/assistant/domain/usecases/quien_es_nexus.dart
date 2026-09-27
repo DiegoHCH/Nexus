@@ -1,3 +1,5 @@
+import 'package:nexus/features/personalidad/domain/la_personalidad.dart';
+
 /// Quién es quien contesta, dicho **una sola vez** para los dos caminos.
 ///
 /// 🔴 **Reportado usando la app:** «si le preguntas quién eres responde que es
@@ -38,7 +40,10 @@ abstract final class QuienEsNexus {
   ///
   /// Corto a propósito: esto viaja en **cada** encargo y en cada sesión de voz.
   /// Lo que hace falta es que la pregunta tenga respuesta, no un folleto.
-  static String comoSePresenta(String? agente) {
+  /// **Y cómo es**: la personalidad que escribió quien la usa, o la de la
+  /// casa. Ver [LaPersonalidad]. Sin esto contestaba como un folleto —«puedo
+  /// hacer encargos, llevarte el día: el emulador, el parte y la agenda»—.
+  static String comoSePresenta(String? agente, {String? personalidad}) {
     final nombre = elNombreDe(agente);
     final enLaCasa = nombre == laCasa
         // Con el nombre por defecto, «vives en Nexus y te llamas Nexus» suena a
@@ -50,9 +55,12 @@ abstract final class QuienEsNexus {
               'di tu nombre y sigue.';
 
     return 'QUIÉN ERES. $enLaCasa '
-        'Si te preguntan quién o qué eres, contesta con tu nombre y para qué '
-        'sirves, en una o dos frases, sin listarlo todo.\n'
-        'PARA QUÉ SIRVES: pasas encargos a Claude Code en las carpetas de este '
+        'Si te preguntan quién o qué eres, contesta con tu nombre y tu papel '
+        '—cuidar de que no se le escape nada a quien te habla—, en una o dos '
+        'frases y sin listar lo que sabes hacer. La lista es para cuando te '
+        'pregunten qué sabes hacer.\n'
+        '${LaPersonalidad.paraElPrompt(personalidad)}'
+        'PARA QUÉ SIRVES: haces encargos en las carpetas de este '
         'Mac que estén emparejadas —hablando o escribiendo—, cada una con su '
         'permiso de leer o de escribir; guardas las conversaciones y lo que '
         'dejan por escrito; corres la app en un emulador y enseñas su registro; '

@@ -459,6 +459,29 @@ class HoldVoiceConversation {
     /// Se resuelve aquí y no con un `keepAlive()` en cada sitio porque hay seis
     /// y ya se habían olvidado en cuatro. Un invariante que hay que recordar en
     /// seis puntos se rompe en el séptimo.
+    /// Si la respuesta que venga se tira: es la contestación a algo que no iba
+    /// dirigido a ella.
+    ///
+    /// Hace falta porque el servicio contesta igual: el filtro de este lado
+    /// evita que vaya a Claude y que suene, no que el modelo lo procese.
+    var tirandoLaRespuesta = false;
+
+    /// Si ya contestó a algo en esta conversación. A partir de ahí **solo se
+    /// atiende lo que lleva su nombre** —o «para», «espera»…—, esté hablando
+    /// o no. Ver [ElAudioAjeno.pideSuNombre].
+    var yaContesto = false;
+
+    /// Si lo último que dijo fue una pregunta: entonces lo siguiente es la
+    /// respuesta, y un «sí» no necesita su nombre delante.
+    var preguntoElla = false;
+
+    /// Lo que va diciendo ella en este turno, para saber si acaba preguntando.
+    final loQueDice = StringBuffer();
+
+    /// Si la frase que se está oyendo tenía que traer su nombre. Se fija con su
+    /// primer pedazo, como [hablabaAlEmpezar].
+    var pediaSuNombre = false;
+
     void responder({
       required String callId,
       required String name,
@@ -476,6 +499,9 @@ class HoldVoiceConversation {
         return;
       }
       viva.sendToolResult(callId: callId, name: name, result: result);
+      // Lo que devuelve Claude se cuenta siempre, aunque la tele haya dicho
+      // algo mientras esperaba: esa respuesta sí la pediste.
+      tirandoLaRespuesta = false;
       esperandoRespuesta = true;
       keepAlive();
     }
@@ -997,13 +1023,6 @@ class HoldVoiceConversation {
     /// esté callado—.
     var sigueSonandoHasta = 0;
 
-    /// Si la respuesta que venga se tira: es la contestación a algo que no iba
-    /// dirigido a ella.
-    ///
-    /// Hace falta porque el servicio contesta igual: el filtro de este lado
-    /// evita que vaya a Claude y que suene, no que el modelo lo procese.
-    var tirandoLaRespuesta = false;
-
     attach = (VoiceSession live) {
       session = live;
       sessionSubscription = live.events.listen(
@@ -1050,7 +1069,30 @@ class HoldVoiceConversation {
             heardAt = clock.elapsedMilliseconds;
             _log('voz · primera señal del servicio · ${reloj()}');
           }
-          keepAlive();
+          if (event is VoiceReplyTranscript) loQueDice.write(event.text);
+          // 🔴 **El ruido no la mantiene abierta.** Con la tele encendida
+          // llegaban frases sin parar, cada una reiniciaba la cuenta de los seis
+          // segundos, y la conversación no se cerraba nunca. Lo que no va con
+          // ella —ni su respuesta a eso, que el servicio genera igual— no
+          // cuenta como actividad.
+          final esRuido = switch (event) {
+            VoiceUserTranscript(:final text) =>
+              (asked.isEmpty
+                      ? ElAudioAjeno.pideSuNombre(
+                          yaContesto: yaContesto,
+                          preguntoElla: preguntoElla,
+                        )
+                      : pediaSuNombre) &&
+                  !ElAudioAjeno.laNombra(
+                    '$asked $text',
+                    agente: _comoSeLlama(),
+                  ),
+            VoiceReplyAudio() ||
+            VoiceReplyTranscript() ||
+            VoiceTurnCompleted() => tirandoLaRespuesta,
+            _ => false,
+          };
+          if (!esRuido) keepAlive();
           switch (event) {
             // El audio no sale hacia la interfaz: se reproduce y punto. Lo
             // que la interfaz necesita de la respuesta es el texto, que
@@ -1094,8 +1136,21 @@ class HoldVoiceConversation {
                 hablabaAlEmpezar =
                     estabaHablando ||
                     clock.elapsedMilliseconds < sigueSonandoHasta;
+                pediaSuNombre = ElAudioAjeno.pideSuNombre(
+                  yaContesto: yaContesto,
+                  preguntoElla: preguntoElla,
+                );
               }
               asked.write(text);
+              // Si tenía que traer su nombre, su respuesta no suena hasta que
+              // lo traiga: la respuesta empieza a llegar antes de que se cierre
+              // la frase, y para entonces ya habría sonado.
+              if (pediaSuNombre) {
+                tirandoLaRespuesta = !ElAudioAjeno.laNombra(
+                  asked.toString(),
+                  agente: _comoSeLlama(),
+                );
+              }
               // 🔴 **El corte lo hacemos nosotros.** El servicio ya no
               // interrumpe —`NO_INTERRUPTION`, para que la conversación de la
               // habitación no le corte la frase—, así que cuando de verdad se
@@ -1138,6 +1193,12 @@ class HoldVoiceConversation {
               asked.clear();
               final empezoHablandoElla = hablabaAlEmpezar;
               hablabaAlEmpezar = false;
+              final teniaQueNombrarla = pediaSuNombre;
+              pediaSuNombre = false;
+              // Lo que acaba de decir ella, para la frase siguiente.
+              final dijo = loQueDice.toString().trim();
+              loQueDice.clear();
+              if (dijo.isNotEmpty) preguntoElla = dijo.endsWith('?');
               // Lo que quede por sonar de este turno: quien hable mientras
               // tanto le está hablando encima. Ver [sigueSonandoHasta].
               unawaited(
@@ -1155,6 +1216,7 @@ class HoldVoiceConversation {
               if (ElAudioAjeno.seIgnora(
                 utterance,
                 estabaHablando: empezoHablandoElla,
+                teniaQueNombrarla: teniaQueNombrarla,
                 agente: _comoSeLlama(),
               )) {
                 ajenos++;
@@ -1167,6 +1229,7 @@ class HoldVoiceConversation {
               estabaHablando = false;
               tirandoLaRespuesta = false;
               if (utterance.isNotEmpty) {
+                yaContesto = true;
                 if (VoiceRouting.needsClaude(
                   utterance,
                   agente: _comoSeLlama(),

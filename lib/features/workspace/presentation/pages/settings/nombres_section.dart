@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
+import 'package:nexus/features/personalidad/presentation/widgets/la_personalidad_en_ajustes.dart';
 import 'package:nexus/features/workspace/domain/entities/los_nombres.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
@@ -51,6 +52,15 @@ class NombresSection extends ConsumerWidget {
             // está. Ahora es una explicación, y va en el tono de las
             // explicaciones.
             TextoDeAjustes(strings.suNombreLaDespierta),
+          ],
+        ),
+        // Cómo es, además de cómo se llama: el nombre es de quien la usa, y el
+        // carácter también. Ver [LaPersonalidad].
+        BloqueDeAjustes(
+          rotulo: strings.personalidad,
+          hijos: [
+            TextoDeAjustes(strings.personalidadExplainer),
+            const LaPersonalidadEnAjustes(),
           ],
         ),
       ],

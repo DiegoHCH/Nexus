@@ -86,4 +86,41 @@ void main() {
       );
     }
   });
+
+  group('después de contestar', () {
+    test('pide su nombre, salvo si acabó preguntando', () {
+      expect(
+        ElAudioAjeno.pideSuNombre(yaContesto: false, preguntoElla: false),
+        isFalse,
+      );
+      expect(
+        ElAudioAjeno.pideSuNombre(yaContesto: true, preguntoElla: false),
+        isTrue,
+      );
+      expect(
+        ElAudioAjeno.pideSuNombre(yaContesto: true, preguntoElla: true),
+        isFalse,
+      );
+    });
+
+    test('su nombre vale como suene: «Siel» es «Ciel»', () {
+      expect(
+        ElAudioAjeno.interrumpe('siel, ¿y mañana?', agente: 'Ciel'),
+        isTrue,
+      );
+      expect(ElAudioAjeno.interrumpe('mira el cielo', agente: 'Ciel'), isFalse);
+    });
+
+    test('callada, «para» no la nombra: la tele lo dice a cada rato', () {
+      expect(
+        ElAudioAjeno.seIgnora(
+          'el pronóstico para mañana',
+          estabaHablando: false,
+          teniaQueNombrarla: true,
+          agente: 'Ciel',
+        ),
+        isTrue,
+      );
+    });
+  });
 }

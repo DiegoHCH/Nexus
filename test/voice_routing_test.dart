@@ -80,14 +80,13 @@ void main() {
     // porque la respuesta está en esta máquina y no en su memoria.
     const aClaude = [
       '¿Qué opinas de Riverpod?',
-      '¿Qué hora es?',
+      '¿Qué hora es en Tokio?',
       '¿Cuánto ocupa este repo?',
       '¿Qué versión tengo instalada?',
       'Mira el historial de git',
       'Corre los tests',
       '¿Cuántos archivos hay en lib?',
       'Resume lo que hicimos ayer',
-      'What time is it?',
       'Run the tests',
     ];
 
@@ -113,15 +112,32 @@ void main() {
     test('una muletilla delante no cuela el encargo', () {
       expect(VoiceRouting.needsClaude('Bueno, borra la rama'), isTrue);
       expect(VoiceRouting.needsClaude('No, corre los tests'), isTrue);
-      expect(VoiceRouting.needsClaude('Nada, ¿qué hora es?'), isTrue);
       // Y el agujero de antes: empezar por cortesía bastaba si cabía en el tope.
-      expect(VoiceRouting.needsClaude('Hola, ¿qué hora es?'), isTrue);
+      expect(VoiceRouting.needsClaude('Hola, borra la rama'), isTrue);
     });
 
     test('la puntuación y las mayúsculas no cambian la decisión', () {
       expect(VoiceRouting.needsClaude('¡¡GRACIAS!!'), isFalse);
-      expect(VoiceRouting.needsClaude('¿¿Qué HORA es??'), isTrue);
+      expect(VoiceRouting.needsClaude('¿¿CORRE los TESTS??'), isTrue);
     });
+  });
+
+  // 🔴 Reportado el 27 sep: «le pregunté algo básico como la hora y se lo mandó
+  // a Claude». La hora de este Mac va en su prompt, así que la dice ella.
+  group('la hora y la fecha las dice ella', () {
+    for (final frase in [
+      '¿Qué hora es?',
+      'Hola, ¿qué hora es?',
+      'Nada, ¿qué hora es?',
+      'Ciel, ¿qué día es hoy?',
+      '¿A cuántos estamos?',
+      'What time is it?',
+    ]) {
+      test(
+        '«$frase»',
+        () => expect(VoiceRouting.needsClaude(frase, agente: 'Ciel'), isFalse),
+      );
+    }
   });
 
   // Despedirse cierra la conversación sin esperar el plazo de inactividad.

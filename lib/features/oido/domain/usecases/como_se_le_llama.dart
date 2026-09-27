@@ -18,4 +18,42 @@ abstract final class ComoSeLeLlama {
     final nombre = (agente ?? '').trim().toLowerCase();
     return [nombre.isEmpty ? elDeCasa : nombre];
   }
+
+  /// Cómo suena una palabra en español, sin acentos ni ortografía: «Ciel»,
+  /// «Siel» y «Zyel» se dicen igual. Es la misma regla que usa el oído del
+  /// Mac —`NexusEscucha.comoSuena`— para que el nombre valga igual al llamarla
+  /// que a media conversación.
+  static String comoSuena(String palabra) {
+    var s = palabra
+        .toLowerCase()
+        .replaceAll(RegExp('[áà]'), 'a')
+        .replaceAll(RegExp('[éè]'), 'e')
+        .replaceAll(RegExp('[íì]'), 'i')
+        .replaceAll(RegExp('[óò]'), 'o')
+        .replaceAll(RegExp('[úùü]'), 'u')
+        .replaceAll('ñ', 'n');
+    const reglas = [
+      ('ch', '\u0001'),
+      ('ll', 'y'),
+      ('qu', 'k'),
+      ('gue', 'ge'),
+      ('gui', 'gi'),
+      ('ce', 'se'),
+      ('ci', 'si'),
+      ('ca', 'ka'),
+      ('co', 'ko'),
+      ('cu', 'ku'),
+      ('z', 's'),
+      ('v', 'b'),
+      ('w', 'u'),
+      ('x', 'ks'),
+      ('h', ''),
+      ('y', 'i'),
+      ('c', 'k'),
+    ];
+    for (final (de, a) in reglas) {
+      s = s.replaceAll(de, a);
+    }
+    return s.replaceAll('\u0001', 'ch');
+  }
 }

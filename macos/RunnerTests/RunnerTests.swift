@@ -1068,12 +1068,6 @@ final class LaFraseTrasElNombreTests: XCTestCase {
       "corre los tests")
   }
 
-  func testUnNombrePartidoEnDosDejaLoDeDespues() {
-    XCTAssertEqual(
-      NexusEscucha.loQueSigueAlNombre("Sí, él, ¿qué hora es?", siendo: ["ciel"]),
-      "¿qué hora es?")
-  }
-
   func testSiSaleDosVecesCuentaLaUltima() {
     XCTAssertEqual(
       NexusEscucha.loQueSigueAlNombre("Hestia, no, Hestia, abre el repo", siendo: ["hestia"]),
@@ -1083,8 +1077,8 @@ final class LaFraseTrasElNombreTests: XCTestCase {
 
 /// Si en lo que se oyó está su nombre, escrito como lo escriba el reconocedor.
 ///
-/// 🔴 Con «Ciel» no abría: un nombre que el español no tiene sale con s o
-/// partido en dos, y ninguna de las dos formas se parecía a «ciel».
+/// Suena igual, vale; se le parece, en un nombre corto, no: «cielo», «piel» o
+/// «si el» no son «Ciel».
 final class ElNombreQueSeOyeTests: XCTestCase {
   func testComoSuenaIgualAunqueSeEscribaDistinto() {
     XCTAssertEqual(NexusEscucha.comoSuena("ciel"), NexusEscucha.comoSuena("siel"))
@@ -1093,17 +1087,22 @@ final class ElNombreQueSeOyeTests: XCTestCase {
     XCTAssertEqual(NexusEscucha.comoSuena("chema"), "chema")
   }
 
-  func testLaOyeConSOPartidaEnDos() {
+  func testLaOyeComoLaEscribaElReconocedor() {
+    XCTAssertTrue(NexusEscucha.leLlamaron("ciel que hora es", siendo: ["ciel"]))
     XCTAssertTrue(NexusEscucha.leLlamaron("siel que hora es", siendo: ["ciel"]))
-    XCTAssertTrue(NexusEscucha.leLlamaron("si el que hora es", siendo: ["ciel"]))
-    XCTAssertTrue(NexusEscucha.leLlamaron("es tia abre el repo", siendo: ["hestia"]))
+    XCTAssertTrue(NexusEscucha.leLlamaron("oye estia abre el repo", siendo: ["hestia"]))
+    XCTAssertTrue(NexusEscucha.leLlamaron("hola señor jarvis", siendo: ["señor jarvis"]))
   }
 
-  func testNoAbreConOtraCosa() {
+  /// 🔴 Visto el 27 sep con la tele encendida: la 1.27.2 abría con «si el…» y
+  /// desde antes con cualquier palabra que llevara el nombre dentro.
+  func testNoAbreConLoQueSeLeParece() {
     XCTAssertFalse(NexusEscucha.leLlamaron("pasame el cafe", siendo: ["ciel"]))
+    XCTAssertFalse(NexusEscucha.leLlamaron("si el test pasa lo subimos", siendo: ["ciel"]))
+    XCTAssertFalse(NexusEscucha.leLlamaron("mira el cielo", siendo: ["ciel"]))
+    XCTAssertFalse(NexusEscucha.leLlamaron("tengo la piel seca", siendo: ["ciel"]))
+    XCTAssertFalse(NexusEscucha.leLlamaron("cien pesos", siendo: ["ciel"]))
     XCTAssertFalse(NexusEscucha.leLlamaron("hablemos de la reunion", siendo: ["hestia"]))
-    // Partido en dos solo vale al principio, donde va el nombre al llamarla.
-    XCTAssertFalse(NexusEscucha.leLlamaron("vale si el test pasa lo subimos", siendo: ["ciel"]))
   }
 }
 

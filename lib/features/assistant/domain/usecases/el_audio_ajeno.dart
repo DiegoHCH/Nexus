@@ -1,3 +1,5 @@
+import 'package:nexus/features/oido/domain/usecases/como_se_le_llama.dart';
+
 /// Qué hacer con lo que suena alrededor y no iba dirigido a Nexus.
 ///
 /// 🔴 **Pasó, dos corridas seguidas y con la transcripción delante.** Con la
@@ -26,10 +28,15 @@
 /// la habitación—. Y se dice, que es la otra mitad: un turno tirado en silencio
 /// se lee como que la voz no funciona.
 ///
-/// **En silencio no se filtra nada.** Cuando Nexus no está hablando, lo que
-/// llega se atiende como siempre: la sesión la abriste tú y lo primero que dices
-/// va dirigido a ella por construcción. Exigir el nombre en cada frase
-/// convertiría una conversación en una lista de órdenes.
+/// **Y después de contestar, solo con su nombre.** Lo primero que dices se
+/// atiende sin más: la sesión la abriste tú y va dirigido a ella por
+/// construcción. Pero una vez que contestó, el micrófono sigue abierto y con el
+/// del Mac —sin auriculares— recoge la sala entera: con la tele encendida
+/// contestaba a la tele, y la conversación no se cerraba nunca porque cada
+/// frase de fondo contaba como actividad (visto el 27 sep). Así que a partir de
+/// ahí se sigue con «Ciel, ¿y mañana?». La excepción es cuando ella acaba
+/// preguntando —«¿Lo regenero?»—: lo siguiente es tu respuesta, y un «sí» no
+/// necesita nombre. Ver [pideSuNombre].
 abstract final class ElAudioAjeno {
   /// Palabras con las que se corta a alguien que está hablando.
   ///
@@ -53,23 +60,53 @@ abstract final class ElAudioAjeno {
     final limpia = _limpia(frase);
     if (limpia.isEmpty) return false;
     if (_deControl.hasMatch(limpia)) return true;
+    return laNombra(frase, agente: agente);
+  }
+
+  /// Si en la frase está su nombre —o «nexus»—, sin contar las palabras de
+  /// control.
+  ///
+  /// Es lo que se pide **después de contestar**: ahí «para» no vale, porque no
+  /// hay nada que cortar y la tele dice «para mañana» cada dos frases.
+  static bool laNombra(String frase, {String? agente}) {
+    final limpia = _limpia(frase);
+    if (limpia.isEmpty) return false;
+    final palabras = limpia.split(' ');
     for (final nombre in {'nexus', ...?_nombre(agente)}) {
       if (RegExp('\\b${RegExp.escape(nombre)}\\b').hasMatch(limpia)) {
+        return true;
+      }
+      // Como suena y no como se escribe: el servicio transcribe un nombre que
+      // no conoce como le suena, y «Siel» es «Ciel».
+      if (!nombre.contains(' ') &&
+          palabras.any(
+            (p) =>
+                ComoSeLeLlama.comoSuena(p) == ComoSeLeLlama.comoSuena(nombre),
+          )) {
         return true;
       }
     }
     return false;
   }
 
-  /// Si este turno se tira: llegó mientras hablaba y no iba con ella.
+  /// Si la próxima frase tiene que llevar su nombre para atenderse.
+  static bool pideSuNombre({
+    required bool yaContesto,
+    required bool preguntoElla,
+  }) => yaContesto && !preguntoElla;
+
+  /// Si este turno se tira: llegó mientras hablaba —o cuando ya tenía que
+  /// traer su nombre, ver [pideSuNombre]— y no iba con ella.
   static bool seIgnora(
     String frase, {
     required bool estabaHablando,
+    bool teniaQueNombrarla = false,
     String? agente,
-  }) =>
-      estabaHablando &&
-      _limpia(frase).isNotEmpty &&
-      !interrumpe(frase, agente: agente);
+  }) {
+    if (_limpia(frase).isEmpty) return false;
+    if (estabaHablando) return !interrumpe(frase, agente: agente);
+    return teniaQueNombrarla && !laNombra(frase, agente: agente);
+  }
 
   static Iterable<String>? _nombre(String? agente) {
     final limpio = _limpia(agente ?? '');

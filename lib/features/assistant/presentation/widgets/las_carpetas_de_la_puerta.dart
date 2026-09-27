@@ -90,6 +90,9 @@ class _Sugerencia extends StatelessWidget {
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         minimumSize: Size.zero,
+        // Sin la densidad compacta de escritorio: resta 8 px del relleno
+        // vertical y dejaba el texto cortado por arriba. Ver [BotonDeFila].
+        visualDensity: VisualDensity.standard,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
       child: Semantics(

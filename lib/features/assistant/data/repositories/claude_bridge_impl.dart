@@ -231,10 +231,10 @@ class ClaudeBridgeImpl implements ClaudeBridge {
         // correo para poder leerlo dejaría también mandarlo.
         disallowedTools: [
           ...disallowedTools,
-          // Y lo que no se puede enseñar, siempre: ofrecer una herramienta que
-          // no se pinta gasta una pregunta de permiso y pierde la respuesta.
-          // Ver [LoQueNoSePuedePintar], donde está el caso medido.
-          ...LoQueNoSePuedePintar.herramientas,
+          // Y lo que no se puede enseñar **sin nadie a quien preguntar**: sin
+          // canal de vuelta la pregunta no llega a nadie y pierde la respuesta.
+          // Con canal se pinta en el chat. Ver [LoQueNoSePuedePintar].
+          if (alPedirPermiso == null) ...LoQueNoSePuedePintar.herramientas,
           if (!canEdit) ...McpPermissions.escrituraDeFuera,
         ],
         appendSystemPrompt: ProjectContextPrompt.compose(

@@ -144,6 +144,9 @@ class LocalConversationStore {
                 'permiso': peticion.toJson(),
               if (message.decision case final decision?)
                 'decision': decision.name,
+              // Y lo que se eligió, si era una pregunta con opciones: sin
+              // esto, releída enseñaría la pregunta y no la respuesta.
+              'respuestas': ?message.respuestas,
               // 🔴 **Una propuesta sin contestar sí vale mañana**, al revés que
               // una pregunta de permiso: al otro lado de aquella había un
               // `claude -p` que murió con la sesión, y aquí no hay nadie
@@ -402,6 +405,7 @@ class LocalConversationStore {
   static ChatMessage _mensajeDe(Map<String, dynamic> message) {
     final peticion = PeticionDePermiso.fromJson(message['permiso']);
     final decision = DecisionDePermisoJson.deJson(message['decision']);
+    final respuestas = message['respuestas'];
     return ChatMessage(
       author: message['autor'] == 'user' ? ChatAuthor.user : ChatAuthor.nexus,
       text: message['texto'] as String? ?? '',
@@ -433,6 +437,12 @@ class LocalConversationStore {
       decision: peticion == null
           ? decision
           : decision ?? DecisionDePermiso.cancelado,
+      respuestas: respuestas is Map
+          ? {
+              for (final MapEntry(:key, :value) in respuestas.entries)
+                if (key is String && value is String) key: value,
+            }
+          : null,
     );
   }
 

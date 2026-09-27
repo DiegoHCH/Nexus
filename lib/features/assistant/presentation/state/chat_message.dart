@@ -76,6 +76,7 @@ class ChatMessage {
     this.fallo = false,
     this.permiso,
     this.decision,
+    this.respuestas,
     this.propuesta,
     this.decidido,
     this.esLaListaDeProgramadas = false,
@@ -174,6 +175,10 @@ class ChatMessage {
   /// Qué se contestó, o `null` si sigue esperando.
   final DecisionDePermiso? decision;
 
+  /// Lo que se contestó a una pregunta con opciones de Claude —pregunta → lo
+  /// elegido—, cuando [permiso] es una. Ver [LaPreguntaDeClaude].
+  final Map<String, String>? respuestas;
+
   /// Una tarea que se repetiría, **propuesta y todavía sin crear**.
   ///
   /// Vive en el mensaje por lo mismo que [permiso], y con la misma decisión
@@ -255,6 +260,7 @@ class ChatMessage {
     List<ActivityItem>? actividad,
     bool? fallo,
     DecisionDePermiso? decision,
+    Map<String, String>? respuestas,
     DecisionDeProgramar? decidido,
     LoQueCostoElTurno? loQueCosto,
     bool? porUnAvisoDeFondo,
@@ -272,6 +278,7 @@ class ChatMessage {
     respondeA: respondeA,
     permiso: permiso,
     decision: decision ?? this.decision,
+    respuestas: respuestas ?? this.respuestas,
     propuesta: propuesta,
     decidido: decidido ?? this.decidido,
     esLaListaDeProgramadas: esLaListaDeProgramadas,

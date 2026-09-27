@@ -65,6 +65,22 @@ void main() {
       );
     });
 
+    // 🔴 Contestaba como un folleto. Lo que se pidió fue una identidad: la de
+    // Ciel, de Tensura, de tú y llamándole «Master» (27 sep).
+    test('tiene personalidad, y no se presenta con la lista', () {
+      final dicho = QuienEsNexus.comoSePresenta('Ciel');
+
+      expect(dicho, contains(QuienEsNexus.personalidad));
+      expect(dicho, contains('Tensura'));
+      expect(dicho, contains('Tratas de tú'));
+      expect(dicho, contains('sin listar lo que sabes hacer'));
+      expect(
+        dicho,
+        contains('no cómo trabajas'),
+        reason: 'el personaje no cambia el análisis ni el código',
+      );
+    });
+
     test('dice para qué sirve, que es la mitad de la respuesta', () {
       final dicho = QuienEsNexus.comoSePresenta(null);
 

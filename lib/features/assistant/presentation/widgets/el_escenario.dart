@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/features/assistant/presentation/widgets/conversation_dock.dart';
+import 'package:nexus/features/assistant/presentation/widgets/el_subtitulo_al_compas.dart';
 import 'package:nexus/features/assistant/presentation/widgets/composer_bar.dart';
 import 'package:nexus/features/assistant/presentation/widgets/composer/composer_menus.dart';
 import 'package:nexus/core/design_system/design_system.dart';
@@ -241,12 +242,11 @@ class _LaCapa extends ConsumerWidget {
           left: NexusSpacing.s8 * 2,
           right: NexusSpacing.s8 * 2,
           top: bajoElOrbe,
-          child: Text(
-            dice,
-            textAlign: TextAlign.center,
+          // Al compás de la voz: lo dicho en blanco, lo que falta en gris.
+          child: ElSubtituloAlCompas(
+            texto: dice,
             maxLines: 4,
-            overflow: TextOverflow.fade,
-            style: NexusTypography.subtitle.copyWith(color: colors.ink),
+            estilo: NexusTypography.subtitle,
           ),
         );
     }

@@ -22,6 +22,15 @@ abstract final class ElNivelDeLaVoz {
   /// [AlCompasDelAltavoz].
   static final altavoz = ValueNotifier<double>(0);
 
+  /// Por dónde va la respuesta que suena: lo que ya sonó de lo que ha llegado,
+  /// de 0 a 1. `null` cuando no suena nada, y entonces todo cuenta como dicho.
+  ///
+  /// 🔴 Es lo que pinta el subtítulo al compás de la voz —lo dicho en blanco,
+  /// lo que falta en gris— en el escenario y en la puerta. Sin esto se pintaba
+  /// entero de un color, o con la pregunta de la puerta en gris fijo, y se
+  /// leía como que la voz se había quedado atascada ahí (reportado el 27 sep).
+  static final avance = ValueNotifier<double?>(null);
+
   /// El volumen de un trozo de PCM de 16 bits, de 0 a 1.
   ///
   /// La raíz de la RMS y no la RMS: la voz hablada se mueve en valores bajos
@@ -58,29 +67,60 @@ class AlCompasDelAltavoz {
 
   DateTime _suenaHasta = DateTime.fromMillisecondsSinceEpoch(0);
   final _pendientes = <Timer>[];
+
+  /// Los bytes de la respuesta de ahora que han llegado y los que ya sonaron.
+  var _llegado = 0;
+  var _sonado = 0;
+
+  /// Cuánto silencio separa una respuesta de la siguiente. Entre dos turnos
+  /// siempre hay alguien hablando —segundos—; dentro de una respuesta, los
+  /// huecos de la red son de décimas.
+  static const _entreRespuestas = Duration(milliseconds: 1500);
   Timer? _silencio;
 
   void encolado(Uint8List pcm) {
     if (pcm.isEmpty) return;
     final ahora = DateTime.now();
+    // Una respuesta nueva empieza a contar de cero.
+    if (_suenaHasta.isBefore(ahora.subtract(_entreRespuestas))) {
+      _llegado = 0;
+      _sonado = 0;
+    }
     final empieza = _suenaHasta.isAfter(ahora) ? _suenaHasta : ahora;
     final dura = Duration(
       microseconds: pcm.length * 1000000 ~/ bytesPorSegundo,
     );
     _suenaHasta = empieza.add(dura);
     final nivel = ElNivelDeLaVoz.deUnTrozo(pcm);
+    final bytes = pcm.length;
+    _llegado += bytes;
+    ElNivelDeLaVoz.avance.value = _sonado / _llegado;
     _pendientes
       ..removeWhere((t) => !t.isActive)
       ..add(
         Timer(empieza.difference(ahora), () {
           ElNivelDeLaVoz.altavoz.value = nivel;
+          // Cuenta como sonado **al terminar** su trozo, no al empezar: el
+          // corte del subtítulo tiene que ir detrás de la voz, nunca delante.
+          _pendientes.add(
+            Timer(dura, () {
+              _sonado += bytes;
+              // Sonado entero es lo mismo que nada sonando: todo dicho. Y
+              // así no importa si este aviso llega antes o después del
+              // silencio, que vencen en el mismo instante.
+              if (_llegado > 0) {
+                final va = _sonado / _llegado;
+                ElNivelDeLaVoz.avance.value = va >= 1 ? null : va;
+              }
+            }),
+          );
         }),
       );
     _silencio?.cancel();
-    _silencio = Timer(
-      _suenaHasta.difference(ahora),
-      () => ElNivelDeLaVoz.altavoz.value = 0,
-    );
+    _silencio = Timer(_suenaHasta.difference(ahora), () {
+      ElNivelDeLaVoz.altavoz.value = 0;
+      ElNivelDeLaVoz.avance.value = null;
+    });
   }
 
   /// Se tiró lo que quedaba por sonar —una interrupción, colgar—: el nivel va
@@ -92,6 +132,9 @@ class AlCompasDelAltavoz {
     _pendientes.clear();
     _silencio?.cancel();
     _suenaHasta = DateTime.fromMillisecondsSinceEpoch(0);
+    _llegado = 0;
+    _sonado = 0;
     ElNivelDeLaVoz.altavoz.value = 0;
+    ElNivelDeLaVoz.avance.value = null;
   }
 }

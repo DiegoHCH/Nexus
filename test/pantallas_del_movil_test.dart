@@ -22,6 +22,7 @@ import 'package:nexus/features/remote/presentation/providers/outbox_providers.da
 import 'package:nexus_protocol/nexus_protocol.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nexus/features/remote/presentation/widgets/mobile_chrome.dart';
+import 'package:nexus/features/remote/presentation/widgets/mobile_drawer.dart';
 import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/remote/data/altavoz_del_movil.dart';
@@ -794,6 +795,185 @@ void main() {
     });
   });
 
+  group('la fila dice en qué anda', () {
+    Future<void> lista(WidgetTester tester) async {
+      final c = await conectado(
+        tester,
+        respuestas: {
+          'conversations': {
+            'conversations': [
+              {'id': 'a', 'folder': '/Users/alguien/personal/nexus'},
+              {'id': 'p', 'folder': '/Users/alguien/personal/directorio'},
+            ],
+          },
+        },
+      );
+      await tester.pumpWidget(app(c, const ConversationsPage()));
+      await tester.pump();
+      await tester.pump();
+    }
+
+    testWidgets('pensando, con el rato que cuenta el Mac', (tester) async {
+      await lista(tester);
+      // Lo que se vio en el teléfono de verdad: «Pensando» y nada más, que se lee
+      // igual que un cuelgue. Con el instante del Mac la fila cuenta el mismo rato.
+      socket.recibe(
+        Event(
+          seq: 1,
+          kind: 'orb',
+          data: {
+            'conversation': 'p',
+            'state': 'ponder',
+            'since': DateTime.now()
+                .subtract(const Duration(minutes: 2, seconds: 10))
+                .millisecondsSinceEpoch,
+          },
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.textContaining('Pensando · 2 min 1'), findsOne);
+    });
+
+    testWidgets('«te escucha» sigue al foco del Mac, sin pedir la lista', (
+      tester,
+    ) async {
+      await lista(tester);
+      expect(find.text('· TE ESCUCHA'), findsNothing);
+
+      socket.recibe(
+        const Event(
+          seq: 1,
+          kind: 'focus',
+          data: {'conversation': 'a', 'focused': true},
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('· TE ESCUCHA'), findsOne);
+      final miniorbe = tester.widget<NexusOrb>(
+        find.byKey(const ValueKey('miniorbe-a')),
+      );
+      expect(miniorbe.oido, isTrue);
+    });
+
+    testWidgets('arriba la carpeta aunque tenga nombre, y el nombre debajo', (
+      tester,
+    ) async {
+      await lista(tester);
+      socket.recibe(
+        const Event(
+          seq: 1,
+          kind: 'title',
+          data: {'conversation': 'a', 'title': 'CRED-310 · desenlaces'},
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      // Como el mockup: la ruta en mono dice dónde trabaja; el nombre, en reposo y
+      // sin nada que contar, va en la línea de lo que hace.
+      expect(find.text('…/personal/nexus'), findsOne);
+      expect(find.text('CRED-310 · desenlaces'), findsOne);
+    });
+  });
+
+  group('la conversación en un teléfono de 390 × 844', () {
+    Future<void> telefono(
+      WidgetTester tester,
+      Map<String, Object?> conv,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final c = await conectado(
+        tester,
+        extra: [altavozProvider.overrideWithValue(_AltavozCallado())],
+      );
+      await tester.pumpWidget(
+        app(c, const ConversationPage(conversationId: 'a')),
+      );
+      socket.recibe(
+        Snapshot(
+          seq: 5,
+          data: {
+            'conversations': [
+              {'id': 'a', 'folder': '/tmp/repo', ...conv},
+            ],
+          },
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+    }
+
+    testWidgets('con turnos, el orbe ocupa entre el 30 y el 40 % del alto', (
+      tester,
+    ) async {
+      // Era una banda de 132 —un 15 %— y en el teléfono se leía como un adorno. El
+      // mockup lo dibuja a 280 de 844.
+      await telefono(tester, {'reply': 'ya está ordenado'});
+
+      final orbe = tester.getRect(
+        find.byKey(const ValueKey('orbe-de-la-conversacion')),
+      );
+      expect(orbe.height, inInclusiveRange(844 * 0.30, 844 * 0.40));
+      // Y lo dicho sigue debajo, no se tira.
+      final respuesta = tester.getRect(find.byKey(const ValueKey('respuesta')));
+      expect(respuesta.top, greaterThanOrEqualTo(orbe.bottom));
+    });
+
+    testWidgets('hablando: orbe, subtítulo y, debajo, el registro', (
+      tester,
+    ) async {
+      await telefono(tester, {
+        'reply': 'Falló el test del resumen. ¿Lo regenero?',
+        'orb': 'speak',
+      });
+
+      final orbe = tester.getRect(
+        find.byKey(const ValueKey('orbe-de-la-conversacion')),
+      );
+      final subtitulo = tester.getRect(find.byKey(const ValueKey('subtitulo')));
+      final registro = tester.getRect(find.byKey(const ValueKey('respuesta')));
+      expect(orbe.height, inInclusiveRange(844 * 0.30, 844 * 0.40));
+      expect(subtitulo.top, greaterThanOrEqualTo(orbe.bottom));
+      expect(registro.top, greaterThanOrEqualTo(subtitulo.bottom));
+    });
+
+    testWidgets('trabajando, el compositor no enseña el permiso', (
+      tester,
+    ) async {
+      // Como el mockup: ahí el sitio es de los pasos, y lo que se escriba va a la
+      // cola con el permiso que haya al salir.
+      await telefono(tester, {
+        'orb': 'think',
+        'streaming': true,
+        'steps': [
+          {'id': '1', 'text': 'gh run list', 'done': true},
+          {'id': '2', 'text': 'leyendo el test'},
+        ],
+      });
+
+      expect(find.byKey(const ValueKey('banda-trabajando')), findsOne);
+      expect(find.byKey(const ValueKey('permiso')), findsNothing);
+      expect(find.byKey(const ValueKey('detener')), findsOne);
+    });
+
+    testWidgets('con el teclado abierto nada desborda', (tester) async {
+      // Con el orbe a un tercio, el teclado deja el cuerpo a la mitad: el orbe se
+      // mide contra lo que queda, y el subtítulo se recorta antes que desbordar.
+      tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+      await telefono(tester, {
+        'reply': 'Falló el test del resumen. ¿Lo regenero? ' * 6,
+        'orb': 'speak',
+      });
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('la conversación con su orbe', () {
     Future<ProviderContainer> abierta(
       WidgetTester tester,
@@ -845,9 +1025,11 @@ void main() {
       expect(find.byKey(const ValueKey('subtitulo')), findsOne);
       expect(subtitulo(tester), contains('¿Lo regenero?'));
       final pantalla = tester.getSize(find.byType(ConversationPage)).height;
+      // Un tercio del alto, dentro del 30–40 % que se pidió: más grande deja el
+      // registro de debajo sin sitio.
       expect(
         tester.getSize(find.byType(NexusOrb)).height,
-        greaterThan(pantalla * 0.35),
+        inInclusiveRange(pantalla * 0.30, pantalla * 0.40),
       );
       // La voz sale por el Mac: aquí no se sabe por dónde va, así que no se pinta
       // nada en gris ni se late con un silencio que no es tal.
@@ -1046,6 +1228,72 @@ void main() {
       // aquí: no llegar no es motivo para no poder leerlo.
       expect(find.byType(ConversationsPage), findsOne);
       await tester.pump(const Duration(seconds: 6));
+    });
+
+    testWidgets('sin llegar, el menú sigue en la cabecera', (tester) async {
+      // Como el mockup: sin Mac lo que el menú todavía sirve es olvidarlo, y sin el
+      // hamburguesa la única salida de aquí era esperar a llegar.
+      await sinLlegar(tester);
+
+      await tester.tap(find.byKey(const ValueKey('abrir-el-menu')));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(MobileDrawer), findsOne);
+      await tester.pump(const Duration(seconds: 6));
+    });
+
+    testWidgets('lo que cuenta el Mac mientras se busca no se pierde', (
+      tester,
+    ) async {
+      // Lo que se vio en el teléfono de verdad: la lista con las carpetas y ninguna
+      // diciendo en qué andaba. El espejo nacía con la lista, cinco segundos después
+      // de conectar, y la foto que el Mac manda al reconectar ya había pasado.
+      final socket = _SocketFalso()
+        ..respuestas['conversations'] = {
+          'conversations': [
+            {'id': 'a', 'folder': '/Users/alguien/personal/nexus'},
+          ],
+        };
+      final enlace = ChannelLink(
+        abrir: () async => socket,
+        appVersion: '0.0.0',
+        dormir: (_) => Completer<void>().future,
+      );
+      final c = ProviderContainer(
+        overrides: [
+          pairingStoreProvider.overrideWithValue(_Emparejado()),
+          channelLinkProvider.overrideWithValue(enlace),
+          outboxStoreProvider.overrideWithValue(_ColaEnMemoria()),
+          mirrorCacheProvider.overrideWithValue(_SinCache()),
+          localeProvider.overrideWithValue(const Locale('es')),
+        ],
+      );
+      addTearDown(c.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(container: c, child: const NexusMovil()),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      // El Mac va por delante: el teléfono pide lo que le falta y le llega la foto,
+      // todavía con la pantalla de «buscando tu Mac» delante.
+      socket.recibe(const Welcome(protocol: ProtocolRange.mine, seq: 7));
+      await tester.pump();
+      socket.recibe(
+        const Snapshot(
+          seq: 7,
+          data: {
+            'conversations': [
+              {'id': 'a', 'orb': 'speak', 'reply': 'El golden cambió.'},
+            ],
+          },
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 6));
+      await tester.pump();
+
+      expect(find.byType(ConversationsPage), findsOne);
+      expect(find.text('Hablando: «El golden cambió.»'), findsOne);
     });
 
     testWidgets('un rechazo propone volver a emparejar', (tester) async {

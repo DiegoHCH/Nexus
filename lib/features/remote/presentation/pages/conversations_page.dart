@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
+import 'package:nexus/features/remote/domain/el_rato_pensando.dart';
 import 'package:nexus/features/remote/domain/el_subtitulo_de_la_voz.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
 import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
@@ -305,6 +308,15 @@ class _Tarjeta extends ConsumerWidget {
     final orbe = ref.watch(orbeProvider(conversacion.id));
     final paso = ElPasoDeAhora.de(conversacion.steps);
     final loQueHace = _loQueHace(strings, orbe, paso);
+    // «Te escucha» la que oye si dices su nombre —el foco del Mac— **o** la que tiene
+    // la sesión de voz abierta ahora mismo: las dos cosas son que lo que digas va a
+    // esa, y la segunda puede no ser la del foco si se habló desde el teléfono.
+    final teEscucha = conversacion.focused || conversacion.voiceOnMac;
+    final letraDeLoQueHace = NexusTypography.body.copyWith(
+      color: colors.ink,
+      fontSize: 14,
+      height: 1.4,
+    );
 
     // **Una fila con hairline, no una tarjeta.** Una `Card` trae elevación, esquinas
     // de 12 y su propio color de superficie: tres cosas que este sistema no usa en
@@ -351,7 +363,7 @@ class _Tarjeta extends ConsumerWidget {
                       hechos: paso?.hechos,
                       // El anillo del oído, solo en la que el Mac escucha: es la que
                       // oye si dices su nombre.
-                      oido: conversacion.focused,
+                      oido: teEscucha,
                     ),
                   ),
                 ),
@@ -368,8 +380,12 @@ class _Tarjeta extends ConsumerWidget {
                         // `/Users/…/proyectos/api` se distingue por la cola, no por
                         // la cabeza.
                         Flexible(
+                          // 🔴 **La carpeta y no el nombre**, como el mockup: el
+                          // nombre es el primer encargo, y en esta línea lo que se
+                          // busca es **dónde** trabaja cada una. El nombre sale
+                          // abajo cuando no hay nada que contar.
                           child: Text(
-                            _cola(conversacion.nombre),
+                            _cola(conversacion.folder ?? conversacion.nombre),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: NexusTypography.data.copyWith(
@@ -377,7 +393,7 @@ class _Tarjeta extends ConsumerWidget {
                             ),
                           ),
                         ),
-                        if (conversacion.focused) ...[
+                        if (teEscucha) ...[
                           const SizedBox(width: NexusSpacing.s2),
                           // Pegado a la ruta y en acento, como el mockup: la que te
                           // escucha es una propiedad de **esta** fila, no una
@@ -392,17 +408,25 @@ class _Tarjeta extends ConsumerWidget {
                         ],
                       ],
                     ),
-                    if (loQueHace != null) ...[
+                    if (orbe == NexusOrbState.ponder &&
+                        conversacion.ponderingSince != null) ...[
+                      const SizedBox(height: NexusSpacing.s1),
+                      // Pensando **con el rato corriendo**, que es lo que el Mac
+                      // cuenta en su conversación: un «Pensando» quieto se lee
+                      // igual que un cuelgue.
+                      _ElRato(
+                        key: ValueKey('rato-${conversacion.id}'),
+                        desde: conversacion.ponderingSince!,
+                        style: letraDeLoQueHace,
+                      ),
+                    ] else if (loQueHace != null) ...[
                       const SizedBox(height: NexusSpacing.s1),
                       Text(
                         loQueHace,
+                        key: ValueKey('lo-que-hace-${conversacion.id}'),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: NexusTypography.body.copyWith(
-                          color: colors.ink,
-                          fontSize: 14,
-                          height: 1.4,
-                        ),
+                        style: letraDeLoQueHace,
                       ),
                     ],
                     if (conversacion.error != null) ...[
@@ -446,8 +470,23 @@ class _Tarjeta extends ConsumerWidget {
         paso == null
             ? strings.mobileWorking
             : '${strings.mobileStepOf(paso.paso, paso.total)} · ${paso.texto}',
-      _ => respuesta.isEmpty ? null : respuesta,
+      // En reposo, lo último que contestó; y si no contestó nada todavía, **el nombre
+      // que tiene**, que arriba ya no sale porque ahí va la carpeta. Sin esto una
+      // conversación renombrada no decía su nombre en ninguna parte de la lista.
+      _ when respuesta.isNotEmpty => respuesta,
+      _ => _nombrePropio(),
     };
+  }
+
+  /// El nombre, solo si dice algo más que la carpeta de arriba.
+  String? _nombrePropio() {
+    final titulo = conversacion.title?.trim();
+    if (titulo == null || titulo.isEmpty) return null;
+    final cola = (conversacion.folder ?? '')
+        .split('/')
+        .where((t) => t.isNotEmpty)
+        .lastOrNull;
+    return titulo == cola ? null : titulo;
   }
 
   /// Los dos últimos tramos de la ruta. Con una pantalla estrecha, el principio de
@@ -458,4 +497,47 @@ class _Tarjeta extends ConsumerWidget {
     if (tramos.length <= 2) return ruta;
     return '…/${tramos.sublist(tramos.length - 2).join('/')}';
   }
+}
+
+/// «Pensando · 2 min 10 s», **con el rato moviéndose** cada segundo.
+///
+/// Un widget aparte y no un reloj en la fila: así lo único que se redibuja cada
+/// segundo es esta línea, y solo mientras alguna fila está pensando.
+class _ElRato extends StatefulWidget {
+  const _ElRato({super.key, required this.desde, required this.style});
+
+  /// El instante del Mac en que se calló.
+  final DateTime desde;
+  final TextStyle style;
+
+  @override
+  State<_ElRato> createState() => _ElRatoState();
+}
+
+class _ElRatoState extends State<_ElRato> {
+  Timer? _tic;
+
+  @override
+  void initState() {
+    super.initState();
+    _tic = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tic?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Text(
+    context.strings.mobileRowThinkingFor(
+      ElRatoPensando.decir(DateTime.now().difference(widget.desde)),
+    ),
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    style: widget.style,
+  );
 }

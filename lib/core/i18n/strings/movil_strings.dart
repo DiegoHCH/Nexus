@@ -175,6 +175,14 @@ mixin MovilStrings {
   String get mobileFoldersUnavailable;
   String get mobileBusy;
   String get mobileReadOnlyChip;
+
+  // ── Fidelidad al mockup del teléfono ──────────────────────────────────────
+  // En su propio bloque para que las fusiones con otros cambios del teléfono no se
+  // pisen.
+
+  /// La fila que piensa, con el rato: «Pensando · 2 min 10 s». El rato llega ya
+  /// escrito por `ElRatoPensando`, que no depende del idioma.
+  String mobileRowThinkingFor(String rato);
 }
 
 mixin MovilStringsEs implements MovilStrings {
@@ -468,6 +476,10 @@ mixin MovilStringsEs implements MovilStrings {
   String get mobileBusy => 'Ocupada';
   @override
   String get mobileReadOnlyChip => 'Solo lectura';
+
+  // ── Fidelidad al mockup del teléfono ──────────────────────────────────────
+  @override
+  String mobileRowThinkingFor(String rato) => 'Pensando · $rato';
 }
 
 mixin MovilStringsEn implements MovilStrings {
@@ -759,4 +771,190 @@ mixin MovilStringsEn implements MovilStrings {
   String get mobileBusy => 'Busy';
   @override
   String get mobileReadOnlyChip => 'Read only';
+
+  // ── Fidelidad al mockup del teléfono ──────────────────────────────────────
+  @override
+  String mobileRowThinkingFor(String rato) => 'Thinking · $rato';
+}
+
+// ─────────────────────── la actualización del Mac ───────────────────────
+//
+// El aviso de «hay versión nueva en el Mac», contado y contestado desde el teléfono.
+// En su propio bloque —declaración y sus dos traducciones— y no repartido por las
+// tres de arriba: es una pieza entera que se lee junta, y así se añade sin tocar las
+// líneas de las demás pantallas.
+//
+// Las palabras son **las del aviso del Mac** («Hay una versión nueva», «Lista para
+// instalarse», «Esperando a que termine…»): es el mismo aviso visto desde otro
+// aparato, y con otras palabras se leería como otra cosa. Lo que cambia es el sujeto,
+// porque aquí el que se cierra y vuelve no es la app que tienes delante.
+
+mixin MovilActualizarStrings {
+  String get mobileUpdateFound;
+  String mobileUpdateNexus(String version);
+  String get mobileUpdateBody;
+  String get mobileUpdateBusy;
+  String get mobileUpdateMove;
+  String get mobileUpdateAccept;
+  String get mobileUpdateLater;
+  String mobileUpdateDownloading(int? percent);
+  String get mobileUpdatePreparing;
+  String get mobileUpdateRestartsWhenDone;
+  String get mobileUpdateReady;
+  String get mobileUpdateWaiting;
+  String get mobileUpdateFailed;
+  String get mobileUpdateFailedBody;
+  String get mobileUpdateGone;
+  String get mobileUpdateChanged;
+  String get mobileUpdateNoLink;
+  String get mobileUpdateRestarting;
+  String get mobileUpdateRestartingBody;
+  String get mobileUpdateBack;
+  String get mobileUpdateBackBody;
+  String get mobileUpdateNotBack;
+  String get mobileUpdateNotBackBody;
+  String mobileUpdateSameVersion(String version);
+  String get mobileUpdateRetry;
+  String get mobileUpdateOk;
+}
+
+mixin MovilActualizarStringsEs implements MovilActualizarStrings {
+  @override
+  String get mobileUpdateFound => 'Hay una versión nueva en el Mac';
+  @override
+  String mobileUpdateNexus(String version) => 'Nexus $version';
+  @override
+  String get mobileUpdateBody =>
+      'El Mac se cerrará y volverá a abrirse: lo que esté hablando o trabajando '
+      'termina antes.';
+  @override
+  String get mobileUpdateBusy =>
+      'Ahora hay algo en marcha en el Mac. Reiniciar espera a que termine en vez '
+      'de cortarlo.';
+  @override
+  String get mobileUpdateMove =>
+      'Antes hay que moverla a Aplicaciones en el Mac: desde donde está no puede '
+      'reemplazarse.';
+  @override
+  String get mobileUpdateAccept => 'Actualizar y reiniciar';
+  @override
+  String get mobileUpdateLater => 'Luego';
+  @override
+  String mobileUpdateDownloading(int? percent) =>
+      percent == null ? 'Descargando en el Mac' : 'Descargando · $percent %';
+  @override
+  String get mobileUpdatePreparing => 'Preparando la actualización';
+  @override
+  String get mobileUpdateRestartsWhenDone =>
+      'Se reiniciará al terminar la descarga';
+  @override
+  String get mobileUpdateReady => 'Lista para instalarse';
+  @override
+  String get mobileUpdateWaiting =>
+      'Esperando a que termine lo que está en marcha en el Mac para reiniciar.';
+  @override
+  String get mobileUpdateFailed => 'No se pudo actualizar';
+  @override
+  String get mobileUpdateFailedBody =>
+      'El actualizador del Mac no dijo por qué.';
+  @override
+  String get mobileUpdateGone => 'El Mac ya no tiene esta versión pendiente.';
+  @override
+  String get mobileUpdateChanged =>
+      'El Mac ofrece ahora otra versión. Revísala antes de aceptar.';
+  @override
+  String get mobileUpdateNoLink =>
+      'No llego al Mac para decírselo. Vuelve a intentarlo cuando se reconecte.';
+  @override
+  String get mobileUpdateRestarting => 'Actualizando el Mac';
+  @override
+  String get mobileUpdateRestartingBody =>
+      'Actualizando el Mac… vuelve en unos segundos.';
+  @override
+  String get mobileUpdateBack => 'El Mac ya está al día';
+  @override
+  String get mobileUpdateBackBody => 'Se actualizó y volvió a abrirse.';
+  @override
+  String get mobileUpdateNotBack => 'El Mac no vuelve';
+  @override
+  String get mobileUpdateNotBackBody =>
+      'Lleva dos minutos sin contestar. Puede que siga instalando, o que se haya '
+      'dormido.';
+  @override
+  String mobileUpdateSameVersion(String version) =>
+      'El Mac volvió, pero sigue en la $version.';
+  @override
+  String get mobileUpdateRetry => 'Volver a intentar';
+  @override
+  String get mobileUpdateOk => 'Entendido';
+}
+
+mixin MovilActualizarStringsEn implements MovilActualizarStrings {
+  @override
+  String get mobileUpdateFound => 'There is a new version on the Mac';
+  @override
+  String mobileUpdateNexus(String version) => 'Nexus $version';
+  @override
+  String get mobileUpdateBody =>
+      'The Mac will close Nexus and open it again: whatever is talking or working '
+      'finishes first.';
+  @override
+  String get mobileUpdateBusy =>
+      'Something is running on the Mac right now. Restarting waits for it to '
+      'finish instead of cutting it off.';
+  @override
+  String get mobileUpdateMove =>
+      'It has to be moved to Applications on the Mac first: where it is now, it '
+      'cannot replace itself.';
+  @override
+  String get mobileUpdateAccept => 'Update and restart';
+  @override
+  String get mobileUpdateLater => 'Later';
+  @override
+  String mobileUpdateDownloading(int? percent) =>
+      percent == null ? 'Downloading on the Mac' : 'Downloading · $percent%';
+  @override
+  String get mobileUpdatePreparing => 'Preparing the update';
+  @override
+  String get mobileUpdateRestartsWhenDone =>
+      'It will restart when the download ends';
+  @override
+  String get mobileUpdateReady => 'Ready to install';
+  @override
+  String get mobileUpdateWaiting =>
+      'Waiting for what is running on the Mac to finish before restarting.';
+  @override
+  String get mobileUpdateFailed => 'Could not update';
+  @override
+  String get mobileUpdateFailedBody => "The Mac's updater did not say why.";
+  @override
+  String get mobileUpdateGone => 'The Mac no longer has this version pending.';
+  @override
+  String get mobileUpdateChanged =>
+      'The Mac is now offering another version. Check it before accepting.';
+  @override
+  String get mobileUpdateNoLink =>
+      "I can't reach the Mac to tell it. Try again once it reconnects.";
+  @override
+  String get mobileUpdateRestarting => 'Updating the Mac';
+  @override
+  String get mobileUpdateRestartingBody =>
+      'Updating the Mac… it will be back in a few seconds.';
+  @override
+  String get mobileUpdateBack => 'The Mac is up to date';
+  @override
+  String get mobileUpdateBackBody => 'It updated and opened again.';
+  @override
+  String get mobileUpdateNotBack => 'The Mac is not coming back';
+  @override
+  String get mobileUpdateNotBackBody =>
+      'It has not answered for two minutes. It may still be installing, or it '
+      'may have gone to sleep.';
+  @override
+  String mobileUpdateSameVersion(String version) =>
+      'The Mac came back, but it is still on $version.';
+  @override
+  String get mobileUpdateRetry => 'Try again';
+  @override
+  String get mobileUpdateOk => 'Got it';
 }

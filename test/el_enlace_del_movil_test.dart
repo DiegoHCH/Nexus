@@ -570,6 +570,10 @@ void main() {
           // perdido dejaria el microfono abierto**, que es el peor final de la lista.
           'startVoice': true,
           'stopVoice': true,
+          // Aceptar y aplazar la actualización del Mac: repetibles sin daño, y con id
+          // nuevo un «luego» perdido dejaría el aviso puesto en el Mac.
+          'installUpdate': true,
+          'postponeUpdate': true,
           // Solo leen: una consulta perdida se vuelve a pedir con id nuevo, porque el
           // deduplicador protege efectos y no respuestas.
           'conversations': false,

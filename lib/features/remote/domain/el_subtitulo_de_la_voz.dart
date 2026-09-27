@@ -67,7 +67,16 @@ class SubtituloDeLaVoz {
   ///
   /// El corte cae siempre **entre palabras**: partir «comen|tado» en dos colores se lee
   /// como un error de pintura, no como la voz avanzando.
-  static SubtituloDeLaVoz de(String texto, {double? avance, int tope = 180}) {
+  ///
+  /// Con [entero] la frase corta se enseña **completa**, sin ventana: la de la
+  /// puerta son dos frases —el saludo y la pregunta— y quitar el saludo al pasar
+  /// a la pregunta dejaba media frase flotando.
+  static SubtituloDeLaVoz de(
+    String texto, {
+    double? avance,
+    int tope = 180,
+    bool entero = false,
+  }) {
     final t = texto.trim();
     if (t.isEmpty) return const SubtituloDeLaVoz(ya: '', falta: '');
 
@@ -77,6 +86,13 @@ class SubtituloDeLaVoz {
     // Hasta el final de la palabra en que cae.
     while (corte < t.length && !_esEspacio(t.codeUnitAt(corte))) {
       corte++;
+    }
+
+    if (entero && t.length <= tope) {
+      return SubtituloDeLaVoz(
+        ya: t.substring(0, corte).trimRight(),
+        falta: t.substring(corte),
+      );
     }
 
     final frases = _frases(t);

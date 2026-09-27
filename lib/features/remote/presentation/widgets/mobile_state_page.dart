@@ -38,6 +38,7 @@ class MobileStatePage extends StatelessWidget {
     this.orbe = NexusOrbState.sleep,
     this.apagado = false,
     this.alMenu,
+    this.menu,
     this.alVolver,
     this.detalle,
     this.pieDeAyuda,
@@ -59,6 +60,11 @@ class MobileStatePage extends StatelessWidget {
 
   /// El menú, en los estados desde los que se puede ir a otra parte.
   final VoidCallback? alMenu;
+
+  /// El menú lateral de la lista, cuando el estado lo ofrece. Con él, el hamburguesa
+  /// de la cabecera lo abre aquí mismo —sin [alMenu]—: es el mismo cajón que el de la
+  /// lista, no uno propio.
+  final Widget? menu;
 
   /// La vuelta `‹`, en los estados a los que se llega desde otra pantalla.
   final VoidCallback? alVolver;
@@ -87,10 +93,21 @@ class MobileStatePage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: colors.void_,
+      drawer: menu,
+      drawerScrimColor: MedidasDelMovil.velo(colors),
       body: SafeArea(
         child: Column(
           children: [
-            MobileChrome(alMenu: alMenu, alVolver: alVolver),
+            // Un `Builder` para que el toque encuentre **este** `Scaffold`, que es el
+            // que tiene el cajón.
+            Builder(
+              builder: (context) => MobileChrome(
+                alMenu: menu != null
+                    ? () => Scaffold.of(context).openDrawer()
+                    : alMenu,
+                alVolver: alVolver,
+              ),
+            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(

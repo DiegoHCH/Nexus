@@ -23,7 +23,9 @@ import 'package:nexus/features/assistant/presentation/providers/assistant_contro
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/history/presentation/widgets/conversation_history_sheet.dart';
 import 'package:nexus/features/onboarding/presentation/pages/app_root.dart';
+import 'package:nexus/features/updates/presentation/providers/desde_el_movil.dart';
 import 'package:nexus/features/updates/presentation/providers/updates_providers.dart';
+import 'package:nexus/features/remote/presentation/providers/actualizar_el_mac_providers.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings_page.dart';
 import 'package:nexus/features/remote/presentation/providers/channel_providers.dart';
@@ -68,6 +70,16 @@ Future<void> main() async {
         // que ninguna de las dos features tenga que importar a la otra.
         seEstaTrabajandoProvider.overrideWith(
           (ref) => ref.watch(algoEnMarchaProvider),
+        ),
+        // Y el canal pregunta al actualizador qué hay y cómo aceptarlo, para que
+        // el teléfono pueda enseñar el mismo aviso y contestarlo. Mismo motivo:
+        // ni el canal importa Sparkle ni el actualizador sabe del teléfono.
+        actualizacionDelMacProvider.overrideWith(
+          (ref) => ref.watch(actualizacionParaElMovilProvider),
+        ),
+        actualizadorRemotoProvider.overrideWith(ActualizadorDesdeElMovil.new),
+        versionDelMacProvider.overrideWith(
+          (ref) => ref.watch(currentVersionProvider.future),
         ),
       ],
       child: const MainApp(),

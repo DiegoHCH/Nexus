@@ -50,4 +50,36 @@ void main() {
     compas.callado();
     expect(ElNivelDeLaVoz.altavoz.value, 0);
   });
+
+  // 🔴 El subtítulo del Mac se pintaba entero de un color, o con la pregunta
+  // de la puerta en gris fijo, y parecía que la voz se atascaba (27 sep).
+  group('por dónde va la respuesta', () {
+    test(
+      'avanza al ritmo de lo que suena, y sin nada sonando es null',
+      () async {
+        final compas = AlCompasDelAltavoz()
+          ..encolado(_tono(1, 2400)) // 100 ms: 16 bits a 24 kHz
+          ..encolado(_tono(1, 2400)); // otros 100
+        expect(ElNivelDeLaVoz.avance.value, 0, reason: 'llegó, no ha sonado');
+
+        await Future<void>.delayed(const Duration(milliseconds: 140));
+        expect(ElNivelDeLaVoz.avance.value, closeTo(0.5, 0.01));
+
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+        expect(
+          ElNivelDeLaVoz.avance.value,
+          isNull,
+          reason: 'acabó: todo dicho',
+        );
+        compas.callado();
+      },
+    );
+
+    test('cortarla también la da por dicha', () async {
+      final compas = AlCompasDelAltavoz()..encolado(_tono(1, 24000));
+      expect(ElNivelDeLaVoz.avance.value, 0);
+      compas.callado();
+      expect(ElNivelDeLaVoz.avance.value, isNull);
+    });
+  });
 }

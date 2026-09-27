@@ -568,6 +568,68 @@ void main() {
       );
     });
   });
+  group('lo que la fila del teléfono necesita', () {
+    ConversationView conFoco(
+      String id, {
+      bool foco = false,
+      NexusOrbState orbe = NexusOrbState.sleep,
+      DateTime? desde,
+    }) => ConversationView(
+      conversationId: id,
+      streaming: false,
+      reply: '',
+      ask: '',
+      voice: false,
+      steps: const [],
+      meter: const RemoteMeter(),
+      orb: orbe,
+      title: 'un encargo',
+      focused: foco,
+      ponderingSince: desde,
+    );
+
+    test('pensando, el orbe lleva desde cuándo, en milisegundos', () {
+      // Un instante y no una duración: el evento puede llegar tarde en un resync, y
+      // un «lleva 40 s» reenviado un minuto después mentiría.
+      final desde = DateTime.utc(2026, 9, 27, 10);
+      puente.observar(conFoco('a', orbe: NexusOrbState.ponder, desde: desde));
+      pasarElTiempo();
+
+      expect(deTipo('orb').single.data, {
+        'conversation': 'a',
+        'state': 'ponder',
+        'since': desde.millisecondsSinceEpoch,
+      });
+    });
+
+    test('el foco sale cuando se mueve, y una sin foco no manda nada', () {
+      puente.observar(conFoco('a'));
+      pasarElTiempo();
+      expect(deTipo('focus'), isEmpty);
+
+      puente.observar(conFoco('a', foco: true));
+      pasarElTiempo();
+      expect(deTipo('focus').single.data, {
+        'conversation': 'a',
+        'focused': true,
+      });
+
+      // Igual otra vez: nada.
+      publicados.clear();
+      puente.observar(conFoco('a', foco: true));
+      pasarElTiempo();
+      expect(deTipo('focus'), isEmpty);
+    });
+
+    test('el publicador reenvía el foco y el rato del Mac', () {
+      final publicador = File(
+        'lib/features/remote/presentation/event_publisher.dart',
+      ).readAsStringSync();
+      expect(publicador, contains('ponderingSince: hud.pensandoDesde'));
+      expect(publicador, contains('focusedId == id'));
+    });
+  });
+
   group('lo que dijo el usuario', () {
     test('viaja entero y solo cuando cambia a algo', () {
       // Hablando, el telefono no sabe lo que dijo: la voz se transcribe en el Mac. Sin

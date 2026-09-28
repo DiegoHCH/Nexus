@@ -2163,4 +2163,123 @@ void _elAudioAjeno() {
       },
     );
   });
+
+  // 🔴 **El nombre se colaba en el encargo** (reportado el 28 sep): «Ciel,
+  // necesito que actualices el documento…» quedó en el chat como «de él
+  // Necesito que actualice…». La transcripción del servicio no conoce el
+  // nombre y lo escribe como le suena; lo que sale de aquí va sin él.
+  group('el nombre con que la llamas no es parte de lo que pides', () {
+    const loDel28 =
+        'de él Necesito que actualice el documento de tareas asignadas de '
+        'crédito colateral con Jira.';
+
+    test('lo que se enseña de tu frase va sin «de él» delante', () async {
+      final session = _Session();
+      final conversation = _conversation(session, _Bridge(), agente: 'Ciel');
+      final vistos = <VoiceEvent>[];
+      final subscription = conversation().listen(vistos.add);
+      await Future<void>.delayed(Duration.zero);
+
+      session.emit(const VoiceUserTranscript(loDel28));
+      session.emit(
+        const VoiceToolRequested(
+          callId: 'c1',
+          name: ClaudeErrand.askTool,
+          arguments: <String, Object?>{
+            'instruccion': 'Actualiza el documento de tareas asignadas.',
+          },
+        ),
+      );
+      await hastaQue(
+        () => vistos.whereType<VoiceToolStarted>().isNotEmpty,
+        esperando: 'que arranque el encargo',
+        loQueSeVe: () => 'vistos=$vistos',
+      );
+
+      final dicho = vistos.whereType<VoiceUserTranscript>().map((e) => e.text);
+      expect(
+        dicho.join(),
+        'Necesito que actualice el documento de tareas asignadas de crédito '
+        'colateral con Jira.',
+      );
+
+      await subscription.cancel();
+    });
+
+    test('y a trozos: lo retenido sale antes que el encargo', () async {
+      final session = _Session();
+      final conversation = _conversation(session, _Bridge(), agente: 'Ciel');
+      final vistos = <VoiceEvent>[];
+      final subscription = conversation().listen(vistos.add);
+      await Future<void>.delayed(Duration.zero);
+
+      for (final trozo in ['de', ' él', ' Necesito que', ' mires el CI.']) {
+        session.emit(VoiceUserTranscript(trozo));
+      }
+      session.emit(const VoiceTurnCompleted());
+      // Contestó sin pasar por Claude: al cerrar el turno se le pide que lo
+      // pase, y esa nota es lo último que hace el cierre.
+      await hastaQue(
+        () => session.notes.isNotEmpty,
+        esperando: 'que cierre el turno',
+        loQueSeVe: () => 'vistos=$vistos',
+      );
+
+      expect(
+        vistos.whereType<VoiceUserTranscript>().map((e) => e.text).join(),
+        'Necesito que mires el CI.',
+      );
+      await subscription.cancel();
+    });
+
+    test('si no lo pasa él, a Claude le llega sin el nombre', () {
+      fakeAsync((async) {
+        final session = _Session();
+        final bridge = _Bridge();
+        final conversation = _conversation(
+          session,
+          bridge,
+          agente: 'Ciel',
+          graciaDeLaRuta: const Duration(seconds: 10),
+        );
+        conversation().listen((_) {});
+        async.flushMicrotasks();
+
+        session.emit(const VoiceUserTranscript(loDel28));
+        session.emit(const VoiceTurnCompleted());
+        async
+          ..elapse(const Duration(seconds: 11))
+          ..flushMicrotasks();
+
+        expect(bridge.asked.single, contains('Necesito que actualice'));
+        expect(bridge.asked.single, isNot(contains('de él')));
+      });
+    });
+
+    test('pero sigue contando como que la nombraste', () async {
+      // Después de contestar solo se atiende lo que la nombra: quitarle el
+      // nombre a lo que se enseña no puede convertir la frase en ajena.
+      final session = _Session();
+      final bridge = _Bridge();
+      final conversation = _conversation(session, bridge, agente: 'Ciel');
+      final vistos = <VoiceEvent>[];
+      final subscription = conversation().listen(vistos.add);
+      await Future<void>.delayed(Duration.zero);
+
+      session.emit(const VoiceUserTranscript('hola'));
+      session.emit(VoiceReplyTranscript('¡Hola!'));
+      session.emit(const VoiceTurnCompleted());
+      session.emit(const VoiceUserTranscript('Ciel, mira el historial de git'));
+      session.emit(const VoiceTurnCompleted());
+      await hastaQue(
+        () => bridge.asked.isNotEmpty,
+        esperando: 'que la segunda frase llegue a Claude',
+        loQueSeVe: () => 'vistos=$vistos · encargos=${bridge.asked}',
+      );
+
+      expect(vistos.whereType<VoiceIgnorado>(), isEmpty);
+      expect(bridge.asked.single, contains('«mira el historial de git»'));
+      await subscription.cancel();
+    });
+  });
 }

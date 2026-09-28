@@ -21,7 +21,9 @@ import 'package:nexus/features/assistant/presentation/providers/assistant_contro
 import 'package:nexus/features/assistant/presentation/providers/claude_bridge_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/voice_session_providers.dart';
+import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
+import 'package:nexus/features/assistant/presentation/widgets/el_escenario.dart';
 import 'package:nexus/features/history/data/datasources/local_conversation_store.dart';
 import 'package:nexus/features/history/domain/entities/conversation_record.dart';
 import 'package:nexus/features/history/domain/entities/conversation_summary.dart';
@@ -185,6 +187,107 @@ void main() {
       () => orbe(m.container) == NexusOrbState.listen,
       esperando: 'que el orbe pase a escuchar',
       loQueSeVe: () => 'orbe=${orbe(m.container)}',
+    );
+  });
+
+  // Lo que se lee en la sala debajo del orbe, en cada momento de la
+  // conversación hablada. Ver `loQueDiceAhora` y `loQueEntiendeAhora`.
+  group('lo que se lee en la sala', () {
+    AssistantHudState hud(ProviderContainer container) =>
+        container.read(assistantControllerProvider(conversationId));
+
+    // 🔴 Reportado el 28 sep: la respuesta de un encargo narrada por ella no
+    // iba al compás de su voz. El subtítulo era el texto de Claude —llegado
+    // de golpe y con otras palabras—, no lo que ella estaba diciendo.
+    test('narrando un encargo, el subtítulo es lo que dice ella', () async {
+      final m = await hablando();
+
+      m.voz
+        ..emit(const VoiceUserTranscript('actualiza el documento de tareas'))
+        ..emit(const VoiceToolStarted('Actualiza el documento de tareas.'))
+        ..emit(
+          const VoiceToolProgress(
+            'He actualizado el documento. Hay 77 tareas con 109 puntos: 69 '
+            'listas para trabajar, 7 con PR aprobado y 1 en producción.',
+          ),
+        )
+        ..emit(const VoiceToolFinished(ok: true))
+        ..emit(const VoiceReplyTranscript('Entendido, Master. '))
+        ..emit(const VoiceReplyTranscript('El documento ya está al día.'));
+      await hastaQue(
+        () => orbe(m.container) == NexusOrbState.speak,
+        esperando: 'que el orbe pase a hablar',
+        loQueSeVe: () => 'orbe=${orbe(m.container)}',
+      );
+
+      expect(
+        loQueDiceAhora(hud(m.container)),
+        'Entendido, Master. El documento ya está al día.',
+        reason: 'lo que se corta al compás del audio es el texto de ese audio',
+      );
+    });
+
+    test('y en un turno sin encargo, también', () async {
+      final m = await hablando();
+
+      m.voz
+        ..emit(const VoiceUserTranscript('hola'))
+        ..emit(const VoiceReplyTranscript('¡Hola! ¿En qué te ayudo?'));
+      await hastaQue(
+        () => orbe(m.container) == NexusOrbState.speak,
+        esperando: 'que el orbe pase a hablar',
+        loQueSeVe: () => 'orbe=${orbe(m.container)}',
+      );
+
+      expect(loQueDiceAhora(hud(m.container)), '¡Hola! ¿En qué te ayudo?');
+    });
+
+    test('escuchando, lo que estás diciendo ahora', () async {
+      final m = await hablando();
+
+      m.voz.emit(const VoiceUserTranscript('qué hora es'));
+      await hastaQue(
+        () => orbe(m.container) == NexusOrbState.listen,
+        esperando: 'que el orbe escuche',
+        loQueSeVe: () => 'orbe=${orbe(m.container)}',
+      );
+
+      expect(loQueEntiendeAhora(hud(m.container)), 'qué hora es');
+    });
+
+    // 🔴 Reportado el 28 sep: al acabar de hablar ella se quedaba como
+    // subtítulo lo último que habías dicho tú, ya contestado.
+    test(
+      'y cuando ella acaba de hablar, nada: no se está oyendo nada',
+      () async {
+        final m = await hablando();
+
+        m.voz
+          ..emit(const VoiceUserTranscript('qué hora es'))
+          ..emit(const VoiceReplyTranscript('Son las diez.'))
+          ..emit(const VoiceTurnCompleted());
+        await hastaQue(
+          () =>
+              orbe(m.container) == NexusOrbState.listen &&
+              !hud(m.container).isStreaming,
+          esperando: 'que la sala vuelva a escuchar',
+          loQueSeVe: () => 'orbe=${orbe(m.container)}',
+        );
+
+        expect(
+          loQueEntiendeAhora(hud(m.container)),
+          isNull,
+          reason: 'tu frase ya se contestó: repetirla dice que la oye otra vez',
+        );
+
+        // Y en cuanto vuelves a hablar, sale lo nuevo.
+        m.voz.emit(const VoiceUserTranscript('y mañana'));
+        await hastaQue(
+          () => loQueEntiendeAhora(hud(m.container)) == 'y mañana',
+          esperando: 'que salga la frase nueva',
+          loQueSeVe: () => 'se lee=${loQueEntiendeAhora(hud(m.container))}',
+        );
+      },
     );
   });
 }

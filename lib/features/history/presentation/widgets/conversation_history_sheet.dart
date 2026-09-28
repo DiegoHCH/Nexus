@@ -6,6 +6,7 @@ import 'package:nexus/core/i18n/el_dia_legible.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/artifacts/presentation/widgets/artifacts_sheet.dart';
 import 'package:nexus/features/artifacts/presentation/widgets/miniatura_del_documento.dart';
+import 'package:nexus/features/assistant/presentation/widgets/el_coste_de_la_conversacion.dart';
 import 'package:nexus/features/history/domain/entities/conversation_record.dart';
 import 'package:nexus/features/history/domain/entities/conversation_summary.dart';
 import 'package:nexus/features/history/domain/usecases/el_filtro_del_historial.dart';
@@ -463,8 +464,18 @@ class _Row extends StatelessWidget {
             // anterior no los lleva en la cabecera, y ahí se prefiere no decir
             // nada a decir cero: cero mensajes es una conversación que no se
             // habría guardado.
-            if (record.turns > 0)
-              Text(strings.historialTurnos(record.turns), style: dato),
+            //
+            // Y debajo, lo que costó —tokens y el rato que Claude trabajó—, que
+            // es lo otro que distingue una pregunta de una tarde entera. Solo
+            // si consta: las de antes de que se apuntara no dicen «0 tokens».
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (record.turns > 0)
+                  Text(strings.historialTurnos(record.turns), style: dato),
+                ElCosteDeLaConversacion(coste: record.loQueCosto, style: dato),
+              ],
+            ),
           ],
         ),
       ),
@@ -651,6 +662,19 @@ class _VistaPreviaState extends ConsumerState<_VistaPrevia> {
               children: [
                 for (final ruta in loQueSeVe.documentos) _Adjunto(ruta: ruta),
               ],
+            ),
+          ),
+        // Lo que costó, con las cifras de la fila y un poco más grandes: aquí
+        // se mira una sola conversación, y es donde se lee con calma.
+        if (ficha.loQueCosto case final coste?)
+          BloqueDeLaVista(
+            quien: strings.costoDeLaConversacion,
+            child: ElCosteDeLaConversacion(
+              coste: coste,
+              style: NexusTypography.data.copyWith(
+                color: colors.ink,
+                fontSize: 13,
+              ),
             ),
           ),
         Wrap(

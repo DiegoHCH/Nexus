@@ -101,7 +101,14 @@ class ConversationRecord {
     loUltimoQuePediste: _loUltimoDe(ChatAuthor.user),
     loUltimoQueDijo: _loUltimoDe(ChatAuthor.nexus),
     documentos: documentos,
+    loQueCosto: loQueCosto,
   );
+
+  /// La suma de lo que costó cada turno. Ver [LoQueCostoLaConversacion].
+  LoQueCostoLaConversacion? get loQueCosto =>
+      LoQueCostoLaConversacion.deLosTurnos(
+        messages.map((message) => message.loQueCosto),
+      );
 
   /// Lo que cabe en la ficha de lo que se dijo: lo bastante para reconocer la
   /// conversación y buscar en ella, y no tanto como para que el índice acabe

@@ -32,6 +32,7 @@ import 'package:nexus/features/assistant/presentation/providers/voice_input_prov
 import 'package:nexus/features/assistant/presentation/providers/voice_session_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/assistant/presentation/widgets/chat_panel.dart';
+import 'package:nexus/features/assistant/presentation/widgets/el_coste_de_la_conversacion.dart';
 import 'package:nexus/features/assistant/presentation/widgets/la_franja_de_avisos.dart';
 import 'package:nexus/features/assistant/presentation/widgets/los_pasos_del_turno.dart';
 import 'package:nexus/features/assistant/presentation/widgets/las_carpetas_de_la_puerta.dart';
@@ -326,6 +327,11 @@ class _HomePageState extends ConsumerState<HomePage> {
     // conversación que se ve de lejos en el escenario, leída de cerca.
     final panel = _ElPanelDelChat(
       onRecoger: alternarElChat,
+      // Lo que lleva gastado, sumado de los turnos que se ven debajo: la misma
+      // cifra que dan sus etiquetas, y se rehace sola en cuanto termina uno.
+      coste: LoQueCostoLaConversacion.deLosTurnos(
+        hud.messages.map((message) => message.loQueCosto),
+      ),
       voz: hud.voiceActive
           ? _LiveBadge(working: hud.orbState == NexusOrbState.think)
           : null,
@@ -1360,9 +1366,13 @@ class _ElPanelDelChat extends StatelessWidget {
     required this.caja,
     this.voz,
     this.pasos,
+    this.coste,
   });
 
   final VoidCallback onRecoger;
+
+  /// Lo que lleva gastado la conversación, o `null` si ningún turno lo apuntó.
+  final LoQueCostoLaConversacion? coste;
   final Widget? voz;
   final Widget avisos;
   final Widget registro;
@@ -1395,10 +1405,25 @@ class _ElPanelDelChat extends StatelessWidget {
             ),
             child: Row(
               children: [
+                Text(
+                  strings.chatAsa.toUpperCase(),
+                  style: NexusTypography.label.copyWith(color: colors.mute),
+                ),
+                // 🔴 **El total, en la cabecera y no en las esquinas de la
+                // sala.** Las esquinas hablan de la sesión —contexto, cupo de
+                // la semana— y se leen de lejos; esto es de la conversación que
+                // se está leyendo, y va donde se lee. Ver
+                // [LoQueCostoLaConversacion] para qué suma.
+                //
+                // Pegado a la flecha y con todo el hueco que sobre: si el panel
+                // se estrecha, lo que se recorta es la cifra, no el rótulo.
                 Expanded(
-                  child: Text(
-                    strings.chatAsa.toUpperCase(),
-                    style: NexusTypography.label.copyWith(color: colors.mute),
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: NexusSpacing.s3),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: ElCosteDeLaConversacion(coste: coste),
+                    ),
                   ),
                 ),
                 IconButton(

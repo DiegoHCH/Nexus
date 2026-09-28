@@ -49,7 +49,13 @@ class LocalConversationStore {
   /// que haya que escribir nada más. Los que no salen en ninguna conversación
   /// —escritos a mano, o de una conversación borrada— se quedan sin origen, y la
   /// lista los junta aparte.
-  static const _indexVersion = 2;
+  ///
+  /// **3** trae lo que costó cada conversación —tokens y el rato que Claude
+  /// pasó trabajando—, para que la lista lo enseñe sin abrir ninguna. Mismo
+  /// truco: cada turno ya guardaba su `costo`, así que rehacer el índice una vez
+  /// basta para que las conversaciones de antes salgan con su total. Las que son
+  /// de antes de que se apuntara el coste siguen sin él, y la fila no dice nada.
+  static const _indexVersion = 3;
 
   /// JSON y una carpeta por proyecto: se puede abrir con cualquier editor si
   /// algún día hace falta rescatar algo a mano, y ver de un vistazo qué
@@ -314,6 +320,7 @@ class LocalConversationStore {
               for (final ruta in cruda['documentos'] as List? ?? const [])
                 if (ruta is String) ruta,
             ],
+            loQueCosto: LoQueCostoLaConversacion.fromJson(cruda['costo']),
           ),
         );
       }
@@ -347,6 +354,7 @@ class LocalConversationStore {
               'pedido': ?ficha.loUltimoQuePediste,
               'dijo': ?ficha.loUltimoQueDijo,
               if (ficha.documentos.isNotEmpty) 'documentos': ficha.documentos,
+              if (ficha.loQueCosto case final coste?) 'costo': coste.toJson(),
             },
         ],
       }),

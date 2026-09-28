@@ -547,6 +547,55 @@ jobs:
           security delete-keychain "$RUNNER_TEMP/firma.keychain-db" 2>/dev/null || true
           rm -f "$RUNNER_TEMP/cert.p12" "$RUNNER_TEMP/clave.p8" || true
 
+  # **El APK del teléfono, en la misma release.** Hasta la 1.34 había que
+  # enchufar el teléfono y reinstalar a mano en cada versión; ahora la app del
+  # teléfono mira `releases/latest` y se ofrece a actualizarse —ver
+  # `LaActualizacionDelTelefono`—. Solo en las públicas: el teléfono nunca mira
+  # una interna, así que construirla sería gastar un runner para nadie.
+  #
+  # Firmado **siempre con la misma llave**, que llega por los secretos: Android
+  # no deja instalar encima una app firmada con otra.
+  movil:
+    name: el APK del teléfono
+    needs: [decidir, publicar]
+    if: needs.decidir.outputs.canal == 'publica'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.0
+          channel: stable
+          cache: true
+      - name: la llave
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          [[ -n "$KEYSTORE_B64" ]] || { echo "::error::falta el secreto ANDROID_KEYSTORE_B64"; exit 1; }
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/nexus-release.jks"
+      - name: compilar
+        env:
+          NEXUS_ANDROID_KEYSTORE: ${{ runner.temp }}/nexus-release.jks
+          NEXUS_ANDROID_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          NEXUS_ANDROID_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: flutter build apk --release -t lib/main_movil.dart
+      - name: adjuntar a la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="${{ needs.decidir.outputs.version }}"
+          cp build/app/outputs/flutter-apk/app-release.apk "Nexus-movil-$V.apk"
+          gh release upload "v$V" "Nexus-movil-$V.apk" --clobber
+      - name: retirar la llave
+        if: always()
+        run: rm -f "$RUNNER_TEMP/nexus-release.jks"
+
   # La mezcla de vuelta, que es la mitad de Gitflow que siempre se olvida.
   #
   # Historia de por qué existe, porque justifica el trabajo entero: las dos

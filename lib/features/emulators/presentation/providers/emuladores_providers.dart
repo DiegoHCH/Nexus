@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/features/emulators/data/datasources/emuladores_data_source.dart';
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
@@ -87,3 +89,63 @@ final comoVerElIphoneProvider = Provider.family<List<ComoVerElIphone>, String>((
   if (!esIphone) return const [];
   return ref.watch(emuladoresDataSourceProvider).comoVerElIphone();
 });
+
+/// **Los teléfonos ya cargados al entrar, y los nuevos en cuanto se enchufan.**
+///
+/// 🔴 Se buscaban solo al abrir las opciones de emuladores o de correr la app,
+/// y como `flutter devices` tarda ~7 s, al entrar la lista estaba vacía o
+/// vieja (pedido el 27 sep: «cuando ingrese a estas funciones ya deberían
+/// estar cargados, y si conecto uno después ahí sí debería cargar»).
+///
+/// Así que al arrancar la app se buscan una vez, de fondo, y después se mira
+/// cada [cadaCuanto] una huella barata de lo enchufado. Solo si cambia se
+/// repite la búsqueda cara. Nunca dos vueltas a la vez: si una tarda, la
+/// siguiente espera.
+class ElVigiaDeLosAparatos {
+  ElVigiaDeLosAparatos(this._ref) {
+    // La primera, ya: es la que hace que al entrar estén cargados.
+    unawaited(
+      _ref.read(dispositivosProvider.future).then((_) {}, onError: (_) {}),
+    );
+    _reloj = Timer.periodic(cadaCuanto, (_) => unawaited(_mirar()));
+    _ref.onDispose(() => _reloj?.cancel());
+  }
+
+  final Ref _ref;
+  Timer? _reloj;
+  String? _huella;
+  var _mirando = false;
+
+  static const cadaCuanto = Duration(seconds: 4);
+
+  Future<void> _mirar() async {
+    if (_mirando) return;
+    _mirando = true;
+    try {
+      final ahora = await _ref
+          .read(emuladoresDataSourceProvider)
+          .huellaDeLoEnchufado();
+      if (!_ref.mounted) return;
+      final antes = _huella;
+      _huella = ahora;
+      // La primera huella solo se apunta: la búsqueda del arranque ya va.
+      if (antes != null && antes != ahora) {
+        // Invalidar solo no basta: sin nadie que la lea, no se vuelve a
+        // buscar hasta que se abra la pantalla —que es justo lo que se quería
+        // evitar—. Se pide ya, de fondo, y así al entrar está cargada.
+        _ref.invalidate(dispositivosProvider);
+        unawaited(
+          _ref.read(dispositivosProvider.future).then((_) {}, onError: (_) {}),
+        );
+      }
+    } on Object {
+      // Si no se pudo mirar, la próxima vuelta lo intenta: no se tumba nada.
+    } finally {
+      _mirando = false;
+    }
+  }
+}
+
+final elVigiaDeLosAparatosProvider = Provider<ElVigiaDeLosAparatos>(
+  ElVigiaDeLosAparatos.new,
+);

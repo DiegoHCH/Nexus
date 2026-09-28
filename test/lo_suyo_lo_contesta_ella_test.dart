@@ -13,6 +13,7 @@ import 'package:nexus/features/assistant/presentation/providers/claude_bridge_pr
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/lo_contesta_ella.dart';
 import 'package:nexus/features/assistant/presentation/state/chat_message.dart';
+import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/history/data/datasources/local_conversation_store.dart';
 import 'package:nexus/features/history/domain/entities/conversation_record.dart';
 import 'package:nexus/features/history/domain/entities/conversation_summary.dart';
@@ -151,11 +152,20 @@ void main() {
     List<ChatMessage> mensajes(ProviderContainer c) =>
         c.read(assistantControllerProvider(conversationId)).messages;
 
+    /// La respuesta se suelta palabra a palabra: se espera a que acabe.
+    Future<void> hasta(bool Function() listo) async {
+      for (var i = 0; i < 400 && !listo(); i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(listo(), isTrue, reason: 'no llegó a cumplirse a tiempo');
+    }
+
     test('contesta ella, y Claude ni se entera', () async {
       final m = montar('Soy Ciel, Master.');
       await m.c
           .read(assistantControllerProvider(conversationId).notifier)
           .submit('¿Quién eres?');
+      await hasta(() => mensajes(m.c).last.text == 'Soy Ciel, Master.');
 
       expect(m.puente.pedidos, isEmpty);
       expect(mensajes(m.c).map((x) => x.text), [
@@ -177,7 +187,19 @@ void main() {
       expect(mensajes(m.c).map((x) => x.text), ['¿Quién eres?']);
 
       respuesta.complete('Soy Ciel, Master.');
-      await pumpEventQueue();
+      // Y la suelta hablando, palabra a palabra, no de golpe.
+      await hasta(
+        () =>
+            m.c.read(assistantControllerProvider(conversationId)).orbState ==
+            NexusOrbState.speak,
+      );
+      expect(mensajes(m.c).last.text, isNot('Soy Ciel, Master.'));
+      await hasta(() => mensajes(m.c).last.text == 'Soy Ciel, Master.');
+      await hasta(
+        () =>
+            m.c.read(assistantControllerProvider(conversationId)).orbState ==
+            NexusOrbState.sleep,
+      );
       expect(mensajes(m.c).map((x) => x.text), [
         '¿Quién eres?',
         'Soy Ciel, Master.',

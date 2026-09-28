@@ -453,6 +453,48 @@ class AssistantController extends Notifier<AssistantHudState> {
     );
   }
 
+  /// Suelta una respuesta que llegó entera **como si llegara hablando**: el
+  /// orbe en «hablando» y el texto palabra a palabra, y al acabar a dormir.
+  ///
+  /// 🔴 Lo que contesta ella por escrito llega de una pieza, y soltarlo de
+  /// golpe con el orbe todavía pensando se leía distinto a cualquier otra
+  /// respuesta: sin el estado de hablar y con el texto cayendo entero
+  /// (reportado el 27 sep). Al ritmo de una lectura rápida, con tope: una
+  /// respuesta larga no se hace esperar más de un par de segundos.
+  Future<void> _decirloAPoco(String texto) async {
+    final trozos = RegExp(
+      r'\S+\s*',
+    ).allMatches(texto).map((m) => m[0]!).toList();
+    if (trozos.isEmpty) return;
+    final paso = Duration(
+      milliseconds: (_loQueTardaEnDecirlo.inMilliseconds / trozos.length)
+          .clamp(8, 45)
+          .round(),
+    );
+    _sealLast();
+    final dicho = StringBuffer();
+    for (final trozo in trozos) {
+      dicho.write(trozo);
+      _appendTo(ChatAuthor.nexus, trozo);
+      state = state.copyWith(
+        orbState: NexusOrbState.speak,
+        isStreaming: true,
+        subtitle: dicho.toString(),
+      );
+      await Future<void>.delayed(paso);
+      if (!_vive) return;
+    }
+    _sealLast();
+    state = state.copyWith(
+      orbState: NexusOrbState.sleep,
+      isStreaming: false,
+      subtitle: '',
+    );
+  }
+
+  /// Lo más que tarda en soltarse una respuesta entera. Ver [_decirloAPoco].
+  static const _loQueTardaEnDecirlo = Duration(milliseconds: 2200);
+
   /// Va completando el último turno de ese autor mientras llega.
   ///
   /// El texto entra a trozos —deltas de Claude, transcripción de Gemini— y
@@ -1316,9 +1358,7 @@ class AssistantController extends Notifier<AssistantHudState> {
         final dicho = await ref.read(loContestaEllaProvider)(trimmed);
         if (!_vive) return;
         if (dicho != null) {
-          state = state.copyWith(orbState: NexusOrbState.sleep);
-          _say(ChatAuthor.nexus, dicho);
-          _sealLast();
+          await _decirloAPoco(dicho);
           return;
         }
       case AClaude():

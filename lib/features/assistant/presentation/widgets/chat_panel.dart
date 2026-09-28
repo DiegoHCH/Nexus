@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/features/artifacts/domain/entities/artifact.dart';
 import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
@@ -1364,6 +1365,8 @@ class _BloqueDeCodigoState extends State<_BloqueDeCodigo> {
               const SizedBox(width: 10),
               _CorrerEsto(onTap: () => widget.onCorrer!(comando)),
             ],
+            const SizedBox(width: 10),
+            _CopiarEsto(texto: widget.texto),
           ],
         ),
       );
@@ -1377,25 +1380,31 @@ class _BloqueDeCodigoState extends State<_BloqueDeCodigo> {
         // esquina. Solo cuando el cercado lo declaró — inventarlo para la salida
         // de un `!`, que no es ningún lenguaje, sería decir algo falso en un
         // sitio donde uno confía.
-        if (widget.lenguaje != null || _comando != null)
-          Padding(
-            padding: EdgeInsets.only(
-              left: widget.relleno.left,
-              right: widget.relleno.right,
-              top: widget.relleno.top,
-            ),
-            child: Row(
-              children: [
-                if (widget.lenguaje != null) _ElLenguaje(widget.lenguaje!),
-                const Spacer(),
-                // 🔴 **Solo cuando se puede correr de verdad.** Un botón que a
-                // veces contesta «solo sé de git» enseña a no pulsarlo, y
-                // entonces tampoco se pulsa el día que sí lleva a algún sitio.
-                if (_comando case final comando?)
-                  _CorrerEsto(onTap: () => widget.onCorrer!(comando)),
-              ],
-            ),
+        // 🔴 **Siempre con su cabecera, por el botón de copiar.** Un bloque de
+        // varias líneas es casi siempre algo que se va a llevar a otro sitio
+        // —un prompt, un comando, un fragmento— y seleccionarlo a mano con el
+        // ratón arrastraba también el texto de alrededor (pedido el 27 sep).
+        Padding(
+          padding: EdgeInsets.only(
+            left: widget.relleno.left,
+            right: widget.relleno.right,
+            top: widget.relleno.top,
           ),
+          child: Row(
+            children: [
+              if (widget.lenguaje != null) _ElLenguaje(widget.lenguaje!),
+              const Spacer(),
+              // 🔴 **Solo cuando se puede correr de verdad.** Un botón que a
+              // veces contesta «solo sé de git» enseña a no pulsarlo, y
+              // entonces tampoco se pulsa el día que sí lleva a algún sitio.
+              if (_comando case final comando?) ...[
+                _CorrerEsto(onTap: () => widget.onCorrer!(comando)),
+                const SizedBox(width: NexusSpacing.s2),
+              ],
+              _CopiarEsto(texto: widget.texto),
+            ],
+          ),
+        ),
         Scrollbar(
           controller: _scroll,
           child: SingleChildScrollView(
@@ -1533,6 +1542,50 @@ class _ElLenguaje extends StatelessWidget {
 /// errores 128 distintos por la misma causa: el comando estaba escrito y había
 /// que retranscribirlo. Esto manda **el texto que se ve**, sin editarlo por el
 /// camino.
+/// Copiar el bloque **entero** —también lo plegado—, y decir que se copió.
+///
+/// Dice «COPIADO» un par de segundos en vez de un aviso aparte: la
+/// confirmación va donde se pulsó, que es donde se está mirando.
+class _CopiarEsto extends StatefulWidget {
+  const _CopiarEsto({required this.texto});
+
+  final String texto;
+
+  static const laLlave = ValueKey('copiar-el-bloque');
+
+  @override
+  State<_CopiarEsto> createState() => _CopiarEstoState();
+}
+
+class _CopiarEstoState extends State<_CopiarEsto> {
+  var _copiado = false;
+  Timer? _volver;
+
+  @override
+  void dispose() {
+    _volver?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _copiar() async {
+    await Clipboard.setData(ClipboardData(text: widget.texto.trimRight()));
+    if (!mounted) return;
+    setState(() => _copiado = true);
+    _volver?.cancel();
+    _volver = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _copiado = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => BotonDelRegistro(
+    key: _CopiarEsto.laLlave,
+    texto: (_copiado ? context.strings.copiado : context.strings.copiar)
+        .toUpperCase(),
+    onPulsar: _copiar,
+  );
+}
+
 class _CorrerEsto extends StatelessWidget {
   const _CorrerEsto({required this.onTap});
 

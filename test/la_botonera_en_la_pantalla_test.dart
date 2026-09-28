@@ -9,6 +9,7 @@ import 'package:nexus/features/emulators/domain/entities/emulador.dart';
 import 'package:nexus/features/run/domain/entities/corrida.dart';
 import 'package:nexus/features/run/presentation/providers/corridas_providers.dart';
 import 'package:nexus/features/run/presentation/providers/donde_flota_la_botonera.dart';
+import 'package:nexus/features/run/presentation/providers/la_botonera_de_fuera.dart';
 import 'package:nexus/features/run/presentation/widgets/la_botonera_de_corridas.dart';
 import 'package:nexus/features/workspace/presentation/widgets/hud_top_bar.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
@@ -16,6 +17,7 @@ import 'package:nexus/features/workspace/domain/entities/workspace.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
 import 'support/screen_harness.dart';
+import 'support/ventana_de_la_botonera.dart';
 
 /// La botonera, en la pantalla de verdad y no en un `Stack` de laboratorio.
 ///
@@ -29,6 +31,11 @@ import 'support/screen_harness.dart';
 ///
 /// La lección, que es la que hace falta escrita: una prueba de geometría en una
 /// caja que no es la de verdad **no prueba la geometría**.
+///
+/// 🔴 **Ahora es la geometría del plan B.** La botonera vive en su propia
+/// ventana, fuera de Nexus; dentro solo se pinta si esa ventana no se pudo
+/// abrir, y es exactamente lo que se monta aquí. Que con la ventana fuera la de
+/// Nexus no pinte nada lo cuenta `la_botonera_de_fuera_test.dart`.
 const _deviceId = 'emulator-5554';
 
 /// Lo que dejó apuntado una ventana de 1280×800.
@@ -56,6 +63,9 @@ class _Corridas extends CorridasController {
 /// que no habría dónde mirar.
 final _conUnaCarpeta = [
   corridasProvider.overrideWith(_Corridas.new),
+  laVentanaDeLaBotoneraProvider.overrideWithValue(
+    VentanaQueApunta(sale: false),
+  ),
   workspaceControllerProvider.overrideWith(
     () => FixedWorkspace(
       const Workspace(

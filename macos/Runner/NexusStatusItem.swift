@@ -124,6 +124,10 @@ final class NexusStatusItem: NSObject {
       NSApp.activate(ignoringOtherApps: true)
       NSApp.windows.first { $0.canBecomeMain }?.makeKeyAndOrderFront(nil)
     })
+    // La botonera, **solo si está escondida**: su ventana no tiene marco ni
+    // Dock, y escondida con la cruz esta fila es el camino de vuelta. El
+    // rótulo llega solo en ese caso; sin él, `add` no pone nada.
+    add("runBar", { channel?.invokeMethod("runBar", arguments: nil) })
     add("settings", { channel?.invokeMethod("settings", arguments: nil) }, ",")
 
     // El aviso de versión nueva **solo cuando lo hay**, en su propio grupo y

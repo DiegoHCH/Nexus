@@ -42,6 +42,7 @@
 		NX0000000000000000000013 /* NexusStatusItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = NX0000000000000000000014 /* NexusStatusItem.swift */; };
 		NX0000000000000000000011 /* NexusAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = NX0000000000000000000012 /* NexusAppearance.swift */; };
 		NX00000000000000000D0C01 /* NexusDock.swift in Sources */ = {isa = PBXBuildFile; fileRef = NX00000000000000000D0C02 /* NexusDock.swift */; };
+		NX00000000000000000B0E01 /* NexusBotonera.swift in Sources */ = {isa = PBXBuildFile; fileRef = NX00000000000000000B0E02 /* NexusBotonera.swift */; };
 		B79091042B003EE0C324C4E9 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 65620568385C29DBBF69B342 /* Pods_RunnerTests.framework */; };
 /* End PBXBuildFile section */
 
@@ -105,6 +106,7 @@
 		NX0000000000000000000014 /* NexusStatusItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusStatusItem.swift; sourceTree = "<group>"; };
 		NX0000000000000000000012 /* NexusAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusAppearance.swift; sourceTree = "<group>"; };
 		NX00000000000000000D0C02 /* NexusDock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusDock.swift; sourceTree = "<group>"; };
+		NX00000000000000000B0E02 /* NexusBotonera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusBotonera.swift; sourceTree = "<group>"; };
 		33CEB47222A05771004F2AC0 /* Flutter-Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Flutter-Debug.xcconfig"; sourceTree = "<group>"; };
 		33CEB47422A05771004F2AC0 /* Flutter-Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Flutter-Release.xcconfig"; sourceTree = "<group>"; };
 		33CEB47722A0578A004F2AC0 /* Flutter-Generated.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "Flutter-Generated.xcconfig"; path = "ephemeral/Flutter-Generated.xcconfig"; sourceTree = "<group>"; };
@@ -223,6 +225,7 @@
 				NX0000000000000000000014 /* NexusStatusItem.swift */,
 				NX0000000000000000000012 /* NexusAppearance.swift */,
 				NX00000000000000000D0C02 /* NexusDock.swift */,
+				NX00000000000000000B0E02 /* NexusBotonera.swift */,
 				33E51913231747F40026EE4D /* DebugProfile.entitlements */,
 				33E51914231749380026EE4D /* Release.entitlements */,
 				33CC11242044D66E0003C045 /* Resources */,
@@ -514,6 +517,7 @@
 				NX0000000000000000000013 /* NexusStatusItem.swift in Sources */,
 				NX0000000000000000000011 /* NexusAppearance.swift in Sources */,
 				NX00000000000000000D0C01 /* NexusDock.swift in Sources */,
+				NX00000000000000000B0E01 /* NexusBotonera.swift in Sources */,
 				33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,
 				335BBD1B22A9A15E00E9071D /* GeneratedPluginRegistrant.swift in Sources */,
 			);

@@ -134,6 +134,11 @@ mixin EjecucionStrings {
   /// Lo que se puede hacer con un registro desde su ventana.
   String get runCopiar;
   String get runRegistroVacio;
+
+  /// La botonera en su ventana aparte: la cruz que la quita de en medio y la
+  /// fila de la barra de estado que la trae de vuelta mientras algo corre.
+  String get runToolbarEsconder;
+  String get runToolbarMostrar;
 }
 
 mixin EjecucionStringsEs implements EjecucionStrings {
@@ -296,6 +301,10 @@ mixin EjecucionStringsEs implements EjecucionStrings {
   @override
   String get runRegistroVacio =>
       'Todavía no ha escrito nada. Aparece aquí en cuanto la app hable.';
+  @override
+  String get runToolbarEsconder => 'Esconder la botonera';
+  @override
+  String get runToolbarMostrar => 'Mostrar la botonera';
 }
 
 mixin EjecucionStringsEn implements EjecucionStrings {
@@ -458,4 +467,8 @@ mixin EjecucionStringsEn implements EjecucionStrings {
   @override
   String get runRegistroVacio =>
       'Nothing written yet. It shows up here as soon as the app speaks.';
+  @override
+  String get runToolbarEsconder => 'Hide the run bar';
+  @override
+  String get runToolbarMostrar => 'Show the run bar';
 }

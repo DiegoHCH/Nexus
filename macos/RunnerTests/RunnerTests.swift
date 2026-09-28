@@ -576,6 +576,140 @@ extension BarraDeEstadoTests {
   }
 }
 
+/// **La botonera en su ventana aparte.** Lo que se fija es lo que no se ve
+/// hasta que pasa: que un sitio guardado en un monitor que ya no está no deje
+/// la barra perdida fuera de la pantalla —una ventana sin marco fuera de la
+/// pantalla no tiene por dónde agarrarse—, y que cada juego de pantallas
+/// recuerde el suyo.
+final class BotoneraDeFueraTests: XCTestCase {
+  /// Un portátil y, a su derecha, un monitor más alto. Marcos visibles.
+  private let portatil = NSRect(x: 0, y: 0, width: 1512, height: 944)
+  private let monitor = NSRect(x: 1512, y: -200, width: 2560, height: 1415)
+
+  private func marco(x: CGFloat, y: CGFloat, alto: CGFloat = 120) -> NSRect {
+    NSRect(x: x, y: y, width: NexusBotonera.ancho, height: alto)
+  }
+
+  private func entera(_ marco: NSRect, en pantalla: NSRect) -> Bool {
+    marco.minX >= pantalla.minX && marco.maxX <= pantalla.maxX
+      && marco.minY >= pantalla.minY && marco.maxY <= pantalla.maxY
+  }
+
+  func testNaceAbajoALaDerechaYSinTaparElOrbe() {
+    let nace = NexusBotonera.dondeNace(en: portatil, alto: 120)
+    XCTAssertEqual(nace.maxX, portatil.maxX - NexusBotonera.margen)
+    XCTAssertEqual(nace.width, NexusBotonera.ancho)
+    let orbe = NexusOrbeFlotante.dondeVa(en: portatil)
+    XCTAssertFalse(nace.intersects(orbe), "el orbe sale a esa esquina: taparlo es esconder a quien te atiende")
+    XCTAssertTrue(entera(nace, en: portatil))
+  }
+
+  /// Se guardó con el monitor enchufado y se abre en el portátil solo.
+  func testUnSitioEnUnMonitorQueYaNoEstaVuelveALaPrincipal() {
+    let enElMonitor = marco(x: 3000, y: 600)
+    let ahora = NexusBotonera.dentro(enElMonitor, de: [portatil])
+    XCTAssertTrue(entera(ahora, en: portatil), "fuera de la pantalla no hay asa que agarrar: \(ahora)")
+  }
+
+  func testMedioFueraSeTraeEntera() {
+    // Casi entera en el portátil, asomando por abajo y rozando el monitor.
+    let asomando = marco(x: portatil.maxX - 330, y: -60)
+    let ahora = NexusBotonera.dentro(asomando, de: [portatil, monitor])
+    XCTAssertTrue(entera(ahora, en: portatil))
+    XCTAssertEqual(ahora.size, asomando.size, "se mueve, no se encoge")
+  }
+
+  /// Con dos pantallas va a la que más la tiene, no siempre a la principal:
+  /// dejarla en el monitor es una decisión, y rozar el borde no la deshace.
+  func testSeQuedaEnLaPantallaDondeMasAsoma() {
+    let casiEnElMonitor = marco(x: monitor.minX - 40, y: 300)
+    let ahora = NexusBotonera.dentro(casiEnElMonitor, de: [portatil, monitor])
+    XCTAssertTrue(entera(ahora, en: monitor))
+    XCTAssertEqual(ahora.minX, monitor.minX)
+  }
+
+  /// Muchas corridas en una pantalla baja: se ve el asa, que es por donde se
+  /// agarra, y lo que sobra cae por abajo.
+  func testSiNoCabeDeAltoMandaElAsa() {
+    let bajita = NSRect(x: 0, y: 0, width: 1280, height: 300)
+    let ahora = NexusBotonera.dentro(marco(x: 100, y: 50, alto: 420), de: [bajita])
+    XCTAssertEqual(ahora.maxY, bajita.maxY)
+  }
+
+  /// Como dentro de Nexus: una corrida nueva la hace crecer hacia arriba y no
+  /// la asoma por debajo de donde la dejaste.
+  func testCreceHaciaArriba() {
+    let antes = marco(x: 200, y: 100, alto: 120)
+    let despues = NexusBotonera.conAlto(antes, alto: 230)
+    XCTAssertEqual(despues.minY, antes.minY)
+    XCTAssertEqual(despues.minX, antes.minX)
+    XCTAssertEqual(despues.height, 230)
+  }
+
+  /// Arrastrar sigue al ratón **de la pantalla**: la ventana se mueve lo que se
+  /// movió el ratón, esté donde esté la ventana en cada paso.
+  func testArrastrarSigueAlRatonDeLaPantalla() {
+    let origen = NSPoint(x: 500, y: 300)
+    let movida = NexusBotonera.arrastrada(
+      origen: origen, desde: NSPoint(x: 700, y: 400), hasta: NSPoint(x: 650, y: 520))
+    XCTAssertEqual(movida, NSPoint(x: 450, y: 420))
+  }
+
+  /// La de la oficina no es la del portátil: cada juego de pantallas guarda la
+  /// suya, y uno nuevo no pisa el de antes.
+  func testCadaJuegoDePantallasRecuerdaSuSitio() throws {
+    let nombre = "nexus-botonera-\(UUID().uuidString)"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: nombre))
+    defer { defaults.removePersistentDomain(forName: nombre) }
+
+    let solo = NexusBotonera.firma(de: [portatil])
+    let conMonitor = NexusBotonera.firma(de: [portatil, monitor])
+    XCTAssertNotEqual(solo, conMonitor)
+    XCTAssertNil(NexusBotonera.guardado(firma: solo, en: defaults))
+
+    NexusBotonera.guardar(NSPoint(x: 10, y: 20), firma: solo, en: defaults)
+    NexusBotonera.guardar(NSPoint(x: 2000, y: 500), firma: conMonitor, en: defaults)
+
+    XCTAssertEqual(NexusBotonera.guardado(firma: solo, en: defaults), NSPoint(x: 10, y: 20))
+    XCTAssertEqual(
+      NexusBotonera.guardado(firma: conMonitor, en: defaults), NSPoint(x: 2000, y: 500))
+  }
+
+  /// El orden en que el sistema enumere las pantallas no es otro escritorio.
+  func testLaFirmaNoDependeDelOrden() {
+    XCTAssertEqual(
+      NexusBotonera.firma(de: [portatil, monitor]),
+      NexusBotonera.firma(de: [monitor, portatil]))
+  }
+
+  /// «Mostrar la botonera» solo cuando llega su rótulo, que Dart manda solo
+  /// con la botonera escondida. Va junto a «Abrir la ventana»: las dos traen
+  /// algo de Nexus al frente.
+  func testElMenuTraeLaBotoneraSoloSiEstaEscondida() throws {
+    NexusStatusItem.setMenuForTesting([
+      "talk": "Hablar con Nexus",
+      "show": "Abrir la ventana",
+      "runBar": "Mostrar la botonera",
+      "settings": "Ajustes…",
+      "quit": "Salir de Nexus",
+    ])
+    let conEscondida = try XCTUnwrap(NexusStatusItem.currentMenu)
+    XCTAssertEqual(
+      conEscondida.items.map { $0.isSeparatorItem ? "—" : $0.title },
+      ["Hablar con Nexus", "Abrir la ventana", "Mostrar la botonera", "Ajustes…", "—", "Salir de Nexus"]
+    )
+
+    NexusStatusItem.setMenuForTesting([
+      "talk": "Hablar con Nexus",
+      "show": "Abrir la ventana",
+      "settings": "Ajustes…",
+      "quit": "Salir de Nexus",
+    ])
+    let sin = try XCTUnwrap(NexusStatusItem.currentMenu)
+    XCTAssertFalse(sin.items.contains { $0.title == "Mostrar la botonera" })
+  }
+}
+
 /// El tema se pinta en las ventanas de la app, no en las del sistema.
 final class AparienciaTests: XCTestCase {
   func testSoloLasVentanasMarcadasSonNuestras() {

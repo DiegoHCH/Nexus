@@ -7,6 +7,7 @@ import 'package:nexus/features/assistant/presentation/widgets/conversation_dock.
 import 'package:nexus/features/assistant/presentation/widgets/el_subtitulo_al_compas.dart';
 import 'package:nexus/features/assistant/presentation/widgets/composer_bar.dart';
 import 'package:nexus/features/assistant/presentation/widgets/composer/composer_menus.dart';
+import 'package:nexus/core/design_system/campo_de_nombre.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/agenda/domain/entities/reunion.dart';
@@ -17,6 +18,8 @@ import 'package:nexus/features/assistant/presentation/providers/conversations_pr
 import 'package:nexus/features/assistant/presentation/providers/model_providers.dart';
 import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
 import 'package:nexus/features/assistant/presentation/state/chat_message.dart';
+import 'package:nexus/features/assistant/presentation/state/el_titulo_de_la_conversacion.dart';
+import 'package:nexus/features/assistant/domain/entities/conversation.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:nexus/features/onboarding/presentation/state/tour_state.dart';
@@ -467,7 +470,6 @@ class _LasEsquinas extends ConsumerWidget {
         .value
         ?.usage
         ?.weeklyPercent;
-    final conversaciones = ref.watch(conversationsProvider).items;
 
     final etiqueta = NexusTypography.label.copyWith(color: colors.faint);
     final dato = NexusTypography.data.copyWith(color: colors.ink);
@@ -530,53 +532,7 @@ class _LasEsquinas extends ConsumerWidget {
           // conversaciones abiertas viven aquí.
           child: TourAnchor(
             stop: TourStop.dock,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  strings.escenarioConversaciones.toUpperCase(),
-                  style: etiqueta,
-                ),
-                const SizedBox(height: NexusSpacing.s2),
-                Row(
-                  children: [
-                    for (final c in conversaciones)
-                      Padding(
-                        padding: const EdgeInsets.only(right: NexusSpacing.s3),
-                        child: _MiniOrbe(
-                          nombre: c.folderPath.split('/').last,
-                          enFoco: c.id == conversationId,
-                          vivo:
-                              ref
-                                  .watch(assistantControllerProvider(c.id))
-                                  .orbState !=
-                              NexusOrbState.sleep,
-                          alPulsar: () => unawaited(
-                            ref
-                                .read(conversationsProvider.notifier)
-                                .focus(c.id),
-                          ),
-                          // Soltar va con cerrar, siempre, como en el muelle: ver
-                          // [soltarLaConversacionProvider].
-                          alCerrar: () {
-                            ref.read(soltarLaConversacionProvider)(c.id);
-                            unawaited(
-                              ref
-                                  .read(conversationsProvider.notifier)
-                                  .close(c.id),
-                            );
-                          },
-                        ),
-                      ),
-                    // Una nueva, en cualquier carpeta: el mismo menú que
-                    // «Nueva» en el muelle. Sin él, desde el escenario no había
-                    // forma de abrir otra.
-                    if (!ref.watch(conversationsProvider).isFull)
-                      const AbrirOtraConversacion(compacto: true),
-                  ],
-                ),
-              ],
-            ),
+            child: _LasConversaciones(conversationId: conversationId),
           ),
         ),
         Positioned(
@@ -597,18 +553,149 @@ class _LasEsquinas extends ConsumerWidget {
   }
 }
 
+/// La esquina de abajo a la izquierda: las conversaciones abiertas en pequeño
+/// y, al renombrar una, **su nombre en el mismo sitio**.
+///
+/// 🔴 **Se renombra aquí y no en un diálogo**, igual que se cierra aquí con la
+/// ✕: los orbes se quedan un momento sin sitio y en su lugar sale la línea del
+/// nombre con «Cancelar · Guardar» —el campo «Nombre» de la hoja «···» del
+/// teléfono—. Un diálogo en medio de la sala taparía el orbe, que es lo que el
+/// escenario no tapa nunca.
+class _LasConversaciones extends ConsumerStatefulWidget {
+  const _LasConversaciones({required this.conversationId});
+
+  final String conversationId;
+
+  @override
+  ConsumerState<_LasConversaciones> createState() => _LasConversacionesState();
+}
+
+class _LasConversacionesState extends ConsumerState<_LasConversaciones> {
+  /// La que se está renombrando, por su id, o `null` si ninguna.
+  String? _renombrando;
+
+  Future<void> _guardar(String id, String nombre) async {
+    setState(() => _renombrando = null);
+    await ref.read(renombrarLaConversacionProvider)(id, nombre);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final strings = context.strings;
+    final lista = ref.watch(conversationsProvider);
+    final conversaciones = lista.items;
+    final etiqueta = NexusTypography.label.copyWith(color: colors.faint);
+
+    // Cómo se llama cada una: **el mismo título que ve el teléfono**, con el
+    // nombre puesto delante de todo. Antes el globo decía la carpeta, y dos
+    // conversaciones sobre el mismo repo se llamaban igual.
+    String tituloDe(Conversation c) => ref.watch(
+      assistantControllerProvider(c.id).select(
+        (hud) => tituloDeConversacion(
+          mensajes: hud.messages,
+          carpeta: c.folderPath,
+          id: c.id,
+          puesto: c.name,
+        ),
+      ),
+    );
+
+    final renombrando = conversaciones
+        .where((c) => c.id == _renombrando)
+        .firstOrNull;
+    if (renombrando != null) {
+      return SizedBox(
+        width: 380,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              strings.renombrarLaConversacion.toUpperCase(),
+              style: etiqueta,
+            ),
+            const SizedBox(height: NexusSpacing.s2),
+            CampoDeNombre(
+              key: ValueKey(renombrando.id),
+              inicial: tituloDe(renombrando),
+              etiqueta: strings.renombrarLaConversacion,
+              estilo: NexusTypography.body.copyWith(fontSize: 13, height: 1.3),
+              onGuardar: (nombre) => _guardar(renombrando.id, nombre),
+              onCancelar: () => setState(() => _renombrando = null),
+            ),
+            const SizedBox(height: NexusSpacing.s1),
+            Text(
+              strings.renombrarVacioVuelve,
+              style: NexusTypography.nota.copyWith(
+                color: colors.faint,
+                fontSize: 11.5,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(strings.escenarioConversaciones.toUpperCase(), style: etiqueta),
+        const SizedBox(height: NexusSpacing.s2),
+        Row(
+          children: [
+            for (final c in conversaciones)
+              Padding(
+                padding: const EdgeInsets.only(right: NexusSpacing.s3),
+                child: _MiniOrbe(
+                  nombre: tituloDe(c),
+                  enFoco: c.id == widget.conversationId,
+                  vivo: ref.watch(
+                    assistantControllerProvider(
+                      c.id,
+                    ).select((hud) => hud.orbState != NexusOrbState.sleep),
+                  ),
+                  alPulsar: () => unawaited(
+                    ref.read(conversationsProvider.notifier).focus(c.id),
+                  ),
+                  alRenombrar: () => setState(() => _renombrando = c.id),
+                  // Soltar va con cerrar, siempre, como en el muelle: ver
+                  // [soltarLaConversacionProvider].
+                  alCerrar: () {
+                    ref.read(soltarLaConversacionProvider)(c.id);
+                    unawaited(
+                      ref.read(conversationsProvider.notifier).close(c.id),
+                    );
+                  },
+                ),
+              ),
+            // Una nueva, en cualquier carpeta: el mismo menú que «Nueva» en el
+            // muelle. Sin él, desde el escenario no había forma de abrir otra.
+            if (!lista.isFull) const AbrirOtraConversacion(compacto: true),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 /// Una conversación abierta, en pequeño: encendida si está haciendo algo, con
 /// halo la que está en foco. Pulsarla la trae al frente.
 ///
 /// **Y se cierra desde aquí**, con la ✕ que sale al pasar por encima: la misma
 /// del muelle. Sin ella, en el escenario no había forma de cerrar una
 /// conversación sin pasar antes a la vista de cerca.
+///
+/// **Con el clic secundario, su menú**: «Renombrar» y «Cerrar». Es donde un Mac
+/// busca lo que se le puede hacer a algo que no tiene botones, y la ✕ se queda
+/// porque es lo que ya se sabía usar.
 class _MiniOrbe extends StatefulWidget {
   const _MiniOrbe({
     required this.nombre,
     required this.enFoco,
     required this.vivo,
     required this.alPulsar,
+    required this.alRenombrar,
     required this.alCerrar,
   });
 
@@ -616,6 +703,7 @@ class _MiniOrbe extends StatefulWidget {
   final bool enFoco;
   final bool vivo;
   final VoidCallback alPulsar;
+  final VoidCallback alRenombrar;
   final VoidCallback alCerrar;
 
   @override
@@ -625,6 +713,26 @@ class _MiniOrbe extends StatefulWidget {
 class _MiniOrbeState extends State<_MiniOrbe> {
   var _encima = false;
 
+  Future<void> _elMenu(Offset donde) async {
+    final strings = context.strings;
+    final elegido = await MenuDelCompositor.abrirEn<String>(
+      context,
+      donde: donde,
+      ancho: 210,
+      opciones: [
+        cabeceraDelMenu(context, widget.nombre),
+        OpcionDelMenu(value: 'renombrar', titulo: strings.renombrar),
+        OpcionDelMenu(value: 'cerrar', titulo: strings.close),
+      ],
+    );
+    switch (elegido) {
+      case 'renombrar':
+        widget.alRenombrar();
+      case 'cerrar':
+        widget.alCerrar();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -632,70 +740,73 @@ class _MiniOrbeState extends State<_MiniOrbe> {
     return MouseRegion(
       onEnter: (_) => setState(() => _encima = true),
       onExit: (_) => setState(() => _encima = false),
-      child: Tooltip(
-        message: widget.nombre,
-        // La caja es más grande que el círculo para que la ✕ quepa **dentro**:
-        // lo que sobresale de su caja se pinta pero no recibe el clic, y la
-        // ✕ se veía sin poder pulsarse.
-        child: SizedBox(
-          width: 26,
-          height: 26,
-          child: Stack(
-            children: [
-              Positioned(
-                left: 0,
-                bottom: 0,
-                width: 18,
-                height: 18,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: widget.alPulsar,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: widget.vivo
-                          ? colors.accent.withValues(alpha: 0.5)
-                          : null,
-                      border: Border.all(
-                        color: widget.enFoco
-                            ? colors.accent
-                            : (_encima ? colors.mute : colors.rule2),
-                      ),
-                      boxShadow: widget.enFoco
-                          ? [
-                              BoxShadow(
-                                color: colors.accent.withValues(alpha: 0.6),
-                                blurRadius: 8,
-                              ),
-                            ]
-                          : null,
-                    ),
-                  ),
-                ),
-              ),
-              if (_encima)
+      child: GestureDetector(
+        onSecondaryTapUp: (detalle) => _elMenu(detalle.globalPosition),
+        child: Tooltip(
+          message: widget.nombre,
+          // La caja es más grande que el círculo para que la ✕ quepa **dentro**:
+          // lo que sobresale de su caja se pinta pero no recibe el clic, y la
+          // ✕ se veía sin poder pulsarse.
+          child: SizedBox(
+            width: 26,
+            height: 26,
+            child: Stack(
+              children: [
                 Positioned(
-                  top: 0,
-                  right: 0,
-                  child: Semantics(
-                    button: true,
-                    label: strings.escenarioCerrarConversacion(widget.nombre),
-                    child: InkWell(
-                      onTap: widget.alCerrar,
-                      customBorder: const CircleBorder(),
-                      child: Container(
-                        padding: const EdgeInsets.all(1.5),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: colors.void_,
-                          border: Border.all(color: colors.rule2),
+                  left: 0,
+                  bottom: 0,
+                  width: 18,
+                  height: 18,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: widget.alPulsar,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: widget.vivo
+                            ? colors.accent.withValues(alpha: 0.5)
+                            : null,
+                        border: Border.all(
+                          color: widget.enFoco
+                              ? colors.accent
+                              : (_encima ? colors.mute : colors.rule2),
                         ),
-                        child: Icon(Icons.close, size: 9, color: colors.mute),
+                        boxShadow: widget.enFoco
+                            ? [
+                                BoxShadow(
+                                  color: colors.accent.withValues(alpha: 0.6),
+                                  blurRadius: 8,
+                                ),
+                              ]
+                            : null,
                       ),
                     ),
                   ),
                 ),
-            ],
+                if (_encima)
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Semantics(
+                      button: true,
+                      label: strings.escenarioCerrarConversacion(widget.nombre),
+                      child: InkWell(
+                        onTap: widget.alCerrar,
+                        customBorder: const CircleBorder(),
+                        child: Container(
+                          padding: const EdgeInsets.all(1.5),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: colors.void_,
+                            border: Border.all(color: colors.rule2),
+                          ),
+                          child: Icon(Icons.close, size: 9, color: colors.mute),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

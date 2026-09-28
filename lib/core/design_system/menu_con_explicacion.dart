@@ -63,6 +63,43 @@ class MenuDelCompositor<T> extends StatelessWidget {
     vertical: NexusSpacing.s3,
   );
 
+  /// El mismo globo, abierto **donde se pulsó** —el clic secundario sobre algo
+  /// que no es un botón— en vez de colgado de uno.
+  ///
+  /// Con la forma de siempre y no con la de `showMenu` a secas: el menú de
+  /// contexto de un orbe es otro menú de la casa, y con la sombra y el tinte de
+  /// Material se leería como de otra app —que es justo lo que [MenuDelCompositor]
+  /// vino a quitar—.
+  static Future<T?> abrirEn<T>(
+    BuildContext context, {
+    required Offset donde,
+    required List<PopupMenuEntry<T>> opciones,
+    double? ancho,
+  }) {
+    final colors = context.colors;
+    final lienzo = Overlay.of(context).context.findRenderObject()! as RenderBox;
+    return showMenu<T>(
+      context: context,
+      position: RelativeRect.fromRect(
+        donde & const Size(1, 1),
+        Offset.zero & lienzo.size,
+      ),
+      items: opciones,
+      color: colors.deep,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(NexusRadius.md),
+        side: BorderSide(color: colors.rule2),
+      ),
+      menuPadding: relleno,
+      constraints: ancho == null
+          ? null
+          : BoxConstraints(minWidth: ancho, maxWidth: ancho),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;

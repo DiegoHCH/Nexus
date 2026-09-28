@@ -20,6 +20,7 @@ class ConversationRecord {
     this.model,
     this.contextTokens,
     this.usadaEn,
+    this.nombre,
     String? title,
     // El campo es privado y el parámetro no: quien construye pasa `title`, y
     // adentro se guarda como el título de respaldo que usa el getter.
@@ -62,10 +63,23 @@ class ConversationRecord {
   /// distinto del que se ve en el archivo.
   final String? _title;
 
+  /// El nombre que le puso el usuario, si le puso uno —desde el orbe pequeño,
+  /// desde el historial o desde el teléfono—.
+  ///
+  /// 🔴 **Aparte de [_title] y no en su hueco**: [_title] es el título que ya
+  /// traía una nota del vault, que es derivado aunque venga escrito. Mezclarlos
+  /// haría que retomar una nota cualquiera le pusiera nombre a la pestaña como
+  /// si alguien lo hubiera elegido. Este sí es elegido, y por eso manda sobre
+  /// todo lo demás, igual que `Conversation.name` en la pestaña abierta.
+  final String? nombre;
+
   /// La primera cosa que se pidió, recortada. Es el mejor título disponible sin
   /// gastar un turno del modelo en inventar uno — y el que reconoce quien
   /// buscaba esta conversación.
   String get title {
+    if (nombre case final puesto? when puesto.trim().isNotEmpty) {
+      return puesto.trim();
+    }
     if (_title case final stored? when stored.trim().isNotEmpty) return stored;
     final first = messages
         .where((message) => message.author == ChatAuthor.user)
@@ -76,6 +90,21 @@ class ConversationRecord {
     final flat = first.replaceAll(RegExp(r'\s+'), ' ');
     return flat.length <= 70 ? flat : '${flat.substring(0, 70)}…';
   }
+
+  /// La misma conversación con [nuevo] como nombre —`null` lo quita—.
+  ConversationRecord conNombre(String? nuevo) => ConversationRecord(
+    id: id,
+    folderPath: folderPath,
+    startedAt: startedAt,
+    messages: messages,
+    profileName: profileName,
+    sourcePath: sourcePath,
+    model: model,
+    contextTokens: contextTokens,
+    usadaEn: usadaEn,
+    nombre: nuevo,
+    title: _title,
+  );
 
   /// Vacía si nadie llegó a decir nada. No se guarda: un archivo por cada vez
   /// que se abrió una pestaña y se cerró sin usarla no es historial, es ruido.

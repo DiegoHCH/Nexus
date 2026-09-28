@@ -12,6 +12,7 @@ import 'package:nexus/core/i18n/strings/lo_que_costo_strings.dart';
 import 'package:nexus/core/i18n/strings/movil_strings.dart';
 import 'package:nexus/core/i18n/strings/nucleo_strings.dart';
 import 'package:nexus/core/i18n/strings/pruebas_strings.dart';
+import 'package:nexus/core/i18n/strings/renombrar_strings.dart';
 import 'package:nexus/core/i18n/strings/superpoderes_strings.dart';
 
 /// Todo lo que la interfaz dice, en los dos idiomas.
@@ -58,7 +59,8 @@ abstract class NexusStrings
         LoQueCostoStrings,
         MovilStrings,
         MovilActualizarStrings,
-        AjustesStrings {
+        AjustesStrings,
+        RenombrarStrings {
   const NexusStrings();
 
   static const supported = [Locale('es'), Locale('en')];
@@ -84,7 +86,8 @@ class NexusStringsEs extends NexusStrings
         LoQueCostoStringsEs,
         MovilStringsEs,
         MovilActualizarStringsEs,
-        AjustesStringsEs {
+        AjustesStringsEs,
+        RenombrarStringsEs {
   const NexusStringsEs();
 }
 
@@ -104,6 +107,7 @@ class NexusStringsEn extends NexusStrings
         LoQueCostoStringsEn,
         MovilStringsEn,
         MovilActualizarStringsEn,
-        AjustesStringsEn {
+        AjustesStringsEn,
+        RenombrarStringsEn {
   const NexusStringsEn();
 }

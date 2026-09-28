@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/design_system/campo_de_nombre.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/design_system/hoja_de_la_sala.dart';
 import 'package:nexus/core/i18n/el_dia_legible.dart';
@@ -280,6 +281,12 @@ class _ConversationHistorySheetState
               onRetomar: () => _retomar(elegida),
               onOlvidar: _olvidar,
               onBorrar: () => ref.read(deleteConversationProvider)(elegida),
+              // Solo las del historial de la app: ver
+              // [renombrarDelHistorialProvider].
+              onRenombrar: elegida.sourcePath == null
+                  ? (nombre) =>
+                        ref.read(renombrarDelHistorialProvider)(elegida, nombre)
+                  : null,
             ),
     );
   }
@@ -541,6 +548,7 @@ class _VistaPrevia extends ConsumerStatefulWidget {
     required this.onRetomar,
     required this.onOlvidar,
     required this.onBorrar,
+    this.onRenombrar,
   });
 
   final ConversationSummary ficha;
@@ -552,6 +560,9 @@ class _VistaPrevia extends ConsumerStatefulWidget {
   final VoidCallback onRetomar;
   final VoidCallback onOlvidar;
   final Future<void> Function() onBorrar;
+
+  /// Le pone otro nombre, o `null` si esta no se puede renombrar desde aquí.
+  final Future<void> Function(String nombre)? onRenombrar;
 
   @override
   ConsumerState<_VistaPrevia> createState() => _VistaPreviaState();
@@ -565,6 +576,16 @@ class _VistaPreviaState extends ConsumerState<_VistaPrevia> {
   /// se va a borrar es lo que se está mirando, y verlo mientras decides es más
   /// claro que un cuadro que repite el título.
   bool _confirmaBorrar = false;
+
+  /// Renombrar también se hace **aquí mismo**: el título se vuelve la línea
+  /// donde se escribe, con «Cancelar · Guardar» al lado, igual que borrar
+  /// pregunta en su sitio.
+  bool _renombrando = false;
+
+  Future<void> _guardarElNombre(String nombre) async {
+    setState(() => _renombrando = false);
+    await widget.onRenombrar?.call(nombre);
+  }
 
   bool get _laFichaLoTrae =>
       widget.ficha.loUltimoQuePediste != null ||
@@ -628,14 +649,23 @@ class _VistaPreviaState extends ConsumerState<_VistaPrevia> {
           ].join(' · ').toUpperCase(),
           style: NexusTypography.label.copyWith(color: colors.accent),
         ),
-        Text(
-          ficha.title,
-          style: NexusTypography.title.copyWith(
-            color: colors.ink,
-            fontSize: 24,
-            height: 1.25,
+        if (_renombrando)
+          CampoDeNombre(
+            inicial: ficha.title,
+            etiqueta: strings.renombrarLaConversacion,
+            estilo: NexusTypography.title.copyWith(fontSize: 20, height: 1.25),
+            onGuardar: _guardarElNombre,
+            onCancelar: () => setState(() => _renombrando = false),
+          )
+        else
+          Text(
+            ficha.title,
+            style: NexusTypography.title.copyWith(
+              color: colors.ink,
+              fontSize: 24,
+              height: 1.25,
+            ),
           ),
-        ),
         if (noSePudo)
           Text(
             strings.historialNoSePudoLeer,
@@ -687,6 +717,11 @@ class _VistaPreviaState extends ConsumerState<_VistaPrevia> {
               tono: TonoDeBoton.principal,
               onPulsar: widget.onRetomar,
             ),
+            if (widget.onRenombrar != null && !_renombrando)
+              BotonDeLaHoja(
+                texto: strings.renombrar,
+                onPulsar: () => setState(() => _renombrando = true),
+              ),
             if (widget.olvidarEn case final carpeta?)
               BotonDeLaHoja(
                 texto: strings.startFromScratchIn(carpeta),

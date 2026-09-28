@@ -246,6 +246,43 @@ void main() {
       expect(find.text('Nada abierto en el Mac'), findsOneWidget);
     });
 
+    // 🔴 Reportado el 27 sep con el teléfono en la mano: el orbe pegado a la
+    // cabecera y media pantalla vacía debajo. El orbe con su texto va centrado
+    // en el hueco que deja el botón.
+    testWidgets('sin nada abierto, el orbe va centrado en el hueco', (
+      tester,
+    ) async {
+      tester.view
+        ..physicalSize = const Size(1170, 2532)
+        ..devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      final c = await conectado(
+        tester,
+        respuestas: {
+          'conversations': {'conversations': <Object>[]},
+        },
+      );
+      await tester.pumpWidget(app(c, const ConversationsPage()));
+      await tester.pump();
+      await tester.pump();
+
+      final hueco = tester.getRect(find.byType(CustomScrollView));
+      final orbe = tester.getRect(find.byType(NexusOrb).first);
+      final texto = tester.getRect(
+        find.text(const NexusStringsEs().mobileNothingOpenBody),
+      );
+      final boton = tester.getRect(
+        find.text(const NexusStringsEs().mobileNewConversation.toUpperCase()),
+      );
+      final arriba = orbe.top - hueco.top;
+      final abajo = boton.top - texto.bottom;
+      expect(
+        (arriba - abajo).abs(),
+        lessThan(60),
+        reason: 'arriba $arriba, abajo $abajo: el grupo va al centro',
+      );
+    });
+
     testWidgets('enseña la cola de la ruta, no la cabeza', (tester) async {
       final c = await conectado(
         tester,

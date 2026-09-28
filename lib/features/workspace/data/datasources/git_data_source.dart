@@ -250,7 +250,15 @@ class GitDataSource {
     Set<String> yaEstaban = const {},
   }) async {
     final diff =
-        await _run(folderPath, ['diff', '-U$lineasDeContexto', base]) ?? '';
+        await _run(folderPath, [
+          'diff',
+          '-U$lineasDeContexto',
+          // Sin el programa de diff que diga el `.git/config`: mirar no es
+          // ejecutar. Ver [ElGitSinSorpresas].
+          '--no-ext-diff',
+          base,
+        ]) ??
+        '';
     final untracked =
         await _run(folderPath, [
           'ls-files',

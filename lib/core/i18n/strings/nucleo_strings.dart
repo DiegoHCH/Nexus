@@ -138,6 +138,9 @@ mixin NucleoStrings {
   /// Copiar un bloque de código entero, y lo que dice al copiarlo.
   String get copiar;
   String get copiado;
+
+  /// Por qué se niega subir un archivo con curl. Va a Claude.
+  String get permisoNoSeSube;
   String saludoDeLaPuerta(FranjaDelDia franja, String? nombre);
   String get laPuertaNoEntendio;
   String laPuertaOyoDos(List<String> carpetas);
@@ -606,6 +609,10 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get copiar => 'Copiar';
   @override
   String get copiado => 'Copiado';
+  @override
+  String get permisoNoSeSube =>
+      'Aquí no se sube ningún archivo con curl: -d, -T, -F, --json o -K están '
+      'negados, también juntos (-sd@…). Descargar sí se puede.';
   @override
   String saludoDeLaPuerta(FranjaDelDia franja, String? nombre) {
     final hora = switch (franja) {
@@ -1241,6 +1248,10 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get copiar => 'Copy';
   @override
   String get copiado => 'Copied';
+  @override
+  String get permisoNoSeSube =>
+      'No file is uploaded with curl here: -d, -T, -F, --json and -K are '
+      'denied, also grouped (-sd@…). Downloading is allowed.';
   @override
   String saludoDeLaPuerta(FranjaDelDia franja, String? nombre) {
     final hora = switch (franja) {

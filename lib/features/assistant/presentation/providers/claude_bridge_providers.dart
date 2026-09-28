@@ -111,17 +111,18 @@ final askClaudeProvider = Provider.family<AskClaude, String>((
           // `rg --pre`, `git diff --output`… Ver [AllowedCommands.loQueNoEsLeer].
           ...AllowedCommands.loQueNoEsLeer,
         ],
-        // **Descargar viene de serie**, y el resto lo pone la carpeta. Sin la
-        // descarga, generar una imagen o traerse un archivo no sirve de nada:
-        // el trabajo se hace y no se puede guardar. Va en la forma estrecha
-        // —`curl -o`— y no en `curl` a secas, que autorizaría también
-        // `curl -d @archivo`, o sea la puerta de salida.
+        // 🔴 **`curl` ya no se concede por patrón.** Con él concedido el CLI
+        // no preguntaba, y ningún patrón lee `curl -sd@secreto`: los flags
+        // cortos van juntos. Ahora cada `curl` pasa por el canal de permisos,
+        // donde Nexus lo lee entero —ver [LoQueSubeUnCurl]—: descargar sigue
+        // sin preguntar con la carpeta en «puede editar», y subir se niega.
+        // Sin nadie delante —la agenda, la cola, el teléfono— no hay canal, y
+        // ahí `curl` no se concede: es donde más importa que no se cuele.
         comandosPermitidos: [
           // Lo que solo mira va primero y de fábrica: es lo que evita que un
           // repaso al código sean veinte preguntas seguidas. Ver
           // [AllowedCommands.paraLeer], donde está dicho qué entra y qué no.
           ...AllowedCommands.paraLeer,
-          AllowedCommands.paraDescargar,
           AllowedCommands.paraConvertirImagenes,
           ...AllowedCommands.patterns(paired?.allowedCommands ?? const []),
         ],

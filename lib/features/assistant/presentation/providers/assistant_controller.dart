@@ -649,6 +649,16 @@ class AssistantController extends Notifier<AssistantHudState> {
     // respuesta. Ver [LaPreguntaDeClaude].
     if (LaPreguntaDeClaude.es(peticion)) return _preguntar(peticion);
 
+    // 🔴 **Subir un archivo no se concede nunca**, ni con «puede editar» ni con
+    // «permitir todo»: es la frontera de salida. Se lee el comando entero, no
+    // un patrón — ver [LoQueSubeUnCurl].
+    if (LoQueQuedaPermitido.seNiegaSiempre(peticion)) {
+      debugPrint('permiso · se niega: el comando sube un archivo con curl');
+      return Future.value(
+        PermisoDenegado(ref.read(stringsProvider).permisoNoSeSube),
+      );
+    }
+
     // 🔴 **Con la carpeta en «puede editar» no se pregunta por lo de casa.** El
     // interruptor de abajo **es** el permiso: decía «puede editar» y la pantalla
     // preguntaba por cada comando, y ese desajuste es lo que se reportó dos

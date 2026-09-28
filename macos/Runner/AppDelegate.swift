@@ -41,6 +41,15 @@ class AppDelegate: FlutterAppDelegate {
     send("openSettings")
   }
 
+  /// «Guía de Nexus» (⌘?) del menú Ayuda: la guía corta.
+  ///
+  /// En el menú Ayuda porque es donde se busca ayuda en cualquier app del Mac,
+  /// y por el mismo camino que Ajustes: AppKit se queda el atajo, avisa, y la
+  /// app abre la guía encima de lo que haya.
+  @objc func openNexusGuide(_ sender: Any?) {
+    send("openGuide")
+  }
+
   private func send(_ method: String) {
     guard
       let controller = mainFlutterWindow?.contentViewController as? FlutterViewController

@@ -2,6 +2,7 @@ import 'package:nexus/features/agenda/domain/usecases/lo_que_se_pregunta_de_la_a
 import 'package:nexus/features/artifacts/domain/usecases/lo_que_se_pide_dibujar.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_trabajo_aparte.dart';
 import 'package:nexus/features/assistant/domain/usecases/los_comandos_de_la_casa.dart';
+import 'package:nexus/features/assistant/domain/usecases/voice_routing.dart';
 import 'package:nexus/features/memoria/domain/usecases/lo_que_se_pide_recordar.dart';
 import 'package:nexus/features/history/domain/usecases/el_parte_de_ayer.dart';
 import 'package:nexus/features/programadas/domain/usecases/lo_que_se_pide_programar.dart';
@@ -100,6 +101,12 @@ final class ALaMemoria extends ADondeVa {
   final String queApuntar;
 }
 
+/// Una pregunta sobre ella —quién es, qué sabe hacer—: la contesta ella con el
+/// modelo de voz, sin Claude. Ver [VoiceRouting.esSobreElla].
+final class AElla extends ADondeVa {
+  const AElla();
+}
+
 final class AClaude extends ADondeVa {
   const AClaude();
 }
@@ -183,6 +190,13 @@ abstract final class ADondeVaLoQueSeEscribe {
     }
 
     if (hayAdjuntos) return const AClaude();
+
+    // 🔴 **Lo suyo lo contesta ella, también escribiendo.** Hablando ya era así;
+    // escribiendo, «¿quién eres?» lanzaba un encargo a Claude que releía el
+    // contexto entero para decir su nombre. La regla es la misma de la voz —la
+    // pregunta sobre sí misma, con freno si apunta a algo de aquí—, así que las
+    // dos puertas contestan lo mismo.
+    if (VoiceRouting.esSobreElla(limpia)) return const AElla();
 
     if (LoQueSePreguntaDeLaAgenda.loEstanPidiendo(limpia)) {
       return const ALaAgenda();

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:nexus/features/assistant/domain/entities/pregunta_de_claude.dart';
+import 'package:nexus/features/assistant/presentation/providers/lo_contesta_ella.dart';
 
 import 'package:flutter/foundation.dart';
 
@@ -1294,6 +1295,18 @@ class AssistantController extends Notifier<AssistantHudState> {
         _decir(s.laMemoriaApuntada(queApuntar));
         return;
 
+      // Lo suyo —quién es, qué sabe hacer— lo contesta ella, sin Claude. Si
+      // no puede, se sigue de largo hacia Claude, como antes.
+      case AElla():
+        final dicho = await ref.read(loContestaEllaProvider)(trimmed);
+        if (!_vive) return;
+        if (dicho != null) {
+          _say(ChatAuthor.user, loQueSeVe ?? trimmed);
+          _sealLast();
+          _say(ChatAuthor.nexus, dicho);
+          _sealLast();
+          return;
+        }
       case AClaude():
         break;
     }

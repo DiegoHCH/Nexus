@@ -1,4 +1,5 @@
 import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart';
+import 'package:nexus/features/workspace/domain/usecases/lo_que_sube_un_curl.dart';
 
 /// Qué queda permitido en esta conversación al pulsar «Permitir todo».
 ///
@@ -37,6 +38,14 @@ import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dar
 /// botón — y para eso está la lista de comandos permitidos de la carpeta, que
 /// se escribe a sabiendas y se ve.
 abstract final class LoQueQuedaPermitido {
+  /// Lo que se niega **siempre**, antes de mirar nada más: subir un archivo
+  /// con curl. Ni «puede editar» ni «permitir todo» lo abren. Ver
+  /// [LoQueSubeUnCurl].
+  static bool seNiegaSiempre(PeticionDePermiso peticion) =>
+      peticion.herramienta == 'Bash' &&
+      peticion.entrada['command'] is String &&
+      LoQueSubeUnCurl.sube(peticion.entrada['command'] as String);
+
   /// Lo que **no se pregunta** cuando la carpeta dice «puede editar».
   ///
   /// 🔴 **Decidido por quien manda, y por el motivo correcto:** «es confuso que

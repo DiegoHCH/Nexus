@@ -20,9 +20,25 @@ class LaPersonalidadEnAjustes extends ConsumerStatefulWidget {
 }
 
 class _Estado extends ConsumerState<LaPersonalidadEnAjustes> {
+  // La plantilla en el idioma de la interfaz: se lee al montar, porque el
+  // `context` todavía no se puede mirar en un inicializador.
   late final _controller = TextEditingController(
-    text: ref.read(laPersonalidadProvider) ?? LaPersonalidad.deLaCasa.trim(),
+    text: ref.read(laPersonalidadProvider) ?? '',
   );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Una vez: si luego vacías la caja a propósito, no vuelve a rellenarse.
+    if (_plantillaPuesta) return;
+    _plantillaPuesta = true;
+    if (_controller.text.isEmpty) {
+      _controller.text = LaPersonalidad.plantilla(context.strings.idioma);
+    }
+  }
+
+  var _plantillaPuesta = false;
+
   var _guardada = false;
 
   @override
@@ -49,8 +65,7 @@ class _Estado extends ConsumerState<LaPersonalidadEnAjustes> {
     // Lo leído del disco llega después de construir: se pone en la caja si
     // todavía no se ha tocado.
     ref.listen(laPersonalidadProvider, (_, leida) {
-      final deLaCasa = LaPersonalidad.deLaCasa.trim();
-      if (leida != null && _controller.text.trim() == deLaCasa) {
+      if (leida != null && LaPersonalidad.esLaDeLaCasa(_controller.text)) {
         _controller.text = leida;
       }
     });
@@ -80,7 +95,9 @@ class _Estado extends ConsumerState<LaPersonalidadEnAjustes> {
             BotonDeAjustes(
               texto: strings.personalidadDeLaCasa,
               onPulsar: () async {
-                _controller.text = LaPersonalidad.deLaCasa.trim();
+                _controller.text = LaPersonalidad.plantilla(
+                  context.strings.idioma,
+                );
                 await _guardar(null);
               },
             ),

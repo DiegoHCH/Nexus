@@ -7,12 +7,17 @@ import 'package:nexus/features/assistant/domain/entities/audio_frame.dart';
 import 'package:nexus/features/assistant/presentation/providers/voice_input_providers.dart';
 import 'package:nexus/core/storage/secure_storage_data_source.dart';
 import 'package:nexus/features/onboarding/data/repositories/gemini_key_store_impl.dart';
+import 'package:nexus/features/onboarding/data/repositories/lo_que_quedo_para_luego_impl.dart';
+import 'package:nexus/features/onboarding/domain/entities/pasos_del_arranque.dart';
+import 'package:nexus/features/onboarding/domain/repositories/lo_que_quedo_para_luego.dart';
 import 'package:nexus/features/onboarding/domain/repositories/gemini_key_store.dart';
 import 'package:nexus/features/onboarding/domain/entities/readiness.dart';
 import 'package:nexus/features/onboarding/domain/repositories/readiness_probe.dart';
 import 'package:nexus/features/onboarding/data/repositories/readiness_probe_impl.dart';
 import 'package:nexus/features/onboarding/domain/usecases/check_readiness.dart';
 import 'package:nexus/features/onboarding/domain/usecases/save_gemini_key.dart';
+import 'package:nexus/features/personalidad/presentation/providers/la_personalidad_provider.dart';
+import 'package:nexus/features/workspace/domain/entities/los_nombres.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:nexus/features/onboarding/presentation/state/onboarding_state.dart';
 
@@ -123,6 +128,102 @@ class AppRouteController extends Notifier<AppRouteState> {
 final appRouteControllerProvider =
     NotifierProvider<AppRouteController, AppRouteState>(AppRouteController.new);
 
+/// Dónde se guarda lo que se dejó para luego.
+final loQueQuedoParaLuegoStoreProvider = Provider<LoQueQuedoParaLuego>(
+  (ref) => const LoQueQuedoParaLuegoImpl(),
+);
+
+/// Los pasos del arranque que se dejaron para luego, y que Ajustes ofrece
+/// retomar. Ver [LoQueFaltaPorConfigurar.enAjustes].
+class ParaLuegoController extends AsyncNotifier<Set<QueSePide>> {
+  @override
+  Future<Set<QueSePide>> build() async {
+    try {
+      return await ref.read(loQueQuedoParaLuegoStoreProvider).leer();
+    } on Object catch (error) {
+      // Sin preferencias no hay nada que recordar, y eso no es un fallo que
+      // haya que enseñar: el arranque funciona igual.
+      debugPrint('arranque · no se pudo leer lo de para luego: $error');
+      return const {};
+    }
+  }
+
+  /// Añade [dejar] y quita [quitar], y lo guarda.
+  Future<void> cambiar({
+    Set<QueSePide> dejar = const {},
+    Set<QueSePide> quitar = const {},
+  }) async {
+    final antes = await future;
+    final ahora = {...antes, ...dejar}..removeAll(quitar);
+    state = AsyncData(ahora);
+    try {
+      await ref.read(loQueQuedoParaLuegoStoreProvider).guardar(ahora);
+    } on Object catch (error) {
+      debugPrint('arranque · no se pudo guardar lo de para luego: $error');
+    }
+  }
+}
+
+final paraLuegoProvider =
+    AsyncNotifierProvider<ParaLuegoController, Set<QueSePide>>(
+      ParaLuegoController.new,
+    );
+
+/// Cómo está la app ahora, **leído de donde ya vive cada cosa**.
+///
+/// 🔴 **No duplica ningún ajuste: pregunta a los suyos.** La llave al llavero
+/// de la voz, las cuentas al mismo listado que usa Ajustes › Permisos, la
+/// carpeta al workspace, los nombres a Ajustes › Nombres y la personalidad a su
+/// archivo. Si mañana uno de esos cambia de sitio, esto sigue diciendo la
+/// verdad sin tocarlo.
+///
+/// Cada pregunta, por separado y sin lanzar: lo que no se pueda leer cuenta
+/// como «no está», que es preguntar de más —y eso se arregla con «Ahora no»—
+/// en vez de dar por hecho algo que falta.
+final laConfiguracionDeAhoraProvider =
+    FutureProvider.autoDispose<ComoEstaLaConfiguracion>((ref) async {
+      Future<T> sinLanzar<T>(Future<T> Function() leer, T siFalla) async {
+        try {
+          return await leer();
+        } on Object catch (error) {
+          debugPrint('arranque · no se pudo mirar algo: $error');
+          return siFalla;
+        }
+      }
+
+      final hayLlave = await sinLanzar(() async {
+        final llave = await ref.read(geminiKeyStoreProvider).read();
+        return llave != null && llave.trim().isNotEmpty;
+      }, false);
+      // Con la misma regla que Ajustes › Permisos, que solo deja elegir con dos
+      // cuentas con nombre o más: si aquí se contara distinto, el arranque
+      // preguntaría algo que Ajustes no deja cambiar.
+      final cuentas = await sinLanzar(
+        () async => (await ref.read(claudeProfilesProvider.future)).length,
+        0,
+      );
+      final nombres = await sinLanzar<LosNombres?>(() async {
+        await ref.read(losNombresProvider.notifier).leidos;
+        return ref.read(losNombresProvider);
+      }, null);
+      final hayPersonalidad = await sinLanzar(() async {
+        await ref.read(laPersonalidadProvider.notifier).leida;
+        return ref.read(laPersonalidadProvider) != null;
+      }, false);
+      final workspace = ref.read(workspaceControllerProvider);
+      final carpeta = workspace.active ?? workspace.folders.firstOrNull;
+
+      return ComoEstaLaConfiguracion(
+        hayCarpeta: workspace.folders.isNotEmpty,
+        cuentasDeClaude: cuentas,
+        cuentaElegida: carpeta?.claudeProfile != null,
+        hayLlave: hayLlave,
+        haySuNombre: nombres?.agente != null,
+        hayTuNombre: nombres?.tuyo != null,
+        hayPersonalidad: hayPersonalidad,
+      );
+    });
+
 /// El formulario de la configuración inicial: micrófono y llave de Gemini.
 /// Vive aparte de [AppRouteController] porque su ciclo de vida es el de la
 /// pantalla, no el de toda la app.
@@ -165,19 +266,134 @@ class SetupController extends Notifier<SetupState> {
 
   void updateKeyText(String value) => state = state.copyWith(keyText: value);
 
-  Future<bool> finish() async {
+  void updateSuNombre(String value) => state = state.copyWith(suNombre: value);
+
+  void updateTuNombre(String value) => state = state.copyWith(tuNombre: value);
+
+  void updatePersonalidad(String value) =>
+      state = state.copyWith(personalidad: value, personalidadGuardada: false);
+
+  /// «Ahora no»: se deja para luego, y Ajustes lo recordará.
+  void saltar(QueSePide que) {
+    if (!que.opcional) return;
+    state = state.copyWith(saltados: {...state.saltados, que});
+  }
+
+  /// Volver a un paso que se había dejado para luego.
+  void retomar(QueSePide que) =>
+      state = state.copyWith(saltados: {...state.saltados}..remove(que));
+
+  /// La cuenta de Claude de la carpeta, con el **mismo** caso de uso que
+  /// Ajustes › Permisos. `null` es la de siempre.
+  Future<void> elegirCuenta(String? perfil) async {
+    final workspace = ref.read(workspaceControllerProvider);
+    final carpeta = workspace.active ?? workspace.folders.firstOrNull;
+    if (carpeta == null) return;
+    await ref
+        .read(workspaceControllerProvider.notifier)
+        .setClaudeProfile(carpeta.path, perfil);
+    if (!ref.mounted) return;
+    state = state.copyWith(cuentaElegida: true);
+  }
+
+  /// Escribe `personalidad.md` con lo que hay en la caja —la plantilla de la
+  /// casa si no se tocó—, por el mismo camino que Ajustes.
+  Future<void> guardarPersonalidad(String plantilla) async {
+    await ref
+        .read(laPersonalidadProvider.notifier)
+        .guardar(state.personalidad ?? plantilla);
+    if (!ref.mounted) return;
+    state = state.copyWith(personalidadGuardada: true);
+  }
+
+  /// Si [que] quedó hecho en este arranque. Lo que se pregunta es **lo que
+  /// esta pantalla consiguió**: lo que ya estaba no se pidió.
+  bool _hecho(QueSePide que) {
+    final workspace = ref.read(workspaceControllerProvider);
+    final carpeta = workspace.active ?? workspace.folders.firstOrNull;
+    return switch (que) {
+      QueSePide.microfono => state.micStatus == MicrophoneStatus.granted,
+      QueSePide.carpeta => workspace.folders.isNotEmpty,
+      QueSePide.cuenta => state.cuentaElegida || carpeta?.claudeProfile != null,
+      QueSePide.llave => state.keyText.trim().isNotEmpty,
+      QueSePide.suNombre => state.suNombre.trim().isNotEmpty,
+      QueSePide.tuNombre => state.tuNombre.trim().isNotEmpty,
+      QueSePide.personalidad => state.personalidadGuardada,
+    };
+  }
+
+  /// Termina: guarda lo escrito y apunta lo que queda para luego.
+  ///
+  /// [pedidos] es lo que la pantalla pidió; [plantilla], la personalidad de la
+  /// casa en el idioma de la interfaz. Con los dos por defecto solo se guarda la
+  /// llave, que es lo que hacía antes.
+  ///
+  /// 🔴 **«Empezar» acepta lo que hay en pantalla.** La personalidad se crea
+  /// desde la plantilla aunque no se toque —es lo que se estaba enseñando, y así
+  /// queda un archivo que se puede abrir y editar—; lo único que no la crea es
+  /// «Ahora no». Los nombres, en cambio, solo si se escribieron: un nombre vacío
+  /// no es un nombre, y guardar «Nexus» por él cambiaría quién te contesta.
+  Future<bool> finish({
+    Set<QueSePide> pedidos = const {},
+    String plantilla = '',
+  }) async {
     if (!state.canFinish) return false;
     state = state.copyWith(saving: true, errorMessage: null);
+    final saltados = state.saltados;
+    bool toca(QueSePide que) =>
+        pedidos.contains(que) && !saltados.contains(que);
     try {
       // **Solo si escribiste una.** Guardar la cadena vacía dejaría en el
       // llavero una llave que existe y no sirve, y entonces la pantalla de
       // salidas diría que Gemini está disponible cuando la sesión de voz va a
       // fallar en cuanto se abra.
-      if (state.keyText.trim().isNotEmpty) {
+      if (!saltados.contains(QueSePide.llave) &&
+          state.keyText.trim().isNotEmpty) {
         await ref.read(saveGeminiKeyProvider)(state.keyText);
+      }
+      // Los nombres, por el mismo caso de uso que Ajustes › Nombres.
+      //
+      // 🔴 **Después de que se hayan leído.** Los nombres nacen vacíos y se
+      // leen del disco al construirse; si el primero en pedirlos es este
+      // `cambiar`, la lectura llega después y pisa lo recién escrito con lo
+      // que había —nada—, y el nombre que acabas de poner desaparece. Y solo
+      // si hay alguno que guardar: sin nombres no hay nada que esperar.
+      final hayNombres =
+          (toca(QueSePide.suNombre) && state.suNombre.trim().isNotEmpty) ||
+          (toca(QueSePide.tuNombre) && state.tuNombre.trim().isNotEmpty);
+      if (hayNombres) await ref.read(losNombresProvider.notifier).leidos;
+      if (toca(QueSePide.suNombre) && state.suNombre.trim().isNotEmpty) {
+        await ref
+            .read(losNombresProvider.notifier)
+            .cambiar(agente: state.suNombre.trim());
+      }
+      if (toca(QueSePide.tuNombre) && state.tuNombre.trim().isNotEmpty) {
+        await ref
+            .read(losNombresProvider.notifier)
+            .cambiar(tuyo: state.tuNombre.trim());
+      }
+      if (toca(QueSePide.personalidad) && !state.personalidadGuardada) {
+        await guardarPersonalidad(plantilla);
       }
       await _micSubscription?.cancel();
       _micSubscription = null;
+      if (pedidos.isNotEmpty) {
+        // Lo que se pidió y no se hizo —saltado o dejado en blanco— queda para
+        // luego; lo que se hizo sale de la lista, venga de donde venga.
+        await ref
+            .read(paraLuegoProvider.notifier)
+            .cambiar(
+              dejar: {
+                for (final que in pedidos)
+                  if (que.opcional && !_hecho(que)) que,
+              },
+              quitar: {
+                for (final que in pedidos)
+                  if (_hecho(que)) que,
+              },
+            );
+      }
+      if (ref.mounted) state = state.copyWith(saving: false);
       return true;
     } catch (error) {
       state = state.copyWith(saving: false, errorMessage: error.toString());

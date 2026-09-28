@@ -15,6 +15,9 @@ import 'package:nexus/features/assistant/presentation/providers/voice_input_prov
 import 'package:nexus/features/emulators/data/datasources/emuladores_data_source.dart';
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
 import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
+import 'package:nexus/features/onboarding/domain/entities/pasos_del_arranque.dart';
+import 'package:nexus/features/onboarding/domain/repositories/lo_que_quedo_para_luego.dart';
+import 'package:nexus/features/onboarding/presentation/providers/onboarding_providers.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/domain/entities/workspace.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
@@ -69,6 +72,19 @@ class SinDispositivos extends EmuladoresDataSource {
 
   @override
   Future<List<DispositivoConectado>> listarDispositivos() async => const [];
+}
+
+/// Lo que se dejó para luego, en memoria: el de verdad escribe en preferencias.
+class ParaLuegoEnMemoria implements LoQueQuedoParaLuego {
+  ParaLuegoEnMemoria([Set<QueSePide> inicial = const {}]) : guardado = inicial;
+
+  Set<QueSePide> guardado;
+
+  @override
+  Future<Set<QueSePide>> leer() async => guardado;
+
+  @override
+  Future<void> guardar(Set<QueSePide> pasos) async => guardado = {...pasos};
 }
 
 class FixedWorkspace extends WorkspaceController {
@@ -158,6 +174,16 @@ Future<void> pumpScreen(
   /// veces el mismo proveedor: el arnés ya pone uno.
   bool conPuerta = false,
 
+  /// Cómo está la configuración para el arranque —ver
+  /// `laConfiguracionDeAhoraProvider`—. **Fija por defecto en una instalación
+  /// nueva**, porque la de verdad lee el llavero y las cuentas de Claude del
+  /// disco: sin esto, el arranque de una prueba pediría la cuenta o no según
+  /// cuántas haya en la máquina que la corre.
+  ComoEstaLaConfiguracion configuracion = const ComoEstaLaConfiguracion(),
+
+  /// Lo dejado para luego, en memoria. Por defecto, nada.
+  LoQueQuedoParaLuego? paraLuego,
+
   /// El tema con el que se dibuja. Existe porque **el tema claro nunca se
   /// había mirado**: estaba construido y cableado, pero sin forma de elegirlo
   /// nadie lo vio nunca puesto, así que ninguna pantalla se había comprobado
@@ -186,6 +212,12 @@ Future<void> pumpScreen(
           conPuerta ? const MicrofonoConcedido() : const MicrofonoDenegado(),
         ),
         emuladoresDataSourceProvider.overrideWithValue(const SinDispositivos()),
+        laConfiguracionDeAhoraProvider.overrideWith(
+          (ref) async => configuracion,
+        ),
+        loQueQuedoParaLuegoStoreProvider.overrideWithValue(
+          paraLuego ?? ParaLuegoEnMemoria(),
+        ),
         ...overrides.cast(),
       ],
       child: MaterialApp(

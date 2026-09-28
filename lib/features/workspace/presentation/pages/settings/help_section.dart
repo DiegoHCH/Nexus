@@ -5,6 +5,7 @@ import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/platform/system_files.dart';
 import 'package:nexus/core/diagnostico/registro_providers.dart';
 import 'package:nexus/features/onboarding/presentation/providers/tour_providers.dart';
+import 'package:nexus/features/onboarding/presentation/widgets/lo_que_quedo_para_luego.dart';
 import 'package:nexus/features/updates/presentation/providers/updates_providers.dart';
 
 /// Ayuda: la versión con su actualización, el registro y la guía en frío.
@@ -20,9 +21,16 @@ class HelpSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = context.strings;
+    final hayParaLuego = LoQueQuedoParaLuegoEnAjustes.pendientes(
+      ref,
+    ).isNotEmpty;
 
     return BloquesDeAjustes(
       bloques: [
+        // Lo que se dejó para luego en el primer arranque, **arriba y solo si
+        // lo hay**: es lo único de Ayuda que te toca hacer a ti, y saltar un
+        // paso tiene que ser aplazarlo, no perderlo.
+        if (hayParaLuego) const LoQueQuedoParaLuegoEnAjustes(),
         // La versión y, si hay una nueva, el aviso. Aquí y no en un diálogo:
         // un aviso modal por una actualización interrumpe justo a quien está
         // trabajando, y esto no es urgente — es información.

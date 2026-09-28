@@ -427,7 +427,7 @@ jobs:
 
             # Una línea por parche, ya en XML, para que el paso de abajo solo
             # tenga que pegarlas: armar el appcast es de allí y no de aquí.
-            echo "        <enclosure url=\"https://github.com/${{ github.repository }}/releases/download/v$V/$(basename "$PARCHE")\" sparkle:version=\"$HASTA\" sparkle:deltaFrom=\"$DESDE\" type=\"application/octet-stream\" $FIRMA />" \
+            echo "        <enclosure url=\"https://github.com/${{ github.repository }}/releases/download/v$V/$(basename "$PARCHE")\" sparkle:version=\"$HASTA\" sparkle:shortVersionString=\"$V\" sparkle:deltaFrom=\"$DESDE\" type=\"application/octet-stream\" $FIRMA />" \
               >> build/parches/enclosures.xml
             echo "parche desde $VIEJA (build $DESDE): $(du -h "$PARCHE" | cut -f1)"
             rm -rf "$DIR"
@@ -483,6 +483,17 @@ jobs:
             echo '    <item>'
             echo "      <title>$V</title>"
             echo "      <pubDate>$(date -u '+%a, %d %b %Y %H:%M:%S +0000')</pubDate>"
+            # 🔴 **La versión va también en el item, como elemento.** En el
+            # enclosure sola se perdía con los parches: cuando hay uno que encaja,
+            # Sparkle entrega al aviso **el item del parche**, que se arma con el
+            # enclosure del parche en lugar del completo, y ese no traía
+            # `shortVersionString`. `displayVersionString` caía al build, y el
+            # aviso decía «Nexus 101»; en el teléfono, además, al volver se
+            # comparaba «1.35.0» con «101» y decía que el Mac seguía sin
+            # actualizar (visto el 28 sep con la 1.35.0). Lo del item lo heredan
+            # los parches.
+            echo "      <sparkle:version>$BUILD</sparkle:version>"
+            echo "      <sparkle:shortVersionString>$V</sparkle:shortVersionString>"
             echo '      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>'
             echo '      <description><![CDATA['
             echo "$NOTAS"

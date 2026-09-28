@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:nexus/core/platform/el_git_sin_sorpresas.dart';
+
 /// El entorno con el que se lanza cualquier cosa de Claude Code.
 ///
 /// Vive aparte porque ya lo necesitan dos sitios —los encargos y la gestión de
@@ -44,7 +46,9 @@ abstract final class ClaudeEnvironment {
       currentPath,
     ].where((path) => path.isNotEmpty).join(':');
 
-    return env;
+    // Y git sin lo que un repo le haga ejecutar al mirarlo. Aquí porque por
+    // este entorno pasa todo lo que se lanza: git de Nexus y el de Claude.
+    return ElGitSinSorpresas.en(env);
   }
 
   static Map<String, String> forProfile(String? configDir) {

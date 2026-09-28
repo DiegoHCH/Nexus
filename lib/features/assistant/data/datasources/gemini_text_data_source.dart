@@ -32,8 +32,36 @@ class GeminiTextDataSource {
     required String instrucciones,
     required String frase,
     Duration tope = const Duration(seconds: 20),
+    Duration antesDeReintentar = const Duration(milliseconds: 800),
   }) async {
     if (llave.isEmpty) return null;
+    // 🔴 **Un 503 es el servicio saturado, no un no.** Pasó a la primera con la
+    // llave de verdad (27 sep): la pregunta se fue a Claude por un rato malo de
+    // Gemini. Se reintenta **una** vez tras un respiro; si sigue, a Claude.
+    for (var intento = 0; intento < 2; intento++) {
+      if (intento > 0) await Future<void>.delayed(antesDeReintentar);
+      final (texto, reintentable) = await _unaVez(
+        llave: llave,
+        instrucciones: instrucciones,
+        frase: frase,
+        tope: tope,
+      );
+      if (texto != null || !reintentable) return texto;
+    }
+    return null;
+  }
+
+  /// Se reintenta lo que es pasajero: saturado, demasiadas peticiones, un
+  /// fallo suyo o la red.
+  static bool esPasajero(int estado) =>
+      estado == 429 || estado == 500 || estado == 503 || estado == 504;
+
+  Future<(String?, bool)> _unaVez({
+    required String llave,
+    required String instrucciones,
+    required String frase,
+    required Duration tope,
+  }) async {
     final cliente = HttpClient()..connectionTimeout = tope;
     try {
       final peticion = await cliente
@@ -59,15 +87,18 @@ class GeminiTextDataSource {
       // Dicho en el registro y no en pantalla: si esto falla, la pregunta va
       // a Claude y se contesta igual, pero hay que poder saber por qué.
       if (respuesta.statusCode != 200) {
-        debugPrint('ella · Gemini respondió ${respuesta.statusCode}');
-        return null;
+        debugPrint(
+          'ella · Gemini respondió ${respuesta.statusCode}: '
+          '${elMotivo(cuerpo) ?? 'sin motivo'}',
+        );
+        return (null, esPasajero(respuesta.statusCode));
       }
       final texto = elTexto(cuerpo);
       if (texto == null) debugPrint('ella · Gemini no devolvió texto');
-      return texto;
+      return (texto, false);
     } on Object catch (error) {
       debugPrint('ella · no se pudo preguntar a Gemini: ${error.runtimeType}');
-      return null;
+      return (null, true);
     } finally {
       cliente.close(force: true);
     }
@@ -79,6 +110,19 @@ class GeminiTextDataSource {
       'AHORA te escriben por el chat, no te hablan: contesta en texto, en una '
       'a tres frases, sin llamar a ninguna herramienta. Lo que te escribieron: '
       '«$frase»';
+
+  /// El mensaje de error que manda Gemini, para el registro.
+  static String? elMotivo(String cuerpo) {
+    try {
+      final leido = jsonDecode(cuerpo);
+      if (leido case {'error': {'message': final String mensaje}}) {
+        return mensaje;
+      }
+    } on FormatException {
+      return null;
+    }
+    return null;
+  }
 
   /// El texto de la respuesta: el atajo `output_text` si viene, o los trozos
   /// de texto de sus pasos. `null` si no hay ninguno.

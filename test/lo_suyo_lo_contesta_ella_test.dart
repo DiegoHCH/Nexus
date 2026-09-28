@@ -94,6 +94,17 @@ void main() {
       );
     });
 
+    test('saturado se reintenta; un no, no', () {
+      expect(GeminiTextDataSource.esPasajero(503), isTrue);
+      expect(GeminiTextDataSource.esPasajero(429), isTrue);
+      expect(GeminiTextDataSource.esPasajero(400), isFalse);
+      expect(GeminiTextDataSource.esPasajero(404), isFalse);
+      expect(
+        GeminiTextDataSource.elMotivo('{"error": {"message": "overloaded"}}'),
+        'overloaded',
+      );
+    });
+
     test('sin texto, o ilegible, no hay respuesta', () {
       expect(GeminiTextDataSource.elTexto('{"steps": []}'), isNull);
       expect(GeminiTextDataSource.elTexto('no es json'), isNull);

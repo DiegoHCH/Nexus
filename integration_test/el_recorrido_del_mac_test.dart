@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:nexus/core/design_system/campo_de_nombre.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
+import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/storage/secure_storage_data_source.dart';
 import 'package:nexus/features/assistant/data/datasources/claude_usage_data_source.dart';
 import 'package:nexus/features/assistant/domain/entities/audio_frame.dart';
@@ -67,7 +68,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// fallo del aislamiento**, no de la máquina.
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  const strings = NexusStringsEs();
+  // 🔴 **Los textos del idioma en que salió la app, no los del español.** El
+  // runner del CI tiene macOS en inglés y la app salió en inglés
+  // («HISTORY», «CLOSE · ESC»): buscando «RENOMBRAR» la primera corrida en
+  // GitHub esperó 60 s a un botón que decía «RENAME». Se leen del
+  // `StringsScope` de la propia app en cuanto la caja está en pantalla.
+  late NexusStrings strings;
 
   late Directory raiz;
   late String carpeta;
@@ -200,6 +206,7 @@ void main() {
     // hay puerta de voz; lo que se espera es la caja, que es lo que se usa.
     final caja = find.byKey(ComposerBar.laLlaveDeLaCaja);
     await _hastaQueSeVea(tester, caja, esperando: 'la caja de escribir');
+    strings = StringsScope.of(tester.element(caja));
     // 🔴 **Y con la carpeta ya en la caja**, que es cuando una persona
     // escribiría. El enrutado lee la carpeta del disco por su cuenta y las
     // carpetas de la app se cargan después: escribir en ese hueco mandaba el

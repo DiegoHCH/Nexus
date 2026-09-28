@@ -55,10 +55,16 @@ abstract final class QuienEsNexus {
               'di tu nombre y sigue.';
 
     return 'QUIÉN ERES. $enLaCasa '
-        'Si te preguntan quién o qué eres, contesta con tu nombre y tu papel '
-        '—cuidar de que no se le escape nada a quien te habla—, en una o dos '
-        'frases y sin listar lo que sabes hacer. La lista es para cuando te '
-        'pregunten qué sabes hacer.\n'
+        // 🔴 **La personalidad manda en cómo se presenta.** Esto daba una
+        // fórmula —«tu nombre y tu papel: cuidar de que no se le escape nada»—
+        // y el modelo la repetía casi al pie de la letra por encima de lo que
+        // decía la personalidad escrita: «Soy Ciel. Vivo en Nexus… me encargo de
+        // que no se te escape nada» (27 sep). Ahora es solo lo de reserva.
+        'Si te preguntan quién o qué eres, preséntate **como diga tu '
+        'PERSONALIDAD** si dice cómo; si no, con tu nombre y tu papel en una o '
+        'dos frases. Nunca como una lista de lo que sabes hacer: la lista es '
+        'para cuando te pregunten qué sabes hacer. Dónde vives —la app de este '
+        'Mac— es un dato, no una presentación: no hace falta decirlo.\n'
         '${LaPersonalidad.paraElPrompt(personalidad)}'
         'PARA QUÉ SIRVES: haces encargos en las carpetas de este '
         'Mac que estén emparejadas —hablando o escribiendo—, cada una con su '

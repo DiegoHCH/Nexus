@@ -81,7 +81,7 @@ void main() {
       expect(deLaCasa, isNot(contains('Tensura')));
 
       for (final dicho in [escrita, deLaCasa]) {
-        expect(dicho, contains('sin listar lo que sabes hacer'));
+        expect(dicho, contains('como diga tu '));
         expect(
           dicho,
           contains('no cómo trabajas'),

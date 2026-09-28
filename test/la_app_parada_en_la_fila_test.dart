@@ -101,8 +101,8 @@ void main() {
     // Y los pasos, que solo tienen sentido con la app detenida. **Escritos**:
     // van debajo del nombre y ya no compiten con él por el ancho, así que
     // dicen lo que hacen; el nombre largo se queda en el tooltip.
-    expect(find.text('Seguir'.toUpperCase()), findsOne);
-    expect(find.text('Siguiente línea'.toUpperCase()), findsOne);
+    expect(find.byTooltip('Seguir'), findsOne);
+    expect(find.byTooltip('Siguiente línea'), findsOne);
     expect(find.byTooltip('Entrar en la llamada'), findsOne);
     expect(find.byTooltip('Salir de la función'), findsOne);
   });
@@ -124,9 +124,9 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Recargar'.toUpperCase()), findsNothing);
+    expect(find.byTooltip('Recargar'), findsNothing);
     expect(
-      find.text('Parar'.toUpperCase()),
+      find.byTooltip('Parar'),
       findsOne,
       reason: 'parar sí: es la salida de una app que no quieres soltar',
     );
@@ -140,8 +140,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('corriendo'), findsOne);
-    expect(find.text('Seguir'.toUpperCase()), findsNothing);
-    expect(find.text('Siguiente línea'.toUpperCase()), findsNothing);
+    expect(find.byTooltip('Seguir'), findsNothing);
+    expect(find.byTooltip('Siguiente línea'), findsNothing);
   });
 
   testWidgets('el freno se ofrece con la app arriba y se marca', (
@@ -150,7 +150,7 @@ void main() {
     await pumpScreen(tester, const HomePage(), overrides: _con(_corrida()));
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Pararse en los errores'.toUpperCase()), findsOne);
+    expect(find.byTooltip('Pararse en los errores'), findsOne);
   });
 
   // Antes de `app.started` no hay isolates a los que ponerle nada, y una
@@ -175,6 +175,6 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Pararse en los errores'.toUpperCase()), findsNothing);
+    expect(find.byTooltip('Pararse en los errores'), findsNothing);
   });
 }

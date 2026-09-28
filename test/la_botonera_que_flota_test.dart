@@ -188,29 +188,38 @@ void main() {
     return punto.color;
   }
 
-  /// El texto de un botón de la fila, para mirar su color.
-  Color? colorDe(WidgetTester tester, String texto) => tester
-      .widget<Text>(
-        find.descendant(
-          of: find.byType(BotonDeFila),
-          matching: find.text(texto),
-        ),
+  /// El color del icono de una acción de la fila, buscada por su nombre.
+  ///
+  /// Por el tooltip: desde que la fila son iconos, el nombre vive ahí.
+  Color? colorDe(WidgetTester tester, String nombre) => tester
+      .widget<IconButton>(
+        find.byWidgetPredicate((w) => w is IconButton && w.tooltip == nombre),
       )
-      .style
-      ?.color;
+      .color;
 
-  /// Los botones de la fila, en el orden en que se leen.
+  /// Las acciones de la fila, por su nombre, en el orden en que se leen.
   List<String> losBotones(WidgetTester tester) {
-    final botones = find.byType(BotonDeFila).evaluate().toList()
-      ..sort((a, b) {
-        final pa = (a.renderObject! as RenderBox).localToGlobal(Offset.zero);
-        final pb = (b.renderObject! as RenderBox).localToGlobal(Offset.zero);
-        // Por líneas y, dentro de cada una, de izquierda a derecha: el `Wrap`
-        // parte las acciones y el orden de lectura es ése.
-        final fila = pa.dy.round().compareTo(pb.dy.round());
-        return fila != 0 ? fila : pa.dx.compareTo(pb.dx);
-      });
-    return [for (final b in botones) (b.widget as BotonDeFila).texto];
+    final botones =
+        find
+            .byWidgetPredicate(
+              (w) =>
+                  w is BotonMini &&
+                  (w.key is ValueKey<String>) &&
+                  (w.key! as ValueKey<String>).value.startsWith('accion-'),
+            )
+            .evaluate()
+            .toList()
+          ..sort((a, b) {
+            final pa = (a.renderObject! as RenderBox).localToGlobal(
+              Offset.zero,
+            );
+            final pb = (b.renderObject! as RenderBox).localToGlobal(
+              Offset.zero,
+            );
+            final fila = pa.dy.round().compareTo(pb.dy.round());
+            return fila != 0 ? fila : pa.dx.compareTo(pb.dx);
+          });
+    return [for (final b in botones) (b.widget as BotonMini).titulo];
   }
 
   // 🔴 **El aviso que faltaba, y de dónde sale.** Lo reportado no fue «falta
@@ -251,7 +260,7 @@ void main() {
       expect(botones.first, strings.runPasarloAClaude);
       // Y marcada como la que toca: con el acento, no gris como el resto.
       expect(
-        colorDe(tester, strings.runPasarloAClaude.toUpperCase()),
+        colorDe(tester, strings.runPasarloAClaude),
         NexusColors.dark.accent,
       );
       // El registro sube con él: es donde se lee el error que se va a pasar.
@@ -261,7 +270,7 @@ void main() {
     testWidgets('el registro se abre desde la fila', (tester) async {
       await montar(tester, conCorridas: {_deviceId: _corrida(errores: 1)});
 
-      await tester.tap(find.text(strings.runLogs.toUpperCase()));
+      await tester.tap(find.byTooltip(strings.runLogs));
       await tester.pumpAndSettle();
 
       expect(pintor.paginas, contains('registro-emulator-5554'));
@@ -288,7 +297,7 @@ void main() {
           );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text(strings.runPasarloAClaude.toUpperCase()));
+      await tester.tap(find.byTooltip(strings.runPasarloAClaude));
       await tester.pumpAndSettle();
 
       expect(despacho.llevados, hasLength(1));
@@ -325,7 +334,7 @@ void main() {
     testWidgets('sin errores no hay botón que lo pase', (tester) async {
       await montar(tester, conCorridas: {_deviceId: _corrida()});
 
-      expect(find.text(strings.runPasarloAClaude.toUpperCase()), findsNothing);
+      expect(find.byTooltip(strings.runPasarloAClaude), findsNothing);
     });
 
     testWidgets('mil errores no ensanchan la fila', (tester) async {
@@ -343,7 +352,7 @@ void main() {
       find.textContaining(strings.runToolbarDrag.toUpperCase()),
       findsNothing,
     );
-    expect(find.text(strings.runStop.toUpperCase()), findsNothing);
+    expect(find.byTooltip(strings.runStop), findsNothing);
   });
 
   // «Corriendo · 2» dice sin contar filas cuántas cosas hay vivas.
@@ -379,14 +388,14 @@ void main() {
       },
     );
 
-    expect(find.text(strings.runReload.toUpperCase()), findsNothing);
+    expect(find.byTooltip(strings.runReload), findsNothing);
     // **En su propia línea**, no pegado al dispositivo: ahí se cortaba en una
     // letra —«Medium Phone API 36.1 · R…»— y era lo único que decía que algo
     // estaba pasando.
     expect(find.text('Compilando lib/main.dart'), findsOneWidget);
     // Con qué y dónde, como el mockup: «ci · POCO F6».
     expect(find.text('Tienda (dev) · Medium Phone API 36.1'), findsOneWidget);
-    expect(find.text(strings.runStop.toUpperCase()), findsOneWidget);
+    expect(find.byTooltip(strings.runStop), findsOneWidget);
     // Compilar no es «atención»: el acento, no el ámbar de una app parada.
     expect(elPunto(tester), NexusColors.dark.accent);
   });
@@ -394,9 +403,9 @@ void main() {
   testWidgets('corriendo ofrece recargar, reiniciar y parar', (tester) async {
     await montar(tester, conCorridas: {_deviceId: _corrida()});
 
-    expect(find.text(strings.runReload.toUpperCase()), findsOneWidget);
-    expect(find.text(strings.runRestart.toUpperCase()), findsOneWidget);
-    expect(find.text(strings.runStop.toUpperCase()), findsOneWidget);
+    expect(find.byTooltip(strings.runReload), findsOneWidget);
+    expect(find.byTooltip(strings.runRestart), findsOneWidget);
+    expect(find.byTooltip(strings.runStop), findsOneWidget);
     // Sin errores, lo primero es recargar: es lo que se pulsa a diario.
     expect(losBotones(tester).first, strings.runReload);
   });
@@ -404,9 +413,9 @@ void main() {
   testWidgets('y cada botón pide lo suyo', (tester) async {
     await montar(tester, conCorridas: {_deviceId: _corrida()});
 
-    await tester.tap(find.text(strings.runReload.toUpperCase()));
-    await tester.tap(find.text(strings.runRestart.toUpperCase()));
-    await tester.tap(find.text(strings.runStop.toUpperCase()));
+    await tester.tap(find.byTooltip(strings.runReload));
+    await tester.tap(find.byTooltip(strings.runRestart));
+    await tester.tap(find.byTooltip(strings.runStop));
     await tester.pump();
 
     expect(corridas.pedidos, ['recarga', 'reinicio', 'parar']);
@@ -420,7 +429,7 @@ void main() {
       conCorridas: {_deviceId: _corrida(estado: EstadoDeCorrida.parando)},
     );
 
-    expect(find.text(strings.runStop.toUpperCase()), findsNothing);
+    expect(find.byTooltip(strings.runStop), findsNothing);
     expect(find.text(strings.runStopping), findsOneWidget);
   });
 
@@ -429,22 +438,16 @@ void main() {
   testWidgets('el reinicio y el parar se distinguen por color', (tester) async {
     await montar(tester, conCorridas: {_deviceId: _corrida()});
 
-    expect(
-      colorDe(tester, strings.runRestart.toUpperCase()),
-      NexusColors.dark.ok,
-    );
-    expect(
-      colorDe(tester, strings.runStop.toUpperCase()),
-      NexusColors.dark.err,
-    );
+    expect(colorDe(tester, strings.runRestart), NexusColors.dark.ok);
+    expect(colorDe(tester, strings.runStop), NexusColors.dark.err);
   });
 
   testWidgets('los registros se abren desde aquí', (tester) async {
     await montar(tester, conCorridas: {_deviceId: _corrida()});
 
-    await tester.tap(find.text(strings.runLogs.toUpperCase()));
+    await tester.tap(find.byTooltip(strings.runLogs));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(strings.runSystemLogCorto.toUpperCase()));
+    await tester.tap(find.byTooltip(strings.runSystemLog));
     await tester.pumpAndSettle();
 
     expect(pintor.paginas, ['registro-emulator-5554', 'sistema-emulator-5554']);
@@ -456,7 +459,7 @@ void main() {
     testWidgets('se puede volver a abrir desde aquí', (tester) async {
       await montar(tester, conCorridas: {_deviceId: _corrida(consola: 9777)});
 
-      await tester.tap(find.text(strings.runConsoleCorto.toUpperCase()));
+      await tester.tap(find.byTooltip(strings.runConsole));
       await tester.pump();
 
       expect(consolas, ['http://localhost:9777']);
@@ -467,7 +470,7 @@ void main() {
     testWidgets('y sin consola declarada, no hay botón', (tester) async {
       await montar(tester, conCorridas: {_deviceId: _corrida()});
 
-      expect(find.text(strings.runConsoleCorto.toUpperCase()), findsNothing);
+      expect(find.byTooltip(strings.runConsole), findsNothing);
     });
   });
 
@@ -512,12 +515,9 @@ void main() {
     expect(elPunto(tester), NexusColors.dark.warn);
     expect(find.text(strings.runParadaSinSitio), findsOneWidget);
     expect(losBotones(tester).first, strings.runSeguir);
-    expect(
-      colorDe(tester, strings.runSeguir.toUpperCase()),
-      NexusColors.dark.accent,
-    );
+    expect(colorDe(tester, strings.runSeguir), NexusColors.dark.accent);
     // Recargar con la app detenida no recarga nada.
-    expect(find.text(strings.runReload.toUpperCase()), findsNothing);
+    expect(find.byTooltip(strings.runReload), findsNothing);
   });
 
   group('el sitio donde flota', () {

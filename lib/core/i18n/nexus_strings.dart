@@ -7,6 +7,7 @@ import 'package:nexus/core/i18n/strings/escenario_strings.dart';
 import 'package:nexus/core/i18n/strings/ejecucion_strings.dart';
 import 'package:nexus/core/i18n/strings/estadisticas_strings.dart';
 import 'package:nexus/core/i18n/strings/historial_strings.dart';
+import 'package:nexus/core/i18n/strings/icono_strings.dart';
 import 'package:nexus/core/i18n/strings/lo_que_costo_strings.dart';
 import 'package:nexus/core/i18n/strings/movil_strings.dart';
 import 'package:nexus/core/i18n/strings/nucleo_strings.dart';
@@ -46,6 +47,7 @@ abstract class NexusStrings
         NucleoStrings,
         EstadisticasStrings,
         SuperpoderesStrings,
+        IconoStrings,
         PruebasStrings,
         DocumentosStrings,
         HistorialStrings,
@@ -71,6 +73,7 @@ class NexusStringsEs extends NexusStrings
         NucleoStringsEs,
         EstadisticasStringsEs,
         SuperpoderesStringsEs,
+        IconoStringsEs,
         PruebasStringsEs,
         DocumentosStringsEs,
         HistorialStringsEs,
@@ -90,6 +93,7 @@ class NexusStringsEn extends NexusStrings
         NucleoStringsEn,
         EstadisticasStringsEn,
         SuperpoderesStringsEn,
+        IconoStringsEn,
         PruebasStringsEn,
         DocumentosStringsEn,
         HistorialStringsEn,

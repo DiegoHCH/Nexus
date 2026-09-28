@@ -53,6 +53,9 @@ class MainFlutterWindow: NSWindow {
     NexusOrbeFlotante.register(
       with: flutterViewController.registrar(forPlugin: "NexusOrbeFlotante")
     )
+    NexusDock.register(
+      with: flutterViewController.registrar(forPlugin: "NexusDock")
+    )
 
     // Marco fundido, no sin marco: la barra de título se funde con el --void
     // del tema en vez de llevar el cromo por defecto de macOS. Eso no cambia.

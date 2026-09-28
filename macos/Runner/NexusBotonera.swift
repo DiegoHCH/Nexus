@@ -185,6 +185,22 @@ final class NexusBotonera: NSObject {
     return NSRect(x: x, y: y, width: marco.width, height: marco.height)
   }
 
+  /// Donde va la barra cuando la arrastra el espejo: pegada a él **y dentro
+  /// de una pantalla**, aunque eso la monte sobre el borde del espejo.
+  ///
+  /// 🔴 **Era el único camino que la movía sin pasar por [dentro], y tumbaba
+  /// la app.** Con el espejo metido en la pantalla completa de Nexus, el espejo
+  /// ocupa el alto entero, y la barra —pegada encima— quedaba por completo
+  /// fuera de cualquier pantalla. Una ventana de Flutter sin pantalla deja a
+  /// su motor sin sincronía de pantalla, y el hilo de pintado de la barra moría
+  /// con un puntero nulo: visto el 28 sep en la 1.36.0, `EXC_BAD_ACCESS` en el
+  /// segundo `io.flutter.raster`, el del motor de la barra.
+  static func pegadaAlEspejo(
+    _ origen: NSPoint, tamano: NSSize, de pantallas: [NSRect]
+  ) -> NSPoint {
+    dentro(NSRect(origin: origen, size: tamano), de: pantallas).origin
+  }
+
   private static func area(_ rect: NSRect) -> CGFloat {
     rect.isNull || rect.isEmpty ? 0 : rect.width * rect.height
   }
@@ -403,7 +419,8 @@ final class NexusBotonera: NSObject {
   /// espejo** —ya está donde lo dejaste— que es lo que cerraría el bucle.
   private func laMueveElEspejo(_ origen: NSPoint) {
     guard let panel = ventana else { return }
-    panel.setFrameOrigin(origen)
+    panel.setFrameOrigin(
+      Self.pegadaAlEspejo(origen, tamano: panel.frame.size, de: Self.visibles))
     guardarLuego?.invalidate()
     guardarLuego = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
       guard let panel = self?.ventana else { return }

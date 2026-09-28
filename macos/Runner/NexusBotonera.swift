@@ -201,6 +201,17 @@ final class NexusBotonera: NSObject {
     dentro(NSRect(origin: origen, size: tamano), de: pantallas).origin
   }
 
+  /// **En el escritorio donde la pusiste**, y también junto a una app a
+  /// pantalla completa, que es donde suele estar el espejo.
+  ///
+  /// 🔴 Iba con `.canJoinAllSpaces` —«contigo al cambiar de escritorio»— y eso
+  /// la sacaba encima de cualquier app a la que cambiaras. Reportado el 28 sep:
+  /// «solo debería aparecer en la vista donde la coloque; si cambio entre
+  /// pantallas se posiciona encima de la app que tenga, y debería quedarse
+  /// donde esté». Sin él es una ventana como las demás: vive en su escritorio,
+  /// y se lleva a otro arrastrándola o desde Mission Control.
+  static let enLosEscritorios: NSWindow.CollectionBehavior = [.fullScreenAuxiliary]
+
   private static func area(_ rect: NSRect) -> CGFloat {
     rect.isNull || rect.isEmpty ? 0 : rect.width * rect.height
   }
@@ -320,9 +331,7 @@ final class NexusBotonera: NSObject {
     panel.isFloatingPanel = true
     panel.hidesOnDeactivate = false
     panel.becomesKeyOnlyIfNeeded = true
-    // Contigo al cambiar de escritorio, y también junto a una app a pantalla
-    // completa: es donde suele estar el emulador.
-    panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+    panel.collectionBehavior = Self.enLosEscritorios
     // Solo se arrastra por el asa, y eso lo decide la barra: arrastrando desde
     // cualquier parte, un clic torcido sobre «Parar» movería la ventana.
     panel.isMovableByWindowBackground = false

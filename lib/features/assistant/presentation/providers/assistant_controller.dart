@@ -2417,6 +2417,10 @@ class AssistantController extends Notifier<AssistantHudState> {
             profileName: _profileName(folder),
             model: state.meter.model,
             contextTokens: state.meter.contextTokens,
+            // El nombre de la pestaña, si se lo pusieron: guardar reescribe el
+            // registro entero, y sin él cada turno le quitaba al historial el
+            // nombre que se le dio desde el orbe o desde el teléfono.
+            nombre: ref.read(conversationsProvider).byId(conversationId)?.name,
           ),
           soloLocal: soloLocal,
         );
@@ -2552,6 +2556,22 @@ class AssistantController extends Notifier<AssistantHudState> {
     );
   }
 
+  /// Un documento de esta conversación cambió de nombre en el disco.
+  ///
+  /// 🔴 **Lo que hay en pantalla se guarda entero en el turno siguiente**, así
+  /// que cambiar el registro del disco no bastaba: esta conversación seguía
+  /// teniendo la ruta vieja en su turno, la reescribía al archivar y el
+  /// documento volvía a quedarse sin origen —y su botón, apuntando a nada—.
+  void seMovioUnDocumento(String antes, String ahora) {
+    if (!state.messages.any((m) => m.documento == antes)) return;
+    state = state.copyWith(
+      messages: [
+        for (final m in state.messages)
+          m.documento == antes ? m.copyWith(documento: ahora) : m,
+      ],
+    );
+  }
+
   /// Vuelve a abrir una conversación guardada: se pinta entera y lo que sigas
   /// diciendo se añade a ella.
   void resume(ConversationRecord record) {
@@ -2565,6 +2585,15 @@ class AssistantController extends Notifier<AssistantHudState> {
           .read(conversationsProvider.notifier)
           .apuntarRegistro(conversationId, record.id),
     );
+    // Y su nombre, si lo tenía: es la misma conversación, y la pestaña que la
+    // retoma tiene que llamarse como se llama en el historial.
+    if (record.nombre case final nombre? when nombre.trim().isNotEmpty) {
+      unawaited(
+        ref
+            .read(conversationsProvider.notifier)
+            .renombrar(conversationId, nombre),
+      );
+    }
     _startedAt = record.startedAt;
     state = state.copyWith(
       messages: record.messages,

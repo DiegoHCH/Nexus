@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:nexus/features/artifacts/domain/entities/artifact.dart';
+import 'package:nexus/features/artifacts/domain/usecases/el_nombre_nuevo_del_documento.dart';
 
 /// La carpeta de documentos generados y su visor.
 class ArtifactsDataSource {
@@ -69,6 +70,44 @@ class ArtifactsDataSource {
       account: cuenta,
       bytes: stat.size,
     );
+  }
+
+  /// Le cambia el nombre a un documento **dentro de su carpeta**. [nombre] ya
+  /// viene validado —ver [ElNombreNuevoDelDocumento]—: aquí solo se mira el
+  /// disco.
+  ///
+  /// 🔴 **Nunca pisa otro archivo.** `rename` en macOS reemplaza sin avisar lo
+  /// que haya en el destino, y en esta carpeta viven cosas que no ha escrito la
+  /// app: por eso se mira antes y, si está ocupado, se dice y no se toca nada.
+  ///
+  /// Se mira de dos formas porque el disco del Mac no distingue mayúsculas: la
+  /// lista de la carpeta dice si hay **exactamente** ese nombre, y el sistema si
+  /// hay uno que se le parezca. Lo segundo solo vale como choque si no es el
+  /// propio documento —cambiar `informe` por `Informe` es renombrarlo, no pisar
+  /// a nadie—.
+  Future<ElRenombreDelDocumento> renombrar(String ruta, String nombre) async {
+    final barra = ruta.lastIndexOf('/');
+    final carpeta = barra == -1 ? '.' : ruta.substring(0, barra);
+    final destino = '$carpeta/$nombre';
+    if (destino == ruta) return ElRenombreDelDocumento.hecho(ruta);
+    try {
+      final exacto = await Directory(
+        carpeta,
+      ).list(followLinks: false).any((e) => e.path.split('/').last == nombre);
+      final parecido =
+          FileSystemEntity.typeSync(destino, followLinks: false) !=
+              FileSystemEntityType.notFound &&
+          destino.toLowerCase() != ruta.toLowerCase();
+      if (exacto || parecido) {
+        return const ElRenombreDelDocumento.fallo(
+          PorQueNoValeElNombre.yaExiste,
+        );
+      }
+      final movido = await File(ruta).rename(destino);
+      return ElRenombreDelDocumento.hecho(movido.path);
+    } on FileSystemException {
+      return const ElRenombreDelDocumento.fallo(PorQueNoValeElNombre.noSePudo);
+    }
   }
 
   /// Abre el documento en su propia ventana. Si ya estaba abierto, la trae al

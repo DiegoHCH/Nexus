@@ -49,6 +49,26 @@ void main() {
     });
   });
 
+  // 🔴 El primer encargo tras abrir la app la pedía antes de haberla leído y
+  // se iba con la de la casa: «¿quién eres?» contestaba como un folleto.
+  test('quien arma el prompt puede esperar a que se lea', () async {
+    final carpeta = Directory.systemTemp.createTempSync('personalidad');
+    addTearDown(() => carpeta.deleteSync(recursive: true));
+    File('${carpeta.path}/personalidad.md').writeAsStringSync('Seca y leal.');
+    final c = ProviderContainer(
+      overrides: [
+        elArchivoDeLaPersonalidadProvider.overrideWithValue(
+          ElArchivoDeLaPersonalidad(carpeta: carpeta),
+        ),
+      ],
+    );
+    addTearDown(c.dispose);
+
+    expect(c.read(laPersonalidadProvider), isNull, reason: 'recién nacida');
+    await c.read(laPersonalidadProvider.notifier).leida;
+    expect(c.read(laPersonalidadProvider), 'Seca y leal.');
+  });
+
   test('en el prompt va la escrita, o la de la casa', () {
     expect(
       LaPersonalidad.paraElPrompt('Seca y leal.'),

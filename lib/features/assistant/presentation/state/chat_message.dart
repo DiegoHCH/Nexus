@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart';
 import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
 import 'package:nexus/features/assistant/domain/entities/el_trabajo_que_salio.dart';
+import 'package:nexus/features/assistant/domain/entities/lo_que_costo.dart';
 import 'package:nexus/features/programadas/domain/entities/propuesta_de_programar.dart';
 import 'package:nexus/features/workspace/data/datasources/git_data_source.dart';
 
@@ -17,43 +18,12 @@ export 'package:nexus/features/assistant/domain/entities/el_trabajo_que_salio.da
 // Y lo mismo con la decisión de programar: la pinta la conversación y la guarda
 // el vigilante, y ninguno de los dos tiene por qué saber de dónde salió.
 export 'package:nexus/features/programadas/domain/entities/propuesta_de_programar.dart';
+// Y lo que costó cada turno, que se bajó al dominio para poder sumarlo. Ver
+// [LoQueCostoLaConversacion].
+export 'package:nexus/features/assistant/domain/entities/lo_que_costo.dart';
 
 /// Quién habla en una línea de la conversación.
 enum ChatAuthor { user, nexus }
-
-/// Lo que costó un turno: cuántos tokens y cuánto tardó.
-///
-/// Van juntos porque se leen juntos —«dos millones en cuatro minutos» dice algo
-/// que ninguno de los dos dice solo— y porque llegan juntos, en el mismo evento
-/// de fin de turno.
-@immutable
-class LoQueCostoElTurno {
-  const LoQueCostoElTurno({this.tokens, this.duracion});
-
-  /// Los del turno entero, no solo los de la respuesta: es lo que se pagó por
-  /// contestar, que es la pregunta que uno se hace mirando esto.
-  final int? tokens;
-
-  final Duration? duracion;
-
-  bool get hayAlgoQueDecir => tokens != null || duracion != null;
-
-  Map<String, dynamic> toJson() => {
-    if (tokens != null) 'tokens': tokens,
-    if (duracion != null) 'ms': duracion!.inMilliseconds,
-  };
-
-  static LoQueCostoElTurno? fromJson(Object? crudo) {
-    if (crudo is! Map<String, dynamic>) return null;
-    final tokens = (crudo['tokens'] as num?)?.toInt();
-    final ms = (crudo['ms'] as num?)?.toInt();
-    if (tokens == null && ms == null) return null;
-    return LoQueCostoElTurno(
-      tokens: tokens,
-      duracion: ms == null ? null : Duration(milliseconds: ms),
-    );
-  }
-}
 
 /// Un turno de la conversación, venga de la voz o del teclado.
 ///

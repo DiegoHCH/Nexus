@@ -327,6 +327,45 @@ final conversationDetailProvider =
       };
     });
 
+/// Le pone nombre a una conversación **del historial**. Vacío se lo quita.
+///
+/// 🔴 **Qué es renombrar depende de si está abierta, y el resultado es el
+/// mismo.** Abierta, es renombrar la pestaña —y con ella su registro, ver
+/// [renombrarLaConversacionProvider]—: si solo cambiara el registro, el turno
+/// siguiente lo reescribiría con el nombre de la pestaña y el cambio se
+/// perdería. Archivada, no hay pestaña: se cambia el título de su registro, y
+/// la pestaña que la retome mañana lo hereda.
+///
+/// **Solo las del historial de la app** —las fichas sin `sourcePath`—: una nota
+/// del vault que no escribió Nexus es un archivo del usuario con el título en el
+/// nombre, y renombrarla sería mover sus archivos. La hoja no ofrece el botón.
+final renombrarDelHistorialProvider =
+    Provider<Future<void> Function(ConversationSummary ficha, String nombre)>((
+      ref,
+    ) {
+      return (ficha, nombre) async {
+        final abierta = ref
+            .read(conversationsProvider)
+            .items
+            .where((c) => (c.recordId ?? c.id) == ficha.id)
+            .firstOrNull;
+        if (abierta != null) {
+          await ref.read(renombrarLaConversacionProvider)(abierta.id, nombre);
+          return;
+        }
+        final limpio = nombre.trim();
+        await ref
+            .read(localConversationStoreProvider)
+            .renombrar(
+              folderPath: ficha.folderPath,
+              id: ficha.id,
+              nombre: limpio.isEmpty ? null : limpio,
+            );
+        ref.invalidate(allSavedConversationsProvider);
+        ref.invalidate(savedConversationsProvider(ficha.folderPath));
+      };
+    });
+
 /// Borra una conversación de donde esté: del historial de la app y de la nota
 /// del vault, si vino de una.
 ///

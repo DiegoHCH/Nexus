@@ -6,9 +6,11 @@ import 'package:nexus/core/design_system/accent_wheel.dart';
 import 'package:nexus/core/design_system/theme_preference.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
+import 'package:nexus/features/icono/domain/icono_del_dock.dart';
+import 'package:nexus/features/icono/presentation/providers/icono_providers.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/orbe_ajustes.dart';
 
-/// Apariencia: claro u oscuro, y el color de acento.
+/// Apariencia: claro u oscuro, el color de acento, el orbe y el icono del Dock.
 ///
 /// `AccentDialog` es la única pública: la abre el botón de aquí, pero es una modal
 /// que tiene sentido poder abrir desde otro sitio.
@@ -57,6 +59,24 @@ class AppearanceSection extends ConsumerWidget {
           hijos: const [_AccentButton()],
         ),
         const OrbeAjustes(),
+        // Después del orbe y del acento, que son de lo que se dibuja: se lee
+        // como «y además, en el Dock».
+        BloqueDeAjustes(
+          rotulo: strings.iconoDelDockTitulo,
+          hijos: [
+            TextoDeAjustes(strings.iconoDelDockExplica),
+            ElegirDeAjustes<IconoDelDock>(
+              llave: 'icono-del-dock',
+              opciones: IconoDelDock.values,
+              elegida: ref.watch(iconoDelDockProvider),
+              nombre: (icono) => switch (icono) {
+                IconoDelDock.deSiempre => strings.iconoDeSiempre,
+                IconoDelDock.comoTuOrbe => strings.iconoComoTuOrbe,
+              },
+              onElegir: ref.read(iconoDelDockProvider.notifier).elegir,
+            ),
+          ],
+        ),
       ],
     );
   }

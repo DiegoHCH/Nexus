@@ -188,66 +188,66 @@ class _Vacio extends StatelessWidget {
               MedidasDelMovil.margen,
               MedidasDelMovil.pie,
             ),
-            // **Arriba el orbe con lo que pasa, abajo lo que se puede hacer**, como el
-            // mockup: el orbe dormido a 30 del borde y el título pegado a él —son una
-            // sola cosa, «aquí está, esperando»—, y el botón en el fondo, donde está
-            // el pulgar. Con el orbe estirado en todo el hueco libre, el título caía
-            // a dos tercios de la pantalla, lejos de lo que lo explicaba.
+            // **El orbe con lo que pasa, centrado en el hueco; abajo lo que se
+            // puede hacer.** El título va pegado al orbe —son una sola cosa, «aquí
+            // está, esperando»— y el botón en el fondo, donde está el pulgar.
             //
-            // `spaceBetween` reparte lo que sobra **entre** los dos grupos, y el orbe
-            // en un `Flexible` es lo único que encoge en una pantalla pequeña o con
-            // la letra del sistema en grande.
+            // 🔴 Centrado y no arriba: pegado a la cabecera dejaba media pantalla
+            // vacía debajo del texto y se leía como una pantalla a medio cargar
+            // (reportado el 27 sep con el teléfono en la mano). El orbe en un
+            // `Flexible` sigue siendo lo único que encoge en una pantalla pequeña o
+            // con la letra del sistema en grande.
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Flexible(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(height: 30),
-                      // Sin horizonte, como el mockup: la línea lo convierte en un
-                      // paisaje, y aquí el orbe es una presencia y no un decorado.
-                      // Cuadrado: el orbe se dibuja con el lado corto de su caja,
-                      // y en una franja ancha el que manda es el alto.
-                      Flexible(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxHeight: 260),
-                          child: const AspectRatio(
-                            aspectRatio: 1,
-                            child: IgnorePointer(
-                              child: NexusOrb(state: NexusOrbState.sleep),
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Sin horizonte, como el mockup: la línea lo convierte en un
+                        // paisaje, y aquí el orbe es una presencia y no un decorado.
+                        // Cuadrado: el orbe se dibuja con el lado corto de su caja,
+                        // y en una franja ancha el que manda es el alto.
+                        Flexible(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 260),
+                            child: const AspectRatio(
+                              aspectRatio: 1,
+                              child: IgnorePointer(
+                                child: NexusOrb(state: NexusOrbState.sleep),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      TextoEquilibrado(
-                        preguntado
-                            ? strings.mobileNothingOpen
-                            : strings.mobileCouldNotAsk,
-                        clave: const ValueKey('titulo-del-vacio'),
-                        // El mismo título que las pantallas de estado —`.grande` en
-                        // el mockup—: esto es un estado, y se tiene que leer como tal.
-                        style: NexusTypography.title.copyWith(
-                          color: colors.ink,
-                          fontSize: 24,
-                          height: 1.25,
+                        TextoEquilibrado(
+                          preguntado
+                              ? strings.mobileNothingOpen
+                              : strings.mobileCouldNotAsk,
+                          clave: const ValueKey('titulo-del-vacio'),
+                          // El mismo título que las pantallas de estado —`.grande` en
+                          // el mockup—: esto es un estado, y se tiene que leer como tal.
+                          style: NexusTypography.title.copyWith(
+                            color: colors.ink,
+                            fontSize: 24,
+                            height: 1.25,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: NexusSpacing.s1),
-                      Text(
-                        preguntado
-                            // Se dice **sobre qué** se abre, que es la parte que no
-                            // es obvia: una conversación no nace de la nada, nace
-                            // sobre una carpeta que el Mac ya tenía emparejada.
-                            ? strings.mobileNothingOpenBody
-                            : strings.mobileCouldNotAskBody,
-                        textAlign: TextAlign.center,
-                        style: NexusTypography.nota.copyWith(
-                          color: colors.mute,
-                          fontSize: 13.5,
+                        const SizedBox(height: NexusSpacing.s1),
+                        Text(
+                          preguntado
+                              // Se dice **sobre qué** se abre, que es la parte que no
+                              // es obvia: una conversación no nace de la nada, nace
+                              // sobre una carpeta que el Mac ya tenía emparejada.
+                              ? strings.mobileNothingOpenBody
+                              : strings.mobileCouldNotAskBody,
+                          textAlign: TextAlign.center,
+                          style: NexusTypography.nota.copyWith(
+                            color: colors.mute,
+                            fontSize: 13.5,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: NexusSpacing.s5),

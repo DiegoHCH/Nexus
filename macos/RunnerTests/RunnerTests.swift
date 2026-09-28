@@ -624,6 +624,61 @@ final class AparienciaTests: XCTestCase {
   }
 }
 
+/// El icono del Dock que llega de Dart.
+///
+/// Lo que no puede pasar es que un PNG roto deje el Dock con un hueco: el
+/// icono que había se queda.
+final class IconoDelDockTests: XCTestCase {
+  override func tearDown() {
+    NexusDock.quitar()
+    super.tearDown()
+  }
+
+  private func png(_ color: NSColor) -> Data {
+    let rep = NSBitmapImageRep(
+      bitmapDataPlanes: nil, pixelsWide: 64, pixelsHigh: 64,
+      bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+      colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+    )!
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+    color.setFill()
+    NSRect(x: 0, y: 0, width: 64, height: 64).fill()
+    NSGraphicsContext.restoreGraphicsState()
+    return rep.representation(using: .png, properties: [:])!
+  }
+
+  func testUnPngBuenoSePone() {
+    XCTAssertTrue(NexusDock.poner(png(.systemTeal)))
+    XCTAssertEqual(NSApplication.shared.applicationIconImage?.size, NSSize(width: 64, height: 64))
+  }
+
+  func testLoQueNoSeEntiendeDejaElQueHabia() {
+    XCTAssertTrue(NexusDock.poner(png(.systemPurple)))
+    let antes = NSApplication.shared.applicationIconImage
+
+    XCTAssertFalse(NexusDock.poner(Data([0x89, 0x50, 0x4E, 0x47, 0x00, 0x01])), "un PNG cortado")
+    XCTAssertFalse(NexusDock.poner(Data()), "vacío")
+    XCTAssertFalse(NexusDock.poner(nil), "sin datos")
+
+    XCTAssertTrue(
+      NSApplication.shared.applicationIconImage === antes,
+      "un icono ilegible no puede sustituir al que había"
+    )
+  }
+
+  func testQuitarVuelveAlDelPaquete() {
+    XCTAssertTrue(NexusDock.poner(png(.systemOrange)))
+    let puesto = NSApplication.shared.applicationIconImage
+
+    NexusDock.quitar()
+
+    // Con `nil` AppKit no deja el Dock vacío: vuelve a enseñar el del paquete.
+    XCTAssertNotNil(NSApplication.shared.applicationIconImage)
+    XCTAssertFalse(NSApplication.shared.applicationIconImage === puesto)
+  }
+}
+
 /// Cuándo se avisa de que un encargo terminó.
 ///
 /// Lo que se prueba es **la decisión**, no la entrega: mandar un aviso de verdad

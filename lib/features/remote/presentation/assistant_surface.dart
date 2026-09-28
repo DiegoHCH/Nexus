@@ -366,9 +366,9 @@ class AssistantSurface implements RemoteSurface {
         .any((c) => c.id == conversationId)) {
       throw UnknownConversation(conversationId);
     }
-    await _ref
-        .read(conversationsProvider.notifier)
-        .renombrar(conversationId, name);
+    // Por el mismo camino que el Mac: la pestaña **y** su registro del historial,
+    // para que lo renombrado desde el teléfono se llame igual en ⌘Y.
+    await _ref.read(renombrarLaConversacionProvider)(conversationId, name);
   }
 
   @override

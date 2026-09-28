@@ -52,6 +52,7 @@ final losAjustesQueSuenanProvider = Provider<Future<void> Function()>(
         ref.read(voicePreferenceProvider.notifier).leida,
         ref.read(elAcentoProvider.notifier).leido,
         ref.read(losNombresProvider.notifier).leidos,
+        ref.read(laPersonalidadProvider.notifier).leida,
       ]),
 );
 

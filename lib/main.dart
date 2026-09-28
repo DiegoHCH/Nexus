@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
 import 'package:nexus/core/design_system/orbe_preference.dart';
 import 'package:nexus/core/design_system/appearance_channel.dart';
 import 'package:nexus/core/diagnostico/registro_de_la_app.dart';
@@ -296,6 +297,10 @@ class _MainAppState extends ConsumerState<MainApp> {
     // solo lo armara su ajuste, el Dock seguiría con el de siempre hasta abrir
     // Apariencia. Él decide cuándo repintar; aquí solo se le da dónde vivir.
     ref.watch(elIconoDelDockProvider);
+
+    // Y los teléfonos enchufados, ya cargados cuando se abra dónde correr la
+    // app, y al día si se enchufa uno después. Ver [ElVigiaDeLosAparatos].
+    ref.watch(elVigiaDeLosAparatosProvider);
 
     return MaterialApp(
       navigatorKey: _navigatorKey,

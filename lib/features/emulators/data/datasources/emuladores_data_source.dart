@@ -280,6 +280,46 @@ class EmuladoresDataSource {
     return nombre == null || nombre.isEmpty ? null : nombre;
   }
 
+  /// Qué hay enchufado, barato. Ver [ComandoDeEmuladores.huellaDeLoEnchufado].
+  Future<String> huellaDeLoEnchufado() async {
+    final adb = await _adb();
+    final (android, ios) = await (
+      adb == null ? Future.value(null) : _correr(adb, ['devices']),
+      _elJsonDeDevicectl(),
+    ).wait;
+    return ComandoDeEmuladores.huellaDeLoEnchufado(
+      adbDevices: android?.salida ?? '',
+      devicectlJson: ios ?? '',
+    );
+  }
+
+  /// El JSON de `devicectl list devices`, o `null` si no contestó.
+  Future<String?> _elJsonDeDevicectl() async {
+    final destino =
+        '${Directory.systemTemp.path}/nexus-devicectl-'
+        '${DateTime.now().microsecondsSinceEpoch}.json';
+    final r = await _correr('/usr/bin/xcrun', [
+      'devicectl',
+      'list',
+      'devices',
+      '--json-output',
+      destino,
+    ]);
+    final archivo = File(destino);
+    try {
+      if (r == null || !archivo.existsSync()) return null;
+      return archivo.readAsStringSync();
+    } on FileSystemException {
+      return null;
+    } finally {
+      try {
+        if (archivo.existsSync()) archivo.deleteSync();
+      } on FileSystemException {
+        // Un temporal que no se puede borrar no es motivo para no vigilar.
+      }
+    }
+  }
+
   Future<Map<String, String>> _nombresDeIos() async {
     // `devicectl` escribe el JSON en un archivo y no por stdout, así que hay que
     // darle uno temporal y leerlo.

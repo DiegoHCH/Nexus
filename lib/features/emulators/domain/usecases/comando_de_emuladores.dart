@@ -270,6 +270,48 @@ abstract final class ComandoDeEmuladores {
     }
   }
 
+  /// **Qué hay enchufado ahora**, en una línea que solo cambia si cambia eso.
+  ///
+  /// Es lo que mira el vigía de los aparatos cada pocos segundos: de `adb
+  /// devices` los teléfonos —los `emulator-…` no, que son de la otra lista y
+  /// arrancar uno no es enchufar nada— y de `devicectl` los iPhone **con su
+  /// estado**, porque `devicectl` lista también los emparejados que no están
+  /// delante. Barato a propósito: 14 ms y ~100 ms, contra los ~7 s de `flutter
+  /// devices`, que solo se paga cuando esto cambia.
+  static String huellaDeLoEnchufado({
+    required String adbDevices,
+    required String devicectlJson,
+  }) {
+    final android = [
+      for (final linea in adbDevices.split('\n').skip(1))
+        if (linea.trim() case final l
+            when l.isNotEmpty && !l.startsWith('emulator-'))
+          l.replaceAll(RegExp(r'\s+'), ' '),
+    ]..sort();
+    final ios = <String>[];
+    try {
+      final leido = jsonDecode(devicectlJson);
+      final resultado = leido is Map ? leido['result'] : null;
+      final dispositivos = resultado is Map ? resultado['devices'] : null;
+      if (dispositivos is List) {
+        for (final d in dispositivos) {
+          if (d is! Map) continue;
+          final udid = (d['hardwareProperties'] as Map?)?['udid'];
+          final conexion = d['connectionProperties'] as Map?;
+          if (udid is! String) continue;
+          ios.add(
+            '$udid ${conexion?['tunnelState'] ?? ''} '
+            '${conexion?['transportType'] ?? ''}',
+          );
+        }
+      }
+    } on FormatException {
+      // Sin Xcode no hay iPhone que vigilar: la huella es la de Android.
+    }
+    ios.sort();
+    return [...android, ...ios].join('|');
+  }
+
   /// Cómo se cierra uno de Android: por su dispositivo, no por su nombre.
   static List<String> argumentosDeCerrarAndroid(String deviceId) => [
     '-s',

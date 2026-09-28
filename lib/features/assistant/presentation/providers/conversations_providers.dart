@@ -397,6 +397,48 @@ final soltarLaConversacionProvider = Provider<void Function(String)>((ref) {
   };
 });
 
+/// Le pone nombre a una conversación abierta **y a su registro del historial**.
+///
+/// 🔴 **Un nombre y no dos.** El de la pestaña —[Conversation.name]— y el del
+/// historial —el título de su ficha— son la misma cosa vista desde dos sitios,
+/// así que renombrar cambia los dos a la vez. Por separado, la conversación se
+/// llamaba de una forma en el orbe y en el teléfono y de otra en ⌘Y, y
+/// retomarla mañana le devolvía el nombre viejo.
+///
+/// Lo usan los tres sitios desde los que se renombra —el orbe pequeño del
+/// escenario, el historial cuando la conversación está abierta y el teléfono—,
+/// para que ninguno se quede con la mitad. Vacío quita el nombre en los dos.
+///
+/// **Fuera del notifier por lo mismo que [retomarDelArchivoProvider]**: el
+/// historial está al otro lado, y leerlo desde el notifier cerraría el círculo.
+final renombrarLaConversacionProvider =
+    Provider<Future<void> Function(String id, String nombre)>((ref) {
+      return (id, nombre) async {
+        await ref.read(conversationsProvider.notifier).renombrar(id, nombre);
+        final ficha = ref.read(conversationsProvider).byId(id);
+        if (ficha == null) return;
+        final limpio = nombre.trim();
+        try {
+          // El registro puede no existir todavía —una pestaña sin nada dicho no
+          // se guarda—, y entonces no hay nada que renombrar: el nombre viaja
+          // con la pestaña y entra en el registro con el primer turno.
+          await ref
+              .read(localConversationStoreProvider)
+              .renombrar(
+                folderPath: ficha.folderPath,
+                id: ficha.recordId ?? id,
+                nombre: limpio.isEmpty ? null : limpio,
+              );
+        } on Object catch (error) {
+          // La pestaña ya tiene su nombre, que es lo que se ve; el historial lo
+          // recoge igual en el turno siguiente, que reescribe el registro.
+          debugPrint('conversaciones · el historial no se renombró: $error');
+        }
+        ref.invalidate(allSavedConversationsProvider);
+        ref.invalidate(savedConversationsProvider(ficha.folderPath));
+      };
+    });
+
 /// Retomar una conversación del archivo.
 ///
 /// **Fuera del notifier, y no por gusto:** los controladores de cada conversación

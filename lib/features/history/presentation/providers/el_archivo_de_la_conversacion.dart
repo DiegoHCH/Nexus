@@ -112,7 +112,13 @@ class ElArchivoDeLaConversacion {
     var falloElDestino = false;
     try {
       final destino = await destinoFuturo;
-      if (destino != null) await destino.save(registro);
+      // 🔴 **Al destino, sin el nombre puesto.** La nota del vault se llama
+      // como su título —`2026-09-27-lo-que-se-pidio.md`—, así que con el nombre
+      // dentro el turno siguiente escribía **otra nota** con el mismo id y la
+      // vieja se quedaba al lado: dos copias de la misma conversación en una
+      // carpeta del usuario. El nombre es de Nexus —la pestaña y su historial—;
+      // la nota es una copia para leer fuera y sigue con el suyo.
+      if (destino != null) await destino.save(registro.conNombre(null));
     } on Object catch (error) {
       // Que falle guardar no puede tumbar la conversación: la carpeta puede
       // haberse desconectado, o el vault puede no existir ya. Se dice y se

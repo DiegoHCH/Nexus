@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:nexus/features/assistant/domain/entities/lo_que_costo.dart';
 
 /// Lo que hace falta saber de una conversación **sin abrirla**: quién la tuvo,
 /// cuándo, sobre qué carpeta y cuántos turnos.
@@ -28,6 +29,7 @@ class ConversationSummary {
     this.loUltimoQuePediste,
     this.loUltimoQueDijo,
     this.documentos = const [],
+    this.loQueCosto,
   }) : usadaEn = usadaEn ?? startedAt;
 
   final String id;
@@ -65,6 +67,7 @@ class ConversationSummary {
     loUltimoQuePediste: loUltimoQuePediste,
     loUltimoQueDijo: loUltimoQueDijo,
     documentos: documentos,
+    loQueCosto: loQueCosto,
   );
 
   /// Ya resuelto, no deducido al vuelo. Quien escribe la ficha tiene los
@@ -109,6 +112,15 @@ class ConversationSummary {
   /// JSON de la conversación; aquí se sube a la ficha para que agrupar la
   /// carpeta entera no obligue a abrir todas las conversaciones.
   final List<String> documentos;
+
+  /// Lo que lleva gastado la conversación: tokens y el rato que Claude pasó
+  /// trabajando. Ver [LoQueCostoLaConversacion] para qué cuenta y qué no.
+  ///
+  /// En la ficha por lo mismo que [documentos]: la lista lo enseña en cada fila,
+  /// y sumarlo al listar obligaría a abrir todas las conversaciones. `null` en
+  /// las que no apuntaron ningún coste —las de antes, las del vault—, y la fila
+  /// entonces no dice nada en vez de decir cero.
+  final LoQueCostoLaConversacion? loQueCosto;
 
   /// El nombre de la carpeta, que es como se llama el proyecto en todos lados.
   String get projectName => projectNameOf(folderPath);

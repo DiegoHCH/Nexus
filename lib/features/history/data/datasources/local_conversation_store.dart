@@ -49,7 +49,13 @@ class LocalConversationStore {
   /// que haya que escribir nada más. Los que no salen en ninguna conversación
   /// —escritos a mano, o de una conversación borrada— se quedan sin origen, y la
   /// lista los junta aparte.
-  static const _indexVersion = 2;
+  ///
+  /// **3** trae lo que costó cada conversación —tokens y el rato que Claude
+  /// pasó trabajando—, para que la lista lo enseñe sin abrir ninguna. Mismo
+  /// truco: cada turno ya guardaba su `costo`, así que rehacer el índice una vez
+  /// basta para que las conversaciones de antes salgan con su total. Las que son
+  /// de antes de que se apuntara el coste siguen sin él, y la fila no dice nada.
+  static const _indexVersion = 3;
 
   /// JSON y una carpeta por proyecto: se puede abrir con cualquier editor si
   /// algún día hace falta rescatar algo a mano, y ver de un vistazo qué
@@ -84,6 +90,12 @@ class LocalConversationStore {
         if (record.model != null) 'modelo': record.model,
         if (record.contextTokens != null) 'contexto': record.contextTokens,
         if (record.profileName != null) 'perfil': record.profileName,
+        // El nombre que le puso el usuario. **Se guarda o se pierde**, como
+        // todo lo de esta lista: sin él, el turno siguiente reescribía el
+        // registro con el título derivado y el nombre puesto desaparecía del
+        // historial sin que nadie lo tocara.
+        if (record.nombre case final nombre? when nombre.trim().isNotEmpty)
+          'nombre': nombre.trim(),
         'mensajes': [
           for (final message in record.messages)
             {
@@ -229,6 +241,90 @@ class LocalConversationStore {
     await _writeIndex(directory, fichas);
   }
 
+  /// Le pone [nombre] a una conversación guardada —vacío o `null` se lo quita—
+  /// y devuelve su ficha nueva, o `null` si no está.
+  ///
+  /// 🔴 **Sin pasar por [save]**, que es lo obvio y estaba mal: guardar **es**
+  /// usarla —sella la hora de uso— y renombrar no es usar. Por [save], ponerle
+  /// nombre a una conversación de la semana pasada la subía al principio del
+  /// historial como si se hubiera trabajado en ella hoy. Aquí se cambia el
+  /// nombre del JSON y la ficha del índice, y la hora se queda como estaba.
+  Future<ConversationSummary?> renombrar({
+    required String folderPath,
+    required String id,
+    required String? nombre,
+  }) async {
+    final directory = await _folderFor(folderPath);
+    final file = File('${directory.path}/$id.json');
+    if (!file.existsSync()) return null;
+    final crudo = jsonDecode(await file.readAsString());
+    if (crudo is! Map<String, dynamic>) return null;
+    final limpio = nombre?.trim() ?? '';
+    if (limpio.isEmpty) {
+      crudo.remove('nombre');
+    } else {
+      crudo['nombre'] = limpio;
+    }
+    await file.writeAsString(jsonEncode(crudo));
+    return _reescribeLaFicha(directory, id);
+  }
+
+  /// Un documento cambió de nombre en el disco: las conversaciones que lo
+  /// dejaron pasan a apuntar al nuevo.
+  ///
+  /// 🔴 **Es lo que cuelga cada documento de su conversación**, y por eso no
+  /// basta con renombrar el archivo: el origen se busca por la ruta en
+  /// [ConversationSummary.documentos], así que un documento renombrado sin esto
+  /// caía en «Sin conversación». Se cambia **en el JSON y en el índice**: el
+  /// índice se rehace leyendo los JSON cuando se descuadra, y cambiarlo solo a
+  /// él devolvía el nombre viejo en la primera reconstrucción.
+  ///
+  /// Solo se abren las conversaciones cuya ficha nombra el documento: las demás
+  /// no pueden tenerlo, y abrirlas todas sería el coste que el índice vino a
+  /// quitar.
+  Future<void> seMovioUnDocumento(String antes, String ahora) async {
+    final support = await getApplicationSupportDirectory();
+    final root = Directory('${support.path}/conversaciones');
+    if (!root.existsSync()) return;
+    await for (final folder in root.list()) {
+      if (folder is! Directory) continue;
+      for (final ficha in await _index(folder)) {
+        if (!ficha.documentos.contains(antes)) continue;
+        final file = File('${folder.path}/${ficha.id}.json');
+        if (!file.existsSync()) continue;
+        final crudo = jsonDecode(await file.readAsString());
+        if (crudo is! Map<String, dynamic>) continue;
+        for (final mensaje in crudo['mensajes'] as List? ?? const []) {
+          if (mensaje is Map<String, dynamic> &&
+              mensaje['documento'] == antes) {
+            mensaje['documento'] = ahora;
+          }
+        }
+        await file.writeAsString(jsonEncode(crudo));
+        await _reescribeLaFicha(folder, ficha.id);
+      }
+    }
+  }
+
+  /// Vuelve a sacar la ficha de una conversación de su JSON y la pone en el
+  /// índice en lugar de la que había. Con la hora de uso **del archivo**: quien
+  /// llama cambió algo de la conversación, no la usó.
+  Future<ConversationSummary?> _reescribeLaFicha(
+    Directory directory,
+    String id,
+  ) async {
+    final file = File('${directory.path}/$id.json');
+    if (!file.existsSync()) return null;
+    final record = _decode(await file.readAsString());
+    if (record == null) return null;
+    final ficha = record.summary;
+    final fichas = await _paraEscribir(directory)
+      ..removeWhere((otra) => otra.id == id)
+      ..add(ficha);
+    await _writeIndex(directory, fichas);
+    return ficha;
+  }
+
   /// El índice de esa carpeta, rehecho si no está o no cuadra con el disco.
   ///
   /// Cuadrar es que los identificadores del índice sean exactamente los
@@ -314,6 +410,7 @@ class LocalConversationStore {
               for (final ruta in cruda['documentos'] as List? ?? const [])
                 if (ruta is String) ruta,
             ],
+            loQueCosto: LoQueCostoLaConversacion.fromJson(cruda['costo']),
           ),
         );
       }
@@ -347,6 +444,7 @@ class LocalConversationStore {
               'pedido': ?ficha.loUltimoQuePediste,
               'dijo': ?ficha.loUltimoQueDijo,
               if (ficha.documentos.isNotEmpty) 'documentos': ficha.documentos,
+              if (ficha.loQueCosto case final coste?) 'costo': coste.toJson(),
             },
         ],
       }),
@@ -387,6 +485,7 @@ class LocalConversationStore {
         model: decoded['modelo'] as String?,
         contextTokens: (decoded['contexto'] as num?)?.toInt(),
         profileName: decoded['perfil'] as String?,
+        nombre: decoded['nombre'] as String?,
         messages: [
           for (final message
               in decoded['mensajes'] as List<dynamic>? ?? const [])

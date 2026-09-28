@@ -4,6 +4,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/design_system/campo_de_nombre.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/design_system/hoja_de_la_sala.dart';
 import 'package:nexus/core/i18n/el_dia_legible.dart';
@@ -11,9 +12,11 @@ import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/platform/system_files.dart';
 import 'package:nexus/features/artifacts/domain/entities/artifact.dart';
 import 'package:nexus/features/artifacts/domain/entities/tipo_de_documento.dart';
+import 'package:nexus/features/artifacts/domain/usecases/el_nombre_nuevo_del_documento.dart';
 import 'package:nexus/features/artifacts/domain/usecases/los_documentos_por_conversacion.dart';
 import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
 import 'package:nexus/features/artifacts/presentation/providers/el_origen_de_los_documentos.dart';
+import 'package:nexus/features/artifacts/presentation/providers/renombrar_un_documento.dart';
 import 'package:nexus/features/artifacts/presentation/widgets/miniatura_del_documento.dart';
 import 'package:nexus/features/assistant/domain/entities/conversation.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
@@ -80,6 +83,55 @@ class _ArtifactsSheetState extends ConsumerState<ArtifactsSheet> {
   /// otro.
   String? _elegido;
 
+  /// El documento que se está renombrando, por su **ruta**, y por qué no vale
+  /// lo último que se escribió. Uno a la vez, como la papelera.
+  String? _renombrando;
+  String? _errorDelNombre;
+
+  void _empezarARenombrar(String ruta) => setState(() {
+    _renombrando = ruta;
+    _errorDelNombre = null;
+    _confirmando = null;
+  });
+
+  void _dejarDeRenombrar() => setState(() {
+    _renombrando = null;
+    _errorDelNombre = null;
+  });
+
+  /// Renombra y, si no se pudo, **lo dice en la misma fila** y deja el campo
+  /// abierto con lo escrito: quien escribió un nombre que ya existía quiere
+  /// corregirlo, no volver a empezar.
+  Future<void> _renombrar(Artifact documento, String escrito) async {
+    final strings = context.strings;
+    final hecho = await ref.read(renombrarUnDocumentoProvider)(
+      documento,
+      escrito,
+    );
+    if (!mounted) return;
+    final ruta = hecho.ruta;
+    setState(() {
+      if (ruta != null) {
+        _renombrando = null;
+        _errorDelNombre = null;
+        // La vista sigue al documento: con la ruta vieja se quedaría mirando
+        // un archivo que ya no se llama así.
+        _elegido = ruta;
+        return;
+      }
+      _errorDelNombre = switch (hecho.fallo) {
+        PorQueNoValeElNombre.vacio => strings.renombrarVacio,
+        PorQueNoValeElNombre.conSeparador => strings.renombrarConSeparador,
+        PorQueNoValeElNombre.oculto => strings.renombrarOculto,
+        PorQueNoValeElNombre.yaExiste => strings.renombrarYaExiste(
+          ElNombreNuevoDelDocumento.valida(documento.name, escrito).nombre ??
+              escrito,
+        ),
+        PorQueNoValeElNombre.noSePudo || null => strings.renombrarNoSePudo,
+      };
+    });
+  }
+
   Future<void> _elegirCarpeta() async {
     final chosen = await getDirectoryPath();
     if (chosen == null) return;
@@ -122,6 +174,7 @@ class _ArtifactsSheetState extends ConsumerState<ArtifactsSheet> {
               // de ese, y no puede heredarlo el siguiente.
               key: ValueKey(elegido.path),
               documento: elegido,
+              onRenombrar: () => _empezarARenombrar(elegido.path),
             ),
     );
   }
@@ -218,8 +271,17 @@ class _ArtifactsSheetState extends ConsumerState<ArtifactsSheet> {
             artifact: artifact,
             elegido: artifact.path == elegido?.path,
             confirmando: _confirmando == artifact.path,
+            renombrando: _renombrando == artifact.path,
+            errorDelNombre: _renombrando == artifact.path
+                ? _errorDelNombre
+                : null,
+            onGuardarElNombre: (escrito) => _renombrar(artifact, escrito),
+            onCancelarElNombre: _dejarDeRenombrar,
             onElegir: () => setState(() => _elegido = artifact.path),
-            onPreguntar: () => setState(() => _confirmando = artifact.path),
+            onPreguntar: () => setState(() {
+              _confirmando = artifact.path;
+              _renombrando = null;
+            }),
             onCancelar: () => setState(() => _confirmando = null),
             onMover: () async {
               // A la papelera y no borrado a secas: es un archivo del usuario,
@@ -467,6 +529,10 @@ class _Row extends StatelessWidget {
     required this.onPreguntar,
     required this.onCancelar,
     required this.onMover,
+    this.renombrando = false,
+    this.errorDelNombre,
+    this.onGuardarElNombre,
+    this.onCancelarElNombre,
   });
 
   final Artifact artifact;
@@ -486,10 +552,22 @@ class _Row extends StatelessWidget {
   final VoidCallback onCancelar;
   final Future<void> Function() onMover;
 
+  /// Si esta fila está cambiándole el nombre al documento.
+  ///
+  /// 🔴 **En la fila, como la papelera**: el nombre se vuelve la línea donde se
+  /// escribe y la extensión se queda al lado sin poder tocarse —ver
+  /// [ElNombreNuevoDelDocumento]—. Lo que no vale se dice debajo, en la misma
+  /// fila, y el campo sigue abierto con lo escrito.
+  final bool renombrando;
+  final String? errorDelNombre;
+  final ValueChanged<String>? onGuardarElNombre;
+  final VoidCallback? onCancelarElNombre;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final strings = context.strings;
+    if (renombrando) return _renombrando(context);
     // Tipo, peso y cuándo, como el mockup: «Texto · 12 KB · Hoy · 23:14». La
     // cuenta se va a la vista previa, que es donde se decide si abrirlo.
     final detalle = [
@@ -603,6 +681,44 @@ class _Row extends StatelessWidget {
       ),
     );
   }
+
+  /// La fila mientras se renombra: la miniatura sigue —es lo que dice qué
+  /// documento es— y el nombre y los botones se cambian por el campo.
+  Widget _renombrando(BuildContext context) {
+    final colors = context.colors;
+    final raiz = ElNombreNuevoDelDocumento.raizDe(artifact.name);
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 8),
+      decoration: BoxDecoration(
+        color: colors.rise,
+        border: Border(
+          top: BorderSide(color: colors.rule),
+          left: BorderSide(color: colors.accent, width: 2),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          MiniaturaDelDocumento(ruta: artifact.path),
+          const SizedBox(width: 10),
+          Expanded(
+            child: CampoDeNombre(
+              inicial: raiz,
+              sufijo: ElNombreNuevoDelDocumento.extensionDe(artifact.name),
+              error: errorDelNombre,
+              etiqueta: context.strings.renombrarElDocumento(artifact.name),
+              estilo: NexusTypography.data.copyWith(
+                fontSize: 12.5,
+                height: 1.35,
+              ),
+              onGuardar: (escrito) => onGuardarElNombre?.call(escrito),
+              onCancelar: () => onCancelarElNombre?.call(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// El documento elegido, antes de abrirlo: **cómo se ve, cuánto pesa, de qué
@@ -610,9 +726,12 @@ class _Row extends StatelessWidget {
 ///
 /// Es para decidir si abrirlo, no para leerlo: el visor sigue siendo el nativo.
 class _Vista extends ConsumerWidget {
-  const _Vista({super.key, required this.documento});
+  const _Vista({super.key, required this.documento, this.onRenombrar});
 
   final Artifact documento;
+
+  /// Abre el campo del nombre **en su fila** de la lista.
+  final VoidCallback? onRenombrar;
 
   /// Retoma la conversación de la que salió el documento, por el mismo camino
   /// que el historial —[retomarDelArchivoProvider]—: si ya está abierta va a su
@@ -705,6 +824,8 @@ class _Vista extends ConsumerWidget {
               onPulsar: () =>
                   ref.read(artifactsDataSourceProvider).reveal(documento.path),
             ),
+            if (onRenombrar case final renombrar?)
+              BotonDeLaHoja(texto: strings.renombrar, onPulsar: renombrar),
             if (ficha != null)
               BotonDeLaHoja(
                 texto: strings.artifactsRetomar,

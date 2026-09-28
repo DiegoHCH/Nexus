@@ -7,9 +7,12 @@ import 'package:nexus/core/i18n/strings/escenario_strings.dart';
 import 'package:nexus/core/i18n/strings/ejecucion_strings.dart';
 import 'package:nexus/core/i18n/strings/estadisticas_strings.dart';
 import 'package:nexus/core/i18n/strings/historial_strings.dart';
+import 'package:nexus/core/i18n/strings/icono_strings.dart';
+import 'package:nexus/core/i18n/strings/lo_que_costo_strings.dart';
 import 'package:nexus/core/i18n/strings/movil_strings.dart';
 import 'package:nexus/core/i18n/strings/nucleo_strings.dart';
 import 'package:nexus/core/i18n/strings/pruebas_strings.dart';
+import 'package:nexus/core/i18n/strings/renombrar_strings.dart';
 import 'package:nexus/core/i18n/strings/superpoderes_strings.dart';
 
 /// Todo lo que la interfaz dice, en los dos idiomas.
@@ -45,6 +48,7 @@ abstract class NexusStrings
         NucleoStrings,
         EstadisticasStrings,
         SuperpoderesStrings,
+        IconoStrings,
         PruebasStrings,
         DocumentosStrings,
         HistorialStrings,
@@ -52,9 +56,11 @@ abstract class NexusStrings
         ArranqueStrings,
         EscenarioStrings,
         ConversacionStrings,
+        LoQueCostoStrings,
         MovilStrings,
         MovilActualizarStrings,
-        AjustesStrings {
+        AjustesStrings,
+        RenombrarStrings {
   const NexusStrings();
 
   static const supported = [Locale('es'), Locale('en')];
@@ -69,6 +75,7 @@ class NexusStringsEs extends NexusStrings
         NucleoStringsEs,
         EstadisticasStringsEs,
         SuperpoderesStringsEs,
+        IconoStringsEs,
         PruebasStringsEs,
         DocumentosStringsEs,
         HistorialStringsEs,
@@ -76,9 +83,11 @@ class NexusStringsEs extends NexusStrings
         ArranqueStringsEs,
         EscenarioStringsEs,
         ConversacionStringsEs,
+        LoQueCostoStringsEs,
         MovilStringsEs,
         MovilActualizarStringsEs,
-        AjustesStringsEs {
+        AjustesStringsEs,
+        RenombrarStringsEs {
   const NexusStringsEs();
 }
 
@@ -87,6 +96,7 @@ class NexusStringsEn extends NexusStrings
         NucleoStringsEn,
         EstadisticasStringsEn,
         SuperpoderesStringsEn,
+        IconoStringsEn,
         PruebasStringsEn,
         DocumentosStringsEn,
         HistorialStringsEn,
@@ -94,8 +104,10 @@ class NexusStringsEn extends NexusStrings
         ArranqueStringsEn,
         EscenarioStringsEn,
         ConversacionStringsEn,
+        LoQueCostoStringsEn,
         MovilStringsEn,
         MovilActualizarStringsEn,
-        AjustesStringsEn {
+        AjustesStringsEn,
+        RenombrarStringsEn {
   const NexusStringsEn();
 }

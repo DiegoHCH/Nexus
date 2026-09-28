@@ -22,6 +22,7 @@ import 'package:nexus/features/assistant/presentation/providers/algo_en_marcha.d
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/history/presentation/widgets/conversation_history_sheet.dart';
+import 'package:nexus/features/icono/presentation/providers/icono_providers.dart';
 import 'package:nexus/features/onboarding/presentation/pages/app_root.dart';
 import 'package:nexus/features/updates/presentation/providers/desde_el_movil.dart';
 import 'package:nexus/features/updates/presentation/providers/updates_providers.dart';
@@ -290,6 +291,11 @@ class _MainAppState extends ConsumerState<MainApp> {
     // de fondo y tú lejos del teclado—. Él decide si escucha o no; lo que no
     // puede es no existir.
     ref.watch(elOidoQueEsperaProvider);
+
+    // Y el icono del Dock, que sigue a tu orbe mientras la app está abierta: si
+    // solo lo armara su ajuste, el Dock seguiría con el de siempre hasta abrir
+    // Apariencia. Él decide cuándo repintar; aquí solo se le da dónde vivir.
+    ref.watch(elIconoDelDockProvider);
 
     return MaterialApp(
       navigatorKey: _navigatorKey,

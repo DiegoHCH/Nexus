@@ -71,6 +71,9 @@ final askClaudeProvider = Provider.family<AskClaude, String>((
               .setActiveRepo(folder, nombrado);
         }
       }
+      // Tu personalidad, ya leída del disco: sin esperar, el primer encargo
+      // tras abrir la app se iba con la de la casa. Ver [LaPersonalidadEscrita.leida].
+      await ref.read(laPersonalidadProvider.notifier).leida;
       final activo =
           ref
               .read(workspaceControllerProvider)

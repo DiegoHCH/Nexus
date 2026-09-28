@@ -4,11 +4,18 @@ import 'package:nexus/features/assistant/presentation/providers/assistant_contro
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
 import 'package:nexus/features/assistant/presentation/state/chat_message.dart';
+import 'package:nexus/features/assistant/presentation/state/el_titulo_de_la_conversacion.dart';
 import 'package:nexus/features/remote/domain/actualizacion_del_mac.dart';
 import 'package:nexus/features/remote/domain/event_bridge.dart';
 import 'package:nexus/features/remote/domain/remote_surface.dart';
 import 'package:nexus/core/design_system/accent_preference.dart';
 import 'package:nexus/features/remote/presentation/providers/actualizar_el_mac_providers.dart';
+
+// Vivía aquí y se fue con la conversación, que es de quien es: el Mac lo pinta en el
+// orbe pequeño del escenario igual que el teléfono en su barra. Se reexporta para
+// que quien lo importaba de aquí siga encontrándolo.
+export 'package:nexus/features/assistant/presentation/state/el_titulo_de_la_conversacion.dart'
+    show tituloDeConversacion;
 
 /// Engancha el estado de la app al puente de eventos.
 ///
@@ -174,39 +181,4 @@ class EventPublisher {
       notice: hud.notice,
     );
   }
-}
-
-/// Con qué se reconoce una conversación.
-///
-/// **El primer encargo**, que es lo que ya usa el archivo del escritorio y resulta ser
-/// el mejor título que nadie ha escrito. Se aplana a una línea porque un encargo puede
-/// tener tres párrafos y esto va en una barra de título.
-///
-/// Si todavía no se ha pedido nada, la cola de la carpeta. Y el id solo como último
-/// recurso — que es justo lo que se veía en el teléfono al abrir una conversación
-/// nueva, y no dice nada de nada.
-///
-/// Función aparte y pura porque lo otro no se podía probar: dejar que el publicador
-/// mandara el id se colaba entero, con todas las pruebas en verde.
-String tituloDeConversacion({
-  required List<ChatMessage> mensajes,
-  required String? carpeta,
-  required String id,
-  String? puesto,
-}) {
-  // **Lo que puso el usuario manda sobre todo lo demás.** Si se ha tomado la molestia
-  // de ponerle nombre, ningún derivado puede pisarlo — y menos el primer encargo, que
-  // cambia al retomarla del archivo.
-  if (puesto != null && puesto.trim().isNotEmpty) return puesto.trim();
-
-  final primero = mensajes
-      .where((m) => m.author == ChatAuthor.user && m.text.trim().isNotEmpty)
-      .firstOrNull;
-  if (primero != null) {
-    final plano = primero.text.replaceAll(RegExp(r'\s+'), ' ').trim();
-    return plano.length <= 60 ? plano : '${plano.substring(0, 59)}…';
-  }
-
-  if (carpeta == null || carpeta.isEmpty) return id;
-  return carpeta.split('/').where((p) => p.isNotEmpty).lastOrNull ?? id;
 }

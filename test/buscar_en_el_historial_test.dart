@@ -260,7 +260,7 @@ void main() {
         final reescrito =
             jsonDecode(File('${carpeta.path}/_index.json').readAsStringSync())
                 as Map;
-        expect(reescrito['version'], 2, reason: 'la migración se hace una vez');
+        expect(reescrito['version'], 3, reason: 'la migración se hace una vez');
       },
     );
 

@@ -92,21 +92,13 @@ class ElEscenario extends ConsumerWidget {
         // es negativo.
         final trabajando =
             estado == NexusOrbState.think || estado == NexusOrbState.ponder;
-        final lado = trabajando
-            ? (h * 0.62).clamp(0.0, w * 0.40)
-            : (h * 0.66).clamp(0.0, w * 0.60);
-        final izquierda = trabajando ? w * 0.03 : (w - lado) / 2;
-        // **Centrado a lo alto**, el orbe junto con lo que va debajo de él —la
-        // hora, «escuchando», el subtítulo—: el grupo entero, no el dibujo
-        // solo, para que el texto no acabe pegado a las esquinas de abajo.
-        // Trabajando el registro va al lado, así que se centra el orbe.
-        //
-        // 🔴 Antes subía a un 18 % del hueco. Con la sala a lo ancho casi no
-        // se notaba, pero con la conversación abierta la sala se estrecha, el
-        // orbe se encoge por el ancho y quedaba arriba con media sala vacía
-        // debajo.
-        final debajo = trabajando ? 0.0 : _loQueVaDebajo;
-        final arriba = ((h - lado - debajo) / 2).clamp(0.0, double.infinity);
+        final sitio = elSitioDelOrbe(
+          sala: w,
+          alto: h,
+          trabajando: trabajando,
+          debajo: _loQueVaDebajo,
+        );
+        final lado = sitio.width, izquierda = sitio.left, arriba = sitio.top;
 
         // **Lo que le deja libre la hoja abierta**, si hay una. La sala empieza
         // en el borde izquierdo de la ventana, así que lo libre es la ventana
@@ -128,10 +120,19 @@ class ElEscenario extends ConsumerWidget {
             // reloj: mezclados en un solo `AnimatedPositioned`, el de la hoja
             // cambiaría el destino cada fotograma y el orbe no arrancaría
             // hasta que la hoja parase.
-            TweenAnimationBuilder<Rect?>(
-              tween: RectTween(
-                end: Rect.fromLTWH(izquierda, arriba, lado, lado),
-              ),
+            //
+            // 🔴 **Y lo que se anima es el estado, no el sitio.** Se animaba
+            // el rectángulo, y el panel del chat estrecha la sala durante sus
+            // 450 ms: cada fotograma traía un destino nuevo y el tween volvía
+            // a arrancar hacia él, así que el orbe iba siempre detrás del
+            // panel y acababa de colocarse cuando el panel ya había parado.
+            // Reportado el 28 sep: «tiene un atraso al volver al centro o al
+            // colocarse a un costado». Ahora se anima solo de 0 a 1 entre los
+            // dos sitios, y los dos se calculan con el ancho de **este**
+            // fotograma: el panel lo arrastra sin retraso, y el cambio de
+            // estado sigue tardando sus 700 ms.
+            TweenAnimationBuilder<double>(
+              tween: Tween(end: trabajando ? 1 : 0),
               duration: const Duration(milliseconds: 700),
               curve: Curves.easeInOutCubic,
               child: (envolverOrbe ?? (orbe) => orbe)(
@@ -147,11 +148,29 @@ class ElEscenario extends ConsumerWidget {
                   ),
                 ),
               ),
-              builder: (context, caja, orbe) => ListenableBuilder(
+              builder: (context, t, orbe) => ListenableBuilder(
                 listenable: LoQueTapaLaHoja.instancia,
                 builder: (context, _) => Positioned.fromRect(
                   key: ElEscenario.laLlaveDelOrbe,
-                  rect: elOrbeConLaHoja(caja!, sala: w, libre: libre()),
+                  rect: elOrbeConLaHoja(
+                    Rect.lerp(
+                      elSitioDelOrbe(
+                        sala: w,
+                        alto: h,
+                        trabajando: false,
+                        debajo: _loQueVaDebajo,
+                      ),
+                      elSitioDelOrbe(
+                        sala: w,
+                        alto: h,
+                        trabajando: true,
+                        debajo: _loQueVaDebajo,
+                      ),
+                      t,
+                    )!,
+                    sala: w,
+                    libre: libre(),
+                  ),
                   child: orbe!,
                 ),
               ),
@@ -222,6 +241,37 @@ const _loQueVaDebajo = 120.0;
 /// Continuo en [libre]: sin hoja devuelve [orbe] tal cual, así que el orbe va
 /// y vuelve a la vez que la hoja, sin saltos.
 @visibleForTesting
+/// Dónde va el orbe en una sala de [sala] × [alto], como en el mockup: al
+/// centro salvo trabajando, que se aparta a la izquierda para dejarle el sitio
+/// al registro. Nada sube por encima de la barra: por eso el `top` nunca es
+/// negativo.
+///
+/// **Centrado a lo alto**, el orbe junto con lo que va debajo de él —la hora,
+/// «escuchando», el subtítulo, [debajo]—: el grupo entero, no el dibujo solo,
+/// para que el texto no acabe pegado a las esquinas de abajo. Trabajando el
+/// registro va al lado, así que se centra el orbe.
+///
+/// 🔴 Antes subía a un 18 % del hueco. Con la sala a lo ancho casi no se
+/// notaba, pero con la conversación abierta la sala se estrecha, el orbe se
+/// encoge por el ancho y quedaba arriba con media sala vacía debajo.
+///
+/// Pura para que el escenario pueda calcular los dos sitios en cada fotograma
+/// —ver el `TweenAnimationBuilder` del orbe—.
+Rect elSitioDelOrbe({
+  required double sala,
+  required double alto,
+  required bool trabajando,
+  required double debajo,
+}) {
+  final lado = trabajando
+      ? (alto * 0.62).clamp(0.0, sala * 0.40)
+      : (alto * 0.66).clamp(0.0, sala * 0.60);
+  final izquierda = trabajando ? sala * 0.03 : (sala - lado) / 2;
+  final bajo = trabajando ? 0.0 : debajo;
+  final arriba = ((alto - lado - bajo) / 2).clamp(0.0, double.infinity);
+  return Rect.fromLTWH(izquierda, arriba, lado, lado);
+}
+
 Rect elOrbeConLaHoja(Rect orbe, {required double sala, required double libre}) {
   if (sala <= 0 || libre >= sala) return orbe;
   final visible = math.max(0.0, libre);

@@ -848,6 +848,15 @@ final class EspejoPegadoTests: XCTestCase {
     XCTAssertEqual(debajo, NSPoint(x: 100, y: -20))
   }
 
+  /// 🔴 Se queda en su escritorio (28 sep): con `.canJoinAllSpaces` salía
+  /// encima de cualquier app al cambiar de pantalla. Junto a una app a pantalla
+  /// completa sí puede estar, que es donde va el espejo.
+  func testLaBotoneraSeQuedaEnSuEscritorio() {
+    XCTAssertFalse(NexusBotonera.enLosEscritorios.contains(.canJoinAllSpaces))
+    XCTAssertFalse(NexusBotonera.enLosEscritorios.contains(.moveToActiveSpace))
+    XCTAssertTrue(NexusBotonera.enLosEscritorios.contains(.fullScreenAuxiliary))
+  }
+
   /// 🔴 Con el espejo a pantalla completa, «encima del espejo» es fuera de la
   /// pantalla: la barra se queda dentro, montada sobre su borde. Era lo que
   /// tumbaba la app el 28 sep —el motor de la barra sin pantalla—.

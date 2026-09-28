@@ -295,6 +295,19 @@ double laCapaConLaHoja({required double sala, required double libre}) {
   return (1 - tapado * 2).clamp(0.0, 1.0);
 }
 
+/// Lo que se lee hablando: **lo que está diciendo ella en esta respuesta**.
+///
+/// El subtítulo del estado, si lo hay —es la respuesta que suena, ver
+/// `AssistantController._onReply`—, y si no, su último mensaje.
+@visibleForTesting
+String? loQueDiceAhora(AssistantHudState hud) {
+  if (hud.subtitle.trim().isNotEmpty) return hud.subtitle.trim();
+  return hud.messages.reversed
+      .where((m) => m.author == ChatAuthor.nexus && m.text.trim().isNotEmpty)
+      .map((m) => m.text.trim())
+      .firstOrNull;
+}
+
 /// Lo que ocupa la sala en cada estado. Una sola cosa por estado: si todo está
 /// a la vez, no se lee nada.
 class _LaCapa extends ConsumerWidget {
@@ -371,9 +384,7 @@ class _LaCapa extends ConsumerWidget {
       case NexusOrbState.speak:
         // Hablando: su subtítulo bajo el orbe, en la franja grande — no una
         // burbuja de chat.
-        final dice = hud.subtitle.trim().isNotEmpty
-            ? hud.subtitle.trim()
-            : ultimo(ChatAuthor.nexus);
+        final dice = loQueDiceAhora(hud);
         if (dice == null) return const SizedBox.shrink();
         return Positioned(
           left: NexusSpacing.s8 * 2,

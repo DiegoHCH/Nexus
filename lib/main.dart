@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:nexus/core/platform/el_anfitrion_de_las_pruebas.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
@@ -64,6 +65,15 @@ Future<void> main() async {
   final registro = RegistroDeLaApp();
   engancharElRegistro(registro);
   debugPrint('nexus · arranca');
+
+  // **Abierta para las pruebas nativas, no se arranca nada.** Las pruebas de
+  // Swift solo necesitan el proceso; la app de verdad leía el llavero, y cada
+  // binario recién compilado hacía que macOS pidiera permiso otra vez. Ver
+  // [ElAnfitrionDeLasPruebas].
+  if (ElAnfitrionDeLasPruebas.esEste) {
+    runApp(const SizedBox.shrink());
+    return;
+  }
 
   // Los atajos globales los registra el sistema, no la app: sobreviven a un
   // hot reload y quedarían duplicados —o peor, huérfanos— sin esta limpieza

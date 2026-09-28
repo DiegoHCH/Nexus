@@ -213,6 +213,7 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
   private let url: URL
   private let onClose: () -> Void
   private var watcher: DispatchSourceFileSystemObject?
+  private var vigiaDelArchivo: DispatchSourceFileSystemObject?
   private var pending: DispatchWorkItem?
 
   /// El documento puede ejecutar sus scripts y salir a la red.
@@ -226,7 +227,17 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
   /// Se puede encender, y por eso esto no es una amputación: un mockup que
   /// necesita su gráfica pide el permiso con la casilla del título. Lo que
   /// cambia es quién decide, y ahora decide quien mira.
-  private(set) var permitido = false
+  ///
+  /// 🔴 **Y quien mira decidió que nazca encendido** (28 sep): «las ventanas
+  /// que abro adicional, que tengan por defecto el permiso de permitir scripts
+  /// y red encendido». Casi todo lo que se abre aquí es un mockup o un tracker
+  /// que necesita sus scripts, y encenderlo a mano cada vez era la norma, no la
+  /// excepción. El riesgo de arriba sigue ahí y se acepta a sabiendas: la
+  /// casilla del título sigue apagándolo, para el documento que no inspire
+  /// confianza. Las páginas de Nexus (`propia`) no cambian: no llevan scripts.
+  static let permitidoAlAbrir = true
+
+  private(set) var permitido: Bool
 
   /// La casilla del título. Guardada para poder reflejar el estado cuando el
   /// permiso cambie desde otro sitio.
@@ -254,6 +265,9 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
   /// Quien escucha el Esc de esta ventana, para soltarlo al cerrarla.
   private var escucha: Any?
 
+  /// Y quien escucha el ⌘R. Ver [recargarConCmdR].
+  private var recargar: Any?
+
   init(
     path: String,
     width: Double? = nil,
@@ -266,6 +280,7 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
     self.onClose = onClose
     self.propia = propia
     self.tituloDeLaPagina = tituloDeLaPagina
+    self.permitido = !propia && Viewer.permitidoAlAbrir
     window = NSWindow(
       // Los mil por setecientos ochenta de siempre cuando nadie dice otra cosa:
       // es la medida de un documento y no hay motivo para cambiarla.
@@ -303,6 +318,7 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
     web.navigationDelegate = self
     if !propia { ponerLaCasilla() }
     if propia { cerrarConEsc() }
+    recargarConCmdR()
     load()
     watch()
   }
@@ -488,6 +504,16 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
   /// Guardar no siempre es escribir encima: muchas herramientas escriben un
   /// temporal y lo renombran, y eso deja a un vigía del archivo mirando un
   /// inodo que ya no usa nadie — la ventana no se enteraría nunca.
+  ///
+  /// 🔴 **Y también el archivo, que era el agujero.** La carpeta solo avisa
+  /// cuando cambian sus entradas —un archivo nuevo, uno renombrado—, y Claude
+  /// edita **escribiendo encima**, en el sitio: la entrada no cambia y la
+  /// carpeta no dice nada. Reportado el 28 sep: «si tengo un archivo abierto y
+  /// lo actualiza Claude, no se ve la actualización, tengo que cerrarlo y
+  /// abrirlo». Así que van los dos vigías: la carpeta para el guardado con
+  /// temporal y renombre, el archivo para la escritura encima. Y el del
+  /// archivo se **vuelve a poner** en cada recarga, porque tras un renombre
+  /// mira un inodo que ya no es el documento.
   private func watch() {
     let dir = url.deletingLastPathComponent()
     let descriptor = Foundation.open(dir.path, O_EVTONLY)
@@ -502,6 +528,24 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
     source.setCancelHandler { Foundation.close(descriptor) }
     source.resume()
     watcher = source
+    vigilarElArchivo()
+  }
+
+  /// El vigía del propio archivo. Ver [watch].
+  private func vigilarElArchivo() {
+    vigiaDelArchivo?.cancel()
+    vigiaDelArchivo = nil
+    let descriptor = Foundation.open(url.path, O_EVTONLY)
+    guard descriptor >= 0 else { return }
+    let source = DispatchSource.makeFileSystemObjectSource(
+      fileDescriptor: descriptor,
+      eventMask: [.write, .extend, .delete, .rename, .attrib],
+      queue: .main
+    )
+    source.setEventHandler { [weak self] in self?.scheduleReload() }
+    source.setCancelHandler { Foundation.close(descriptor) }
+    source.resume()
+    vigiaDelArchivo = source
   }
 
   /// Con espera antes de recargar: un guardado no es atómico —el archivo pasa
@@ -518,6 +562,9 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
     let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
     let size = (attributes?[.size] as? NSNumber)?.intValue ?? 0
     guard size > 0 else { return }
+    // Tras un temporal renombrado, el vigía mira el inodo viejo: se pone otra
+    // vez sobre el de ahora.
+    vigilarElArchivo()
 
     web.evaluateJavaScript("window.scrollY") { [weak self] value, _ in
       self?.scrollY = (value as? NSNumber)?.doubleValue ?? 0
@@ -626,11 +673,30 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
     }
   }
 
+  /// **⌘R recarga**, como en un navegador. Reportado el 28 sep: «el command
+  /// + R, que es de la web, no sirve». Esta ventana no tiene menú ni barra de
+  /// direcciones, así que el atajo no lo atendía nadie. Con un monitor local,
+  /// por lo mismo que Esc: el `WKWebView` se queda las teclas.
+  private func recargarConCmdR() {
+    recargar = NSEvent.addLocalMonitorForEvents(matching: .keyDown) {
+      [weak self] evento in
+      guard let self, evento.window === self.window,
+        evento.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+        evento.charactersIgnoringModifiers?.lowercased() == "r"
+      else { return evento }
+      self.reload()
+      return nil
+    }
+  }
+
   func windowWillClose(_ notification: Notification) {
     if let escucha { NSEvent.removeMonitor(escucha) }
     escucha = nil
+    if let recargar { NSEvent.removeMonitor(recargar) }
+    recargar = nil
     pending?.cancel()
     watcher?.cancel()
+    vigiaDelArchivo?.cancel()
     // **Que se cerró hay que decirlo, o nadie se entera.** Una página que se
     // repinta sola —el registro de una corrida— seguiría escribiendo su archivo
     // cada pocos milisegundos para una ventana que ya no existe, y el botón que

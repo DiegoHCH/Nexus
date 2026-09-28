@@ -187,11 +187,18 @@ final class VisorDeArtefactosTests: XCTestCase {
   /// lo que leyó en un repositorio. Con lectura de toda la carpeta —que hace
   /// falta para el `assets/` de al lado— un script podía leer al vecino y
   /// mandarlo fuera.
-  func testElVisorNaceSinPermitirScripts() throws {
+  ///
+  /// 🔴 Desde el 28 sep nace **encendido**, a petición de quien mira —casi todo
+  /// lo que se abre es un mockup que necesita sus scripts—, y la casilla sigue
+  /// apagándolo. Las páginas de Nexus no llevan scripts y no cambian.
+  func testElVisorNaceConScriptsYRedYLasDeNexusNo() throws {
     let visor = Viewer(path: try documento(), onClose: {})
     defer { visor.window.close() }
+    XCTAssertTrue(visor.permitido, "un documento de Claude nace con scripts y red")
 
-    XCTAssertFalse(visor.permitido, "un documento recién abierto no ejecuta nada")
+    let propia = Viewer(path: try documento(), propia: true, onClose: {})
+    defer { propia.window.close() }
+    XCTAssertFalse(propia.permitido, "una página de Nexus no tiene nada que permitir")
   }
 
   /// El interruptor tiene que **verse**, o el apagado es una amputación: un
@@ -216,10 +223,10 @@ final class VisorDeArtefactosTests: XCTestCase {
     let accesorio = try XCTUnwrap(visor.window.titlebarAccessoryViewControllers.first)
     XCTAssertEqual(accesorio.layoutAttribute, .trailing)
     let boton = try XCTUnwrap(accesorio.view.subviews.compactMap { $0 as? NSButton }.first)
-    XCTAssertTrue(boton.attributedTitle.string.contains(NexusArtifacts.etiquetaApagado.uppercased()))
-
-    visor.permitir(true)
     XCTAssertTrue(boton.attributedTitle.string.contains(NexusArtifacts.etiquetaEncendido.uppercased()))
+
+    visor.permitir(false)
+    XCTAssertTrue(boton.attributedTitle.string.contains(NexusArtifacts.etiquetaApagado.uppercased()))
 
     let pie = visor.window.contentView?.subviews.first {
       $0.identifier == NSUserInterfaceItemIdentifier("pie")
@@ -227,9 +234,12 @@ final class VisorDeArtefactosTests: XCTestCase {
     XCTAssertEqual((pie as? NSTextField)?.stringValue, NexusArtifacts.ayudaPermiso)
   }
 
+  /// Con la casilla apagada, el script no corre: lo que nace encendido se
+  /// puede apagar de verdad.
   func testElScriptDelDocumentoNoCorre() throws {
     let visor = Viewer(path: try documentoConScript(), onClose: {})
     defer { visor.window.close() }
+    visor.permitir(false)
 
     let web = visor.web
 
@@ -246,8 +256,13 @@ final class VisorDeArtefactosTests: XCTestCase {
     defer { visor.window.close() }
 
     let web = visor.web
-    _ = try corrioElScript(en: web)
+    // Nace encendido: corre sin tocar nada.
+    XCTAssertTrue(esperaAQueCorra(en: web), "un documento recién abierto ya corre sus scripts")
 
+    // Y apagado y vuelto a encender, corre otra vez. Sin mirar entre medias:
+    // con el CI cargado, preguntar durante la recarga del apagado choca con
+    // ella (se vio agotando los 15 s).
+    visor.permitir(false)
     visor.permitir(true)
 
     // Se **espera** a que corra en vez de mirar una vez: marcar la casilla
@@ -257,6 +272,56 @@ final class VisorDeArtefactosTests: XCTestCase {
       esperaAQueCorra(en: web),
       "marcada la casilla, el documento vuelve a ser un documento normal"
     )
+  }
+
+  /// 🔴 **Escribir encima, en el sitio, recarga la ventana** (28 sep): Claude
+  /// edita así, y la carpeta no avisa porque sus entradas no cambian. Mismo
+  /// inodo, contenido nuevo: la ventana tiene que enseñarlo sin cerrarla.
+  func testEscribirEncimaDelArchivoLoRecarga() throws {
+    let ruta = try documento()
+    let visor = Viewer(path: ruta, onClose: {})
+    defer { visor.window.close() }
+    XCTAssertTrue(esperaAlTexto("hola", en: visor.web), "primero enseña lo de antes")
+
+    let archivo = try XCTUnwrap(FileHandle(forWritingAtPath: ruta))
+    try archivo.truncate(atOffset: 0)
+    try archivo.write(contentsOf: Data("<html><body>adios</body></html>".utf8))
+    try archivo.close()
+
+    XCTAssertTrue(
+      esperaAlTexto("adios", en: visor.web),
+      "escrito encima del mismo archivo, la ventana tiene que enseñar lo nuevo"
+    )
+  }
+
+  /// Y guardar con un temporal que se renombra encima, dos veces seguidas: la
+  /// segunda también tiene que llegar, con el vigía puesto sobre el inodo nuevo.
+  func testGuardarConRenombreRecargaUnaYOtraVez() throws {
+    let ruta = try documento()
+    let visor = Viewer(path: ruta, onClose: {})
+    defer { visor.window.close() }
+    XCTAssertTrue(esperaAlTexto("hola", en: visor.web))
+
+    try "<html><body>uno</body></html>".write(toFile: ruta, atomically: true, encoding: .utf8)
+    XCTAssertTrue(esperaAlTexto("uno", en: visor.web))
+    try "<html><body>dos</body></html>".write(toFile: ruta, atomically: true, encoding: .utf8)
+    XCTAssertTrue(esperaAlTexto("dos", en: visor.web))
+  }
+
+  /// Espera a que el cuerpo del documento diga [texto].
+  private func esperaAlTexto(_ texto: String, en web: WKWebView, timeout: TimeInterval = 10) -> Bool {
+    let limite = Date().addingTimeInterval(timeout)
+    var visto = false
+    while Date() < limite && !visto {
+      let vuelta = expectation(description: "una mirada al documento")
+      web.evaluateJavaScript("document.body ? document.body.innerText : ''") { valor, _ in
+        visto = (valor as? String)?.contains(texto) == true
+        vuelta.fulfill()
+      }
+      wait(for: [vuelta], timeout: 2)
+      if !visto { RunLoop.current.run(until: Date().addingTimeInterval(0.1)) }
+    }
+    return visto
   }
 
   /// La app sigue pudiendo preguntarle cosas a la página aunque la página no

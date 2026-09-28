@@ -34,6 +34,7 @@ abstract final class StatusItemChannel {
     required String settings,
     required String quit,
     String? update,
+    String? runBar,
   }) => _llamar('setMenu', {
     'talk': talk,
     'show': show,
@@ -42,6 +43,8 @@ abstract final class StatusItemChannel {
     // Va solo cuando hay algo que anunciar: el lado nativo se salta la fila si
     // llega vacío, y así el menú no tiene un hueco muerto el 99 % del tiempo.
     'update': ?update,
+    // Y la botonera escondida, por lo mismo: solo mientras hay algo que traer.
+    'runBar': ?runBar,
   });
 
   /// Lo que el menú pide de vuelta: hablar y abrir ajustes son estado de la app,
@@ -50,6 +53,7 @@ abstract final class StatusItemChannel {
     required void Function() talk,
     required void Function() settings,
     required void Function() update,
+    required void Function() runBar,
   }) {
     _channel.setMethodCallHandler((call) async {
       switch (call.method) {
@@ -62,6 +66,10 @@ abstract final class StatusItemChannel {
         // dentro, así que lo que abre es la modal — y eso solo lo sabe Dart.
         case 'update':
           update();
+        // La botonera escondida con su cruz: quien sabe traerla es la app, que
+        // es la que tiene lo que enseña.
+        case 'runBar':
+          runBar();
       }
       return null;
     });

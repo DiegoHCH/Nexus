@@ -8,6 +8,7 @@ import 'package:nexus/core/platform/status_item_channel.dart';
 import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
+import 'package:nexus/features/run/presentation/providers/la_botonera_de_fuera.dart';
 import 'package:nexus/features/updates/presentation/providers/updates_providers.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings_page.dart';
 
@@ -41,6 +42,7 @@ class _StatusPresenceState extends ConsumerState<StatusPresence> {
     // idioma en Ajustes sin reiniciar.
     final strings = context.strings;
     final aviso = ref.read(updatesControllerProvider).notice;
+    final escondida = ref.read(laBotoneraDeFueraProvider).escondida;
     StatusItemChannel.setMenu(
       talk: strings.statusTalk,
       show: strings.statusShow,
@@ -49,6 +51,10 @@ class _StatusPresenceState extends ConsumerState<StatusPresence> {
       update: aviso != null && aviso.isNewer
           ? strings.updateAvailable(aviso.latest ?? '')
           : null,
+      // 🔴 **Solo con la botonera escondida.** Su ventana no tiene marco ni
+      // Dock: escondida con la cruz, esta fila es el único camino de vuelta
+      // mientras siga corriendo lo mismo. Sin nada escondido sobraría.
+      runBar: escondida ? strings.runToolbarMostrar : null,
     );
     // Y los del visor de documentos, que es la otra ventana nativa con texto
     // propio. Va aquí porque este es el sitio que ya se rehace cuando cambia el
@@ -73,6 +79,7 @@ class _StatusPresenceState extends ConsumerState<StatusPresence> {
       // derecha. Antes abría el navegador, y ahí se acababa lo que la app podía
       // hacer por ti.
       update: ref.read(updatesControllerProvider.notifier).comprobarAhora,
+      runBar: ref.read(laBotoneraDeFueraProvider.notifier).mostrarOtraVez,
     );
   }
 
@@ -85,6 +92,12 @@ class _StatusPresenceState extends ConsumerState<StatusPresence> {
     // rehace: si no, el aviso no llegaría hasta el siguiente arranque.
     ref.listen(
       updatesControllerProvider.select((s) => s.notice),
+      (_, _) => _rehacerMenu(),
+    );
+
+    // Y al esconder o traer la botonera, que es la otra fila que va y viene.
+    ref.listen(
+      laBotoneraDeFueraProvider.select((como) => como.escondida),
       (_, _) => _rehacerMenu(),
     );
 

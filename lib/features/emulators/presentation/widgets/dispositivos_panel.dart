@@ -427,16 +427,22 @@ class _FilaDeDispositivo extends ConsumerWidget {
               texto: strings.verLaPantallaCorto,
               tooltip: strings.verLaPantalla,
               tono: TonoDeBoton.principal,
-              onPulsar: () => ref
-                  .read(emuladoresDataSourceProvider)
-                  .verLaPantalla(
-                    deviceId: dispositivo.id,
-                    titulo: dispositivo.nombre,
-                    // Desde aquí sí con control: se abre para mirarlo y tocarlo.
-                    // El caso sin control es el del panel de pruebas, cuando hay
-                    // una corrida viva.
-                    conControl: true,
-                  ),
+              onPulsar: () {
+                ref
+                    .read(emuladoresDataSourceProvider)
+                    .verLaPantalla(
+                      deviceId: dispositivo.id,
+                      titulo: dispositivo.nombre,
+                      // Desde aquí sí con control: se abre para mirarlo y
+                      // tocarlo. El caso sin control es el del panel de
+                      // pruebas, cuando hay una corrida viva.
+                      conControl: true,
+                    );
+                // Y se avisa, por si corre algo en él: la botonera se lo pega.
+                ref
+                    .read(elEspejoAbiertoProvider.notifier)
+                    .abrio(dispositivo.id);
+              },
             ),
           // **Un iPhone físico se mira con lo que trae macOS**, y con las dos
           // formas porque se complementan: Duplicado da control pero exige Apple
@@ -447,8 +453,12 @@ class _FilaDeDispositivo extends ConsumerWidget {
           // 15, y en una anterior el botón solo podría fallar.
           for (final como in ref.watch(comoVerElIphoneProvider(dispositivo.id)))
             IconButton(
-              onPressed: () =>
-                  ref.read(emuladoresDataSourceProvider).verElIphone(como),
+              onPressed: () {
+                ref.read(emuladoresDataSourceProvider).verElIphone(como);
+                ref
+                    .read(elEspejoAbiertoProvider.notifier)
+                    .abrio(dispositivo.id);
+              },
               tooltip: switch (como) {
                 ComoVerElIphone.duplicado => strings.verElIphoneDuplicado,
                 ComoVerElIphone.quickTime => strings.verElIphoneQuickTime,

@@ -17,6 +17,7 @@ import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/platform/app_menu_channel.dart';
+import 'package:nexus/botonera_de_fuera.dart';
 import 'package:nexus/orbe_flotante.dart';
 import 'package:nexus/features/artifacts/presentation/widgets/artifacts_sheet.dart';
 import 'package:nexus/features/assistant/presentation/providers/algo_en_marcha.dart';
@@ -36,6 +37,7 @@ import 'package:nexus/features/programadas/presentation/providers/el_vigilante_d
 import 'package:nexus/features/assistant/domain/entities/conversation.dart';
 import 'package:nexus/features/oido/presentation/providers/el_oido_que_espera.dart';
 import 'package:nexus/features/prs/presentation/providers/el_vigilante_de_los_pr.dart';
+import 'package:nexus/features/run/presentation/providers/la_botonera_de_fuera.dart';
 
 /// **El orbe que sale al escritorio cuando la llamas.**
 ///
@@ -46,6 +48,12 @@ import 'package:nexus/features/prs/presentation/providers/el_vigilante_de_los_pr
 /// `orbe_flotante.dart`.
 @pragma('vm:entry-point')
 void orbeFlotante() => arrancarElOrbeFlotante();
+
+/// **La botonera de corridas, en su ventana aparte.** Aquí por lo mismo que el
+/// orbe: el motor de `NexusBotonera` busca su punto de entrada en esta librería.
+/// El cuerpo está en `botonera_de_fuera.dart`.
+@pragma('vm:entry-point')
+void botoneraDeFuera() => arrancarLaBotoneraDeFuera();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -166,6 +174,14 @@ class _MainAppState extends ConsumerState<MainApp> {
       (_, dark) => AppearanceChannel.apply(dark: dark),
       fireImmediately: true,
     );
+    // **La botonera de fuera, viva desde el arranque**, por el patrón que el
+    // `build` repite cinco veces: un provider que *hace* algo por su cuenta no
+    // puede depender de que alguien lo mire. Saca su ventana cuando algo corre y la
+    // recoge cuando no, esté la pantalla que esté.
+    //
+    // Escuchado y no mirado: su estado —fuera, escondida— cambia cada vez que
+    // algo arranca o termina, y con un `watch` aquí eso rehacía la app entera.
+    ref.listenManual(laBotoneraDeFueraProvider, (_, _) {});
   }
 
   /// Los documentos generados (⌘J). No dependen de la conversación abierta —un

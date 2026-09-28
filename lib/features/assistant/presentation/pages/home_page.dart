@@ -49,6 +49,7 @@ import 'package:nexus/features/assistant/presentation/widgets/composer_bar.dart'
 import 'package:nexus/features/workspace/presentation/pages/settings/secciones_de_ajustes.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings_page.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
+import 'package:nexus/features/run/presentation/providers/la_botonera_de_fuera.dart';
 import 'package:nexus/features/run/presentation/widgets/la_botonera_de_corridas.dart';
 import 'package:nexus/features/workspace/presentation/widgets/hud_top_bar.dart';
 
@@ -1214,7 +1215,13 @@ class _LasSugerencias extends ConsumerWidget {
 /// que la mantiene agarrable. **Nace donde nacía**: el sitio se cuenta desde el
 /// suelo y el suelo no se ha movido —lo que se gana está arriba—, así que quien
 /// no la haya tocado nunca no nota el cambio.
-class _ConLaBotoneraDelante extends StatelessWidget {
+///
+/// 🔴 **Y ya solo como plan B.** La botonera vive ahora en su propia ventana,
+/// fuera de Nexus —pedido: «al no poder salir ocupa espacio de la ventana
+/// normal»—, así que aquí dentro solo se monta si esa ventana no se pudo abrir.
+/// Ver [ComoEstaLaBotonera.sinVentana]. Con la ventana fuera, la de Nexus no
+/// pinta ni un píxel de barra.
+class _ConLaBotoneraDelante extends ConsumerWidget {
   const _ConLaBotoneraDelante({
     required this.arriba,
     required this.abajo,
@@ -1233,19 +1240,24 @@ class _ConLaBotoneraDelante extends StatelessWidget {
   final Widget abajo;
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      Expanded(
-        child: Stack(
-          children: [
-            arriba,
-            LaBotoneraDeCorridas(reservaDerecha: reservaDerecha),
-          ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dentro = ref.watch(
+      laBotoneraDeFueraProvider.select((como) => como.sinVentana),
+    );
+    return Column(
+      children: [
+        Expanded(
+          child: Stack(
+            children: [
+              arriba,
+              if (dentro) LaBotoneraDeCorridas(reservaDerecha: reservaDerecha),
+            ],
+          ),
         ),
-      ),
-      abajo,
-    ],
-  );
+        abajo,
+      ],
+    );
+  }
 }
 
 /// Una palabra para lo que está pasando, como el «Dormido» del mockup.

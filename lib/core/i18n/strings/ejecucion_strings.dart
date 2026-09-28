@@ -134,6 +134,17 @@ mixin EjecucionStrings {
   /// Lo que se puede hacer con un registro desde su ventana.
   String get runCopiar;
   String get runRegistroVacio;
+
+  /// La botonera en su ventana aparte: la cruz que la quita de en medio y la
+  /// fila de la barra de estado que la trae de vuelta mientras algo corre.
+  String get runToolbarEsconder;
+  String get runToolbarMostrar;
+
+  /// El permiso para llevar el espejo pegado a la botonera: por qué hace
+  /// falta, y las dos salidas. Se pregunta una vez.
+  String get runEspejoPermiso;
+  String get runEspejoPermitir;
+  String get runEspejoAhoraNo;
 }
 
 mixin EjecucionStringsEs implements EjecucionStrings {
@@ -296,6 +307,18 @@ mixin EjecucionStringsEs implements EjecucionStrings {
   @override
   String get runRegistroVacio =>
       'Todavía no ha escrito nada. Aparece aquí en cuanto la app hable.';
+  @override
+  String get runToolbarEsconder => 'Esconder la botonera';
+  @override
+  String get runToolbarMostrar => 'Mostrar la botonera';
+  @override
+  String get runEspejoPermiso =>
+      'Para que la pantalla del teléfono se mueva pegada a la botonera, '
+      'Nexus necesita el permiso de Accesibilidad de macOS.';
+  @override
+  String get runEspejoPermitir => 'Abrir Ajustes';
+  @override
+  String get runEspejoAhoraNo => 'Ahora no';
 }
 
 mixin EjecucionStringsEn implements EjecucionStrings {
@@ -458,4 +481,16 @@ mixin EjecucionStringsEn implements EjecucionStrings {
   @override
   String get runRegistroVacio =>
       'Nothing written yet. It shows up here as soon as the app speaks.';
+  @override
+  String get runToolbarEsconder => 'Hide the run bar';
+  @override
+  String get runToolbarMostrar => 'Show the run bar';
+  @override
+  String get runEspejoPermiso =>
+      "To keep the phone's screen glued to the run bar, Nexus needs macOS "
+      'Accessibility permission.';
+  @override
+  String get runEspejoPermitir => 'Open Settings';
+  @override
+  String get runEspejoAhoraNo => 'Not now';
 }

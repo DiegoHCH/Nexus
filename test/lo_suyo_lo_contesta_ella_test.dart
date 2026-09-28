@@ -122,7 +122,10 @@ void main() {
   });
 
   group('en la conversación', () {
-    ({ProviderContainer c, _Puente puente}) montar(String? contesta) {
+    ({ProviderContainer c, _Puente puente}) montar(
+      String? contesta, {
+      Future<String?> Function(String)? con,
+    }) {
       final puente = _Puente();
       final c = ProviderContainer(
         overrides: [
@@ -136,7 +139,9 @@ void main() {
           claudeBridgeProvider.overrideWithValue(puente),
           localConversationStoreProvider.overrideWithValue(const _SinDisco()),
           conversationArchiveProvider.overrideWith((ref) async => null),
-          loContestaEllaProvider.overrideWithValue((_) async => contesta),
+          loContestaEllaProvider.overrideWithValue(
+            con ?? (_) async => contesta,
+          ),
         ],
       );
       addTearDown(c.dispose);
@@ -153,6 +158,26 @@ void main() {
           .submit('¿Quién eres?');
 
       expect(m.puente.pedidos, isEmpty);
+      expect(mensajes(m.c).map((x) => x.text), [
+        '¿Quién eres?',
+        'Soy Ciel, Master.',
+      ]);
+    });
+
+    // 🔴 Tardaba en aparecer: se esperaba la respuesta antes de pintarlo.
+    test('lo tuyo sale al momento, antes de su respuesta', () async {
+      final respuesta = Completer<String?>();
+      final m = montar(null, con: (_) => respuesta.future);
+      unawaited(
+        m.c
+            .read(assistantControllerProvider(conversationId).notifier)
+            .submit('¿Quién eres?'),
+      );
+      await pumpEventQueue();
+      expect(mensajes(m.c).map((x) => x.text), ['¿Quién eres?']);
+
+      respuesta.complete('Soy Ciel, Master.');
+      await pumpEventQueue();
       expect(mensajes(m.c).map((x) => x.text), [
         '¿Quién eres?',
         'Soy Ciel, Master.',

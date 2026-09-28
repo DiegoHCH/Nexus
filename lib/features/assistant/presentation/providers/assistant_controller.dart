@@ -1068,6 +1068,10 @@ class AssistantController extends Notifier<AssistantHudState> {
       if (!_vive) return;
     }
 
+    // Si lo tuyo ya está en la conversación —lo pintó el camino de [AElla]
+    // antes de pasárselo a Claude—, no se vuelve a escribir.
+    var yaSeVe = false;
+
     // A dónde va esto, decidido en un solo sitio. El orden y las condiciones
     // —qué atajo se mira antes que cuál, y cuáles admiten adjuntos— viven en
     // `ADondeVaLoQueSeEscribe`: es una precedencia, y equivocarla secuestra
@@ -1298,11 +1302,21 @@ class AssistantController extends Notifier<AssistantHudState> {
       // Lo suyo —quién es, qué sabe hacer— lo contesta ella, sin Claude. Si
       // no puede, se sigue de largo hacia Claude, como antes.
       case AElla():
+        // 🔴 **Lo tuyo se pinta ya, no cuando conteste.** Esperaba la
+        // respuesta de Gemini para no pintarlo dos veces si acababa en Claude,
+        // y el mensaje tardaba en aparecer: se leía como que no se había
+        // enviado (reportado el 27 sep). Ahora sale al momento, el orbe piensa
+        // mientras tanto, y si va a Claude él ya no lo repite.
+        if (!yaEstaDicho) {
+          _say(ChatAuthor.user, loQueSeVe ?? trimmed);
+          _sealLast();
+        }
+        yaSeVe = true;
+        state = state.copyWith(orbState: NexusOrbState.think);
         final dicho = await ref.read(loContestaEllaProvider)(trimmed);
         if (!_vive) return;
         if (dicho != null) {
-          _say(ChatAuthor.user, loQueSeVe ?? trimmed);
-          _sealLast();
+          state = state.copyWith(orbState: NexusOrbState.sleep);
           _say(ChatAuthor.nexus, dicho);
           _sealLast();
           return;
@@ -1357,7 +1371,7 @@ class AssistantController extends Notifier<AssistantHudState> {
       // está aceptado, y dejar el botón puesto invita a pulsarlo otra vez.
       if (reintento) {
         _quitaLaMarcaDeFallo();
-      } else {
+      } else if (!yaSeVe) {
         _say(ChatAuthor.user, loQueSeVe ?? trimmed, attachments: attachments);
         _sealLast();
       }
@@ -1368,7 +1382,7 @@ class AssistantController extends Notifier<AssistantHudState> {
           allowWrites: allowWrites,
           esElParte: esElParte,
           loQueSeVe: loQueSeVe,
-          pintado: !reintento,
+          pintado: !reintento || yaSeVe,
         ),
       );
       // Y se cuenta, que es lo que permite ofrecer adelantarlo. Ver
@@ -1404,7 +1418,7 @@ class AssistantController extends Notifier<AssistantHudState> {
     // *eso*, no mandarlo de nuevo.
     if (reintento) {
       _quitaLaMarcaDeFallo();
-    } else if (!yaEstaDicho) {
+    } else if (!yaEstaDicho && !yaSeVe) {
       _say(ChatAuthor.user, loQueSeVe ?? trimmed, attachments: attachments);
       _sealLast();
     }

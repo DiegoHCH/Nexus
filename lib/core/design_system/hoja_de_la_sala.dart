@@ -49,7 +49,12 @@ class HojaDeLaSala extends StatelessWidget {
     BuildContext context,
     Widget hoja, {
     required String cual,
-  }) => RutaDeLaHoja.alternar(context, cual: cual, builder: (_) => hoja);
+  }) => RutaDeLaHoja.alternar(
+    context,
+    cual: cual,
+    builder: (_) => hoja,
+    ancho: anchoDeLaHoja,
+  );
 
   /// El ancho de la hoja para una ventana dada.
   ///

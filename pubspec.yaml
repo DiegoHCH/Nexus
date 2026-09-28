@@ -1,7 +1,7 @@
 name: nexus
 description: "A new Flutter project."
 publish_to: 'none'
-version: 1.36.0+103
+version: 1.36.1+104
 
 environment:
   sdk: ^3.12.2
@@ -56,6 +56,14 @@ dev_dependencies:
   # esperarlos de verdad haría una suite que nadie corre. Ya venía de transitiva
   # con flutter_test; se declara porque se usa directamente.
   fake_async: ^1.3.3
+  # El recorrido del Mac (`integration_test/`): la app de verdad, abierta en
+  # macOS y tocada como la toca una persona. Maestro no maneja apps de macOS.
+  integration_test:
+    sdk: flutter
+  # Para sustituir las carpetas del sistema en ese recorrido: la app de prueba
+  # lleva el mismo bundle id que la instalada, y sin esto leería y escribiría
+  # las conversaciones de verdad de quien la corre.
+  path_provider_platform_interface: ^2.1.3
 
 flutter:
   uses-material-design: true

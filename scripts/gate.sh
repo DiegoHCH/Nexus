@@ -40,7 +40,7 @@ RESULTADOS=()
 paso "dependencias" flutter pub get
 paso "dependencias del protocolo" bash -c 'cd packages/nexus_protocol && dart pub get'
 paso "analyze (--fatal-infos)" flutter analyze --fatal-infos
-paso "format" dart format --output=none --set-exit-if-changed lib test packages
+paso "format" dart format --output=none --set-exit-if-changed lib test integration_test packages
 paso "pruebas del protocolo" bash -c 'cd packages/nexus_protocol && dart test'
 paso "pruebas con cobertura" flutter test --coverage
 # Solo tiene sentido si hubo informe: sin `lcov.info` esto diría «falta el

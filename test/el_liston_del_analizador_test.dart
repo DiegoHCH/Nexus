@@ -98,7 +98,7 @@ void main() {
         'flutter pub get',
         'dart pub get',
         'flutter analyze --fatal-infos',
-        'dart format --output=none --set-exit-if-changed lib test packages',
+        'dart format --output=none --set-exit-if-changed lib test integration_test packages',
         'dart test',
         'flutter test --coverage',
         './scripts/cobertura.sh',

@@ -783,6 +783,30 @@ final class EspejoPegadoTests: XCTestCase {
     XCTAssertEqual(debajo, NSPoint(x: 100, y: -20))
   }
 
+  /// 🔴 Con el espejo a pantalla completa, «encima del espejo» es fuera de la
+  /// pantalla: la barra se queda dentro, montada sobre su borde. Era lo que
+  /// tumbaba la app el 28 sep —el motor de la barra sin pantalla—.
+  func testConElEspejoAPantallaCompletaLaBarraNoSaleDeLaPantalla() {
+    let completa = NSRect(x: 0, y: 0, width: 1512, height: 982)
+    let tamano = NSSize(width: 430, height: 120)
+    let pegada = NexusEspejoPegado.dondeVaLaBarra(espejo: completa, lado: .abajo, barra: tamano)
+    XCTAssertGreaterThanOrEqual(pegada.y, completa.maxY, "sin ajustar, se sale por arriba")
+
+    let origen = NexusBotonera.pegadaAlEspejo(pegada, tamano: tamano, de: [completa])
+    let marco = NSRect(origin: origen, size: tamano)
+    XCTAssertTrue(completa.contains(marco), "la barra tiene que quedar dentro: \(marco)")
+    XCTAssertEqual(origen.x, pegada.x, "y sin moverse de lado: sigue centrada sobre el espejo")
+  }
+
+  /// Si cabe donde toca, no se toca: pegada al espejo, como antes.
+  func testConSitioLaBarraSigueJustoEncimaDelEspejo() {
+    let pantalla = NSRect(x: 0, y: 0, width: 1512, height: 982)
+    let espejo = NSRect(x: 100, y: 100, width: 430, height: 600)
+    let tamano = NSSize(width: 430, height: 120)
+    let pegada = NexusEspejoPegado.dondeVaLaBarra(espejo: espejo, lado: .abajo, barra: tamano)
+    XCTAssertEqual(NexusBotonera.pegadaAlEspejo(pegada, tamano: tamano, de: [pantalla]), pegada)
+  }
+
   /// Ida y vuelta: poner el espejo donde va y volver a poner la barra desde él
   /// deja la barra donde estaba. Si no, arrastrar el espejo la haría saltar.
   func testIdaYVueltaNoMueveLaBarra() {

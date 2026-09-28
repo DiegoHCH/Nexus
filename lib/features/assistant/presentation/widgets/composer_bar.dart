@@ -90,6 +90,11 @@ class ComposerBar extends ConsumerStatefulWidget {
   /// fila de controles.
   final bool conLoDeLaSala;
 
+  /// La caja de escribir, para quien la busca desde fuera: el recorrido del Mac
+  /// (`integration_test/`) escribe aquí como lo haría una persona. Por llave y no
+  /// por tipo porque en pantalla puede haber más de un `TextField`.
+  static const laLlaveDeLaCaja = ValueKey('compositor-caja');
+
   @override
   ConsumerState<ComposerBar> createState() => _ComposerBarState();
 }
@@ -374,6 +379,7 @@ class _FieldState extends State<_Field> {
         child: ValueListenableBuilder<TextEditingValue>(
           valueListenable: controller,
           builder: (context, value, child) => TextField(
+            key: ComposerBar.laLlaveDeLaCaja,
             controller: controller,
             focusNode: focusNode,
             style: NexusTypography.body.copyWith(color: colors.ink),

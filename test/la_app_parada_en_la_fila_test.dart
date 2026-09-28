@@ -6,11 +6,13 @@ import 'package:nexus/features/emulators/domain/entities/emulador.dart';
 import 'package:nexus/features/run/domain/entities/corrida.dart';
 import 'package:nexus/features/run/domain/usecases/el_freno_de_la_app.dart';
 import 'package:nexus/features/run/presentation/providers/corridas_providers.dart';
+import 'package:nexus/features/run/presentation/providers/la_botonera_de_fuera.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/domain/entities/workspace.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
 import 'support/screen_harness.dart';
+import 'support/ventana_de_la_botonera.dart';
 
 /// **Lo que la fila dice cuando la app está parada.**
 ///
@@ -56,6 +58,11 @@ class _Corridas extends CorridasController {
 
 List<Object> _con(Corrida corrida) => [
   corridasProvider.overrideWith(() => _Corridas({_deviceId: corrida})),
+  // La fila se lee en la barra de dentro, que es la misma que la de fuera
+  // pintada con la misma foto: se monta sin ventana para poder mirarla aquí.
+  laVentanaDeLaBotoneraProvider.overrideWithValue(
+    VentanaQueApunta(sale: false),
+  ),
   workspaceControllerProvider.overrideWith(
     () => FixedWorkspace(
       const Workspace(

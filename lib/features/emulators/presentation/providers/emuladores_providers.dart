@@ -149,3 +149,27 @@ class ElVigiaDeLosAparatos {
 final elVigiaDeLosAparatosProvider = Provider<ElVigiaDeLosAparatos>(
   ElVigiaDeLosAparatos.new,
 );
+
+/// **El último espejo que se abrió desde Nexus**, y de qué dispositivo.
+///
+/// Lo mira la botonera de corridas para saber qué espejo pegarse debajo: el
+/// último que abriste. Vive aquí y no en la botonera porque quien abre espejos
+/// es esta feature —el panel de dispositivos, el que se abre solo al correr— y
+/// así la de correr escucha sin que esta tenga que saber que existe.
+///
+/// Lleva la vez y no solo el dispositivo: abrir dos veces el mismo es volver a
+/// pedirlo —la ventana pudo cerrarse entre medias—, y con el id a secas el
+/// segundo aviso no cambiaría nada y nadie se enteraría.
+class ElEspejoAbierto extends Notifier<({String deviceId, int vez})?> {
+  var _veces = 0;
+
+  @override
+  ({String deviceId, int vez})? build() => null;
+
+  void abrio(String deviceId) => state = (deviceId: deviceId, vez: ++_veces);
+}
+
+final elEspejoAbiertoProvider =
+    NotifierProvider<ElEspejoAbierto, ({String deviceId, int vez})?>(
+      ElEspejoAbierto.new,
+    );

@@ -43,6 +43,14 @@ abstract final class ElEspejoDelMovil {
   /// - `-m 1024` acota el lado mayor: menos que mandar por el cable, y va más fino.
   /// - `-w` mantiene la pantalla despierta, que si no se apaga a mitad de lo que
   ///   estabas mirando.
+  ///
+  /// 🔴 **Y con su barra de título, aunque vaya pegado a la botonera.** scrcpy
+  /// tiene `--window-borderless`, y pegado quedaría más limpio; pero una ventana
+  /// sin marco no se puede arrastrar ni cerrar, y el espejo **se despega**
+  /// —termina la corrida, se esconde la botonera, se cierra Nexus, no hay
+  /// permiso de Accesibilidad— y entonces quedaría una pantalla de teléfono
+  /// clavada en el escritorio sin forma de quitarla. La barra de título es
+  /// además por donde se arrastra el espejo para llevarse la botonera con él.
   static List<String> argumentos({
     required String deviceId,
     required String titulo,

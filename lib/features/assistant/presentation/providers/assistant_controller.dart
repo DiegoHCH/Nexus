@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:nexus/features/assistant/domain/entities/pregunta_de_claude.dart';
+import 'package:nexus/features/assistant/presentation/providers/lo_contesta_ella.dart';
 
 import 'package:flutter/foundation.dart';
 
@@ -451,6 +452,48 @@ class AssistantController extends Notifier<AssistantHudState> {
       ),
     );
   }
+
+  /// Suelta una respuesta que llegó entera **como si llegara hablando**: el
+  /// orbe en «hablando» y el texto palabra a palabra, y al acabar a dormir.
+  ///
+  /// 🔴 Lo que contesta ella por escrito llega de una pieza, y soltarlo de
+  /// golpe con el orbe todavía pensando se leía distinto a cualquier otra
+  /// respuesta: sin el estado de hablar y con el texto cayendo entero
+  /// (reportado el 27 sep). Al ritmo de una lectura rápida, con tope: una
+  /// respuesta larga no se hace esperar más de un par de segundos.
+  Future<void> _decirloAPoco(String texto) async {
+    final trozos = RegExp(
+      r'\S+\s*',
+    ).allMatches(texto).map((m) => m[0]!).toList();
+    if (trozos.isEmpty) return;
+    final paso = Duration(
+      milliseconds: (_loQueTardaEnDecirlo.inMilliseconds / trozos.length)
+          .clamp(8, 45)
+          .round(),
+    );
+    _sealLast();
+    final dicho = StringBuffer();
+    for (final trozo in trozos) {
+      dicho.write(trozo);
+      _appendTo(ChatAuthor.nexus, trozo);
+      state = state.copyWith(
+        orbState: NexusOrbState.speak,
+        isStreaming: true,
+        subtitle: dicho.toString(),
+      );
+      await Future<void>.delayed(paso);
+      if (!_vive) return;
+    }
+    _sealLast();
+    state = state.copyWith(
+      orbState: NexusOrbState.sleep,
+      isStreaming: false,
+      subtitle: '',
+    );
+  }
+
+  /// Lo más que tarda en soltarse una respuesta entera. Ver [_decirloAPoco].
+  static const _loQueTardaEnDecirlo = Duration(milliseconds: 2200);
 
   /// Va completando el último turno de ese autor mientras llega.
   ///
@@ -1067,6 +1110,10 @@ class AssistantController extends Notifier<AssistantHudState> {
       if (!_vive) return;
     }
 
+    // Si lo tuyo ya está en la conversación —lo pintó el camino de [AElla]
+    // antes de pasárselo a Claude—, no se vuelve a escribir.
+    var yaSeVe = false;
+
     // A dónde va esto, decidido en un solo sitio. El orden y las condiciones
     // —qué atajo se mira antes que cuál, y cuáles admiten adjuntos— viven en
     // `ADondeVaLoQueSeEscribe`: es una precedencia, y equivocarla secuestra
@@ -1294,6 +1341,26 @@ class AssistantController extends Notifier<AssistantHudState> {
         _decir(s.laMemoriaApuntada(queApuntar));
         return;
 
+      // Lo suyo —quién es, qué sabe hacer— lo contesta ella, sin Claude. Si
+      // no puede, se sigue de largo hacia Claude, como antes.
+      case AElla():
+        // 🔴 **Lo tuyo se pinta ya, no cuando conteste.** Esperaba la
+        // respuesta de Gemini para no pintarlo dos veces si acababa en Claude,
+        // y el mensaje tardaba en aparecer: se leía como que no se había
+        // enviado (reportado el 27 sep). Ahora sale al momento, el orbe piensa
+        // mientras tanto, y si va a Claude él ya no lo repite.
+        if (!yaEstaDicho) {
+          _say(ChatAuthor.user, loQueSeVe ?? trimmed);
+          _sealLast();
+        }
+        yaSeVe = true;
+        state = state.copyWith(orbState: NexusOrbState.think);
+        final dicho = await ref.read(loContestaEllaProvider)(trimmed);
+        if (!_vive) return;
+        if (dicho != null) {
+          await _decirloAPoco(dicho);
+          return;
+        }
       case AClaude():
         break;
     }
@@ -1344,7 +1411,7 @@ class AssistantController extends Notifier<AssistantHudState> {
       // está aceptado, y dejar el botón puesto invita a pulsarlo otra vez.
       if (reintento) {
         _quitaLaMarcaDeFallo();
-      } else {
+      } else if (!yaSeVe) {
         _say(ChatAuthor.user, loQueSeVe ?? trimmed, attachments: attachments);
         _sealLast();
       }
@@ -1355,7 +1422,7 @@ class AssistantController extends Notifier<AssistantHudState> {
           allowWrites: allowWrites,
           esElParte: esElParte,
           loQueSeVe: loQueSeVe,
-          pintado: !reintento,
+          pintado: !reintento || yaSeVe,
         ),
       );
       // Y se cuenta, que es lo que permite ofrecer adelantarlo. Ver
@@ -1391,7 +1458,7 @@ class AssistantController extends Notifier<AssistantHudState> {
     // *eso*, no mandarlo de nuevo.
     if (reintento) {
       _quitaLaMarcaDeFallo();
-    } else if (!yaEstaDicho) {
+    } else if (!yaEstaDicho && !yaSeVe) {
       _say(ChatAuthor.user, loQueSeVe ?? trimmed, attachments: attachments);
       _sealLast();
     }

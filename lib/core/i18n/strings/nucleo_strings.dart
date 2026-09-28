@@ -134,6 +134,10 @@ mixin NucleoStrings {
   String get expandWindow;
   String get retryErrand;
   String get runThisCommand;
+
+  /// Copiar un bloque de código entero, y lo que dice al copiarlo.
+  String get copiar;
+  String get copiado;
   String saludoDeLaPuerta(FranjaDelDia franja, String? nombre);
   String get laPuertaNoEntendio;
   String laPuertaOyoDos(List<String> carpetas);
@@ -598,6 +602,10 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get retryErrand => 'REINTENTAR';
   @override
   String get runThisCommand => 'CORRER';
+  @override
+  String get copiar => 'Copiar';
+  @override
+  String get copiado => 'Copiado';
   @override
   String saludoDeLaPuerta(FranjaDelDia franja, String? nombre) {
     final hora = switch (franja) {
@@ -1229,6 +1237,10 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get retryErrand => 'RETRY';
   @override
   String get runThisCommand => 'RUN';
+  @override
+  String get copiar => 'Copy';
+  @override
+  String get copiado => 'Copied';
   @override
   String saludoDeLaPuerta(FranjaDelDia franja, String? nombre) {
     final hora = switch (franja) {

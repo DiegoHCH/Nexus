@@ -13,7 +13,9 @@ import 'package:nexus/features/assistant/domain/usecases/ask_claude.dart';
 import 'package:nexus/features/assistant/domain/repositories/correr_una_prueba.dart';
 import 'package:nexus/features/assistant/domain/repositories/el_parte_del_dia.dart';
 import 'package:nexus/features/assistant/domain/usecases/claude_errand.dart';
+import 'package:nexus/features/assistant/domain/usecases/lo_dicho_sin_su_nombre.dart';
 import 'package:nexus/features/assistant/domain/usecases/lo_que_sale_hacia_la_voz.dart';
+import 'package:nexus/features/oido/domain/usecases/como_se_le_llama.dart';
 import 'package:nexus/features/assistant/domain/usecases/voice_routing.dart';
 
 /// La conversación completa: micrófono → socket → altavoz, y Claude en medio
@@ -481,6 +483,21 @@ class HoldVoiceConversation {
     /// Si la frase que se está oyendo tenía que traer su nombre. Se fija con su
     /// primer pedazo, como [hablabaAlEmpezar].
     var pediaSuNombre = false;
+
+    /// Lo que se enseña de la frase que se está oyendo: **sin su nombre
+    /// delante**. Uno por frase, estrenado con su primer pedazo.
+    ///
+    /// 🔴 Solo para lo que **sale**: la pantalla, el archivo y lo que se le
+    /// manda a Claude. Lo que se juzga —si la nombró, si interrumpe— sigue
+    /// mirando [asked] con el nombre dentro, que es justo lo que busca. Ver
+    /// [LoDichoSinSuNombre].
+    LoDichoSinSuNombre? loQueSeEnsena;
+
+    /// Lo retenido de la frase, fuera ya: pasó algo que la cierra.
+    void soltarLoRetenido() {
+      final retenido = loQueSeEnsena?.suelta() ?? '';
+      if (retenido.isNotEmpty) controller.add(VoiceUserTranscript(retenido));
+    }
 
     void responder({
       required String callId,
@@ -1093,6 +1110,14 @@ class HoldVoiceConversation {
             _ => false,
           };
           if (!esRuido) keepAlive();
+          // Lo que cierra la frase saca lo que se retenía de ella **antes**:
+          // la pantalla tiene que tener tu mensaje antes que su respuesta.
+          if (event is VoiceTurnCompleted ||
+              event is VoiceToolRequested ||
+              event is VoiceReplyTranscript ||
+              event is VoiceInterrupted) {
+            soltarLoRetenido();
+          }
           switch (event) {
             // El audio no sale hacia la interfaz: se reproduce y punto. Lo
             // que la interfaz necesita de la respuesta es el texto, que
@@ -1112,6 +1137,7 @@ class HoldVoiceConversation {
             case VoiceToolRequested():
               // Lo pasó a Claude: este turno cumplió la regla.
               asked.clear();
+              loQueSeEnsena = null;
               // Y si se le había pedido, hizo caso: se cancela el plazo para
               // que no vaya además la transcripción por detrás. La instrucción
               // que va a Claude es la que redactó él, sin una palabra del texto
@@ -1133,6 +1159,7 @@ class HoldVoiceConversation {
               // siguientes son la misma frase llegando a trozos.
               if (asked.isEmpty) {
                 turn++;
+                loQueSeEnsena = LoDichoSinSuNombre(agente: _comoSeLlama());
                 hablabaAlEmpezar =
                     estabaHablando ||
                     clock.elapsedMilliseconds < sigueSonandoHasta;
@@ -1166,13 +1193,17 @@ class HoldVoiceConversation {
                 unawaited(_output.discard());
                 estabaHablando = false;
               }
-              controller.add(event);
+              final seEnsena = loQueSeEnsena?.trozo(text) ?? text;
+              if (seEnsena.isNotEmpty) {
+                controller.add(VoiceUserTranscript(seEnsena));
+              }
             case VoiceTurnCompleted() when saludando:
               // Terminó el saludo. El micro se abre **cuando deja de sonar**,
               // no cuando el socket lo da por cerrado: el servicio entrega más
               // rápido que en tiempo real y aún queda frase en el altavoz.
               elPlazoDelSaludo?.cancel();
               asked.clear();
+              loQueSeEnsena = null;
               estabaHablando = false;
               unawaited(
                 _output.pending().then((queda) {
@@ -1191,6 +1222,14 @@ class HoldVoiceConversation {
               // otra.
               final utterance = asked.toString().trim();
               asked.clear();
+              loQueSeEnsena = null;
+              // Lo que pediste, sin el nombre con que la llamaste: es lo que
+              // juzga si era de Claude y lo que le llega si hay que pasárselo.
+              // El nombre se sigue buscando en [utterance], que es donde está.
+              final pedido = ComoSeLeLlama.sinElNombreDelante(
+                utterance,
+                agente: _comoSeLlama(),
+              );
               final empezoHablandoElla = hablabaAlEmpezar;
               hablabaAlEmpezar = false;
               final teniaQueNombrarla = pediaSuNombre;
@@ -1230,16 +1269,13 @@ class HoldVoiceConversation {
               tirandoLaRespuesta = false;
               if (utterance.isNotEmpty) {
                 yaContesto = true;
-                if (VoiceRouting.needsClaude(
-                  utterance,
-                  agente: _comoSeLlama(),
-                )) {
+                if (VoiceRouting.needsClaude(pedido, agente: _comoSeLlama())) {
                   answeredAlone++;
                   _log(
                     'b6 · contestó sin pasar por Claude ($answeredAlone en esta '
-                    'sesión) y se corrige: «$utterance»',
+                    'sesión) y se corrige: «$pedido»',
                   );
-                  pidelaRuta(utterance, turn);
+                  pidelaRuta(pedido, turn);
                   break;
                 }
                 // 🔴 **Una despedida es terminar, no una pausa.** Tras «En

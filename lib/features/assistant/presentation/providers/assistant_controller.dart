@@ -3367,11 +3367,29 @@ class AssistantController extends Notifier<AssistantHudState> {
     state = state.copyWith(orbState: NexusOrbState.listen, isStreaming: true);
   }
 
+  /// Lo que va diciendo ella: su mensaje y **el subtítulo de la sala**.
+  ///
+  /// 🔴 **El subtítulo era lo que había contestado Claude, no lo que decía
+  /// ella** (reportado el 28 sep). Un encargo hablado pone en el subtítulo su
+  /// titular y luego el texto de Claude según llega —`_onToolStarted`,
+  /// `_onToolProgress`— y nadie lo cambiaba al empezar la narración. La sala
+  /// prefiere el subtítulo al último mensaje, así que mientras ella resumía en
+  /// voz alta se pintaba la respuesta entera de Claude: ya llegada de golpe,
+  /// otras palabras y otra longitud, cortada por el avance de un audio que no
+  /// era el suyo. Por eso iba por delante de la voz y a su aire.
+  ///
+  /// Ahora el subtítulo es esta respuesta y nada más, y el corte de
+  /// `ElSubtituloAlCompas` —lo que ya sonó de lo que llegó— cae sobre el texto
+  /// de ese mismo audio.
   void _onReply(String text) {
     if (_reply.isEmpty) _sealLast();
     _reply.write(text);
     _appendTo(ChatAuthor.nexus, text, spoken: true);
-    state = state.copyWith(orbState: NexusOrbState.speak, isStreaming: true);
+    state = state.copyWith(
+      orbState: NexusOrbState.speak,
+      isStreaming: true,
+      subtitle: _reply.toString(),
+    );
   }
 
   void _onInterrupted() {

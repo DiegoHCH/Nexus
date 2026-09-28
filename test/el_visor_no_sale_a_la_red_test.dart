@@ -110,8 +110,18 @@ void main() {
     // El resto de esto lo comprueban las pruebas nativas, que sí pueden abrir
     // una ventana y preguntarle al DOM. Aquí solo se ata que la decisión siga
     // siendo esa, porque es lo que se lee desde este lado.
-    test('el permiso nace apagado y se decide al navegar', () {
-      expect(visor, contains('private(set) var permitido = false'));
+    // 🔴 **Desde el 28 sep nace encendido en el Mac**, a petición de quien
+    // mira: casi todo lo que abre es un mockup que necesita sus scripts. Lo que
+    // se ata aquí es que sea una decisión con nombre —no un `true` suelto— que
+    // las páginas de Nexus no la hereden, y que la casilla siga pudiendo
+    // apagarlo. El teléfono no cambia: ver el grupo de arriba.
+    test('el permiso nace encendido a propósito y se decide al navegar', () {
+      expect(visor, contains('static let permitidoAlAbrir = true'));
+      expect(
+        visor,
+        contains('self.permitido = !propia && Viewer.permitidoAlAbrir'),
+      );
+      expect(visor, contains('func permitir(_ nuevo: Bool)'));
       expect(
         visor,
         contains('preferences.allowsContentJavaScript = permitido'),

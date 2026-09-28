@@ -295,6 +295,41 @@ double laCapaConLaHoja({required double sala, required double libre}) {
   return (1 - tapado * 2).clamp(0.0, 1.0);
 }
 
+/// Lo que se lee escuchando: **lo que estás diciendo ahora**, y nada si no
+/// estás diciendo nada.
+///
+/// 🔴 **Era lo último que dijiste, fuera cuando fuera** (reportado el 28 sep).
+/// Al acabar de hablar ella la sala vuelve a escuchar —el micro sigue abierto
+/// para la repregunta— y debajo del orbe se quedaba tu frase de antes, ya
+/// contestada, como si la estuviera oyendo otra vez. El mockup
+/// (`nexus-orbe-plasma.html`, «escuchando») pinta la frase que se está oyendo
+/// con su cursor: si detrás de tu frase ya habló ella, esa frase no se está
+/// oyendo, y queda solo «escuchando».
+@visibleForTesting
+String? loQueEntiendeAhora(AssistantHudState hud) {
+  if (!hud.voiceActive) return null;
+  final ultimo = hud.messages.reversed
+      .where((m) => m.text.trim().isNotEmpty)
+      .firstOrNull;
+  if (ultimo == null || ultimo.author != ChatAuthor.user || !ultimo.spoken) {
+    return null;
+  }
+  return ultimo.text.trim();
+}
+
+/// Lo que se lee hablando: **lo que está diciendo ella en esta respuesta**.
+///
+/// El subtítulo del estado, si lo hay —es la respuesta que suena, ver
+/// `AssistantController._onReply`—, y si no, su último mensaje.
+@visibleForTesting
+String? loQueDiceAhora(AssistantHudState hud) {
+  if (hud.subtitle.trim().isNotEmpty) return hud.subtitle.trim();
+  return hud.messages.reversed
+      .where((m) => m.author == ChatAuthor.nexus && m.text.trim().isNotEmpty)
+      .map((m) => m.text.trim())
+      .firstOrNull;
+}
+
 /// Lo que ocupa la sala en cada estado. Una sola cosa por estado: si todo está
 /// a la vez, no se lee nada.
 class _LaCapa extends ConsumerWidget {
@@ -335,7 +370,7 @@ class _LaCapa extends ConsumerWidget {
       case NexusOrbState.listen:
         // Escuchando: lo que entiende, en grande. Es lo que hoy faltaba: ver
         // que te está entendiendo mientras hablas.
-        final dicho = hud.voiceActive ? ultimo(ChatAuthor.user) : null;
+        final dicho = loQueEntiendeAhora(hud);
         return Positioned(
           left: NexusSpacing.s8,
           right: NexusSpacing.s8,
@@ -371,9 +406,7 @@ class _LaCapa extends ConsumerWidget {
       case NexusOrbState.speak:
         // Hablando: su subtítulo bajo el orbe, en la franja grande — no una
         // burbuja de chat.
-        final dice = hud.subtitle.trim().isNotEmpty
-            ? hud.subtitle.trim()
-            : ultimo(ChatAuthor.nexus);
+        final dice = loQueDiceAhora(hud);
         if (dice == null) return const SizedBox.shrink();
         return Positioned(
           left: NexusSpacing.s8 * 2,

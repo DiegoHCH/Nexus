@@ -816,6 +816,15 @@ mixin MovilActualizarStrings {
   String mobileUpdateSameVersion(String version);
   String get mobileUpdateRetry;
   String get mobileUpdateOk;
+
+  /// La app del **teléfono** tiene versión nueva. Ver [LaVersionNueva].
+  String telefonoNueva(String version);
+  String get telefonoNuevaCuerpo;
+  String get telefonoActualizar;
+  String get telefonoBajando;
+  String get telefonoFaltaPermiso;
+  String get telefonoDarPermiso;
+  String telefonoNoSePudo(String motivo);
 }
 
 mixin MovilActualizarStringsEs implements MovilActualizarStrings {
@@ -887,6 +896,25 @@ mixin MovilActualizarStringsEs implements MovilActualizarStrings {
   String get mobileUpdateRetry => 'Volver a intentar';
   @override
   String get mobileUpdateOk => 'Entendido';
+
+  @override
+  String telefonoNueva(String version) => 'Nexus $version para el teléfono';
+  @override
+  String get telefonoNuevaCuerpo =>
+      'Se descarga de GitHub y Android te pregunta antes de instalarla. Lo '
+      'emparejado y lo guardado se quedan.';
+  @override
+  String get telefonoActualizar => 'Actualizar';
+  @override
+  String get telefonoBajando => 'Descargando…';
+  @override
+  String get telefonoFaltaPermiso =>
+      'Android pide permiso para instalar apps desde Nexus. Dáselo en la '
+      'pantalla que se abrió y vuelve: se sigue sola.';
+  @override
+  String get telefonoDarPermiso => 'Abrir el permiso';
+  @override
+  String telefonoNoSePudo(String motivo) => 'No se pudo: $motivo';
 }
 
 mixin MovilActualizarStringsEn implements MovilActualizarStrings {
@@ -957,4 +985,23 @@ mixin MovilActualizarStringsEn implements MovilActualizarStrings {
   String get mobileUpdateRetry => 'Try again';
   @override
   String get mobileUpdateOk => 'Got it';
+
+  @override
+  String telefonoNueva(String version) => 'Nexus $version for the phone';
+  @override
+  String get telefonoNuevaCuerpo =>
+      'It downloads from GitHub and Android asks before installing it. Your '
+      'pairing and what is saved stay.';
+  @override
+  String get telefonoActualizar => 'Update';
+  @override
+  String get telefonoBajando => 'Downloading…';
+  @override
+  String get telefonoFaltaPermiso =>
+      'Android asks for permission to install apps from Nexus. Grant it on the '
+      'screen that opened and come back: it carries on by itself.';
+  @override
+  String get telefonoDarPermiso => 'Open the permission';
+  @override
+  String telefonoNoSePudo(String motivo) => 'It could not: $motivo';
 }

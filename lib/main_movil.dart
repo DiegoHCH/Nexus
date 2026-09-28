@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:nexus/features/remote/presentation/widgets/aviso_de_actualizacion_del_telefono.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/accent_preference.dart';
@@ -208,11 +209,14 @@ class _ConectadoState extends ConsumerState<_Conectado> {
     // fotograma, así que sin el mínimo esa pantalla parpadeaba y quedaba un salto raro.
     // Y el aviso de actualización del Mac, por encima de todo: tiene que seguir
     // ahí mientras el Mac se reinicia, que es justo cuando esto pasa a «buscando».
-    return AvisoDelMacGate(
-      child: MinimoEnPantalla(
-        mostrar: estado != LinkState.conectado && !_verLoGuardado,
-        despues: const ConversationsPage(),
-        child: _verLoGuardado ? const ConversationsPage() : sinMac,
+    // Y la versión nueva del propio teléfono, abajo. Ver [LaVersionNueva].
+    return AvisoDelTelefonoGate(
+      child: AvisoDelMacGate(
+        child: MinimoEnPantalla(
+          mostrar: estado != LinkState.conectado && !_verLoGuardado,
+          despues: const ConversationsPage(),
+          child: _verLoGuardado ? const ConversationsPage() : sinMac,
+        ),
       ),
     );
   }

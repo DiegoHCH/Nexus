@@ -16,6 +16,10 @@
     <!-- Y declarada **no obligatoria**: sin esto, Play oculta la app en cualquier
          aparato sin cámara, y escribir el código a mano funciona igual. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- Para actualizarse sola desde las releases de GitHub: sin esto Android no
+         deja ni **preguntar** si se instala el APK descargado. Instalar lo decide
+         siempre quien la usa, con el diálogo del sistema. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <application
         android:label="Nexus"
         android:name="${applicationName}"
@@ -42,6 +46,17 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Por donde el instalador de Android lee el APK descargado: ver
+             `MainActivity.instalar` y `res/xml/instalador_paths.xml`. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.instalador"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/instalador_paths" />
+        </provider>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

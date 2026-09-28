@@ -83,6 +83,10 @@ final class NexusEspejoPegado {
   /// Lo último que se le puso, para reconocer el eco. Ver `esEco`.
   private var esperado: NSRect?
 
+  /// Lo que hizo la app con el último tamaño que se le pidió, si no lo
+  /// aceptó tal cual. Ver `conLoQueAcepta`.
+  private var ajusteDeLaApp: AjusteDelEspejo?
+
   /// Hasta cuándo lo que avise el espejo es consecuencia de lo que se le hizo.
   private var silencioHasta = Date.distantPast
 
@@ -144,6 +148,33 @@ final class NexusEspejoPegado {
       max(pantalla.minX, pantalla.maxX - tamano.width))
     let y = lado == .abajo ? barra.minY - tamano.height : barra.maxY
     return (NSRect(x: x, y: y, width: tamano.width, height: tamano.height), lado)
+  }
+
+  /// El marco que se pide, **con el tamaño que la app ya dijo que acepta**
+  /// para ese pedido.
+  ///
+  /// 🔴 **El espejo se iba encogiendo solo** —«cuando corro la botonera o solo
+  /// con darle click al asa, el espejo empieza a reducir el tamaño», 28 sep—.
+  /// scrcpy ajusta su ventana a la proporción del teléfono **sin contar la barra
+  /// de título**, así que a cada tamaño pedido contesta con uno algo menor. Ese
+  /// menor se guardaba como el tamaño deseado, el siguiente pedido salía de él
+  /// y volvía a encogerse: un trinquete, una vuelta por cada movimiento del
+  /// ratón al arrastrar. Ahora el deseado no se toca; lo que se recuerda es
+  /// «a esto contesta con aquello», y se coloca directamente con lo que acepta,
+  /// sin volver a pedirle el tamaño.
+  static func conLoQueAcepta(
+    _ marco: NSRect, lado: LadoDelEspejo, barra: NSRect, ajuste: AjusteDelEspejo?
+  ) -> NSRect {
+    guard let ajuste,
+      abs(ajuste.pedido.width - marco.width) <= 1,
+      abs(ajuste.pedido.height - marco.height) <= 1
+    else { return marco }
+    let tamano = ajuste.quedo
+    return NSRect(
+      x: (barra.midX - tamano.width / 2).rounded(),
+      y: lado == .abajo ? barra.minY - tamano.height : barra.maxY,
+      width: tamano.width,
+      height: tamano.height)
   }
 
   /// **Dónde va la barra** cuando quien se mueve es el espejo: pegada por el
@@ -244,6 +275,7 @@ final class NexusEspejoPegado {
     pid = 0
     tamanoDeseado = nil
     esperado = nil
+    ajusteDeLaApp = nil
   }
 
   private func buscar() {
@@ -327,9 +359,9 @@ final class NexusEspejoPegado {
       return
     }
     let pantalla = Self.pantalla(de: barra.frame)
-    let (marco, lado) = Self.dondeVaElEspejo(barra: barra.frame, espejo: deseado, pantalla: pantalla)
+    let (pedido, lado) = Self.dondeVaElEspejo(barra: barra.frame, espejo: deseado, pantalla: pantalla)
     self.lado = lado
-    poner(marco)
+    poner(Self.conLoQueAcepta(pedido, lado: lado, barra: barra.frame, ajuste: ajusteDeLaApp))
   }
 
   /// Lo que dice el espejo: que se movió, que cambió de tamaño o que se cerró.
@@ -343,7 +375,12 @@ final class NexusEspejoPegado {
     if Self.esEco(esperado: esperado, visto: visto) || Date() < silencioHasta { return }
     // Lo movió —o lo redimensionó— quien mira: la barra va con él, y el tamaño
     // que le dio pasa a ser el suyo.
-    if aviso == kAXResizedNotification as String { tamanoDeseado = visto.size }
+    if aviso == kAXResizedNotification as String {
+      tamanoDeseado = visto.size
+      // Un tamaño que dio quien mira: lo que la app hacía con el de antes ya
+      // no dice nada del nuevo.
+      ajusteDeLaApp = nil
+    }
     esperado = visto
     moverLaBarra(Self.dondeVaLaBarra(espejo: visto, lado: lado, barra: barra.frame.size))
   }
@@ -409,10 +446,11 @@ final class NexusEspejoPegado {
         abs(quedo.width - marco.width) > 2 || abs(quedo.height - marco.height) > 2,
         let barra = self.laBarra()
       else { return }
-      self.tamanoDeseado = quedo.size
-      let (otra, lado) = Self.dondeVaElEspejo(
-        barra: barra.frame, espejo: quedo.size, pantalla: Self.pantalla(de: barra.frame))
-      self.lado = lado
+      // Se recuerda lo que hizo con **este** pedido, sin tocar el deseado: ver
+      // `conLoQueAcepta`, que es lo que para el trinquete.
+      let ajuste = AjusteDelEspejo(pedido: marco.size, quedo: quedo.size)
+      self.ajusteDeLaApp = ajuste
+      let otra = Self.conLoQueAcepta(marco, lado: self.lado, barra: barra.frame, ajuste: ajuste)
       self.esperado = otra
       self.silencioHasta = Date().addingTimeInterval(Self.silencio)
       var punto = Self.aAccesibilidad(otra, altoPrincipal: Self.altoPrincipal)
@@ -421,6 +459,13 @@ final class NexusEspejoPegado {
       }
     }
   }
+}
+
+/// Lo que hace una app de espejo con un tamaño que se le pide: [pedido] se
+/// convierte en [quedo]. Ver `NexusEspejoPegado.conLoQueAcepta`.
+struct AjusteDelEspejo: Equatable {
+  let pedido: NSSize
+  let quedo: NSSize
 }
 
 /// El aviso de Accesibilidad, que exige una función de C: se lo pasa a quien

@@ -807,6 +807,48 @@ final class EspejoPegadoTests: XCTestCase {
     XCTAssertEqual(NexusBotonera.pegadaAlEspejo(pegada, tamano: tamano, de: [pantalla]), pegada)
   }
 
+  /// 🔴 El trinquete que encogía el espejo (28 sep): scrcpy contesta a cada
+  /// tamaño con uno algo menor. Recolocar diez veces seguidas —lo que pasa al
+  /// arrastrar— tiene que dejarlo del mismo tamaño que la primera, no diez
+  /// veces más chico.
+  func testRecolocarVariasVecesNoEncogeElEspejo() {
+    let barra = NSRect(x: 500, y: 700, width: 430, height: 120)
+    let deseado = NSSize(width: 430, height: 930)
+    let pantalla = NSRect(x: 0, y: 0, width: 1512, height: 1900)
+    // Lo que hace scrcpy: quita la barra de título y guarda la proporción.
+    func scrcpy(_ pedido: NSSize) -> NSSize {
+      let titulo: CGFloat = 28
+      let alto = pedido.height
+      return NSSize(width: ((alto - titulo) * 430 / 930).rounded(), height: alto)
+    }
+    var ajuste: AjusteDelEspejo?
+    var tamanos: [NSSize] = []
+    for _ in 0..<10 {
+      let (pedido, lado) = NexusEspejoPegado.dondeVaElEspejo(
+        barra: barra, espejo: deseado, pantalla: pantalla)
+      let puesto = NexusEspejoPegado.conLoQueAcepta(pedido, lado: lado, barra: barra, ajuste: ajuste)
+      let quedo = puesto.size == pedido.size ? scrcpy(puesto.size) : puesto.size
+      if quedo != pedido.size { ajuste = AjusteDelEspejo(pedido: pedido.size, quedo: quedo) }
+      tamanos.append(quedo)
+    }
+    XCTAssertEqual(Set(tamanos.map { "\($0)" }).count, 1, "siempre el mismo: \(tamanos)")
+  }
+
+  /// Lo que acepta se usa para colocar, pegado y centrado bajo la barra.
+  func testConLoQueAceptaSeCentraYSePega() {
+    let barra = NSRect(x: 500, y: 700, width: 430, height: 120)
+    let pedido = NSRect(x: 500, y: -230, width: 430, height: 930)
+    let ajuste = AjusteDelEspejo(pedido: pedido.size, quedo: NSSize(width: 417, height: 930))
+    let puesto = NexusEspejoPegado.conLoQueAcepta(pedido, lado: .abajo, barra: barra, ajuste: ajuste)
+    XCTAssertEqual(puesto.size, NSSize(width: 417, height: 930))
+    XCTAssertEqual(puesto.maxY, barra.minY, "pegado a la barra")
+    XCTAssertEqual(puesto.midX, barra.midX, accuracy: 1, "y centrado")
+    // Otro pedido —otro tamaño deseado—: el ajuste de antes no vale.
+    let otro = NSRect(x: 500, y: -100, width: 430, height: 800)
+    XCTAssertEqual(
+      NexusEspejoPegado.conLoQueAcepta(otro, lado: .abajo, barra: barra, ajuste: ajuste), otro)
+  }
+
   /// Ida y vuelta: poner el espejo donde va y volver a poner la barra desde él
   /// deja la barra donde estaba. Si no, arrastrar el espejo la haría saltar.
   func testIdaYVueltaNoMueveLaBarra() {

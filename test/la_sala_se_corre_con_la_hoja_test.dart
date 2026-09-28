@@ -163,6 +163,40 @@ void main() {
     expect(elOrbe(tester), antes);
   });
 
+  // 🔴 «Al abrir el chat y cerrarlo el orbe tiene un atraso al volver al
+  // centro o al colocarse a un costado» (28 sep). El panel estrecha la sala
+  // durante 450 ms y el orbe perseguía cada ancho con su propia animación de
+  // 700 ms. Ahora va pegado: en cualquier fotograma está centrado en la sala
+  // de ese fotograma.
+  testWidgets(
+    'al abrir y cerrar el chat, el orbe va con el panel, sin atraso',
+    (tester) async {
+      await montar(tester);
+      Rect laSala() => tester.getRect(find.byType(ElEscenario));
+
+      for (final paso in ['abrir', 'cerrar']) {
+        await tester.tap(find.byKey(ElRielDeLaSala.laLlaveDelChat));
+        await tester.pump();
+        final anchoAntes = laSala().width;
+        for (final ms in [90, 110, 120]) {
+          await tester.pump(Duration(milliseconds: ms));
+          expect(
+            laSala().width,
+            isNot(anchoAntes),
+            reason: 'al $paso, a mitad del panel la sala ya cambió de ancho',
+          );
+          expect(
+            elOrbe(tester).center.dx,
+            closeTo(laSala().center.dx, 1),
+            reason:
+                'al $paso, el orbe va centrado en la sala de este fotograma',
+          );
+        }
+        await tester.pump(const Duration(milliseconds: 800));
+      }
+    },
+  );
+
   testWidgets('con «Reducir movimiento», va de una vez', (tester) async {
     tester.platformDispatcher.accessibilityFeaturesTestValue =
         const FakeAccessibilityFeatures(disableAnimations: true);

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'package:nexus/features/assistant/presentation/widgets/composer_bar.dart'
 import 'package:nexus/features/assistant/presentation/widgets/composer/composer_menus.dart';
 import 'package:nexus/core/design_system/campo_de_nombre.dart';
 import 'package:nexus/core/design_system/design_system.dart';
+import 'package:nexus/core/design_system/la_entrada_de_la_hoja.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/agenda/domain/entities/reunion.dart';
 import 'package:nexus/features/agenda/presentation/providers/el_vigilante_de_la_agenda.dart';
@@ -72,6 +74,10 @@ class ElEscenario extends ConsumerWidget {
   /// La barra de arriba —marca, estado, botones—, pintada dentro de la sala.
   final Widget? barra;
 
+  /// La caja del orbe, para medir dónde queda con una hoja abierta.
+  @visibleForTesting
+  static const laLlaveDelOrbe = ValueKey('el-orbe-de-la-sala');
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hud = ref.watch(assistantControllerProvider(conversationId));
@@ -102,15 +108,32 @@ class ElEscenario extends ConsumerWidget {
         final debajo = trabajando ? 0.0 : _loQueVaDebajo;
         final arriba = ((h - lado - debajo) / 2).clamp(0.0, double.infinity);
 
+        // **Lo que le deja libre la hoja abierta**, si hay una. La sala empieza
+        // en el borde izquierdo de la ventana, así que lo libre es la ventana
+        // menos lo que tapa la hoja. Ver [LoQueTapaLaHoja].
+        final ventana = MediaQuery.sizeOf(context).width;
+        final sinMovimiento = MediaQuery.disableAnimationsOf(context);
+        double libre() =>
+            ventana -
+            LoQueTapaLaHoja.instancia.tapa(
+              ventana,
+              sinMovimiento: sinMovimiento,
+            );
+
         return Stack(
           children: [
-            AnimatedPositioned(
+            // El sitio del estado se anima como siempre —700 ms al cambiar de
+            // estado— y encima se le aplica el de la hoja, que ya viene
+            // animado por su ruta. Son dos movimientos y cada uno lleva su
+            // reloj: mezclados en un solo `AnimatedPositioned`, el de la hoja
+            // cambiaría el destino cada fotograma y el orbe no arrancaría
+            // hasta que la hoja parase.
+            TweenAnimationBuilder<Rect?>(
+              tween: RectTween(
+                end: Rect.fromLTWH(izquierda, arriba, lado, lado),
+              ),
               duration: const Duration(milliseconds: 700),
               curve: Curves.easeInOutCubic,
-              left: izquierda,
-              top: arriba,
-              width: lado,
-              height: lado,
               child: (envolverOrbe ?? (orbe) => orbe)(
                 GestureDetector(
                   onTap: onTapOrbe,
@@ -124,8 +147,26 @@ class ElEscenario extends ConsumerWidget {
                   ),
                 ),
               ),
+              builder: (context, caja, orbe) => ListenableBuilder(
+                listenable: LoQueTapaLaHoja.instancia,
+                builder: (context, _) => Positioned.fromRect(
+                  key: ElEscenario.laLlaveDelOrbe,
+                  rect: elOrbeConLaHoja(caja!, sala: w, libre: libre()),
+                  child: orbe!,
+                ),
+              ),
             ),
-            Positioned.fill(
+            // Lo de debajo del orbe se apaga mientras entra la hoja: está
+            // centrado en la sala entera, así que con la hoja delante quedaría
+            // debajo de ella, y en el hueco de la izquierda no cabe.
+            ListenableBuilder(
+              listenable: LoQueTapaLaHoja.instancia,
+              builder: (context, capa) => Positioned.fill(
+                child: Opacity(
+                  opacity: laCapaConLaHoja(sala: w, libre: libre()),
+                  child: capa,
+                ),
+              ),
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 400),
                 // Un `Stack` propio por capa: cada una se coloca con
@@ -160,6 +201,49 @@ class ElEscenario extends ConsumerWidget {
 /// Lo que se le deja al texto de debajo del orbe al centrarlo: la hora,
 /// «escuchando» o un par de líneas de subtítulo.
 const _loQueVaDebajo = 120.0;
+
+/// **Dónde va el orbe con una hoja abierta**: en el hueco que la hoja deja a la
+/// izquierda, [libre] píxeles de una sala de [sala], y no debajo de ella.
+///
+/// Es el `.sala-orbe` del mockup (`nexus-orbe-plasma.html`, Ajustes, Historial
+/// y Documentos): el orbe a la izquierda, entero y atenuado por el velo.
+///
+/// - **El centro se lleva al hueco**, más centrado cuanto más tapa la hoja: con
+///   la sala casi entera libre apenas se mueve; con 280 px libres queda en su
+///   mitad. Trabajando, que el orbe ya va a la izquierda, no se sale por el
+///   borde.
+/// - **El lado se encoge** hasta un 110 % del hueco, nunca crece. La caja del
+///   orbe es más grande que el dibujo —deja sitio a sus capas—, así que un
+///   poco más ancha que el hueco lo deja entero a la vista: lo que sobra por
+///   los lados es aire, no orbe.
+/// - **De alto no se mueve**: la hoja entra de lado, y un orbe que además
+///   subiera se leería como otro movimiento.
+///
+/// Continuo en [libre]: sin hoja devuelve [orbe] tal cual, así que el orbe va
+/// y vuelve a la vez que la hoja, sin saltos.
+@visibleForTesting
+Rect elOrbeConLaHoja(Rect orbe, {required double sala, required double libre}) {
+  if (sala <= 0 || libre >= sala) return orbe;
+  final visible = math.max(0.0, libre);
+  final r = visible / sala;
+  final escalado = orbe.center.dx * r;
+  final centro = escalado + (visible / 2 - escalado) * (1 - r);
+  final lado = math.min(orbe.shortestSide, visible * 1.1);
+  return Rect.fromCenter(
+    center: Offset(centro, orbe.center.dy),
+    width: lado,
+    height: lado,
+  );
+}
+
+/// Cuánto se ve lo de debajo del orbe con una hoja abierta: entero sin hoja, y
+/// nada cuando la hoja tapa la mitad de la sala.
+@visibleForTesting
+double laCapaConLaHoja({required double sala, required double libre}) {
+  if (sala <= 0 || libre >= sala) return 1;
+  final tapado = 1 - math.max(0.0, libre) / sala;
+  return (1 - tapado * 2).clamp(0.0, 1.0);
+}
 
 /// Lo que ocupa la sala en cada estado. Una sola cosa por estado: si todo está
 /// a la vez, no se lee nada.

@@ -59,6 +59,7 @@ class SettingsPage extends ConsumerStatefulWidget {
         // Pedida por un motivo —[en]— se queda abierta; por el atajo, ⌘, la
         // abre y la cierra.
         cerrarSiEstaAbierta: en == null,
+        ancho: SettingsPage.anchoDeLaHoja,
         builder: (_) => SettingsPage(
           abreEn: en ?? _dondeSeQuedo ?? SeccionDeAjustes.permissions,
         ),

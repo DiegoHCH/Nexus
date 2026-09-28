@@ -9,7 +9,9 @@ import 'package:nexus/features/artifacts/domain/usecases/html_del_visor.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
 import 'package:nexus/core/design_system/nexus_spacing.dart';
 import 'package:nexus/core/design_system/nexus_typography.dart';
+import 'package:nexus/features/remote/presentation/el_fallo_en_palabras.dart';
 import 'package:nexus/features/remote/presentation/pages/conversation_page.dart';
+import 'package:nexus/features/remote/data/channel_link.dart';
 import 'package:nexus/features/remote/presentation/providers/utility_providers.dart';
 import 'package:nexus/features/remote/presentation/widgets/mobile_chrome.dart';
 
@@ -664,7 +666,9 @@ class _ArchivePageState extends ConsumerState<ArchivePage> {
       chip: c.open ? strings.mobileOpenChip : null,
       chipVivo: c.open,
       alTocar: () async {
-        final id = await ref.read(archiveProvider.notifier).retomar(c.id);
+        final id = await ref
+            .read(archiveProvider.notifier)
+            .retomar(c.id, siFalla: (fallo) => _avisarDelFallo(context, fallo));
         if (id == null || !context.mounted) return;
         await Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(
@@ -882,7 +886,13 @@ class _ArtifactPageState extends ConsumerState<ArtifactPage> {
                       // idea por sí solo.
                       key: ValueKey('artifact-pintado-$_permitido'),
                     ),
-                    AsyncError() => _Vacia(texto: strings.mobileCouldNotRead),
+                    // Si fue un «no» del Mac —no es texto, no cabe— se dice cuál y qué
+                    // hacer, en el idioma del teléfono; si no, el genérico.
+                    AsyncError(:final error) => _Vacia(
+                      texto:
+                          ElFalloEnPalabras.de(strings, error) ??
+                          strings.mobileCouldNotRead,
+                    ),
                     _ => const _Cargando(),
                   },
                 ),
@@ -904,7 +914,13 @@ class _ArtifactPageState extends ConsumerState<ArtifactPage> {
           // leerlos en proporcional pierde la alineación que tienen dentro.
           style: NexusTypography.mono.copyWith(color: colors.ink, height: 1.6),
         ),
-        AsyncError() => _Vacia(texto: strings.mobileCouldNotRead),
+        // Si fue un «no» del Mac —no es texto, no cabe— se dice cuál y qué
+        // hacer, en el idioma del teléfono; si no, el genérico.
+        AsyncError(:final error) => _Vacia(
+          texto:
+              ElFalloEnPalabras.de(strings, error) ??
+              strings.mobileCouldNotRead,
+        ),
         _ => const _Cargando(),
       },
     );
@@ -1097,7 +1113,10 @@ class _FoldersPageState extends ConsumerState<FoldersPage> {
                 alTocar: () async {
                   final id = await ref
                       .read(foldersProvider.notifier)
-                      .abrir(f.path);
+                      .abrir(
+                        f.path,
+                        siFalla: (fallo) => _avisarDelFallo(context, fallo),
+                      );
                   if (id == null || !context.mounted) return;
                   await Navigator.of(context).pushReplacement(
                     MaterialPageRoute<void>(
@@ -1162,4 +1181,19 @@ String _peso(int bytes) {
   if (bytes < 1024) return '$bytes B';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).round()} KB';
   return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+}
+
+/// Dice por qué no se abrió, **si lo dijo el Mac**.
+///
+/// Antes tocar una carpeta con el Mac lleno —o retomar una conversación que ya
+/// no estaba— no hacía nada: ni se abría ni se decía por qué, y se volvía a
+/// tocar. El motivo ya viajaba como código; faltaba enseñarlo, y en el idioma
+/// del teléfono.
+void _avisarDelFallo(BuildContext context, LinkError fallo) {
+  if (!context.mounted) return;
+  final texto = ElFalloEnPalabras.de(context.strings, fallo);
+  if (texto == null) return;
+  ScaffoldMessenger.maybeOf(
+    context,
+  )?.showSnackBar(SnackBar(content: Text(texto)));
 }

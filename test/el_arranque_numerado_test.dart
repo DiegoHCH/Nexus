@@ -23,12 +23,21 @@ void main() {
   const es = NexusStringsEs();
 
   group('los pasos', () {
+    // Una instalación nueva: nada configurado, una sola cuenta de Claude.
+    const nueva = ComoEstaLaConfiguracion();
+    final todos = LoQueFaltaPorConfigurar.alArrancar(nueva);
+
+    List<PasoDelArranque> deTrabajar(
+      ComoEstaLaConfiguracion como, {
+      Set<QueSePide>? solo,
+    }) => LosPasosDelArranque.de(
+      como,
+      etapa: EtapaDelArranque.trabajar,
+      solo: solo ?? todos,
+    );
+
     test('son tres, y en este orden: micrófono, carpeta, llave', () {
-      final pasos = LosPasosDelArranque.de(
-        microfonoConcedido: false,
-        hayCarpeta: false,
-        hayLlave: false,
-      );
+      final pasos = deTrabajar(nueva);
 
       expect(
         [for (final p in pasos) p.que],
@@ -38,19 +47,15 @@ void main() {
     });
 
     test('solo la carpeta es obligatoria', () {
-      final pasos = LosPasosDelArranque.de(
-        microfonoConcedido: false,
-        hayCarpeta: false,
-        hayLlave: false,
+      expect(
+        [for (final p in deTrabajar(nueva)) p.opcional],
+        [true, false, true],
       );
-      expect([for (final p in pasos) p.opcional], [true, false, true]);
     });
 
     test('cada uno se marca hecho con lo suyo', () {
-      final pasos = LosPasosDelArranque.de(
-        microfonoConcedido: true,
-        hayCarpeta: false,
-        hayLlave: true,
+      final pasos = deTrabajar(
+        const ComoEstaLaConfiguracion(microfonoConcedido: true, hayLlave: true),
       );
       expect([for (final p in pasos) p.hecho], [true, false, true]);
     });
@@ -58,21 +63,18 @@ void main() {
     test('sin carpeta no se entra; con ella sí, aunque falte lo demás', () {
       expect(
         LosPasosDelArranque.sePuedeEntrar(
-          LosPasosDelArranque.de(
-            microfonoConcedido: true,
-            hayCarpeta: false,
-            hayLlave: true,
+          deTrabajar(
+            const ComoEstaLaConfiguracion(
+              microfonoConcedido: true,
+              hayLlave: true,
+            ),
           ),
         ),
         isFalse,
       );
       expect(
         LosPasosDelArranque.sePuedeEntrar(
-          LosPasosDelArranque.de(
-            microfonoConcedido: false,
-            hayCarpeta: true,
-            hayLlave: false,
-          ),
+          deTrabajar(const ComoEstaLaConfiguracion(hayCarpeta: true)),
         ),
         isTrue,
         reason: 'el micrófono y la llave son de la voz, que está apagada',
@@ -90,6 +92,13 @@ void main() {
         pumpScreen(
           tester,
           const InitialSetupPage(),
+          // Con lo de «quién es ella» ya puesto, para mirar la primera parte
+          // sola: es la que tiene el botón de entrar.
+          configuracion: const ComoEstaLaConfiguracion(
+            haySuNombre: true,
+            hayTuNombre: true,
+            hayPersonalidad: true,
+          ),
           overrides: [
             workspaceControllerProvider.overrideWith(
               () => FixedWorkspace(

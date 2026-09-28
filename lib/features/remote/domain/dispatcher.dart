@@ -73,10 +73,11 @@ class Dispatcher {
       // Un método que este Mac no conoce viene de un cliente más nuevo. Se contesta
       // con un error y no se cierra la conexión: el resto de lo que sabe pedir
       // sigue funcionando.
-      yield Failure(
+      yield Failure.of(
+        FailureCode.unknownMethod,
         id: call.id,
-        code: 'unknownMethod',
         message: 'este Mac no conoce «${call.method}»',
+        args: {FailureArg.method: call.method},
       );
       return;
     }
@@ -86,41 +87,49 @@ class Dispatcher {
     } on UnknownConversation catch (error) {
       // No es un fallo del canal: el teléfono guarda ids y una conversación se
       // puede cerrar en el Mac mientras el móvil la tenía en pantalla.
-      yield Failure(
+      yield Failure.of(
+        FailureCode.unknownConversation,
         id: call.id,
-        code: 'unknownConversation',
         message: 'la conversación ${error.id} ya no está abierta',
+        args: {FailureArg.conversation: error.id},
       );
     } on DemasiadasConversaciones {
-      yield Failure(
+      yield Failure.of(
+        FailureCode.tooManyConversations,
         id: call.id,
-        code: 'tooManyConversations',
         message: 'el Mac ya tiene todas sus conversaciones abiertas',
       );
     } on BinaryArtifact catch (error) {
-      yield Failure(
+      yield Failure.of(
+        FailureCode.binaryArtifact,
         id: call.id,
-        code: 'binaryArtifact',
         message: 'ese documento no es texto: ${error.id} se abre en el Mac',
+        args: {FailureArg.artifact: error.id},
       );
     } on ArtifactTooLarge catch (error) {
-      yield Failure(
+      yield Failure.of(
+        FailureCode.artifactTooLarge,
         id: call.id,
-        code: 'artifactTooLarge',
         message:
             'ese documento ocupa ${error.bytes ~/ 1024} KB y no cabe por aquí: '
             '${error.id} se abre en el Mac',
+        // Los kilobytes como dato y no dentro de la frase: el teléfono los dice
+        // en su idioma, y la frase de arriba solo llega al registro.
+        args: {
+          FailureArg.artifact: error.id,
+          FailureArg.kb: error.bytes ~/ 1024,
+        },
       );
     } on SinActualizacionEnElMac {
-      yield Failure(
+      yield Failure.of(
+        FailureCode.noUpdate,
         id: call.id,
-        code: 'noUpdate',
         message: 'el Mac no tiene ninguna versión nueva que aceptar ahora',
       );
     } on NoSePuedeInstalarEnElMac {
-      yield Failure(
+      yield Failure.of(
+        FailureCode.cannotInstall,
         id: call.id,
-        code: 'cannotInstall',
         message:
             'esta copia de Nexus no puede reemplazarse: hay que moverla '
             'a Aplicaciones en el Mac',
@@ -129,22 +138,27 @@ class Dispatcher {
       // **El sí se dio a una versión concreta.** Si entre que el teléfono la vio y
       // la aceptó el Mac encontró otra, instalar la nueva sería decir que sí por
       // alguien a algo que no ha visto.
-      yield Failure(
+      yield Failure.of(
+        FailureCode.updateChanged,
         id: call.id,
-        code: 'updateChanged',
         message: 'el Mac ofrece ahora la ${error.ofrecida}',
+        args: {FailureArg.version: error.ofrecida},
       );
     } on FormatException catch (error) {
-      yield Failure(id: call.id, code: 'badParams', message: error.message);
+      yield Failure.of(
+        FailureCode.badParams,
+        id: call.id,
+        message: error.message,
+      );
     } on Object catch (error) {
       // Lo que no se esperaba **se contesta igual**: dejar una petición sin
       // respuesta deja al teléfono esperando para siempre, que se ve como «no
       // responde» y manda a buscar el problema al sitio equivocado.
       //
       // El texto va sin detalles: lo que sabe el Mac se queda en su registro.
-      yield Failure(
+      yield Failure.of(
+        FailureCode.internal,
         id: call.id,
-        code: 'internal',
         message: 'no se pudo atender',
       );
       // Y se relanza para que quede en el registro de quien lo llamó.
@@ -342,13 +356,13 @@ class Dispatcher {
     );
 
     if (negado != null) {
-      return Failure(
-        id: call.id,
-        code: switch (negado) {
-          WriteDenial.sinFrase => 'noPhrase',
-          WriteDenial.frase => 'wrongPhrase',
-          WriteDenial.demasiadosIntentos => 'tooManyAttempts',
+      return Failure.of(
+        switch (negado) {
+          WriteDenial.sinFrase => FailureCode.noPhrase,
+          WriteDenial.frase => FailureCode.wrongPhrase,
+          WriteDenial.demasiadosIntentos => FailureCode.tooManyAttempts,
         },
+        id: call.id,
         // **Sin decir cuál falló más allá del código, y sin repetir la frase.**
         // El código lo necesita el teléfono para saber qué enseñar; el valor no lo
         // necesita nadie, y este marco podría acabar en un registro.

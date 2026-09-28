@@ -1,3 +1,4 @@
+import 'package:nexus/features/onboarding/domain/entities/pasos_del_arranque.dart';
 import 'package:nexus/features/onboarding/domain/entities/readiness.dart';
 
 /// A qué pantalla va la app al arrancar: siempre pasa por el splash
@@ -41,6 +42,12 @@ class SetupState {
     this.micStatus = MicrophoneStatus.idle,
     this.amplitude = 0,
     this.keyText = '',
+    this.suNombre = '',
+    this.tuNombre = '',
+    this.personalidad,
+    this.personalidadGuardada = false,
+    this.cuentaElegida = false,
+    this.saltados = const {},
     this.saving = false,
     this.errorMessage,
   });
@@ -51,6 +58,29 @@ class SetupState {
   final double amplitude;
 
   final String keyText;
+
+  /// Lo escrito en «cómo se llama ella» y «cómo te llama», **sin guardar**
+  /// todavía: se guardan al terminar, con los mismos casos de uso de Ajustes.
+  final String suNombre;
+  final String tuNombre;
+
+  /// La personalidad tal como está en la caja, o `null` si no se ha tocado —y
+  /// entonces es la plantilla de la casa en el idioma de la interfaz—.
+  final String? personalidad;
+
+  /// Si ya se escribió `personalidad.md` desde el arranque.
+  final bool personalidadGuardada;
+
+  /// Si se eligió cuenta en este arranque, **incluida la de siempre**.
+  ///
+  /// Hace falta aparte de mirar la carpeta porque la de siempre se guarda como
+  /// `null`, igual que «nadie eligió»: sin esto, elegirla dejaba el paso
+  /// pendiente para siempre.
+  final bool cuentaElegida;
+
+  /// Lo que se dejó para luego con «Ahora no» en esta pantalla.
+  final Set<QueSePide> saltados;
+
   final bool saving;
   final String? errorMessage;
 
@@ -71,6 +101,12 @@ class SetupState {
     MicrophoneStatus? micStatus,
     double? amplitude,
     String? keyText,
+    String? suNombre,
+    String? tuNombre,
+    String? personalidad,
+    bool? personalidadGuardada,
+    bool? cuentaElegida,
+    Set<QueSePide>? saltados,
     bool? saving,
     String? errorMessage,
   }) {
@@ -78,6 +114,12 @@ class SetupState {
       micStatus: micStatus ?? this.micStatus,
       amplitude: amplitude ?? this.amplitude,
       keyText: keyText ?? this.keyText,
+      suNombre: suNombre ?? this.suNombre,
+      tuNombre: tuNombre ?? this.tuNombre,
+      personalidad: personalidad ?? this.personalidad,
+      personalidadGuardada: personalidadGuardada ?? this.personalidadGuardada,
+      cuentaElegida: cuentaElegida ?? this.cuentaElegida,
+      saltados: saltados ?? this.saltados,
       saving: saving ?? this.saving,
       errorMessage: errorMessage,
     );

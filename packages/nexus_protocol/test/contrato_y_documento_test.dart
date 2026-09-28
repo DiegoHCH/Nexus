@@ -83,6 +83,30 @@ void main() {
     }
   });
 
+  // Los códigos de error, en los dos sentidos: uno que existe en el código y no en
+  // la tabla es un motivo que nadie decidió qué enseña; uno que está en la tabla y
+  // no en el código es una promesa que el teléfono no puede traducir.
+  test('los códigos de error son los de la tabla, ni uno más ni uno menos', () {
+    final texto = documento.readAsStringSync();
+    final inicio = texto.indexOf('| código | qué pasó |');
+    expect(inicio, isNot(-1), reason: 'no se encuentra la tabla de códigos');
+    final tabla = texto.substring(inicio, texto.indexOf('\n\n', inicio));
+    final enLaTabla = {
+      for (final fila in RegExp(
+        r'^\| `(\w+)` \|',
+        multiLine: true,
+      ).allMatches(tabla))
+        fila.group(1)!,
+    };
+
+    expect(
+      enLaTabla,
+      {for (final c in FailureCode.values) c.name},
+      reason:
+          'la tabla de docs/PROTOCOL.md y FailureCode tienen que decir lo mismo',
+    );
+  });
+
   test('el documento sigue diciendo lo que el código implementa', () {
     final texto = documento.readAsStringSync();
     // Cuatro afirmaciones del documento que aquí son código. Si alguna se reescribe

@@ -80,9 +80,50 @@ void main() {
         'q',
       );
     });
+
+    test('un fallo con su código del contrato y sus datos', () {
+      final vuelta = ida<Failure>(
+        Failure.of(
+          FailureCode.artifactTooLarge,
+          id: 'q',
+          args: const {FailureArg.artifact: 'informe.md', FailureArg.kb: 700},
+        ),
+      );
+      expect(vuelta.code, 'artifactTooLarge');
+      expect(vuelta.known, FailureCode.artifactTooLarge);
+      expect(vuelta.args[FailureArg.kb], 700);
+      expect(vuelta.args[FailureArg.artifact], 'informe.md');
+    });
   });
 
   group('lo que no se conoce no rompe', () {
+    // Los dos sentidos de la compatibilidad de los códigos: un Mac más nuevo con un
+    // código que este teléfono no conoce, y un Mac más viejo que no manda `a`.
+    test('un código del futuro se lee, y se sabe que no se conoce', () {
+      final f = Frame.decode('{"t":"failure","id":"q","code":"telepatia"}');
+      expect((f as Failure).code, 'telepatia');
+      expect(f.known, isNull);
+    });
+
+    test('un fallo de un Mac viejo, sin `a`, se lee igual', () {
+      final f = Frame.decode(
+        '{"t":"failure","id":"q","code":"artifactTooLarge","msg":"ocupa 700 KB"}',
+      );
+      expect((f as Failure).known, FailureCode.artifactTooLarge);
+      expect(f.args, isEmpty);
+      expect(f.message, 'ocupa 700 KB');
+    });
+
+    test(
+      'sin datos, `a` ni se escribe: un teléfono viejo ve lo de siempre',
+      () {
+        expect(
+          Failure.of(FailureCode.internal).toJson().containsKey('a'),
+          isFalse,
+        );
+      },
+    );
+
     test('un tipo del futuro vuelve como desconocido', () {
       final f = Frame.decode('{"t":"telepatia","d":{"x":1}}');
       expect(f, isA<UnknownFrame>());

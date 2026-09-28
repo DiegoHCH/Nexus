@@ -26,6 +26,7 @@ import 'package:nexus/features/assistant/presentation/providers/assistant_contro
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/history/presentation/widgets/conversation_history_sheet.dart';
 import 'package:nexus/features/icono/presentation/providers/icono_providers.dart';
+import 'package:nexus/features/onboarding/presentation/widgets/la_guia_corta.dart';
 import 'package:nexus/features/onboarding/presentation/pages/app_root.dart';
 import 'package:nexus/features/updates/presentation/providers/desde_el_movil.dart';
 import 'package:nexus/features/updates/presentation/providers/updates_providers.dart';
@@ -164,6 +165,7 @@ class _MainAppState extends ConsumerState<MainApp> {
       onOpenSettings: _openSettings,
       onOpenHistory: _openHistory,
       onOpenArtifacts: _openArtifacts,
+      onOpenGuide: _openGuide,
     );
     // **El marco de la ventana va por libre —es AppKit— y se le avisa aparte.**
     //
@@ -200,6 +202,14 @@ class _MainAppState extends ConsumerState<MainApp> {
     final navigator = _navigatorKey.currentState;
     if (navigator == null) return;
     ArtifactsSheet.open(navigator.context);
+  }
+
+  /// La guía corta (⌘?, menú Ayuda). Encima de lo que haya, también del
+  /// arranque: quien acaba de instalar es quien más la busca.
+  void _openGuide() {
+    final navigator = _navigatorKey.currentState;
+    if (navigator == null) return;
+    LaGuiaCorta.abrir(navigator.context);
   }
 
   void _openSettings() {

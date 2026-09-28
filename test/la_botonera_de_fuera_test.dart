@@ -12,9 +12,11 @@ import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/assistant/presentation/pages/home_page.dart';
 import 'package:nexus/features/assistant/presentation/providers/los_trabajos_providers.dart';
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
+import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
 import 'package:nexus/features/run/data/datasources/la_ventana_de_la_botonera.dart';
 import 'package:nexus/features/run/domain/entities/corrida.dart';
 import 'package:nexus/features/run/domain/usecases/como_va_la_corrida.dart';
+import 'package:nexus/features/run/domain/usecases/el_espejo_que_se_pega.dart';
 import 'package:nexus/features/run/domain/usecases/el_freno_de_la_app.dart';
 import 'package:nexus/features/run/presentation/providers/corridas_providers.dart';
 import 'package:nexus/features/run/presentation/providers/la_botonera_de_fuera.dart';
@@ -272,6 +274,8 @@ void main() {
           corridasProvider.overrideWith(() => corridas),
           losTrabajosProvider.overrideWith(() => trabajos),
           laVentanaDeLaBotoneraProvider.overrideWithValue(ventana),
+          // Ninguno enchufado: preguntarlo de verdad lanzaría `flutter devices`.
+          losDispositivosFisicosProvider.overrideWithValue(const {}),
         ],
       );
       addTearDown(c.dispose);
@@ -394,6 +398,7 @@ void main() {
           laVentanaDeLaBotoneraProvider.overrideWithValue(
             const LaVentanaNativaDeLaBotonera(),
           ),
+          losDispositivosFisicosProvider.overrideWithValue(const {}),
         ],
       );
       addTearDown(c.dispose);
@@ -401,7 +406,8 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       await Future<void>.delayed(Duration.zero);
 
-      expect(llegadas, ['mostrar']);
+      // Y el espejo del emulador se pide en cuanto la ventana confirma.
+      expect(llegadas, ['mostrar', 'pegarElEspejo']);
       expect(c.read(laBotoneraDeFueraProvider).fuera, isTrue);
 
       await messenger.handlePlatformMessage(
@@ -454,6 +460,8 @@ void main() {
         overrides: [
           corridasProvider.overrideWith(() => corridas),
           laVentanaDeLaBotoneraProvider.overrideWithValue(ventana),
+          // Ninguno enchufado: preguntarlo de verdad lanzaría `flutter devices`.
+          losDispositivosFisicosProvider.overrideWithValue(const {}),
         ],
       );
       addTearDown(c.dispose);
@@ -469,22 +477,22 @@ void main() {
 
     test('sale al arrancar algo, se repinta y se va sin nada', () async {
       final c = await contenedor();
-      expect(ventana.llamadas, isEmpty, reason: 'sin nada corriendo, nada');
+      expect(ventana.deLaVentana, isEmpty, reason: 'sin nada corriendo, nada');
 
       await ahora({_deviceId: _corrida(estado: EstadoDeCorrida.arrancando)});
-      expect(ventana.llamadas, ['abrir']);
+      expect(ventana.deLaVentana, ['abrir']);
       expect(c.read(laBotoneraDeFueraProvider).fuera, isTrue);
 
       await ahora({_deviceId: _corrida()});
-      expect(ventana.llamadas, ['abrir', 'pintar']);
+      expect(ventana.deLaVentana, ['abrir', 'pintar']);
 
       // La misma foto otra vez no cruza: una línea de un trabajo que no cambia
       // la fila no es motivo para repintar la ventana.
       await ahora({_deviceId: _corrida()});
-      expect(ventana.llamadas, ['abrir', 'pintar']);
+      expect(ventana.deLaVentana, ['abrir', 'pintar']);
 
       await ahora(const {});
-      expect(ventana.llamadas, ['abrir', 'pintar', 'cerrar']);
+      expect(ventana.deLaVentana, ['abrir', 'pintar', 'cerrar']);
       expect(c.read(laBotoneraDeFueraProvider).fuera, isFalse);
     });
 
@@ -493,19 +501,19 @@ void main() {
       await ahora({_deviceId: _corrida()});
 
       c.read(laBotoneraDeFueraProvider.notifier).esconder();
-      expect(ventana.llamadas.last, 'cerrar');
+      expect(ventana.deLaVentana.last, 'cerrar');
       expect(c.read(laBotoneraDeFueraProvider).escondida, isTrue);
 
       // La misma corrida cambia —le salen errores—: sigue escondida.
       await ahora({_deviceId: _corrida(errores: 3)});
-      expect(ventana.llamadas, ['abrir', 'cerrar']);
+      expect(ventana.deLaVentana, ['abrir', 'cerrar']);
 
       // Arranca otra: esconder una no es renunciar a enterarse de la siguiente.
       await ahora({
         _deviceId: _corrida(errores: 3),
         'otro': _corrida(deviceId: 'otro'),
       });
-      expect(ventana.llamadas, ['abrir', 'cerrar', 'abrir']);
+      expect(ventana.deLaVentana, ['abrir', 'cerrar', 'abrir']);
       expect(c.read(laBotoneraDeFueraProvider).escondida, isFalse);
     });
 
@@ -517,7 +525,7 @@ void main() {
       c.read(laBotoneraDeFueraProvider.notifier).mostrarOtraVez();
       await Future<void>.delayed(Duration.zero);
 
-      expect(ventana.llamadas, ['abrir', 'cerrar', 'abrir']);
+      expect(ventana.deLaVentana, ['abrir', 'cerrar', 'abrir']);
       expect(c.read(laBotoneraDeFueraProvider).escondida, isFalse);
     });
 
@@ -530,7 +538,7 @@ void main() {
       await Future<void>.delayed(Duration.zero);
 
       expect(c.read(laBotoneraDeFueraProvider).escondida, isTrue);
-      expect(ventana.llamadas.last, 'cerrar');
+      expect(ventana.deLaVentana.last, 'cerrar');
     });
 
     // 🔴 Si la ventana no sale, la barra se queda dentro: es lo único que
@@ -543,7 +551,9 @@ void main() {
       expect(c.read(laBotoneraDeFueraProvider).fuera, isFalse);
 
       await ahora({_deviceId: _corrida(errores: 1)});
-      expect(ventana.llamadas, ['abrir'], reason: 'no se reintenta por foto');
+      expect(ventana.deLaVentana, [
+        'abrir',
+      ], reason: 'no se reintenta por foto');
 
       await ahora(const {});
       expect(c.read(laBotoneraDeFueraProvider).sinVentana, isFalse);
@@ -699,6 +709,296 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.byKey(LaBarraDeCorridas.laLlave), findsOneWidget);
+    });
+  });
+
+  // 🔴 **El espejo pegado.** Pedido: «que sean pegadas pero que al moverla se
+  // muevan juntas». La geometría y el ir detrás viven en Swift; aquí se fija
+  // qué espejo se pega, cuándo, y qué pasa sin permiso.
+  group('qué espejo es el de cada corrida', () {
+    test('un Android enchufado se ve con scrcpy, titulado con su nombre', () {
+      expect(
+        ElEspejoQueSePega.de(_corrida(deviceId: '7a3f'), esFisico: true),
+        const LaVentanaDelEspejo(ejecutables: ['scrcpy'], titulo: 'POCO F6'),
+      );
+    });
+
+    test('un emulador, por su ventana y su puerto', () {
+      expect(
+        ElEspejoQueSePega.de(_corrida(), esFisico: false),
+        const LaVentanaDelEspejo(ejecutables: ['qemu-system'], titulo: ':5554'),
+      );
+      expect(
+        ElEspejoQueSePega.de(_corrida(deviceId: 'raro'), esFisico: false),
+        isNull,
+        reason: 'sin puerto no hay cómo distinguir dos emuladores iguales',
+      );
+    });
+
+    test('un simulador de iOS, en el Simulador y con su nombre', () {
+      final corrida = Corrida(
+        deviceId: 'B1C2-UDID',
+        dispositivo: 'iPhone 16 Pro',
+        proyecto: '/casa/tienda',
+        configuracion: 'ci',
+        plataforma: PlataformaEmulador.ios,
+      );
+      expect(
+        ElEspejoQueSePega.de(corrida, esFisico: false),
+        const LaVentanaDelEspejo(
+          apps: [ElEspejoQueSePega.simulador],
+          titulo: 'iPhone 16 Pro',
+        ),
+      );
+      // Y uno de verdad, con Duplicado o QuickTime: la ventana que haya,
+      // que ninguna de las dos dice de qué teléfono es.
+      expect(
+        ElEspejoQueSePega.de(corrida, esFisico: true),
+        const LaVentanaDelEspejo(
+          apps: [ElEspejoQueSePega.duplicado, ElEspejoQueSePega.quickTime],
+        ),
+      );
+    });
+
+    test('se pega el último que se abrió de los que siguen corriendo', () {
+      expect(ElEspejoQueSePega.elQueToca(['a', 'b', 'c'], {'a', 'b'}), 'b');
+      expect(ElEspejoQueSePega.elQueToca(['a'], const {}), isNull);
+    });
+
+    test('lo que se busca cruza el canal entero', () {
+      const busca = LaVentanaDelEspejo(
+        apps: [ElEspejoQueSePega.simulador],
+        titulo: 'iPhone 16 Pro',
+      );
+      final vuelta = _porElCanal(busca.toMap());
+      expect(vuelta['apps'], [ElEspejoQueSePega.simulador]);
+      expect(vuelta['titulo'], 'iPhone 16 Pro');
+    });
+  });
+
+  group('el espejo pegado a la botonera', () {
+    late _Corridas corridas;
+    late VentanaQueApunta ventana;
+
+    Future<ProviderContainer> contenedor({
+      EspejoPegado alPegar = EspejoPegado.buscando,
+      Map<String, Object> preferencias = const {},
+    }) async {
+      SharedPreferences.setMockInitialValues(preferencias);
+      corridas = _Corridas(const {});
+      ventana = VentanaQueApunta()..alPegar = alPegar;
+      final c = ProviderContainer(
+        overrides: [
+          corridasProvider.overrideWith(() => corridas),
+          laVentanaDeLaBotoneraProvider.overrideWithValue(ventana),
+          losDispositivosFisicosProvider.overrideWithValue(const {'7a3f'}),
+        ],
+      );
+      addTearDown(c.dispose);
+      c.listen(laBotoneraDeFueraProvider, (_, _) {});
+      await Future<void>.delayed(Duration.zero);
+      return c;
+    }
+
+    Future<void> ahora(Map<String, Corrida> lo) async {
+      corridas.pon(lo);
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    String? tituloPegado() => ventana.pegados.last['titulo'] as String?;
+
+    // Una corrida en un emulador ya tiene su ventana: se pega en cuanto la
+    // botonera sale, sin que haya que abrir nada.
+    test('al correr en un emulador, su ventana se pega sola', () async {
+      await contenedor();
+      await ahora({_deviceId: _corrida()});
+
+      expect(ventana.llamadas, ['abrir', 'pegar']);
+      expect(tituloPegado(), ':5554');
+
+      // Y una foto nueva de la misma corrida no la vuelve a buscar.
+      await ahora({_deviceId: _corrida(errores: 1)});
+      expect(ventana.llamadas.where((l) => l == 'pegar'), hasLength(1));
+    });
+
+    test('uno solo a la vez: el de la última que arrancó', () async {
+      await contenedor();
+      await ahora({_deviceId: _corrida()});
+      await ahora({_deviceId: _corrida(), '7a3f': _corrida(deviceId: '7a3f')});
+
+      expect(ventana.pegados.last['ejecutables'], ['scrcpy']);
+      expect(tituloPegado(), 'POCO F6');
+    });
+
+    // Abrir desde Nexus el espejo de una que corre lo hace el que toca, y lo
+    // vuelve a buscar aunque fuera el mismo: la ventana pudo cerrarse.
+    test('abrir un espejo lo hace el que se pega', () async {
+      final c = await contenedor();
+      await ahora({_deviceId: _corrida(), '7a3f': _corrida(deviceId: '7a3f')});
+      final antes = ventana.pegados.length;
+
+      c.read(elEspejoAbiertoProvider.notifier).abrio(_deviceId);
+      await Future<void>.delayed(Duration.zero);
+      expect(ventana.pegados, hasLength(antes + 1));
+      expect(tituloPegado(), ':5554');
+
+      c.read(elEspejoAbiertoProvider.notifier).abrio(_deviceId);
+      await Future<void>.delayed(Duration.zero);
+      expect(ventana.pegados, hasLength(antes + 2));
+
+      // El de un dispositivo sin corrida no cambia nada: no hay barra a la
+      // que pegarlo.
+      c.read(elEspejoAbiertoProvider.notifier).abrio('otro-que-no-corre');
+      await Future<void>.delayed(Duration.zero);
+      expect(ventana.pegados, hasLength(antes + 2));
+    });
+
+    // 🔴 Terminar la corrida suelta el espejo, no lo cierra: es una ventana
+    // ajena que igual sigues mirando.
+    test('al terminar su corrida se suelta, y pasa al de la otra', () async {
+      await contenedor();
+      await ahora({_deviceId: _corrida()});
+      await ahora({_deviceId: _corrida(), '7a3f': _corrida(deviceId: '7a3f')});
+
+      await ahora({_deviceId: _corrida()});
+      expect(tituloPegado(), ':5554', reason: 'vuelve al que sigue corriendo');
+
+      await ahora(const {});
+      expect(ventana.llamadas.last, 'cerrar');
+      expect(
+        ventana.llamadas,
+        isNot(contains('soltar')),
+        reason: 'al irse la barra lo suelta el lado nativo, sin más avisos',
+      );
+    });
+
+    test('lo que no tiene espejo reconocible lo suelta', () async {
+      await contenedor();
+      await ahora({_deviceId: _corrida()});
+      await ahora({'raro': _corrida(deviceId: 'raro')});
+
+      expect(ventana.llamadas.last, 'soltar');
+    });
+
+    // Sin permiso todo sigue como antes, y se pregunta una vez, en la barra.
+    test('sin permiso se pregunta una vez, en la barra', () async {
+      final c = await contenedor(alPegar: EspejoPegado.sinPermiso);
+      await ahora({_deviceId: _corrida()});
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        LaFotoDeLaBotonera.fromMap(ventana.foto!).pedirPermisoDelEspejo,
+        isTrue,
+      );
+
+      // «Ahora no»: deja de preguntar, y queda dicho para la próxima.
+      ventana.pulsan(_porElCanal(const NoPegarElEspejo().toMap()));
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        LaFotoDeLaBotonera.fromMap(ventana.foto!).pedirPermisoDelEspejo,
+        isFalse,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('run.espejo.preguntado'), isTrue);
+      expect(c.read(laBotoneraDeFueraProvider).fuera, isTrue);
+    });
+
+    test('contestado una vez, no se vuelve a preguntar', () async {
+      await contenedor(
+        alPegar: EspejoPegado.sinPermiso,
+        preferencias: {'run.espejo.preguntado': true},
+      );
+      await ahora({_deviceId: _corrida()});
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        LaFotoDeLaBotonera.fromMap(ventana.foto!).pedirPermisoDelEspejo,
+        isFalse,
+      );
+    });
+
+    // «Abrir Ajustes» lleva a darlo; cuando llega, se pega sin esperar a la
+    // próxima corrida.
+    test('al llegar el permiso, se pega sin esperar', () async {
+      await contenedor(alPegar: EspejoPegado.sinPermiso);
+      await ahora({_deviceId: _corrida()});
+      await Future<void>.delayed(Duration.zero);
+
+      ventana.pulsan(_porElCanal(const PermitirElEspejo().toMap()));
+      await Future<void>.delayed(Duration.zero);
+      expect(ventana.llamadas, contains('permiso'));
+
+      // Sin permiso no se insiste en cada foto.
+      final antes = ventana.pegados.length;
+      await ahora({_deviceId: _corrida(errores: 2)});
+      expect(ventana.pegados, hasLength(antes));
+
+      ventana
+        ..alPegar = EspejoPegado.buscando
+        ..permiten();
+      await Future<void>.delayed(Duration.zero);
+      expect(ventana.pegados, hasLength(antes + 1));
+    });
+
+    // Dentro de Nexus no hay ventana a la que pegar nada.
+    test('con la barra dentro, no se pega nada', () async {
+      SharedPreferences.setMockInitialValues({});
+      corridas = _Corridas(const {});
+      ventana = VentanaQueApunta(sale: false);
+      final c = ProviderContainer(
+        overrides: [
+          corridasProvider.overrideWith(() => corridas),
+          laVentanaDeLaBotoneraProvider.overrideWithValue(ventana),
+          losDispositivosFisicosProvider.overrideWithValue(const {}),
+        ],
+      );
+      addTearDown(c.dispose);
+      c.listen(laBotoneraDeFueraProvider, (_, _) {});
+      await Future<void>.delayed(Duration.zero);
+      await ahora({_deviceId: _corrida()});
+      await ahora({_deviceId: _corrida(errores: 1)});
+
+      expect(ventana.llamadas, isNot(contains('pegar')));
+      expect(c.read(laBotoneraDeFueraProvider).sinVentana, isTrue);
+    });
+  });
+
+  group('la pregunta en la barra', () {
+    testWidgets('explica para qué, y sus dos salidas piden lo suyo', (
+      tester,
+    ) async {
+      final pedidos = <PedidoDeLaBotonera>[];
+      const strings = NexusStringsEs();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NexusTheme.dark(),
+          builder: (context, child) =>
+              StringsScope(strings: strings, child: child!),
+          home: Scaffold(
+            body: Center(
+              child: LaBarraDeCorridas(
+                lo: LoQueEnsenaLaBotonera(
+                  corridas: [
+                    FilaDeCorrida.de(
+                      _corrida(),
+                      registroAbierto: false,
+                      sistemaAbierto: false,
+                    ),
+                  ],
+                ),
+                onPedido: pedidos.add,
+                pedirPermisoDelEspejo: true,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text(strings.runEspejoPermiso), findsOneWidget);
+      await tester.tap(find.text(strings.runEspejoPermitir.toUpperCase()));
+      await tester.tap(find.text(strings.runEspejoAhoraNo.toUpperCase()));
+
+      expect(pedidos, [const PermitirElEspejo(), const NoPegarElEspejo()]);
     });
   });
 }

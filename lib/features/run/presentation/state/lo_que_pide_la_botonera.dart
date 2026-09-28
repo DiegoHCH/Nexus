@@ -35,6 +35,8 @@ sealed class PedidoDeLaBotonera {
         },
         'recargaSola' => const CambiarLaRecargaSola(),
         'esconder' => const EsconderLaBotonera(),
+        'permitirElEspejo' => const PermitirElEspejo(),
+        'noPegarElEspejo' => const NoPegarElEspejo(),
         _ => null,
       };
 }
@@ -109,4 +111,33 @@ final class EsconderLaBotonera extends PedidoDeLaBotonera {
 
   @override
   int get hashCode => (EsconderLaBotonera).hashCode;
+}
+
+/// «Abrir Ajustes»: ir a dar el permiso de Accesibilidad para el espejo.
+final class PermitirElEspejo extends PedidoDeLaBotonera {
+  const PermitirElEspejo();
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'permitirElEspejo'};
+
+  @override
+  bool operator ==(Object other) => other is PermitirElEspejo;
+
+  @override
+  int get hashCode => (PermitirElEspejo).hashCode;
+}
+
+/// «Ahora no»: el espejo sigue siendo su propia ventana, y no se vuelve a
+/// preguntar.
+final class NoPegarElEspejo extends PedidoDeLaBotonera {
+  const NoPegarElEspejo();
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'noPegarElEspejo'};
+
+  @override
+  bool operator ==(Object other) => other is NoPegarElEspejo;
+
+  @override
+  int get hashCode => (NoPegarElEspejo).hashCode;
 }

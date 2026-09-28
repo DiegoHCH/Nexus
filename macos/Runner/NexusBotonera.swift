@@ -63,6 +63,19 @@ final class NexusBotonera: NSObject {
   /// Dónde estaba el ratón y la ventana al empezar a arrastrar.
   private var arrastre: (raton: NSPoint, origen: NSPoint)?
 
+  /// El espejo del teléfono, pegado debajo cuando lo hay.
+  private lazy var espejo = NexusEspejoPegado(
+    laBarra: { [weak self] in self?.ventana },
+    moverLaBarra: { [weak self] origen in self?.laMueveElEspejo(origen) }
+  )
+
+  /// Lo que espera el permiso de Accesibilidad después de pedirlo.
+  private var esperandoElPermiso: Timer?
+
+  /// Para guardar el sitio cuando la mueve el espejo, que no avisa de cuándo
+  /// suelta: se guarda cuando lleva un rato quieta.
+  private var guardarLuego: Timer?
+
   /// El ancho de la barra, el mismo que dentro: `LaBarraDeCorridas.ancho`.
   static let ancho: CGFloat = 430
 
@@ -95,6 +108,15 @@ final class NexusBotonera: NSObject {
         result(nil)
       case "cerrar":
         compartido.cerrar()
+        result(nil)
+      // El espejo del teléfono, pegado debajo. Ver `NexusEspejoPegado`.
+      case "pegarElEspejo":
+        result(compartido.espejo.pegar(LaVentanaDelEspejo(datos: datos)))
+      case "soltarElEspejo":
+        compartido.espejo.soltar()
+        result(nil)
+      case "pedirPermisoDelEspejo":
+        compartido.pedirPermisoDelEspejo()
         result(nil)
       default:
         result(FlutterMethodNotImplemented)
@@ -337,6 +359,9 @@ final class NexusBotonera: NSObject {
     // La sombra se calcula con lo que había pintado: sin esto se queda con la
     // forma de la barra de antes.
     panel.invalidateShadow()
+    // Y el espejo, pegado a su nuevo borde: crecer hacia arriba no lo mueve si
+    // va debajo, pero sí si va encima.
+    espejo.recolocar()
   }
 
   private func arrastra(_ fase: String) {
@@ -348,6 +373,7 @@ final class NexusBotonera: NSObject {
       guard let arrastre else { return }
       panel.setFrameOrigin(
         Self.arrastrada(origen: arrastre.origen, desde: arrastre.raton, hasta: NSEvent.mouseLocation))
+      espejo.recolocar()
     case "suelta":
       arrastre = nil
       // Al soltar se recoloca dentro de la pantalla —arrastrarla medio fuera
@@ -356,6 +382,7 @@ final class NexusBotonera: NSObject {
       let marco = Self.dentro(panel.frame, de: Self.visibles)
       panel.setFrame(marco, display: true)
       Self.guardar(marco.origin, firma: Self.firmaDeAhora)
+      espejo.recolocar()
     default:
       break
     }
@@ -369,6 +396,37 @@ final class NexusBotonera: NSObject {
     let marco = Self.dentro(
       NSRect(origin: origen, size: panel.frame.size), de: Self.visibles)
     panel.setFrame(marco, display: true)
+    espejo.recolocar()
+  }
+
+  /// Quien se movió fue el espejo: la barra va con él. **Sin recolocar el
+  /// espejo** —ya está donde lo dejaste— que es lo que cerraría el bucle.
+  private func laMueveElEspejo(_ origen: NSPoint) {
+    guard let panel = ventana else { return }
+    panel.setFrameOrigin(origen)
+    guardarLuego?.invalidate()
+    guardarLuego = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
+      guard let panel = self?.ventana else { return }
+      Self.guardar(panel.frame.origin, firma: Self.firmaDeAhora)
+    }
+  }
+
+  /// Lleva a dar el permiso y **espera a que llegue**: se da en Ajustes, con
+  /// Nexus detrás, y sin esto el espejo no se pegaría hasta la próxima corrida.
+  private func pedirPermisoDelEspejo() {
+    NexusEspejoPegado.pedirPermiso()
+    esperandoElPermiso?.invalidate()
+    var vueltas = 0
+    esperandoElPermiso = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) {
+      [weak self] reloj in
+      vueltas += 1
+      // Dos minutos: lo que se tarda en encontrar el interruptor. Después, la
+      // próxima corrida vuelve a intentarlo sola.
+      if vueltas > 120 { reloj.invalidate() }
+      guard NexusEspejoPegado.hayPermiso else { return }
+      reloj.invalidate()
+      self?.haciaLaApp?.invokeMethod("permisoDelEspejo", arguments: nil)
+    }
   }
 
   /// La recoge **entera**: ventana y motor.
@@ -380,6 +438,10 @@ final class NexusBotonera: NSObject {
   /// suya en vez de repintar una que está a punto de cerrarse.
   private func cerrar() {
     guard let panel = ventana else { return }
+    // El espejo se suelta y se queda donde está: es una ventana ajena, y que
+    // se vaya la barra no es motivo para llevársela.
+    espejo.soltar()
+    guardarLuego?.invalidate()
     let motor = self.motor
     ventana = nil
     haciaLaBarra = nil

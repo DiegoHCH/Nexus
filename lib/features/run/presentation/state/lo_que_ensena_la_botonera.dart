@@ -235,6 +235,7 @@ class LaFotoDeLaBotonera {
     this.claro = false,
     this.acento,
     this.idioma = 'es',
+    this.pedirPermisoDelEspejo = false,
   });
 
   final LoQueEnsenaLaBotonera lo;
@@ -248,11 +249,25 @@ class LaFotoDeLaBotonera {
   /// `es` o `en`. El español manda si llega otra cosa.
   final String idioma;
 
+  /// Si la barra pregunta por el permiso de Accesibilidad, que es el que deja
+  /// llevar el espejo pegado. **Solo fuera**: dentro de Nexus no hay ventana a
+  /// la que pegarlo, y preguntar ahí sería pedir algo que no se va a usar.
+  final bool pedirPermisoDelEspejo;
+
+  LaFotoDeLaBotonera conElPermiso({required bool pedir}) => LaFotoDeLaBotonera(
+    lo: lo,
+    claro: claro,
+    acento: acento,
+    idioma: idioma,
+    pedirPermisoDelEspejo: pedir,
+  );
+
   Map<String, Object?> toMap() => {
     'lo': lo.toMap(),
     'claro': claro,
     'acento': ?acento,
     'idioma': idioma,
+    'pedirPermisoDelEspejo': pedirPermisoDelEspejo,
   };
 
   factory LaFotoDeLaBotonera.fromMap(Map<Object?, Object?> mapa) {
@@ -264,6 +279,7 @@ class LaFotoDeLaBotonera {
       claro: mapa['claro'] == true,
       acento: (mapa['acento'] as num?)?.toInt(),
       idioma: mapa['idioma'] as String? ?? 'es',
+      pedirPermisoDelEspejo: mapa['pedirPermisoDelEspejo'] == true,
     );
   }
 }

@@ -8,9 +8,12 @@ import 'package:nexus/core/design_system/theme_preference.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/features/assistant/presentation/providers/las_tareas_de_fondo.dart';
 import 'package:nexus/features/assistant/presentation/providers/los_trabajos_providers.dart';
+import 'package:nexus/features/emulators/domain/entities/emulador.dart';
+import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
 import 'package:nexus/features/run/data/datasources/la_ventana_de_la_botonera.dart';
 import 'package:nexus/features/run/domain/entities/corrida.dart';
 import 'package:nexus/features/run/domain/usecases/como_va_la_corrida.dart';
+import 'package:nexus/features/run/domain/usecases/el_espejo_que_se_pega.dart';
 import 'package:nexus/features/run/domain/usecases/el_freno_de_la_app.dart';
 import 'package:nexus/features/run/domain/usecases/la_consola_de_la_app.dart';
 import 'package:nexus/features/run/presentation/providers/corridas_providers.dart';
@@ -20,6 +23,7 @@ import 'package:nexus/features/run/presentation/providers/pasarle_el_error_a_cla
 import 'package:nexus/features/run/presentation/providers/run_providers.dart';
 import 'package:nexus/features/run/presentation/state/lo_que_ensena_la_botonera.dart';
 import 'package:nexus/features/run/presentation/state/lo_que_pide_la_botonera.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// La ventana nativa. Aparte para que las pruebas pongan una que apunta.
 final laVentanaDeLaBotoneraProvider = Provider<LaVentanaDeLaBotonera>(
@@ -119,6 +123,10 @@ final atenderLaBotoneraProvider =
             await ref.read(autoRecargaProvider.notifier).cambiar();
           case EsconderLaBotonera():
             ref.read(laBotoneraDeFueraProvider.notifier).esconder();
+          case PermitirElEspejo():
+            ref.read(laBotoneraDeFueraProvider.notifier).permitirElEspejo();
+          case NoPegarElEspejo():
+            ref.read(laBotoneraDeFueraProvider.notifier).noPegarElEspejo();
         }
       },
     );
@@ -285,22 +293,62 @@ class LaBotoneraDeFuera extends Notifier<ComoEstaLaBotonera> {
   /// nueva de un trabajo rehace la foto aunque la fila diga lo mismo.
   String? _loUltimo;
 
+  // --- El espejo pegado ---------------------------------------------------
+
+  /// Los dispositivos con corrida, del que empezó o se abrió antes al último.
+  /// El último que siga corriendo es el que se pega. Ver
+  /// [ElEspejoQueSePega.elQueToca].
+  final _recientes = <String>[];
+
+  /// Lo último que se le pidió pegar al lado nativo. Aparte de lo que toca
+  /// para no volver a pedirlo en cada foto: una línea de Gradle no es motivo
+  /// para buscar otra vez la ventana del emulador.
+  LaVentanaDelEspejo? _pedido;
+
+  /// Si ya se preguntó por el permiso alguna vez. Hasta leerlo del disco se da
+  /// por preguntado: mejor tardar una corrida en preguntar que preguntar dos
+  /// veces.
+  bool _yaSePregunto = true;
+
+  /// Si la barra está preguntando ahora mismo.
+  bool _preguntando = false;
+
+  /// Si el lado nativo confirmó que la ventana salió. El espejo se pide solo
+  /// entonces: pegarlo a una barra que no llegó a salir dejaría al lado nativo
+  /// siguiendo una ventana ajena para nada.
+  bool _laVentanaSalio = false;
+
+  static const _claveDelPermiso = 'run.espejo.preguntado';
+
   @override
   ComoEstaLaBotonera build() {
     _ventana = ref.watch(laVentanaDeLaBotoneraProvider);
     _ventana.alPedir(_atender);
+    _ventana.alPermitirElEspejo(() => _pegaSiToca(otraVez: true));
     ref.listen(laFotoDeLaBotoneraProvider, (_, foto) => _sigue(foto));
+    // Un espejo abierto desde Nexus —el panel de dispositivos, o el que se
+    // abre solo al correr— pasa a ser el que toca, si su dispositivo corre.
+    ref.listen(elEspejoAbiertoProvider, (_, abierto) {
+      if (abierto != null) seAbrioElEspejoDe(abierto.deviceId);
+    });
     // Si la app suelta esto, la ventana no se queda huérfana en la pantalla.
     // Con un campo y no con el estado: al soltarse ya no se puede leer.
     ref.onDispose(() {
       if (_fuera) unawaited(_ventana.cerrar());
     });
+    unawaited(_leerSiSePregunto());
     // La primera pasada fuera del `build`: aquí todavía no se puede cambiar el
     // estado, y si al arrancar ya había algo corriendo tiene que salir igual.
     scheduleMicrotask(() {
       if (ref.mounted) _sigue(ref.read(laFotoDeLaBotoneraProvider));
     });
     return const ComoEstaLaBotonera();
+  }
+
+  Future<void> _leerSiSePregunto() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!ref.mounted) return;
+    _yaSePregunto = prefs.getBool(_claveDelPermiso) ?? false;
   }
 
   /// La cruz de la ventana.
@@ -317,6 +365,38 @@ class LaBotoneraDeFuera extends Notifier<ComoEstaLaBotonera> {
     _sigue(ref.read(laFotoDeLaBotoneraProvider));
   }
 
+  /// Se abrió el espejo de [deviceId]. Si corre algo en él, es el que se pega
+  /// —el último que abriste—, y se vuelve a buscar aunque fuera el mismo: la
+  /// ventana pudo cerrarse y abrirse otra.
+  void seAbrioElEspejoDe(String deviceId) {
+    if (!_recientes.contains(deviceId)) return;
+    _recientes
+      ..remove(deviceId)
+      ..add(deviceId);
+    _pegaSiToca(otraVez: true);
+  }
+
+  /// «Abrir Ajustes», desde la barra.
+  void permitirElEspejo() {
+    _yaNoSePregunta();
+    unawaited(_ventana.pedirPermisoDelEspejo());
+  }
+
+  /// «Ahora no»: el espejo sigue suelto, como siempre fue.
+  void noPegarElEspejo() => _yaNoSePregunta();
+
+  void _yaNoSePregunta() {
+    _yaSePregunto = true;
+    unawaited(
+      SharedPreferences.getInstance().then(
+        (prefs) => prefs.setBool(_claveDelPermiso, true),
+      ),
+    );
+    if (!_preguntando) return;
+    _preguntando = false;
+    _sigue(ref.read(laFotoDeLaBotoneraProvider));
+  }
+
   void _atender(Map<Object?, Object?> mapa) {
     final pedido = PedidoDeLaBotonera.fromMap(mapa);
     if (pedido == null) return;
@@ -328,6 +408,18 @@ class LaBotoneraDeFuera extends Notifier<ComoEstaLaBotonera> {
     final nuevos = lo.quienes.difference(_quienes);
     _quienes = lo.quienes;
 
+    // Una corrida que empieza pasa a ser la más reciente: su espejo —el
+    // emulador, el Simulador, el scrcpy que se abre solo— es el que se pega.
+    final conCorrida = {for (final c in lo.corridas) c.deviceId};
+    _recientes.removeWhere((id) => !conCorrida.contains(id));
+    for (final id in conCorrida) {
+      if (nuevos.contains('corrida:$id')) {
+        _recientes
+          ..remove(id)
+          ..add(id);
+      }
+    }
+
     var como = state;
     if (lo.vacia) {
       // Sin nada corriendo se olvida lo de esta tanda: la próxima corrida
@@ -337,7 +429,7 @@ class LaBotoneraDeFuera extends Notifier<ComoEstaLaBotonera> {
       como = como.copyWith(escondida: false);
     }
 
-    final mapa = foto.toMap();
+    final mapa = foto.conElPermiso(pedir: _preguntando).toMap();
     switch (decidir(hayAlgo: !lo.vacia, como: como)) {
       case QueHaceLaVentana.abrir:
         state = como.copyWith(fuera: true);
@@ -346,25 +438,92 @@ class LaBotoneraDeFuera extends Notifier<ComoEstaLaBotonera> {
       case QueHaceLaVentana.pintar:
         state = como;
         final texto = jsonEncode(mapa);
-        if (texto == _loUltimo) return;
-        _loUltimo = texto;
-        unawaited(_ventana.pintar(mapa));
+        if (texto != _loUltimo) {
+          _loUltimo = texto;
+          unawaited(_ventana.pintar(mapa));
+        }
       case QueHaceLaVentana.cerrar:
         state = como.copyWith(fuera: false);
         _loUltimo = null;
+        // Al irse la ventana, el lado nativo suelta el espejo solo: se queda
+        // donde estaba. Al volver se pide otra vez.
+        _pedido = null;
+        _laVentanaSalio = false;
         unawaited(_ventana.cerrar());
       case QueHaceLaVentana.nada:
         state = como;
     }
+    _pegaSiToca();
+  }
+
+  /// **Pega el espejo que toca, o suelta el que ya no.**
+  ///
+  /// 🔴 **Terminar la corrida suelta el espejo, no lo cierra.** El espejo no
+  /// es de la corrida: es la ventana del emulador, el Simulador o un scrcpy
+  /// que igual sigues mirando —y el emulador sigue vivo para la próxima—.
+  /// Cerrar una ventana ajena porque terminó algo nuestro sería llevarse por
+  /// delante lo que estabas mirando.
+  void _pegaSiToca({bool otraVez = false}) {
+    if (!state.fuera || !_laVentanaSalio) return;
+    final quien = ElEspejoQueSePega.elQueToca(_recientes, _recientes.toSet());
+    final corrida = quien == null ? null : ref.read(corridasProvider)[quien];
+    final busca = corrida == null
+        ? null
+        : ElEspejoQueSePega.de(
+            corrida,
+            esFisico: ref.read(losDispositivosFisicosProvider).contains(quien),
+          );
+
+    if (busca == null) {
+      if (_pedido == null) return;
+      _pedido = null;
+      unawaited(_ventana.soltarElEspejo());
+      return;
+    }
+    // Sin permiso, `_pedido` se queda con lo que se pidió: así no se vuelve a
+    // pedir en cada foto, y sí cuando llega el permiso (`otraVez`) o cambia el
+    // espejo que toca.
+    if (busca == _pedido && !otraVez) return;
+    _pedido = busca;
+    unawaited(_pegar(busca));
+  }
+
+  Future<void> _pegar(LaVentanaDelEspejo busca) async {
+    final como = await _ventana.pegarElEspejo(busca.toMap());
+    if (!ref.mounted || como != EspejoPegado.sinPermiso) return;
+    // 🔴 **Se pregunta una vez, y en la barra.** Sin permiso todo sigue como
+    // antes —el espejo en su ventana, la barra en la suya—, así que no hay
+    // nada roto que avisar: se explica para qué hace falta y se deja elegir.
+    // Contestado, no se vuelve a preguntar.
+    if (_yaSePregunto || _preguntando) return;
+    _preguntando = true;
+    _sigue(ref.read(laFotoDeLaBotoneraProvider));
   }
 
   Future<void> _abrir(Map<String, Object?> mapa) async {
     final salio = await _ventana.abrir(mapa);
-    if (salio || !ref.mounted || !state.fuera) return;
+    if (!ref.mounted || !state.fuera) return;
+    if (salio) {
+      _laVentanaSalio = true;
+      _pegaSiToca();
+      return;
+    }
     _loUltimo = null;
+    _pedido = null;
     state = state.copyWith(fuera: false, sinVentana: true);
   }
 }
+
+/// Los dispositivos enchufados de verdad: un Android en esta lista se ve con
+/// scrcpy; fuera de ella es un emulador, con su propia ventana.
+final losDispositivosFisicosProvider = Provider<Set<String>>(
+  (ref) => {
+    for (final d
+        in ref.watch(dispositivosProvider).value ??
+            const <DispositivoConectado>[])
+      d.id,
+  },
+);
 
 final laBotoneraDeFueraProvider =
     NotifierProvider<LaBotoneraDeFuera, ComoEstaLaBotonera>(

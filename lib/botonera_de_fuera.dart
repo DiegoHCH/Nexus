@@ -129,6 +129,7 @@ class _LaBotoneraSolaState extends State<_LaBotoneraSola> {
                     onSoltar: () => _decir('arrastre', {'fase': 'suelta'}),
                     sePuedeEsconder: true,
                     conSombra: false,
+                    pedirPermisoDelEspejo: foto.pedirPermisoDelEspejo,
                   ),
                 ),
               ),

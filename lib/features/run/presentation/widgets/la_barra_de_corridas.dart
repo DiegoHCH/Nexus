@@ -33,6 +33,7 @@ class LaBarraDeCorridas extends StatelessWidget {
     this.onSoltar,
     this.sePuedeEsconder = false,
     this.conSombra = true,
+    this.pedirPermisoDelEspejo = false,
   });
 
   final LoQueEnsenaLaBotonera lo;
@@ -57,6 +58,10 @@ class LaBarraDeCorridas extends StatelessWidget {
   /// del marco: una sombra de Flutter ahí se cortaría en el borde de la ventana.
   final bool conSombra;
 
+  /// La pregunta por el permiso de Accesibilidad, al pie. Ver
+  /// [LaFotoDeLaBotonera.pedirPermisoDelEspejo].
+  final bool pedirPermisoDelEspejo;
+
   /// Ancho fijo y no el del contenido: con el ancho al gusto, la barra cambia
   /// de tamaño al cambiar el texto del progreso —«Running Gradle task…»— y se
   /// mueve sola debajo del ratón.
@@ -75,6 +80,9 @@ class LaBarraDeCorridas extends StatelessWidget {
 
   /// La cruz que la esconde, solo fuera.
   static const laCruz = ValueKey('esconder-la-botonera');
+
+  /// La pregunta por el permiso del espejo.
+  static const elPermiso = ValueKey('el-permiso-del-espejo');
 
   /// La barra en sí, para poder medir **dónde acabó**.
   static const laLlave = ValueKey('la-botonera-de-corridas');
@@ -119,8 +127,65 @@ class LaBarraDeCorridas extends StatelessWidget {
             for (final trabajo in lo.trabajos)
               _UnTrabajo(fila: trabajo, onPedido: onPedido),
             for (final tarea in lo.deFondo) _UnaTareaDeFondo(fila: tarea),
+            if (pedirPermisoDelEspejo) _ElPermisoDelEspejo(onPedido: onPedido),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// **La pregunta por el permiso**, al pie: es lo más cerca del espejo, que es
+/// de lo que habla.
+///
+/// 🔴 **En la barra y no en un diálogo.** Se pregunta en el momento en que
+/// hace falta —hay un espejo que pegar— y donde ya estás mirando, sin tapar
+/// nada. Y **una sola vez**: con «Ahora no» el espejo sigue siendo su ventana
+/// de siempre, que es exactamente lo que había antes, y volver a preguntar en
+/// cada corrida sería insistir en algo que ya se contestó.
+class _ElPermisoDelEspejo extends StatelessWidget {
+  const _ElPermisoDelEspejo({required this.onPedido});
+
+  final ValueChanged<PedidoDeLaBotonera> onPedido;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final strings = context.strings;
+
+    return Container(
+      key: LaBarraDeCorridas.elPermiso,
+      padding: const EdgeInsets.all(NexusSpacing.s3),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: colors.rule)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            strings.runEspejoPermiso,
+            style: NexusTypography.nota.copyWith(
+              fontSize: 12,
+              color: colors.mute,
+            ),
+          ),
+          const SizedBox(height: NexusSpacing.s2),
+          Wrap(
+            spacing: 5,
+            runSpacing: 5,
+            children: [
+              BotonDeFila(
+                texto: strings.runEspejoPermitir,
+                tono: TonoDeBoton.principal,
+                onPulsar: () => onPedido(const PermitirElEspejo()),
+              ),
+              BotonDeFila(
+                texto: strings.runEspejoAhoraNo,
+                onPulsar: () => onPedido(const NoPegarElEspejo()),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -139,6 +139,12 @@ mixin EjecucionStrings {
   /// fila de la barra de estado que la trae de vuelta mientras algo corre.
   String get runToolbarEsconder;
   String get runToolbarMostrar;
+
+  /// El permiso para llevar el espejo pegado a la botonera: por qué hace
+  /// falta, y las dos salidas. Se pregunta una vez.
+  String get runEspejoPermiso;
+  String get runEspejoPermitir;
+  String get runEspejoAhoraNo;
 }
 
 mixin EjecucionStringsEs implements EjecucionStrings {
@@ -305,6 +311,14 @@ mixin EjecucionStringsEs implements EjecucionStrings {
   String get runToolbarEsconder => 'Esconder la botonera';
   @override
   String get runToolbarMostrar => 'Mostrar la botonera';
+  @override
+  String get runEspejoPermiso =>
+      'Para que la pantalla del teléfono se mueva pegada a la botonera, '
+      'Nexus necesita el permiso de Accesibilidad de macOS.';
+  @override
+  String get runEspejoPermitir => 'Abrir Ajustes';
+  @override
+  String get runEspejoAhoraNo => 'Ahora no';
 }
 
 mixin EjecucionStringsEn implements EjecucionStrings {
@@ -471,4 +485,12 @@ mixin EjecucionStringsEn implements EjecucionStrings {
   String get runToolbarEsconder => 'Hide the run bar';
   @override
   String get runToolbarMostrar => 'Show the run bar';
+  @override
+  String get runEspejoPermiso =>
+      "To keep the phone's screen glued to the run bar, Nexus needs macOS "
+      'Accessibility permission.';
+  @override
+  String get runEspejoPermitir => 'Open Settings';
+  @override
+  String get runEspejoAhoraNo => 'Not now';
 }

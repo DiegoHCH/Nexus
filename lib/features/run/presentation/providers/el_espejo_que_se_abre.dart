@@ -36,6 +36,10 @@ class ElEspejoQueSeAbre {
     if (!_ref.read(sePuedeVerLaPantallaProvider(deviceId))) return;
 
     final emuladores = _ref.read(emuladoresDataSourceProvider);
+    // Abierto ahora o de antes, es el espejo de esta corrida: la botonera se lo
+    // pega debajo. Se avisa antes de lanzarlo porque scrcpy tarda en sacar su
+    // ventana, y la botonera la espera.
+    _ref.read(elEspejoAbiertoProvider.notifier).abrio(deviceId);
     // Uno por teléfono: volver a correr con la ventana anterior abierta no
     // puede dejar dos espejos del mismo móvil.
     if (await emuladores.yaHayEspejoDe(deviceId)) return;

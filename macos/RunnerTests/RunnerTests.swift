@@ -710,6 +710,130 @@ final class BotoneraDeFueraTests: XCTestCase {
   }
 }
 
+/// **El espejo pegado a la botonera.** Pedido: «que sean pegadas pero que al
+/// moverla se muevan juntas». Lo que se fija es la geometría —dónde va el
+/// espejo, cuándo se pone encima, cómo vuelve la barra si se mueve el espejo—
+/// y lo que evita el bucle: sin reconocer el eco, mover uno movía al otro y el
+/// otro al primero.
+final class EspejoPegadoTests: XCTestCase {
+  private let pantalla = NSRect(x: 0, y: 0, width: 1512, height: 944)
+  /// Un teléfono en vertical, 9:19,5.
+  private let telefono = NSSize(width: 360, height: 780)
+
+  private func barra(y: CGFloat, alto: CGFloat = 120) -> NSRect {
+    NSRect(x: 600, y: y, width: NexusBotonera.ancho, height: alto)
+  }
+
+  func testAlPegarseTomaElAnchoDeLaBarraConSuProporcion() {
+    let tamano = NexusEspejoPegado.tamanoAlPegar(telefono, ancho: NexusBotonera.ancho)
+    XCTAssertEqual(tamano.width, NexusBotonera.ancho)
+    XCTAssertEqual(tamano.height / tamano.width, telefono.height / telefono.width, accuracy: 0.01)
+  }
+
+  /// Debajo, pegado —sin aire, que dos ventanas con hueco se leen como dos— y
+  /// centrado.
+  func testVaDebajoPegadoYCentrado() {
+    let arriba = barra(y: 800)
+    let (marco, lado) = NexusEspejoPegado.dondeVaElEspejo(
+      barra: arriba, espejo: NSSize(width: 430, height: 600), pantalla: pantalla)
+    XCTAssertEqual(lado, .abajo)
+    XCTAssertEqual(marco.maxY, arriba.minY, "sin hueco entre las dos")
+    XCTAssertEqual(marco.midX, arriba.midX)
+    XCTAssertEqual(marco.size, NSSize(width: 430, height: 600))
+  }
+
+  /// Con la barra abajo del todo no cabe debajo: se pone encima.
+  func testSinSitioDebajoSePoneEncima() {
+    let abajo = barra(y: 40)
+    let (marco, lado) = NexusEspejoPegado.dondeVaElEspejo(
+      barra: abajo, espejo: NSSize(width: 430, height: 600), pantalla: pantalla)
+    XCTAssertEqual(lado, .arriba)
+    XCTAssertEqual(marco.minY, abajo.maxY)
+    XCTAssertLessThanOrEqual(marco.maxY, pantalla.maxY)
+  }
+
+  /// Sin sitio en ningún lado: en el que más haya, encogido con su proporción.
+  func testSinSitioEnNingunLadoSeEncogeConSuProporcion() {
+    let enMedio = barra(y: 400)
+    let alto = NSSize(width: 430, height: 931)
+    let (marco, lado) = NexusEspejoPegado.dondeVaElEspejo(
+      barra: enMedio, espejo: alto, pantalla: pantalla)
+    XCTAssertEqual(lado, .arriba, "arriba quedan 424 y abajo 400")
+    XCTAssertEqual(marco.minY, enMedio.maxY)
+    XCTAssertEqual(marco.maxY, pantalla.maxY)
+    XCTAssertEqual(marco.height / marco.width, alto.height / alto.width, accuracy: 0.01)
+  }
+
+  func testNoSeSalePorLosLados() {
+    let alBorde = NSRect(x: 0, y: 800, width: NexusBotonera.ancho, height: 120)
+    let (marco, _) = NexusEspejoPegado.dondeVaElEspejo(
+      barra: alBorde, espejo: NSSize(width: 600, height: 500), pantalla: pantalla)
+    XCTAssertGreaterThanOrEqual(marco.minX, pantalla.minX)
+  }
+
+  /// Si quien se mueve es el espejo, la barra vuelve a su sitio encima de él
+  /// —o debajo, si el espejo iba encima—.
+  func testLaBarraSigueAlEspejo() {
+    let espejo = NSRect(x: 100, y: 100, width: 430, height: 600)
+    let encima = NexusEspejoPegado.dondeVaLaBarra(
+      espejo: espejo, lado: .abajo, barra: NSSize(width: 430, height: 120))
+    XCTAssertEqual(encima, NSPoint(x: 100, y: 700))
+    let debajo = NexusEspejoPegado.dondeVaLaBarra(
+      espejo: espejo, lado: .arriba, barra: NSSize(width: 430, height: 120))
+    XCTAssertEqual(debajo, NSPoint(x: 100, y: -20))
+  }
+
+  /// Ida y vuelta: poner el espejo donde va y volver a poner la barra desde él
+  /// deja la barra donde estaba. Si no, arrastrar el espejo la haría saltar.
+  func testIdaYVueltaNoMueveLaBarra() {
+    let original = barra(y: 800)
+    let (marco, lado) = NexusEspejoPegado.dondeVaElEspejo(
+      barra: original, espejo: NSSize(width: 430, height: 600), pantalla: pantalla)
+    let vuelta = NexusEspejoPegado.dondeVaLaBarra(espejo: marco, lado: lado, barra: original.size)
+    XCTAssertEqual(vuelta, original.origin)
+  }
+
+  /// 🔴 Lo que avisa el espejo después de moverlo nosotros es eco: con esto
+  /// reconocido, mover la barra no vuelve a moverla a ella.
+  func testElEcoSeReconoceYUnArrastreNo() {
+    let puesto = NSRect(x: 100, y: 100, width: 430, height: 600)
+    XCTAssertTrue(NexusEspejoPegado.esEco(esperado: puesto, visto: puesto.offsetBy(dx: 1, dy: -1)))
+    XCTAssertFalse(NexusEspejoPegado.esEco(esperado: puesto, visto: puesto.offsetBy(dx: 30, dy: 0)))
+    XCTAssertFalse(NexusEspejoPegado.esEco(esperado: nil, visto: puesto))
+  }
+
+  /// Accesibilidad cuenta desde arriba; AppKit desde abajo.
+  func testLasCoordenadasDeAccesibilidadVanYVuelven() {
+    let marco = NSRect(x: 50, y: 100, width: 430, height: 600)
+    let punto = NexusEspejoPegado.aAccesibilidad(marco, altoPrincipal: 1117)
+    XCTAssertEqual(punto, CGPoint(x: 50, y: 417))
+    XCTAssertEqual(
+      NexusEspejoPegado.desdeAccesibilidad(posicion: punto, tamano: marco.size, altoPrincipal: 1117),
+      marco)
+  }
+
+  /// Con dos emuladores del mismo modelo manda el título —el puerto—; sin
+  /// título, la que haya; y con varias y ninguna con el título, ninguna.
+  func testLaVentanaQueTocaSeEligePorElTitulo() {
+    let titulos = ["Android Emulator - Pixel_9:5556", "Android Emulator - Pixel_9:5554"]
+    XCTAssertEqual(NexusEspejoPegado.laQueToca(titulos, titulo: ":5554"), 1)
+    XCTAssertNil(NexusEspejoPegado.laQueToca(titulos, titulo: ":5560"))
+    XCTAssertEqual(NexusEspejoPegado.laQueToca(["iPhone Mirroring"], titulo: nil), 0)
+    XCTAssertEqual(NexusEspejoPegado.laQueToca(["POCO"], titulo: "POCO F6"), 0, "una sola: esa")
+    XCTAssertNil(NexusEspejoPegado.laQueToca([], titulo: nil))
+  }
+
+  func testLoQueSeBuscaLlegaDeDartYReconoceASuApp() {
+    let busca = LaVentanaDelEspejo(datos: [
+      "ejecutables": ["qemu-system"], "apps": ["com.apple.iphonesimulator"], "titulo": ":5554",
+    ])
+    XCTAssertEqual(busca.titulo, ":5554")
+    XCTAssertTrue(busca.esSuya(bundle: nil, ejecutable: "qemu-system-aarch64"))
+    XCTAssertTrue(busca.esSuya(bundle: "com.apple.iphonesimulator", ejecutable: "Simulator"))
+    XCTAssertFalse(busca.esSuya(bundle: "com.apple.Safari", ejecutable: "Safari"))
+  }
+}
+
 /// El tema se pinta en las ventanas de la app, no en las del sistema.
 final class AparienciaTests: XCTestCase {
   func testSoloLasVentanasMarcadasSonNuestras() {

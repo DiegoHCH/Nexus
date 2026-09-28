@@ -21,7 +21,25 @@ abstract interface class LaVentanaDeLaBotonera {
 
   /// Lo que se pulsa en ella. Hay **un** oyente: la app, que es quien lo hace.
   void alPedir(void Function(Map<Object?, Object?> pedido) atender);
+
+  /// Pega debajo de la ventana el espejo que describe [busca] —ver
+  /// `LaVentanaDelEspejo`—. Lo busca un rato, porque scrcpy tarda en sacar su
+  /// ventana. Contesta [EspejoPegado.buscando] o, si macOS no deja mover
+  /// ventanas ajenas, [EspejoPegado.sinPermiso].
+  Future<EspejoPegado> pegarElEspejo(Map<String, Object?> busca);
+
+  /// Lo suelta: se queda donde está, ya sin seguir a la botonera.
+  Future<void> soltarElEspejo();
+
+  /// Lleva a Ajustes › Privacidad › Accesibilidad, que es donde se da.
+  Future<void> pedirPermisoDelEspejo();
+
+  /// Cuando el permiso llega, que puede ser un rato después de pedirlo.
+  void alPermitirElEspejo(void Function() hacer);
 }
+
+/// Lo que contesta el lado nativo al pedirle que pegue el espejo.
+enum EspejoPegado { buscando, sinPermiso, sinVentana }
 
 /// La de verdad, por el canal de `NexusBotonera`.
 class LaVentanaNativaDeLaBotonera implements LaVentanaDeLaBotonera {
@@ -49,15 +67,53 @@ class LaVentanaNativaDeLaBotonera implements LaVentanaDeLaBotonera {
   @override
   Future<void> cerrar() => _decir('cerrar', null);
 
+  // Los dos oyentes comparten canal, y un canal tiene un solo manejador: se
+  // guardan aquí y el manejador reparte. Estáticos porque el canal lo es.
+  static void Function(Map<Object?, Object?> pedido)? _atender;
+  static void Function()? _alPermitir;
+
+  static Future<Object?> _reparte(MethodCall llamada) async {
+    switch (llamada.method) {
+      case 'pide':
+        final pedido = llamada.arguments;
+        if (pedido is Map<Object?, Object?>) _atender?.call(pedido);
+      case 'permisoDelEspejo':
+        _alPermitir?.call();
+    }
+    return null;
+  }
+
   @override
   void alPedir(void Function(Map<Object?, Object?> pedido) atender) {
-    _canal.setMethodCallHandler((llamada) async {
-      if (llamada.method != 'pide') return null;
-      final pedido = llamada.arguments;
-      if (pedido is Map<Object?, Object?>) atender(pedido);
-      return null;
-    });
+    _atender = atender;
+    _canal.setMethodCallHandler(_reparte);
   }
+
+  @override
+  void alPermitirElEspejo(void Function() hacer) {
+    _alPermitir = hacer;
+    _canal.setMethodCallHandler(_reparte);
+  }
+
+  @override
+  Future<EspejoPegado> pegarElEspejo(Map<String, Object?> busca) async {
+    try {
+      final como = await _canal.invokeMethod<String>('pegarElEspejo', busca);
+      return EspejoPegado.values.where((uno) => uno.name == como).firstOrNull ??
+          EspejoPegado.sinVentana;
+    } on MissingPluginException {
+      return EspejoPegado.sinVentana;
+    } on PlatformException catch (error) {
+      debugPrint('botonera · el espejo no se pegó: $error');
+      return EspejoPegado.sinVentana;
+    }
+  }
+
+  @override
+  Future<void> soltarElEspejo() => _decir('soltarElEspejo', null);
+
+  @override
+  Future<void> pedirPermisoDelEspejo() => _decir('pedirPermisoDelEspejo', null);
 
   Future<void> _decir(String que, Object? datos) async {
     try {

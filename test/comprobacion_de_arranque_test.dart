@@ -15,6 +15,8 @@ import 'package:nexus/features/onboarding/domain/usecases/check_readiness.dart';
 import 'package:nexus/features/onboarding/presentation/providers/onboarding_providers.dart';
 import 'package:nexus/features/onboarding/presentation/state/onboarding_state.dart';
 
+import 'support/hasta_que.dart';
+
 /// El arranque solo comprobaba la llave de Gemini.
 ///
 /// **Claude Code no se verificaba nunca** — ni que el binario esté ni que haya
@@ -203,8 +205,10 @@ void main() {
       );
       addTearDown(container.dispose);
       container.listen(appRouteControllerProvider, (_, _) {});
-      // El splash tiene un mínimo de 900 ms a propósito.
-      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      // El splash tiene un mínimo de 900 ms a propósito. Se espera a que se
+      // resuelva y no a 1100 ms: el margen sobre el mínimo es lo que tiene la
+      // comprobación para acabar, y con la máquina cargada no alcanzaba.
+      await _hastaQueSeResuelva(container);
       return container.read(appRouteControllerProvider);
     }
 
@@ -319,7 +323,7 @@ void main() {
 
     test('«entrar de todas formas» no deja a nadie encerrado fuera', () async {
       final container = contenedor();
-      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      await _hastaQueSeResuelva(container);
       expect(
         container.read(appRouteControllerProvider),
         isA<AppRouteNotReady>(),
@@ -331,7 +335,7 @@ void main() {
 
     test('y sin carpeta lleva a la configuración, no a Reposo', () async {
       final container = contenedor(conCarpeta: false);
-      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      await _hastaQueSeResuelva(container);
       container.read(appRouteControllerProvider.notifier).continueAnyway();
       expect(
         container.read(appRouteControllerProvider),
@@ -342,7 +346,7 @@ void main() {
 
     test('«comprobar de nuevo» vuelve a pasar por el splash', () async {
       final container = contenedor();
-      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      await _hastaQueSeResuelva(container);
 
       container.read(appRouteControllerProvider.notifier).recheck();
       expect(
@@ -353,6 +357,13 @@ void main() {
     });
   });
 }
+
+/// Hasta que el splash se resuelve: deja de estar cargando.
+Future<void> _hastaQueSeResuelva(ProviderContainer container) => hastaQue(
+  () => container.read(appRouteControllerProvider) is! AppRouteLoading,
+  esperando: 'que el arranque salga del splash',
+  loQueSeVe: () => 'estado=${container.read(appRouteControllerProvider)}',
+);
 
 class _Sonda implements ReadinessProbe {
   const _Sonda({

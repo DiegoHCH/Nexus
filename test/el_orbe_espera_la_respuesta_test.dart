@@ -33,6 +33,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/microfono.dart';
 
+import 'support/hasta_que.dart';
+
 const conversationId = 'c1';
 const folderPath = '/Users/alguien/General';
 
@@ -135,9 +137,11 @@ void main() {
       ..emit(const VoiceToolStarted('La agenda de hoy'))
       ..emit(const VoiceToolFinished(ok: true))
       ..emit(const VoiceReplyTranscript('Hoy tienes una reunión a las diez.'));
-    await Future<void>.delayed(const Duration(milliseconds: 30));
-
-    expect(orbe(m.container), NexusOrbState.speak);
+    await hastaQue(
+      () => orbe(m.container) == NexusOrbState.speak,
+      esperando: 'que el orbe pase a hablar',
+      loQueSeVe: () => 'orbe=${orbe(m.container)}',
+    );
   });
 
   // Que se quede en trabajando no puede convertirse en quedarse ahí para
@@ -155,9 +159,11 @@ void main() {
       expect(orbe(m.container), NexusOrbState.think);
 
       await m.voz.cerrar();
-      await Future<void>.delayed(const Duration(milliseconds: 30));
-
-      expect(orbe(m.container), NexusOrbState.sleep);
+      await hastaQue(
+        () => orbe(m.container) == NexusOrbState.sleep,
+        esperando: 'que el orbe se duerma al cerrarse',
+        loQueSeVe: () => 'orbe=${orbe(m.container)}',
+      );
       expect(
         m.container
             .read(assistantControllerProvider(conversationId))
@@ -175,9 +181,11 @@ void main() {
       ..emit(const VoiceToolStarted('La agenda de hoy'))
       ..emit(const VoiceToolFinished(ok: true))
       ..emit(const VoiceUserTranscript('déjalo, mejor otra cosa'));
-    await Future<void>.delayed(const Duration(milliseconds: 30));
-
-    expect(orbe(m.container), NexusOrbState.listen);
+    await hastaQue(
+      () => orbe(m.container) == NexusOrbState.listen,
+      esperando: 'que el orbe pase a escuchar',
+      loQueSeVe: () => 'orbe=${orbe(m.container)}',
+    );
   });
 }
 

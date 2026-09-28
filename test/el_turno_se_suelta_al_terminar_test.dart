@@ -8,6 +8,8 @@ import 'package:nexus/features/assistant/domain/repositories/stays_awake.dart';
 import 'package:nexus/features/assistant/domain/usecases/ask_claude.dart';
 import 'package:nexus/features/assistant/domain/usecases/folder_errand_queue.dart';
 
+import 'support/hasta_que.dart';
+
 /// El turno de la carpeta se suelta cuando **termina el turno**, no cuando
 /// muere el proceso.
 ///
@@ -143,12 +145,15 @@ void main() {
   /// Espera hasta que el turno haya terminado, sin fiarse de un número de
   /// vueltas: por delante hay varios `await` —el permiso del Mac, la cola, la
   /// memoria— y contar microtasks es adivinar.
-  Future<void> hastaElFinDeTurno(List<ClaudeEvent> visto) async {
-    for (var i = 0; i < 200; i++) {
-      if (visto.whereType<ClaudeTurnCompleted>().isNotEmpty) return;
-      await Future<void>.delayed(const Duration(milliseconds: 5));
-    }
-  }
+  ///
+  /// 🔴 **Y sin rendirse callado.** Eran doscientas vueltas de 5 ms y, agotadas,
+  /// volvía como si nada: con la máquina cargada, la prueba seguía con el turno
+  /// a medias y fallaba en el `expect` de después, lejos de la causa.
+  Future<void> hastaElFinDeTurno(List<ClaudeEvent> visto) => hastaQue(
+    () => visto.whereType<ClaudeTurnCompleted>().isNotEmpty,
+    esperando: 'que el turno termine',
+    loQueSeVe: () => 'eventos=$visto',
+  );
 
   test(
     'con el turno terminado la carpeta queda libre, aunque el proceso siga',

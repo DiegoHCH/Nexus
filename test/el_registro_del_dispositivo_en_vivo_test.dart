@@ -5,6 +5,8 @@ import 'package:nexus/features/emulators/data/datasources/registros_data_source.
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
 import 'package:nexus/features/emulators/domain/entities/linea_de_registro.dart';
 
+import 'support/hasta_que.dart';
+
 /// El registro del dispositivo, leído mientras corre.
 ///
 /// Es lo único de Nexus que **se lee mientras pasa y no al final**: un `logcat`
@@ -93,9 +95,10 @@ echo "09-03 10:00:00.123  1  2 I Tag: la única de verdad"
   // huérfano escribiendo a nadie.
   test('dejar de escuchar mata el proceso', () async {
     final marca = File('${cajon.path}/sigue-vivo');
+    final salio = File('${cajon.path}/salio');
     final fuente = conUn(
       await guionDe('''
-trap 'exit 0' TERM
+trap 'echo fin > ${salio.path}; exit 0' TERM
 echo "09-03 10:00:00.123  1  2 I Tag: primera"
 i=0
 while [ \$i -lt 200 ]; do
@@ -106,17 +109,33 @@ done
 '''),
     );
 
+    final leidas = <LineaDeRegistro>[];
     final suscripcion = fuente
         .escuchar(plataforma: PlataformaEmulador.android, deviceId: 'x')
-        .listen((_) {});
-    await Future<void>.delayed(const Duration(milliseconds: 400));
+        .listen(leidas.add);
+    // 🔴 **Se corta cuando ya está corriendo, no a los 400 ms.** Con la máquina
+    // cargada el proceso podía no haber arrancado aún: se cancelaba antes, el
+    // `kill` llegaba después de lanzarlo, y lo que escribiera entre medias se
+    // contaba como escrito «después de que nadie lo escuchara».
+    await hastaQue(
+      () => leidas.isNotEmpty && marca.existsSync(),
+      esperando: 'que el registro entregue su primera línea y esté escribiendo',
+      loQueSeVe: () => 'leídas=${leidas.length} · marca=${marca.existsSync()}',
+    );
     await suscripcion.cancel();
 
-    final cuandoSeCancelo = marca.existsSync()
-        ? marca.readAsLinesSync().length
-        : 0;
+    // Y se cuenta cuando ya salió —lo dice su propio `trap`—, no al instante:
+    // la señal puede pillarlo a mitad de un `echo`, y esa línea es de antes.
+    await hastaQue(
+      salio.existsSync,
+      esperando: 'que el proceso reciba la señal y salga',
+      loQueSeVe: () => 'líneas escritas=${marca.readAsLinesSync().length}',
+    );
+    final cuandoSeCancelo = marca.readAsLinesSync().length;
+    // Este reloj sí se queda: lo que se juzga es que **no** siga escribiendo, y
+    // una máquina lenta hace que escriba menos, no más.
     await Future<void>.delayed(const Duration(milliseconds: 500));
-    final despues = marca.existsSync() ? marca.readAsLinesSync().length : 0;
+    final despues = marca.readAsLinesSync().length;
 
     expect(
       despues,

@@ -31,6 +31,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/microfono.dart';
 
+import 'support/hasta_que.dart';
+
 const conversationId = 'c1';
 const folderPath = '/Users/alguien/General';
 
@@ -189,9 +191,11 @@ void main() {
       ..emit(const VoiceUserTranscript('dime cómo funciona gitflow'))
       ..emit(const VoiceReplyTranscript('Gitflow es un modelo de ramas.'))
       ..emit(const VoiceTurnCompleted());
-    await Future<void>.delayed(const Duration(milliseconds: 30));
+    await hastaQue(
+      () => m.store.guardadas.isNotEmpty,
+      esperando: 'que el turno de voz se guarde',
+    );
 
-    expect(m.store.guardadas, isNotEmpty);
     expect(m.store.guardadas.last.folderPath, folderPath);
     expect(m.store.guardadas.last.messages, isNotEmpty);
   });
@@ -209,7 +213,10 @@ void main() {
       ..emit(const VoiceUserTranscript('hola'))
       ..emit(const VoiceReplyTranscript('Hola, ¿en qué te ayudo?'))
       ..emit(const VoiceTurnCompleted());
-    await Future<void>.delayed(const Duration(milliseconds: 30));
+    await hastaQue(
+      () => m.store.guardadas.isNotEmpty,
+      esperando: 'que el turno de voz se guarde',
+    );
 
     final estado = m.container.read(
       assistantControllerProvider(conversationId),
@@ -243,7 +250,15 @@ void main() {
           contextTokens: 63300,
         ),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 30));
+      await hastaQue(
+        () =>
+            m.container
+                .read(assistantControllerProvider(conversationId))
+                .meter
+                .contextTokens !=
+            null,
+        esperando: 'que el medidor recoja las cifras del turno',
+      );
 
       final estado = m.container.read(
         assistantControllerProvider(conversationId),

@@ -45,6 +45,10 @@ class ElRielDeLaSala extends StatelessWidget {
   static const laLlaveDelChat = ValueKey('riel-chat');
   static const laLlaveDelPunto = ValueKey('riel-chat-sin-leer');
 
+  /// El historial, para el recorrido del Mac: su tooltip lleva el atajo y el
+  /// nombre en mayúscula inicial, y buscarlo por ahí sería atarse a cómo se pinta.
+  static const laLlaveDelHistorial = ValueKey('riel-historial');
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -74,6 +78,7 @@ class ElRielDeLaSala extends StatelessWidget {
           SizedBox(width: 24, child: Divider(height: 1, color: colors.rule)),
           const SizedBox(height: NexusSpacing.s3),
           _Boton(
+            key: laLlaveDelHistorial,
             icono: Icons.history,
             nombre: capital(strings.history),
             atajo: '⌘Y',

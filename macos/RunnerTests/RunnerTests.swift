@@ -256,9 +256,13 @@ final class VisorDeArtefactosTests: XCTestCase {
     defer { visor.window.close() }
 
     let web = visor.web
-    visor.permitir(false)
-    _ = try corrioElScript(en: web)
+    // Nace encendido: corre sin tocar nada.
+    XCTAssertTrue(esperaAQueCorra(en: web), "un documento recién abierto ya corre sus scripts")
 
+    // Y apagado y vuelto a encender, corre otra vez. Sin mirar entre medias:
+    // con el CI cargado, preguntar durante la recarga del apagado choca con
+    // ella (se vio agotando los 15 s).
+    visor.permitir(false)
     visor.permitir(true)
 
     // Se **espera** a que corra en vez de mirar una vez: marcar la casilla

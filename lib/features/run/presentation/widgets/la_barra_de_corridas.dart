@@ -519,6 +519,7 @@ class _LaAccion extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
+    final colors = context.colors;
     // La primera de la fila es la que toca, y se marca con el acento: «esto es
     // lo que hay que hacer ahora». Solo la del error y la de seguir, que son
     // las dos que el estado pide; el resto son disponibles.
@@ -527,61 +528,79 @@ class _LaAccion extends StatelessWidget {
         (accion == AccionDeCorrida.pasarleElError ||
             accion == AccionDeCorrida.seguir);
 
-    BotonDeFila boton(
-      String texto, {
-      TonoDeBoton tono = TonoDeBoton.neutro,
+    // 🔴 **Iconos, con su nombre en el tooltip.** La pasada de fidelidad los
+    // cambió por palabras —«RECARGAR», «REINICIAR», «PARSE EN LOS ERRORES»—, y
+    // en la botonera eso es una fila de dos o tres líneas que se lee en vez de
+    // pulsarse. Pedido de vuelta el 28 sep: «me gustaban más cuando eran
+    // iconos». Son los de una barra de depuración, y el color separa los que
+    // no se pueden confundir: reiniciar en verde, parar en rojo.
+    BotonMini boton(
+      IconData icono,
+      String titulo, {
+      Color? color,
       bool activo = false,
-      String? tooltip,
-    }) => BotonDeFila(
+    }) => BotonMini(
       key: ValueKey('accion-${accion.name}'),
-      texto: texto,
+      icono: icono,
+      titulo: titulo,
+      color: esLaQueToca ? colors.accent : color,
+      activo: activo,
       onPulsar: () =>
           onPedido(AccionEnLaCorrida(deviceId: fila.deviceId, accion: accion)),
-      tono: esLaQueToca ? TonoDeBoton.principal : tono,
-      activo: activo,
-      tooltip: tooltip,
     );
 
     return switch (accion) {
-      AccionDeCorrida.pasarleElError => boton(strings.runPasarloAClaude),
-      AccionDeCorrida.seguir => boton(strings.runSeguir),
-      AccionDeCorrida.siguienteLinea => boton(strings.runPasoSiguiente),
+      AccionDeCorrida.pasarleElError => boton(
+        Icons.bolt_outlined,
+        strings.runPasarloAClaude,
+        color: colors.err,
+      ),
+      AccionDeCorrida.seguir => boton(
+        Icons.play_arrow_rounded,
+        strings.runSeguir,
+        color: colors.ok,
+      ),
+      AccionDeCorrida.siguienteLinea => boton(
+        Icons.redo_rounded,
+        strings.runPasoSiguiente,
+      ),
       AccionDeCorrida.entrar => boton(
-        strings.runPasoEntrarCorto,
-        tooltip: strings.runPasoEntrar,
+        Icons.subdirectory_arrow_right_rounded,
+        strings.runPasoEntrar,
       ),
       AccionDeCorrida.salir => boton(
-        strings.runPasoSalirCorto,
-        tooltip: strings.runPasoSalir,
+        Icons.subdirectory_arrow_left_rounded,
+        strings.runPasoSalir,
       ),
-      AccionDeCorrida.recargar => boton(strings.runReload),
-      // En verde, como en la referencia: reiniciar es lo que se pulsa cuando la
-      // recarga no bastó, y distinguirlo de un vistazo evita pulsar el de al
-      // lado.
+      AccionDeCorrida.recargar => boton(Icons.refresh, strings.runReload),
       AccionDeCorrida.reiniciar => boton(
+        Icons.restart_alt,
         strings.runRestart,
-        tono: TonoDeBoton.bien,
+        color: colors.ok,
       ),
       AccionDeCorrida.freno => boton(
+        Icons.pause_circle_outline,
         strings.runFreno,
         activo: fila.frenoPuesto,
       ),
       AccionDeCorrida.consola => boton(
-        strings.runConsoleCorto,
-        tooltip: strings.runConsole,
+        Icons.dashboard_customize_outlined,
+        strings.runConsole,
       ),
       AccionDeCorrida.registro => boton(
+        Icons.article_outlined,
         strings.runLogs,
         activo: fila.registroAbierto,
       ),
       AccionDeCorrida.registroDelSistema => boton(
-        strings.runSystemLogCorto,
+        Icons.phonelink_ring_outlined,
+        strings.runSystemLog,
         activo: fila.sistemaAbierto,
-        tooltip: strings.runSystemLog,
       ),
       AccionDeCorrida.parar => boton(
+        Icons.stop_rounded,
         strings.runStop,
-        tono: TonoDeBoton.peligro,
+        color: colors.err,
       ),
     };
   }

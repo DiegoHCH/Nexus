@@ -627,9 +627,7 @@ void main() {
     ) async {
       final pedidos = await montar(tester);
 
-      await tester.tap(
-        find.text(const NexusStringsEs().runReload.toUpperCase()),
-      );
+      await tester.tap(find.byTooltip(const NexusStringsEs().runReload));
       await tester.tap(find.byKey(LaBarraDeCorridas.laRecargaSola));
 
       expect(pedidos, [

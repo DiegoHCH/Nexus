@@ -317,6 +317,46 @@ HoldVoiceConversation _conversation(
   graciaDeLaRuta: graciaDeLaRuta ?? Duration.zero,
 );
 
+/// Espera a que la corrección de un turno contestado de memoria **haya llegado
+/// a la voz**, que es lo último que pasa al cerrarlo.
+///
+/// 🔴 **Es una cadena, y la mitad de sus eslabones son temporizadores.** Se le
+/// pide que lo pase, vence la gracia —cero aquí, pero sigue siendo un `Timer`—,
+/// Claude contesta y la respuesta vuelve como nota. Cada temporizador que la
+/// cadena arma con la máquina cargada vence **después** de los 20 ms que la
+/// prueba había armado antes, así que esperar ese rato era apostar a que la
+/// cadena acabara primero.
+Future<void> _hastaQueSeCorrija(_Session session) => hastaQue(
+  () =>
+      session.notes.any((nota) => nota.startsWith(VoiceRouting.correction(''))),
+  esperando: 'que la corrección de Claude llegue a la voz',
+  loQueSeVe: () => 'notas=${session.notes}',
+);
+
+/// Espera a que acabe el saludo, que es cuando el micro vuelve a salir.
+///
+/// 🔴 **Desde fuera no hay otra forma de verlo, y por eso se le pregunta al
+/// micro.** El saludo se da por terminado en un `Timer` que se arma cuando el
+/// altavoz dice cuánto le queda; con la máquina cargada vencía detrás de los
+/// 20 ms de la prueba, y lo siguiente que se decía llegaba con ella todavía
+/// saludando — y se tragaba como parte del saludo.
+///
+/// Se manda un trozo por vuelta y solo mientras no haya salido ninguno: cada uno
+/// llega antes de la vuelta siguiente, así que en cuanto uno sale no va otro
+/// detrás.
+Future<void> _hastaQueAcabeElSaludo(_Mic mic, _Session session) {
+  final antes = session.audios;
+  return hastaQue(
+    () {
+      if (session.audios > antes) return true;
+      mic.hablar();
+      return false;
+    },
+    esperando: 'que acabe el saludo y el micro vuelva a salir',
+    loQueSeVe: () => 'trozos que salieron=${session.audios - antes}',
+  );
+}
+
 /// El lanzador de pruebas, que apunta lo que se le pidió. Su gracia en estas
 /// pruebas es la de al lado: comprobar que ese camino **no pasa por Claude**.
 class _Lanzador implements CorrerUnaPrueba {
@@ -467,7 +507,11 @@ void main() {
       // El modelo contestó de memoria, sin llamar a la herramienta: aquí es
       // donde este código corrige y manda el encargo a Claude.
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await hastaQue(
+        () => bridge.asked.isNotEmpty,
+        esperando: 'que la frase entera llegue a Claude',
+        loQueSeVe: () => 'encargos=${bridge.asked} · notas=${session.notes}',
+      );
 
       expect(bridge.asked, hasLength(1));
       // Va dentro del encargo y no como el encargo entero: desde que la
@@ -512,14 +556,18 @@ void main() {
 
       session.emit(const VoiceUserTranscript('corre los tests'));
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await _hastaQueSeCorrija(session);
 
       // Ya contestó: la siguiente lleva su nombre. Ver [ElAudioAjeno].
       session.emit(
         const VoiceUserTranscript('nexus, y ahora mira el historial'),
       );
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await hastaQue(
+        () => bridge.asked.length >= 2,
+        esperando: 'que la segunda frase llegue a Claude',
+        loQueSeVe: () => 'encargos=${bridge.asked} · notas=${session.notes}',
+      );
 
       expect(bridge.asked, hasLength(2));
       expect(bridge.asked.first, contains('corre los tests'));
@@ -784,12 +832,20 @@ void main() {
         () => null,
       );
 
-      final subscription = conversation().listen((_) {});
+      final vistos = <VoiceEvent>[];
+      final subscription = conversation().listen(vistos.add);
       await Future<void>.delayed(Duration.zero);
 
       session.emit(const VoiceUserTranscript('hola'));
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      // 🔴 **Se espera a que el turno se decida, no a que pasen 20 ms.** Un
+      // saludo cierra su turno hacia la pantalla; si fuera a Claude, ese
+      // cierre no saldría y en su lugar se le pediría que lo pase.
+      await hastaQue(
+        () => vistos.whereType<VoiceTurnCompleted>().isNotEmpty,
+        esperando: 'que el saludo cierre su turno',
+        loQueSeVe: () => 'vistos=$vistos · notas=${session.notes}',
+      );
 
       expect(bridge.asked, isEmpty);
 
@@ -869,7 +925,11 @@ void main() {
 
     session.emit(const VoiceUserTranscript('corre los tests'));
     session.emit(const VoiceTurnCompleted());
-    await Future<void>.delayed(const Duration(milliseconds: 40));
+    await hastaQue(
+      () => vistos.whereType<VoiceToolFinished>().isNotEmpty,
+      esperando: 'que el encargo termine',
+      loQueSeVe: () => 'vistos=$vistos',
+    );
 
     final fin = vistos.whereType<VoiceToolFinished>().singleOrNull;
     expect(fin, isNotNull, reason: 'el encargo tiene que terminar');
@@ -914,7 +974,11 @@ void main() {
           arguments: {'instruccion': 'lee todo el repo'},
         ),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      await hastaQue(
+        () => session.toolResults.isNotEmpty,
+        esperando: 'que la respuesta vuelva al servicio de voz',
+        loQueSeVe: () => 'respuestas=${session.toolResults}',
+      );
 
       expect(session.toolResults, hasLength(1));
       final salio = session.toolResults.single;
@@ -955,7 +1019,11 @@ void main() {
           arguments: {'instruccion': 'como va eso'},
         ),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      await hastaQue(
+        () => session.toolResults.isNotEmpty,
+        esperando: 'que la respuesta vuelva al servicio de voz',
+        loQueSeVe: () => 'respuestas=${session.toolResults}',
+      );
 
       expect(session.toolResults.single, 'son tres archivos y ninguno falla');
 
@@ -984,7 +1052,11 @@ void main() {
           arguments: {'prueba': 'el login'},
         ),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      await hastaQue(
+        () => session.toolResults.isNotEmpty,
+        esperando: 'que lo que dice el lanzador vuelva al servicio de voz',
+        loQueSeVe: () => 'respuestas=${session.toolResults}',
+      );
 
       expect(lanzador.pedidos, ['el login']);
       // Y esto es lo que hace cierta la frase de la demo: sin encargo a Claude,
@@ -1019,7 +1091,11 @@ void main() {
           arguments: {},
         ),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      await hastaQue(
+        () => session.toolResults.isNotEmpty,
+        esperando: 'que lo que dice el lanzador vuelva al servicio de voz',
+        loQueSeVe: () => 'respuestas=${session.toolResults}',
+      );
 
       // Llega vacío y se deja decidir al lanzador, que sabe qué pruebas hay y
       // puede enumerarlas. Cortarlo aquí sería contestar «falta el nombre»
@@ -1052,7 +1128,11 @@ void main() {
           arguments: {},
         ),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      await hastaQue(
+        () => session.toolResults.isNotEmpty,
+        esperando: 'que el parte vuelva al servicio de voz',
+        loQueSeVe: () => 'respuestas=${session.toolResults}',
+      );
 
       expect(parte.seLoPidieron, 1);
       expect(bridge.asked, [parte.hay]);
@@ -1085,7 +1165,11 @@ void main() {
           arguments: {},
         ),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      await hastaQue(
+        () => session.toolResults.isNotEmpty,
+        esperando: 'que el parte vuelva al servicio de voz',
+        loQueSeVe: () => 'respuestas=${session.toolResults}',
+      );
 
       expect(bridge.asked, isEmpty);
       expect(parte.escritos, isEmpty);
@@ -1395,7 +1479,11 @@ void main() {
           arguments: <String, Object?>{'instruccion': 'arregla el login'},
         ),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await hastaQue(
+        () => bridge.asked.isNotEmpty,
+        esperando: 'que el encargo llegue a Claude',
+        loQueSeVe: () => 'encargos=${bridge.asked} · notas=${session.notes}',
+      );
 
       expect(bridge.asked.single, contains('arregla el login'));
     });
@@ -1421,7 +1509,11 @@ void main() {
           },
         ),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await hastaQue(
+        () => session.toolResults.isNotEmpty,
+        esperando: 'que se le diga al modelo adónde se fue',
+        loQueSeVe: () => 'respuestas=${session.toolResults}',
+      );
 
       expect(
         bridge.asked,
@@ -1451,7 +1543,11 @@ void main() {
           arguments: <String, Object?>{'instruccion': 'escribe el archivo'},
         ),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await hastaQue(
+        () => session.toolResults.isNotEmpty,
+        esperando: 'que el encargo vuelva de Claude',
+        loQueSeVe: () => 'respuestas=${session.toolResults}',
+      );
     }
 
     test('con la frase abierta, la carpeta manda', () async {
@@ -1549,7 +1645,11 @@ void _elAudioAjeno() {
         ),
       );
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await hastaQue(
+        () => vistos.whereType<VoiceIgnorado>().isNotEmpty,
+        esperando: 'que lo de la habitación se ignore',
+        loQueSeVe: () => 'vistos=$vistos · notas=${session.notes}',
+      );
 
       expect(bridge.asked, isEmpty, reason: 'nadie le pidió nada a Claude');
       expect(vistos.whereType<VoiceIgnorado>(), hasLength(1));
@@ -1562,14 +1662,24 @@ void _elAudioAjeno() {
       // evitar que la genere, sí que la oiga alguien que no preguntó.
       final sonaron = altavoz.sonaron;
       session.emit(VoiceReplyAudio(Uint8List.fromList([3])));
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-      expect(altavoz.sonaron, sonaron);
 
       // Cerrado ese turno, se vuelve a oír con normalidad.
       session.emit(const VoiceTurnCompleted());
       session.emit(VoiceReplyAudio(Uint8List.fromList([4])));
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-      expect(altavoz.sonaron, sonaron + 1);
+      // 🔴 **Que el [3] no sonara se juzga cuando ya sonó el [4]**, y no a los
+      // 20 ms: así no depende de ningún reloj. Los eventos llegan en orden, de
+      // modo que con el [4] en el altavoz el [3] ya tuvo su ocasión — y si la
+      // hubiera aprovechado, aquí habría dos.
+      await hastaQue(
+        () => altavoz.sonaron > sonaron,
+        esperando: 'que suene la respuesta del turno siguiente',
+        loQueSeVe: () => 'sonaron=${altavoz.sonaron} (antes $sonaron)',
+      );
+      expect(
+        altavoz.sonaron,
+        sonaron + 1,
+        reason: 'la del turno ignorado no suena; la siguiente, sí',
+      );
 
       await subscription.cancel();
     });
@@ -1588,14 +1698,22 @@ void _elAudioAjeno() {
       session.emit(
         const VoiceUserTranscript('nexus, mira el historial de git'),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await hastaQue(
+        () => altavoz.descartes > 0,
+        esperando: 'que su nombre corte lo que sonaba',
+        loQueSeVe: () => 'descartes=${altavoz.descartes}',
+      );
 
       // 🔴 **El corte lo hace este lado.** El servicio ya no interrumpe, así que
       // sin esto decirle su nombre no la callaría hasta acabar la frase.
       expect(altavoz.descartes, 1);
 
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await hastaQue(
+        () => bridge.asked.isNotEmpty,
+        esperando: 'que lo que se le pidió llegue a Claude',
+        loQueSeVe: () => 'encargos=${bridge.asked} · notas=${session.notes}',
+      );
 
       expect(vistos.whereType<VoiceIgnorado>(), isEmpty);
       expect(bridge.asked.single, contains('mira el historial de git'));
@@ -1611,13 +1729,20 @@ void _elAudioAjeno() {
       final altavoz = _Altavoz();
       final conversation = _conversation(session, bridge, altavoz: altavoz);
 
-      final subscription = conversation().listen((_) {});
+      final vistos = <VoiceEvent>[];
+      final subscription = conversation().listen(vistos.add);
       await Future<void>.delayed(Duration.zero);
 
       session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
       session.emit(const VoiceUserTranscript('para'));
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      // Se espera al cierre del turno y no a un rato: «para» lo cierra hacia la
+      // pantalla, y si fuera a Claude ese cierre no saldría.
+      await hastaQue(
+        () => vistos.whereType<VoiceTurnCompleted>().isNotEmpty,
+        esperando: 'que «para» cierre su turno',
+        loQueSeVe: () => 'vistos=$vistos · notas=${session.notes}',
+      );
 
       expect(altavoz.descartes, 1);
       expect(bridge.asked, isEmpty);
@@ -1647,7 +1772,11 @@ void _elAudioAjeno() {
       // turno, y a esas alturas siempre está hablando: contestándote—.
       session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await hastaQue(
+        () => bridge.asked.isNotEmpty,
+        esperando: 'que lo dicho con ella callada llegue a Claude',
+        loQueSeVe: () => 'encargos=${bridge.asked} · notas=${session.notes}',
+      );
 
       expect(vistos.whereType<VoiceIgnorado>(), isEmpty);
       expect(bridge.asked, hasLength(1));
@@ -1670,12 +1799,23 @@ void _elAudioAjeno() {
 
       // La segunda con su nombre: tras contestar, es como se le sigue
       // hablando. Ver [ElAudioAjeno].
+      // Cuántos turnos se decidieron ya, por el camino que sea: cerrado hacia
+      // la pantalla, ignorado, o pedido que lo pase a Claude.
+      int decididos() =>
+          vistos.whereType<VoiceTurnCompleted>().length +
+          vistos.whereType<VoiceIgnorado>().length +
+          session.notes.where((n) => n == VoiceRouting.pasaloTu).length;
       for (final pregunta in ['¿Cómo estás?', 'Nexus, no tengo nada. Adiós.']) {
+        final antes = decididos();
         session.emit(VoiceUserTranscript(pregunta));
         session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
         session.emit(VoiceReplyAudio(Uint8List.fromList([2])));
         session.emit(const VoiceTurnCompleted());
-        await Future<void>.delayed(const Duration(milliseconds: 20));
+        await hastaQue(
+          () => decididos() > antes,
+          esperando: 'que se decida el turno de «$pregunta»',
+          loQueSeVe: () => 'vistos=$vistos · notas=${session.notes}',
+        );
       }
 
       expect(vistos.whereType<VoiceIgnorado>(), isEmpty);
@@ -1701,7 +1841,7 @@ void _elAudioAjeno() {
         session.emit(const VoiceUserTranscript('mira el historial de git'));
         session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
         session.emit(const VoiceTurnCompleted());
-        await Future<void>.delayed(const Duration(milliseconds: 20));
+        await _hastaQueSeCorrija(session);
         expect(vistos.whereType<VoiceIgnorado>(), isEmpty);
 
         // El socket ya cerró el turno, pero el altavoz tiene cinco segundos más.
@@ -1712,7 +1852,11 @@ void _elAudioAjeno() {
         );
         session.emit(VoiceReplyAudio(Uint8List.fromList([2])));
         session.emit(const VoiceTurnCompleted());
-        await Future<void>.delayed(const Duration(milliseconds: 20));
+        await hastaQue(
+          () => vistos.whereType<VoiceIgnorado>().isNotEmpty,
+          esperando: 'que lo de la habitación se ignore',
+          loQueSeVe: () => 'vistos=$vistos · notas=${session.notes}',
+        );
 
         expect(vistos.whereType<VoiceIgnorado>(), hasLength(1));
         expect(
@@ -1741,7 +1885,7 @@ void _elAudioAjeno() {
       session.emit(const VoiceUserTranscript('mira el historial de git'));
       session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await _hastaQueSeCorrija(session);
       final sonaron = altavoz.sonaron;
 
       // La tele, con ella callada.
@@ -1750,7 +1894,11 @@ void _elAudioAjeno() {
       );
       session.emit(VoiceReplyAudio(Uint8List.fromList([2])));
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await hastaQue(
+        () => vistos.whereType<VoiceIgnorado>().isNotEmpty,
+        esperando: 'que la tele se ignore',
+        loQueSeVe: () => 'vistos=$vistos · notas=${session.notes}',
+      );
 
       expect(vistos.whereType<VoiceIgnorado>(), hasLength(1));
       expect(
@@ -1763,7 +1911,11 @@ void _elAudioAjeno() {
       // Con su nombre, se atiende.
       session.emit(const VoiceUserTranscript('nexus, ¿y los PR abiertos?'));
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await hastaQue(
+        () => bridge.asked.length >= 2,
+        esperando: 'que con su nombre llegue a Claude',
+        loQueSeVe: () => 'encargos=${bridge.asked} · notas=${session.notes}',
+      );
       expect(bridge.asked, hasLength(2));
 
       await subscription.cancel();
@@ -1786,11 +1938,15 @@ void _elAudioAjeno() {
       );
       session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await _hastaQueSeCorrija(session);
 
       session.emit(const VoiceUserTranscript('sí, regenéralo'));
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await hastaQue(
+        () => bridge.asked.length >= 2,
+        esperando: 'que la respuesta a su pregunta llegue a Claude',
+        loQueSeVe: () => 'encargos=${bridge.asked} · notas=${session.notes}',
+      );
 
       expect(vistos.whereType<VoiceIgnorado>(), isEmpty);
       expect(bridge.asked.last, contains('regenéralo'));
@@ -1816,7 +1972,11 @@ void _elAudioAjeno() {
       session.emit(const VoiceUserTranscript('En nada, adiós'));
       session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 1800));
+      await hastaQue(
+        () => cerrada,
+        esperando: 'que la despedida cierre la conversación',
+        loQueSeVe: () => 'notas=${session.notes}',
+      );
 
       expect(cerrada, isTrue);
       await subscription.cancel();
@@ -1836,6 +1996,12 @@ void _elAudioAjeno() {
       session.emit(const VoiceUserTranscript('Adiós'));
       session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
       session.emit(const VoiceTurnCompleted());
+      // 🔴 **Estos dos relojes se quedan, y a propósito.** Lo que se juzga es
+      // que algo **no** pase —que no se cierre—, y ahí un reloj fijo sí vale:
+      // una máquina lenta hace que pasen menos cosas, no más, así que no puede
+      // convertir este verde en rojo. Los 300 ms tampoco: el cierre es un
+      // `Timer` de 1,5 s armado antes que el de la prueba, y los
+      // temporizadores vencen por orden de plazo, no de llegada.
       await Future<void>.delayed(const Duration(milliseconds: 300));
       session.emit(const VoiceUserTranscript('ah, espera'));
       await Future<void>.delayed(const Duration(milliseconds: 1800));
@@ -1858,7 +2024,11 @@ void _elAudioAjeno() {
       ).listen((_) {});
       await Future<void>.delayed(Duration.zero);
       session.emit(const VoiceSessionReady());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await hastaQue(
+        () => session.notes.isNotEmpty,
+        esperando: 'que salga la señal de arranque',
+        loQueSeVe: () => 'notas=${session.notes}',
+      );
 
       expect(
         (gateway.perfil! as ComoUnaConversacion).saludo,
@@ -1884,14 +2054,15 @@ void _elAudioAjeno() {
       // Suena la habitación mientras saluda: no se le manda.
       session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
       mic.hablar();
+      // Esperar a que algo **no** pase es lo único que un reloj fijo sí
+      // prueba: una máquina lenta lo deja pasar menos, no más.
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(session.audios, 0);
 
       // Acabó de saludar —y el altavoz no tiene nada pendiente—: ahora sí.
+      // Acabó de saludar —y el altavoz no tiene nada pendiente—: ahora sí.
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-      mic.hablar();
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await _hastaQueAcabeElSaludo(mic, session);
       expect(session.audios, 1);
 
       await subscription.cancel();
@@ -1900,7 +2071,8 @@ void _elAudioAjeno() {
     test('lo primero que dices después se atiende, no es ajeno', () async {
       final session = _Session();
       final bridge = _Bridge();
-      final conversation = _conversation(session, bridge);
+      final mic = _Mic();
+      final conversation = _conversation(session, bridge, mic: mic);
 
       final vistos = <VoiceEvent>[];
       final subscription = conversation(saludo: '¿Sí?').listen(vistos.add);
@@ -1908,12 +2080,16 @@ void _elAudioAjeno() {
       session.emit(const VoiceSessionReady());
       session.emit(VoiceReplyAudio(Uint8List.fromList([1])));
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await _hastaQueAcabeElSaludo(mic, session);
 
       session.emit(const VoiceUserTranscript('mira el historial de git'));
       session.emit(VoiceReplyAudio(Uint8List.fromList([2])));
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await hastaQue(
+        () => bridge.asked.isNotEmpty,
+        esperando: 'que lo que dijiste llegue a Claude',
+        loQueSeVe: () => 'encargos=${bridge.asked} · notas=${session.notes}',
+      );
 
       expect(vistos.whereType<VoiceIgnorado>(), isEmpty);
       expect(bridge.asked.single, contains('historial de git'));
@@ -1935,7 +2111,11 @@ void _elAudioAjeno() {
       ).listen(vistos.add);
       await Future<void>.delayed(Duration.zero);
       session.emit(const VoiceSessionReady());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await hastaQue(
+        () => vistos.whereType<VoiceUserTranscript>().isNotEmpty,
+        esperando: 'que la frase se pinte como tuya',
+        loQueSeVe: () => 'vistos=$vistos · notas=${session.notes}',
+      );
 
       // Va por el socket como tu turno, y no hay «(inicio)» ni saludo.
       expect(session.notes, ['mira el historial de git']);
@@ -1949,7 +2129,11 @@ void _elAudioAjeno() {
       // Y si contesta de memoria, se corrige como cualquier otro turno.
       session.emit(VoiceReplyAudio(Uint8List.fromList([2])));
       session.emit(const VoiceTurnCompleted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await hastaQue(
+        () => bridge.asked.isNotEmpty,
+        esperando: 'que la frase llegue a Claude',
+        loQueSeVe: () => 'encargos=${bridge.asked} · notas=${session.notes}',
+      );
       expect(bridge.asked.single, contains('historial de git'));
 
       await subscription.cancel();
@@ -1966,7 +2150,11 @@ void _elAudioAjeno() {
         await Future<void>.delayed(Duration.zero);
         session.emit(const VoiceSessionReady());
         mic.hablar();
-        await Future<void>.delayed(const Duration(milliseconds: 20));
+        await hastaQue(
+          () => session.audios > 0,
+          esperando: 'que el micro salga',
+          loQueSeVe: () => 'trozos=${session.audios} · notas=${session.notes}',
+        );
 
         expect(session.notes, isEmpty);
         expect(session.audios, 1);

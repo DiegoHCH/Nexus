@@ -17,6 +17,14 @@ import 'package:nexus/features/assistant/data/datasources/claude_cli_data_source
 // Y `sh` con la señal atrapada imita la otra mitad de lo medido: **el CLI ignora
 // `SIGTERM`** —51 de 52 lo aguantaron—, así que rematar con el `kill()` de
 // fábrica de Dart, que manda `SIGTERM`, no habría servido.
+//
+// 🔴 **Aquí se espera a que el proceso salga, no a un plazo.** Llevaban un
+// `timeout` de 5 s, y cerrar la entrada por las buenas pasa por una gracia de
+// 3 s —ver [ElProcesoDelTurno.gracia]— antes de que `cat` pueda salir: con la
+// máquina cargada, los dos que quedaban no daban para lanzar el proceso,
+// cerrarle la entrada y verlo salir. Sin plazo propio manda el de la prueba, que
+// es el que tiene que mandar: si el proceso no sale nunca, el remate de
+// [ElProcesoDelTurno.plazo] lo mata antes y el `expect` dice con qué código.
 
 void main() {
   test('al acabar el turno se le cierra la entrada y sale solo', () async {
@@ -26,7 +34,7 @@ void main() {
     vivo.elTurnoAcabo();
 
     expect(
-      await proceso.exitCode.timeout(const Duration(seconds: 5)),
+      await proceso.exitCode,
       0,
       reason: 'sale por las buenas, que es como recoge a sus propios hijos',
     );
@@ -39,7 +47,7 @@ void main() {
     vivo.elTurnoAcabo();
     vivo.elTurnoAcabo();
 
-    expect(await proceso.exitCode.timeout(const Duration(seconds: 5)), 0);
+    expect(await proceso.exitCode, 0);
   });
 
   // 🔴 El caso del botón Detener: aquí no hay salida limpia que esperar.
@@ -53,7 +61,7 @@ void main() {
     await vivo.soltar();
 
     expect(
-      await proceso.exitCode.timeout(const Duration(seconds: 5)),
+      await proceso.exitCode,
       isNot(0),
       reason: 'con SIGTERM seguiría corriendo; hace falta SIGKILL',
     );
@@ -64,7 +72,7 @@ void main() {
     final vivo = ElProcesoDelTurno()..tomar(proceso, preguntando: true);
 
     vivo.elTurnoAcabo();
-    await proceso.exitCode.timeout(const Duration(seconds: 5));
+    await proceso.exitCode;
 
     await expectLater(vivo.soltar(), completes);
   });
@@ -91,7 +99,7 @@ void main() {
     final vivo = ElProcesoDelTurno()..tomar(proceso, preguntando: true);
 
     vivo.elTurnoAcabo();
-    await proceso.exitCode.timeout(const Duration(seconds: 5));
+    await proceso.exitCode;
 
     expect(
       vivo.loMatamosNosotros,
@@ -109,7 +117,7 @@ void main() {
     final vivo = ElProcesoDelTurno()..tomar(proceso, preguntando: false);
 
     await vivo.soltar();
-    await proceso.exitCode.timeout(const Duration(seconds: 5));
+    await proceso.exitCode;
 
     expect(
       vivo.loMatamosNosotros,

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/features/remote/data/channel_server.dart';
@@ -9,6 +10,8 @@ import 'package:nexus/features/remote/domain/remote_surface.dart';
 import 'package:nexus/features/remote/domain/write_phrase.dart';
 import 'package:nexus/features/remote/domain/gatekeeper.dart';
 import 'package:nexus_protocol/nexus_protocol.dart';
+
+import 'support/hasta_que.dart';
 
 // El socket, probado **contra un socket de verdad**.
 //
@@ -181,7 +184,13 @@ void main() {
       final abiertas = <WebSocket>[];
       for (var i = 0; i < ChannelServer.maxConexiones + 3; i++) {
         abiertas.add(await conectar(servidor));
-        await Future<void>.delayed(const Duration(milliseconds: 20));
+        await hastaQue(
+          () =>
+              servidor.clientes.length >=
+              min(i + 1, ChannelServer.maxConexiones),
+          esperando: 'que el servidor cuente la conexión nueva',
+          loQueSeVe: () => 'clientes=${servidor.clientes.length}',
+        );
       }
       addTearDown(() async {
         for (final ws in abiertas) {
@@ -199,14 +208,24 @@ void main() {
       servidor = await servidorListo();
 
       final primera = await conectar(servidor);
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await hastaQue(
+        () => servidor.clientes.length == 1,
+        esperando: 'que el servidor cuente la primera',
+        loQueSeVe: () => 'clientes=${servidor.clientes.length}',
+      );
       final cerrada = Completer<void>();
       primera.listen((_) {}, onDone: cerrada.complete);
 
       final resto = <WebSocket>[];
       for (var i = 0; i < ChannelServer.maxConexiones; i++) {
         resto.add(await conectar(servidor));
-        await Future<void>.delayed(const Duration(milliseconds: 20));
+        await hastaQue(
+          () =>
+              servidor.clientes.length >=
+              min(i + 2, ChannelServer.maxConexiones),
+          esperando: 'que el servidor cuente la conexión nueva',
+          loQueSeVe: () => 'clientes=${servidor.clientes.length}',
+        );
       }
       addTearDown(() async {
         for (final ws in resto) {
@@ -230,7 +249,13 @@ void main() {
         final abiertas = <WebSocket>[];
         for (var i = 0; i < ChannelServer.maxConexiones + 1; i++) {
           abiertas.add(await conectar(servidor));
-          await Future<void>.delayed(const Duration(milliseconds: 20));
+          await hastaQue(
+            () =>
+                servidor.clientes.length >=
+                min(i + 1, ChannelServer.maxConexiones),
+            esperando: 'que el servidor cuente la conexión nueva',
+            loQueSeVe: () => 'clientes=${servidor.clientes.length}',
+          );
         }
         addTearDown(() async {
           for (final ws in abiertas) {
@@ -238,7 +263,11 @@ void main() {
           }
         });
 
-        expect(anotado, contains(startsWith('desalojado')));
+        await hastaQue(
+          () => anotado.any((l) => l.startsWith('desalojado')),
+          esperando: 'que el desalojo quede anotado',
+          loQueSeVe: () => 'anotado=$anotado',
+        );
       },
     );
   });
@@ -364,10 +393,13 @@ void main() {
       servidor = await servidorListo();
       final ws = await conectar(servidor);
       ws.add('esto no es json');
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      await hastaQue(
+        () => anotado.any((l) => l.contains('mensaje roto')),
+        esperando: 'que el mensaje roto quede anotado',
+        loQueSeVe: () => 'anotado=$anotado',
+      );
 
       expect(servidor.escuchando, isTrue, reason: 'sigue en pie');
-      expect(anotado.any((l) => l.contains('mensaje roto')), isTrue);
       await ws.close();
     });
 
@@ -375,12 +407,19 @@ void main() {
       // La lista de la decisión 2.7, empezada: saber quién está dentro.
       servidor = await servidorListo();
       final ws = await conectar(servidor);
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      await hastaQue(
+        () => servidor.clientes.isNotEmpty,
+        esperando: 'que aparezca en la lista',
+        loQueSeVe: () => 'clientes=${servidor.clientes.length}',
+      );
       expect(servidor.clientes, hasLength(1));
 
       await ws.close();
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-      expect(servidor.clientes, isEmpty);
+      await hastaQue(
+        () => servidor.clientes.isEmpty,
+        esperando: 'que al irse desaparezca de la lista',
+        loQueSeVe: () => 'clientes=${servidor.clientes.length}',
+      );
     });
   });
 
@@ -542,9 +581,16 @@ void main() {
       );
       final recibidos = <Frame>[];
       ws.listen((dynamic d) => recibidos.add(Frame.decode(d as String)));
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      // Primero que esté dentro: difundir a nadie daba este verde por nada.
+      await hastaQue(
+        () => servidor.clientes.isNotEmpty,
+        esperando: 'que el servidor lo tenga en la lista',
+        loQueSeVe: () => 'clientes=${servidor.clientes.length}',
+      );
 
       servidor.difundir(log.emitir('text', {'append': 'no deberías ver esto'}));
+      // Este reloj sí se queda: lo que se juzga es que **no** llegue nada, y
+      // una máquina lenta entrega menos, no más.
       await Future<void>.delayed(const Duration(milliseconds: 200));
 
       expect(recibidos, isEmpty);

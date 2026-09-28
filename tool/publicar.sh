@@ -175,6 +175,9 @@ APPCAST="build/appcast.xml"
   echo '    <title>Nexus</title>'
   echo '    <item>'
   echo "      <title>$VERSION</title>"
+  # En el item y no solo en el enclosure: ver el mismo paso en release.yml.
+  echo "      <sparkle:version>$BUILD</sparkle:version>"
+  echo "      <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>"
   echo "      <pubDate>$(date -u '+%a, %d %b %Y %H:%M:%S +0000')</pubDate>"
   echo '      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>'
   echo '      <description><![CDATA['

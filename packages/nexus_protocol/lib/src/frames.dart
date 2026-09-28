@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:meta/meta.dart';
 
+import 'failures.dart';
 import 'methods.dart';
 import 'version.dart';
 
@@ -293,17 +294,48 @@ final class Result extends Frame {
 /// Algo salió mal. [id] es nulo cuando el fallo no es de ninguna petición —el
 /// saludo, por ejemplo—.
 final class Failure extends Frame {
-  const Failure({required this.code, required this.message, this.id});
+  const Failure({
+    required this.code,
+    required this.message,
+    this.id,
+    this.args = const {},
+  });
+
+  /// Con el código del contrato, que es lo que se debería usar siempre.
+  ///
+  /// Un constructor aparte y no cambiar el tipo de [code] porque **lo que viaja
+  /// es texto**, y tiene que seguir siéndolo: un teléfono tiene que poder leer
+  /// un código que no conoce sin reventar.
+  factory Failure.of(
+    FailureCode code, {
+    String? id,
+    String message = '',
+    Map<String, Object?> args = const {},
+  }) => Failure(code: code.name, message: message, id: id, args: args);
 
   factory Failure.fromJson(Map<String, Object?> j) => Failure(
     code: j['code']! as String,
     message: j['msg'] as String? ?? '',
     id: j['id'] as String?,
+    args: (j['a'] as Map<String, Object?>?) ?? const {},
   );
 
+  /// El código estable. Ver [FailureCode].
   final String code;
+
+  /// Una frase **para el registro**, en el idioma del Mac.
+  ///
+  /// 🔴 No se enseña: quien la lee en pantalla la lee en el idioma de otro
+  /// aparato. El teléfono traduce [code] con [args].
   final String message;
   final String? id;
+
+  /// Los datos del código —ver [FailureArg]—. Opcionales y aditivos: un Mac
+  /// viejo no los manda, y un teléfono viejo no los lee.
+  final Map<String, Object?> args;
+
+  /// El código, si este extremo lo conoce.
+  FailureCode? get known => FailureCode.tryParse(code);
 
   @override
   Map<String, Object?> toJson() => {
@@ -311,6 +343,7 @@ final class Failure extends Frame {
     'code': code,
     if (message.isNotEmpty) 'msg': message,
     if (id != null) 'id': id,
+    if (args.isNotEmpty) 'a': args,
   };
 }
 

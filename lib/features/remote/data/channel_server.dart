@@ -356,8 +356,8 @@ class ChannelServer {
       if (foto == null) {
         registro?.call('resync imposible y sin snapshot que dar');
         cliente.enviar(
-          const Failure(
-            code: 'unavailable',
+          Failure.of(
+            FailureCode.unavailable,
             message: 'no hay estado que reenviar',
           ),
         );
@@ -388,9 +388,9 @@ class ChannelServer {
       // teléfono esperando para siempre se lee como «el Mac no responde», y manda
       // a buscar el problema al sitio equivocado.
       cliente.enviar(
-        Failure(
+        Failure.of(
+          FailureCode.unavailable,
           id: peticion.id,
-          code: 'unavailable',
           message: 'este canal no atiende peticiones',
         ),
       );

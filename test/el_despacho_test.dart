@@ -528,6 +528,11 @@ void main() {
       // El tamaño en el mensaje: «es muy grande» sin un número deja a quien
       // pregunta sin saber si son dos megas o doscientos.
       expect(fallo.message, contains('3072 KB'));
+      // Y como dato, que es lo que el teléfono dice en **su** idioma: la frase de
+      // arriba va en el del Mac y solo llega al registro.
+      expect(fallo.known, FailureCode.artifactTooLarge);
+      expect(fallo.args[FailureArg.kb], 3072);
+      expect(fallo.args[FailureArg.artifact], '/x/enorme.md');
       // Y la salida que ya existe para los binarios, que es la misma: el Mac.
       expect(fallo.message, contains('se abre en el Mac'));
     });

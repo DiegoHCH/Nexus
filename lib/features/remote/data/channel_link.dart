@@ -161,14 +161,28 @@ enum LinkFailure {
 }
 
 class LinkError implements Exception {
-  const LinkError(this.failure, {this.code, this.message});
+  const LinkError(
+    this.failure, {
+    this.code,
+    this.message,
+    this.args = const {},
+  });
 
   final LinkFailure failure;
 
   /// El código del contrato —`unknownConversation`, `wrongPhrase`…— cuando el Mac
   /// contestó. `null` cuando el fallo fue del enlace.
   final String? code;
+
+  /// La frase del Mac, **para el registro**: va en el idioma del Mac y no se
+  /// enseña. Lo que se enseña sale de [code] y [args], traducido aquí.
   final String? message;
+
+  /// Los datos del código —los kilobytes, la versión—. Vacío con un Mac viejo.
+  final Map<String, Object?> args;
+
+  /// El código, si este teléfono lo conoce. Ver [FailureCode.tryParse].
+  FailureCode? get known => FailureCode.tryParse(code);
 
   @override
   String toString() =>
@@ -642,7 +656,7 @@ class ChannelLink {
       case Result(:final id, :final data):
         _enVuelo.remove(id)?.resolver(data);
 
-      case Failure(:final id, :final code, :final message):
+      case Failure(:final id, :final code, :final message, :final args):
         if (id == null) {
           debugPrint('el Mac rechazó algo sin decir qué: $code');
           return;
@@ -650,7 +664,12 @@ class ChannelLink {
         _enVuelo
             .remove(id)
             ?.fallar(
-              LinkError(LinkFailure.rechazada, code: code, message: message),
+              LinkError(
+                LinkFailure.rechazada,
+                code: code,
+                message: message,
+                args: args,
+              ),
             );
 
       case Event():

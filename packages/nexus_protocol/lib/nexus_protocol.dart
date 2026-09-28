@@ -6,6 +6,7 @@
 library;
 
 export 'src/dedup.dart';
+export 'src/failures.dart';
 export 'src/frames.dart';
 export 'src/methods.dart';
 export 'src/version.dart';

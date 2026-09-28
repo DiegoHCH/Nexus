@@ -157,7 +157,12 @@ class ArchiveController extends AsyncNotifier<List<ArchiveEntry>> {
 
   /// Retoma una y devuelve el id de la conversación **viva**, que puede no ser la del
   /// archivo: si esa carpeta ya tenía una abierta, el Mac lleva a esa.
-  Future<String?> retomar(String archivedId) async {
+  ///
+  /// [siFalla] recibe el «no» del Mac, para que la pantalla pueda decir por qué.
+  Future<String?> retomar(
+    String archivedId, {
+    void Function(LinkError fallo)? siFalla,
+  }) async {
     try {
       final datos = await ref
           .read(channelLinkProvider)
@@ -173,7 +178,8 @@ class ArchiveController extends AsyncNotifier<List<ArchiveEntry>> {
       // tiron hacia abajo, y retomar crea una que no estaba en ninguna de las dos.
       if (id != null) await ref.read(mirrorProvider.notifier).refrescar();
       return id;
-    } on LinkError {
+    } on LinkError catch (fallo) {
+      siFalla?.call(fallo);
       return null;
     }
   }
@@ -202,7 +208,13 @@ class FoldersController extends AsyncNotifier<List<FolderEntry>> {
   /// **Solo entre las que el Mac ofrece**: la comprobación de verdad está en el
   /// escritorio, y esto no la repite — repetirla aquí daría dos ideas de qué carpeta
   /// vale, y la del teléfono se quedaría vieja.
-  Future<String?> abrir(String path) async {
+  ///
+  /// [siFalla] recibe el «no» del Mac —el más corriente: ya tiene todas sus
+  /// conversaciones abiertas—, para que la pantalla pueda decirlo.
+  Future<String?> abrir(
+    String path, {
+    void Function(LinkError fallo)? siFalla,
+  }) async {
     try {
       final datos = await ref
           .read(channelLinkProvider)
@@ -213,7 +225,8 @@ class FoldersController extends AsyncNotifier<List<FolderEntry>> {
       // conversacion, y con la decision repartida solo se arreglaria uno.
       if (id != null) await ref.read(mirrorProvider.notifier).refrescar();
       return id;
-    } on LinkError {
+    } on LinkError catch (fallo) {
+      siFalla?.call(fallo);
       return null;
     }
   }

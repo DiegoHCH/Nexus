@@ -9,6 +9,8 @@ import 'package:nexus/features/remote/domain/el_compas_de_la_respuesta.dart';
 import 'package:nexus/features/remote/domain/el_subtitulo_de_la_voz.dart';
 import 'package:nexus/features/remote/domain/remote_mirror.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
+import 'package:nexus/features/remote/data/channel_link.dart';
+import 'package:nexus/features/remote/presentation/el_fallo_en_palabras.dart';
 import 'package:nexus/features/remote/presentation/providers/mirror_providers.dart';
 import 'package:nexus/features/remote/presentation/providers/outbox_providers.dart';
 import 'package:nexus/features/remote/presentation/widgets/write_phrase_sheet.dart';
@@ -136,6 +138,20 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     );
   }
 
+  /// Dice por qué no se hizo, **si lo dijo el Mac**, en el idioma del teléfono.
+  ///
+  /// Renombrar, cerrar o parar devolvían el fallo y nadie lo enseñaba: el botón
+  /// no hacía nada visible y se volvía a pulsar. Lo que no dijo el Mac —sin
+  /// enlace— ya lo cuenta la cabecera.
+  void _avisarDelFallo(LinkError? fallo) {
+    if (!mounted) return;
+    final texto = ElFalloEnPalabras.de(context.strings, fallo);
+    if (texto == null) return;
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(texto)));
+  }
+
   /// Si no hay **nada** que leer todavía.
   ///
   /// Las tres cosas, no solo el historial: una conversación recién abierta desde el
@@ -168,9 +184,11 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       nombreDeAhora: conv.title ?? '',
       alGuardar: (nombre) async {
         Navigator.of(hoja).pop();
-        await ref
-            .read(mirrorProvider.notifier)
-            .renombrar(widget.conversationId, nombre);
+        _avisarDelFallo(
+          await ref
+              .read(mirrorProvider.notifier)
+              .renombrar(widget.conversationId, nombre),
+        );
       },
       alCerrar: () async {
         Navigator.of(hoja).pop();
@@ -180,6 +198,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
         // Se sale **solo si se cerró**: quedarse en una pantalla que ya no refleja
         // nada es peor que no haber salido.
         if (fallo == null && mounted) Navigator.of(context).pop();
+        _avisarDelFallo(fallo);
       },
     ),
   );
@@ -455,9 +474,11 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
               conversacion: conv,
               mandando: _mandando,
               alMandar: _mandar,
-              alDetener: () => ref
-                  .read(mirrorProvider.notifier)
-                  .detener(widget.conversationId),
+              alDetener: () async => _avisarDelFallo(
+                await ref
+                    .read(mirrorProvider.notifier)
+                    .detener(widget.conversationId),
+              ),
             ),
           ],
         ),

@@ -441,21 +441,41 @@ dentro llega como eventos.
 Nunca se deja una petición sin respuesta. Un teléfono esperando para siempre se lee
 como «el Mac no responde», y manda a buscar el problema al sitio equivocado.
 
-Los códigos, que son lo que el móvil convierte en algo que enseñar:
+Los códigos, que son lo que el móvil convierte en algo que enseñar. La lista es
+`FailureCode` en el paquete, y una prueba la compara con esta tabla en los dos
+sentidos:
 
-| código | qué pasó | qué hace el móvil |
-|---|---|---|
-| `unknownMethod` | este Mac no conoce el método | actualizar el escritorio |
-| `unknownConversation` | esa conversación ya no está abierta | quitarla y recargar la lista |
-| `badParams` | falta algo o no se entiende | es un fallo del cliente |
-| `noPhrase` | no hay frase de escritura definida en el Mac | «defínela en el Mac» |
-| `wrongPhrase` | la frase no era | volver a pedirla |
-| `tooManyAttempts` | se gastó el cupo de intentos | esperar |
-| `unavailable` | el canal no atiende peticiones | reconectar |
-| `noUpdate` | el Mac no tiene ninguna versión nueva que aceptar ahora | quitar el aviso |
-| `updateChanged` | el Mac ofrece ya otra versión que la aceptada | enseñar la nueva antes de aceptar |
-| `cannotInstall` | esa copia de Nexus no puede reemplazarse (sin mover a Aplicaciones) | decirlo; se arregla en el Mac |
-| `internal` | algo se rompió por dentro | reintentar |
+| código | qué pasó | datos en `a` | qué hace el móvil |
+|---|---|---|---|
+| `unknownMethod` | este Mac no conoce el método | `method` | actualizar el escritorio |
+| `unknownConversation` | esa conversación ya no está abierta | `conversation` | quitarla y recargar la lista |
+| `tooManyConversations` | el Mac ya tiene todas sus conversaciones abiertas | — | cerrar una en el Mac o desde aquí |
+| `badParams` | falta algo o no se entiende | — | es un fallo del cliente |
+| `binaryArtifact` | ese documento no es texto | `artifact` | abrirlo en el Mac |
+| `artifactTooLarge` | ese documento no cabe por aquí | `artifact`, `kb` | abrirlo en el Mac, diciendo cuánto ocupa |
+| `noPhrase` | no hay frase de escritura definida en el Mac | — | «defínela en el Mac» |
+| `wrongPhrase` | la frase no era | — | volver a pedirla |
+| `tooManyAttempts` | se gastó el cupo de intentos | — | esperar |
+| `unavailable` | el canal no atiende peticiones | — | reconectar |
+| `noUpdate` | el Mac no tiene ninguna versión nueva que aceptar ahora | — | quitar el aviso |
+| `updateChanged` | el Mac ofrece ya otra versión que la aceptada | `version` | enseñar la nueva antes de aceptar |
+| `cannotInstall` | esa copia de Nexus no puede reemplazarse (sin mover a Aplicaciones) | — | decirlo; se arregla en el Mac |
+| `internal` | algo se rompió por dentro | — | reintentar |
+
+**El código se traduce en el teléfono; el `msg` no se enseña nunca.** El `msg` es
+una frase para el registro, en el idioma del Mac: un teléfono en inglés contra un Mac
+en español la leería en español. Lo que el teléfono enseña sale de **sus** textos, en
+su idioma, a partir del código y de los datos de `a` —el número de kilobytes, la
+versión—, que van como datos y no metidos en una frase.
+
+Compatibilidad, en los dos sentidos y **sin subir la versión del protocolo**:
+
+- `a` es aditivo. Un teléfono viejo no lo lee y sigue enseñando lo que ya enseñaba; un
+  Mac viejo no lo manda, y el teléfono nuevo dice lo mismo sin el dato («no cabe por
+  aquí» sin los kilobytes).
+- Los nombres de los códigos no cambian: son los que ya viajaban. Añadir uno es
+  seguro —un teléfono que no lo conoce enseña «el Mac dijo que no» con el código entre
+  paréntesis, en vez de callarse—; renombrar uno, no.
 
 Dos reglas sobre lo que **no** viaja. El `internal` va **sin detalles**: lo que sabe
 el Mac se queda en su registro. Y la frase de escritura no aparece nunca en un marco

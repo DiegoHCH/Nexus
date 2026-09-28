@@ -9,6 +9,7 @@ import 'package:nexus/core/i18n/strings/estadisticas_strings.dart';
 import 'package:nexus/core/i18n/strings/historial_strings.dart';
 import 'package:nexus/core/i18n/strings/icono_strings.dart';
 import 'package:nexus/core/i18n/strings/lo_que_costo_strings.dart';
+import 'package:nexus/core/i18n/strings/movil_fallos_strings.dart';
 import 'package:nexus/core/i18n/strings/movil_strings.dart';
 import 'package:nexus/core/i18n/strings/nucleo_strings.dart';
 import 'package:nexus/core/i18n/strings/pruebas_strings.dart';
@@ -59,6 +60,7 @@ abstract class NexusStrings
         LoQueCostoStrings,
         MovilStrings,
         MovilActualizarStrings,
+        MovilFallosStrings,
         AjustesStrings,
         RenombrarStrings {
   const NexusStrings();
@@ -86,6 +88,7 @@ class NexusStringsEs extends NexusStrings
         LoQueCostoStringsEs,
         MovilStringsEs,
         MovilActualizarStringsEs,
+        MovilFallosStringsEs,
         AjustesStringsEs,
         RenombrarStringsEs {
   const NexusStringsEs();
@@ -107,6 +110,7 @@ class NexusStringsEn extends NexusStrings
         LoQueCostoStringsEn,
         MovilStringsEn,
         MovilActualizarStringsEn,
+        MovilFallosStringsEn,
         AjustesStringsEn,
         RenombrarStringsEn {
   const NexusStringsEn();

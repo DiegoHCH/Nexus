@@ -9,8 +9,10 @@ import 'package:nexus/core/i18n/strings/estadisticas_strings.dart';
 import 'package:nexus/core/i18n/strings/historial_strings.dart';
 import 'package:nexus/core/i18n/strings/icono_strings.dart';
 import 'package:nexus/core/i18n/strings/lo_que_costo_strings.dart';
+import 'package:nexus/core/i18n/strings/movil_fallos_strings.dart';
 import 'package:nexus/core/i18n/strings/movil_strings.dart';
 import 'package:nexus/core/i18n/strings/nucleo_strings.dart';
+import 'package:nexus/core/i18n/strings/primer_arranque_strings.dart';
 import 'package:nexus/core/i18n/strings/pruebas_strings.dart';
 import 'package:nexus/core/i18n/strings/renombrar_strings.dart';
 import 'package:nexus/core/i18n/strings/superpoderes_strings.dart';
@@ -54,16 +56,26 @@ abstract class NexusStrings
         HistorialStrings,
         EjecucionStrings,
         ArranqueStrings,
+        PrimerArranqueStrings,
         EscenarioStrings,
         ConversacionStrings,
         LoQueCostoStrings,
         MovilStrings,
         MovilActualizarStrings,
+        MovilFallosStrings,
         AjustesStrings,
         RenombrarStrings {
   const NexusStrings();
 
   static const supported = [Locale('es'), Locale('en')];
+
+  /// El idioma de estos textos, como código: `es` o `en`.
+  ///
+  /// Para lo que no es un texto de interfaz pero va con el idioma —la plantilla
+  /// de la personalidad—: se pregunta a los textos y no al `Locale` de la app
+  /// porque son ellos los que se están enseñando, y los dos pueden no coincidir
+  /// en una prueba o en una ventana que fije su propio ámbito.
+  String get idioma;
 
   static NexusStrings of(Locale locale) => locale.languageCode == 'en'
       ? const NexusStringsEn()
@@ -81,14 +93,19 @@ class NexusStringsEs extends NexusStrings
         HistorialStringsEs,
         EjecucionStringsEs,
         ArranqueStringsEs,
+        PrimerArranqueStringsEs,
         EscenarioStringsEs,
         ConversacionStringsEs,
         LoQueCostoStringsEs,
         MovilStringsEs,
         MovilActualizarStringsEs,
+        MovilFallosStringsEs,
         AjustesStringsEs,
         RenombrarStringsEs {
   const NexusStringsEs();
+
+  @override
+  String get idioma => 'es';
 }
 
 class NexusStringsEn extends NexusStrings
@@ -102,12 +119,17 @@ class NexusStringsEn extends NexusStrings
         HistorialStringsEn,
         EjecucionStringsEn,
         ArranqueStringsEn,
+        PrimerArranqueStringsEn,
         EscenarioStringsEn,
         ConversacionStringsEn,
         LoQueCostoStringsEn,
         MovilStringsEn,
         MovilActualizarStringsEn,
+        MovilFallosStringsEn,
         AjustesStringsEn,
         RenombrarStringsEn {
   const NexusStringsEn();
+
+  @override
+  String get idioma => 'en';
 }

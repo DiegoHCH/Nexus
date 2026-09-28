@@ -9,6 +9,8 @@ import 'package:nexus/features/workspace/domain/entities/workspace.dart';
 import 'package:nexus/features/workspace/domain/repositories/workspace_store.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
+import 'support/hasta_que.dart';
+
 /// El workspace guardado. Lo que decide a qué pantalla se entra, desde que la
 /// llave dejó de decidirlo.
 class _Guardado implements WorkspaceStore {
@@ -95,10 +97,19 @@ Future<AppRouteState> resolved(ProviderContainer container) async {
   container.listen(appRouteControllerProvider, (_, _) {});
   expect(container.read(appRouteControllerProvider), isA<AppRouteLoading>());
   // El splash tiene un mínimo de 900 ms a propósito: el orbe se ve aparecer
-  // aunque el llavero conteste al instante.
-  await Future<void>.delayed(const Duration(milliseconds: 1100));
+  // aunque el llavero conteste al instante. 🔴 **Se espera a que se resuelva,
+  // no a 1100 ms:** esos 200 de margen sobre el mínimo son los que tiene la
+  // comprobación para acabar, y con la máquina cargada no le alcanzaban.
+  await _hastaQueSeResuelva(container);
   return container.read(appRouteControllerProvider);
 }
+
+/// Hasta que el splash se resuelve: deja de estar cargando.
+Future<void> _hastaQueSeResuelva(ProviderContainer container) => hastaQue(
+  () => container.read(appRouteControllerProvider) is! AppRouteLoading,
+  esperando: 'que el arranque salga del splash',
+  loQueSeVe: () => 'estado=${container.read(appRouteControllerProvider)}',
+);
 
 void main() {
   test('con una carpeta emparejada se entra directo', () async {

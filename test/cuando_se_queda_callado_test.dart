@@ -86,8 +86,14 @@ void main() {
       );
 
       expect(find.textContaining('Pensando'), findsOneWidget);
+      // 🔴 **El rato se mide con el reloj de verdad**, no con el de la prueba:
+      // `_Pensando` lo calcula con `DateTime.now()` al pintarse. Con la máquina
+      // cargada, entre armar la hora de arriba y pintar pasaba más de un
+      // segundo y salía «1m 33s». Lo que se juzga es que diga el rato con su
+      // forma —minutos y segundos, y no menos de los 92 que lleva—, no en qué
+      // segundo exacto cayó el fotograma.
       expect(
-        find.textContaining('1m 32s'),
+        find.textContaining(RegExp(r'1m (3[2-9]|[45]\d)s')),
         findsOneWidget,
         reason: 'un número quieto se sigue pareciendo a un cuelgue',
       );

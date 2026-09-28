@@ -344,7 +344,17 @@
                 </menuItem>
                 <menuItem title="Help" id="EPT-qC-fAb">
                     <modifierMask key="keyEquivalentModifierMask"/>
-                    <menu key="submenu" title="Help" systemMenu="help" id="rJ0-wn-3NY"/>
+                    <menu key="submenu" title="Help" systemMenu="help" id="rJ0-wn-3NY">
+                        <items>
+                            <!-- La guía corta, donde se busca ayuda en cualquier app del Mac:
+                                 el menú Ayuda y ⌘?. Como Ajustes, el menú avisa y la app abre. -->
+                            <menuItem title="Guía de Nexus" keyEquivalent="?" id="gui-Nx-001">
+                                <connections>
+                                    <action selector="openNexusGuide:" target="-1" id="gui-Ac-001"/>
+                                </connections>
+                            </menuItem>
+                        </items>
+                    </menu>
                 </menuItem>
             </items>
             <point key="canvasLocation" x="142" y="-258"/>

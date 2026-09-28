@@ -11,6 +11,10 @@ import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 /// verlo; en la app, lo bastante para que no se apague mientras aún se le mira.
 const suenoProfundo = Duration(minutes: 3);
 
+/// Lo que tarda la esfera en juntarse al despertar: la cifra del mockup
+/// (`tDespierta / 0.95`).
+const duracionDelDespertar = 0.95;
+
 /// Los pasos y lo que dura cada uno en el progreso de mentira de trabajando,
 /// los mismos del mockup (`PASOS`, `POR_PASO`), y la pausa antes de volver a
 /// empezar.
@@ -185,6 +189,32 @@ class CapasVivas {
   double _ultimaChispa = double.negativeInfinity;
   final ecos = <EcoDeLaVoz>[];
 
+  /// El estado del fotograma anterior, para saber de dónde se viene.
+  NexusOrbState? _anterior;
+
+  /// Cuánto lleva despertando, en segundos, o `null` si no está despertando.
+  double? _tDespierta;
+
+  /// **La convergencia del despertar**, de 0 a 1 y ya con su curva, o `null`
+  /// si no está despertando.
+  ///
+  /// 🔴 **Solo al pasar de dormido a escuchando**, que es llamarla por su
+  /// nombre: las partículas de la esfera de ondas llegan desde las brasas —de
+  /// dentro— y desde fuera, y se juntan en la esfera. Es lo que el mockup hace
+  /// con `desdeDormido`. Si se llega a escuchar desde otro estado —al acabar
+  /// de hablar— la esfera ya estaba cerca y aparece sin más: juntarse otra
+  /// vez en cada turno se leería como que se despierta cada vez.
+  ///
+  /// Con la curva del mockup, rápida al principio y posándose al final
+  /// (`1 − (1 − k)³`): se lee como algo que acude, no como algo que se
+  /// arrastra.
+  double? get despertar {
+    final t = _tDespierta;
+    if (t == null) return null;
+    final k = (t / duracionDelDespertar).clamp(0.0, 1.0);
+    return 1 - math.pow(1 - k, 3).toDouble();
+  }
+
   /// Lo hondo que duerme, de 0 a 1: empieza pasado [suenoProfundo] y tarda seis
   /// segundos en llegar, para que no se note el momento.
   double get profundo =>
@@ -211,6 +241,20 @@ class CapasVivas {
     tPensando = estado == NexusOrbState.ponder ? tPensando + dt : 0;
     tDormido = estado == NexusOrbState.sleep ? tDormido + dt : 0;
 
+    // El despertar: arranca en el fotograma en que se deja de dormir para
+    // escuchar y se suelta al terminar o al irse de escuchar.
+    final despierta = _tDespierta;
+    if (_anterior == NexusOrbState.sleep && estado == NexusOrbState.listen) {
+      _tDespierta = 0;
+    } else if (despierta != null) {
+      final sigue = despierta + dt;
+      _tDespierta =
+          estado == NexusOrbState.listen && sigue < duracionDelDespertar
+          ? sigue
+          : null;
+    }
+    _anterior = estado;
+
     if (pensar < 0.01) {
       chispas.clear();
     } else {
@@ -231,6 +275,11 @@ class CapasVivas {
     habla = estado == NexusOrbState.speak ? 1 : 0;
     dormido = estado == NexusOrbState.sleep ? 1 : 0;
     encoge = estado == NexusOrbState.think ? 0.55 : 1;
+    // Sin fotogramas no hay despertar que ver: se llega ya junta. Es lo que
+    // pide «Reducir movimiento», y el primer fotograma no viene de ningún
+    // sitio.
+    _anterior = estado;
+    _tDespierta = null;
   }
 
   /// Pocas y lentas —una cada medio segundo, cinco a la vez como mucho—, que
@@ -329,6 +378,24 @@ final ({Float64List x, Float64List y, Float64List z, Float64List th}) _onda =
       }
       return (x: x, y: y, z: z, th: th);
     }();
+
+/// **De dónde sale cada partícula al despertar**, en veces el radio de la
+/// esfera: casi la mitad desde dentro —las brasas, entre el 5 y el 40 %— y el
+/// resto desde fuera, entre 1,3 y 2,4 veces. Las mismas proporciones del
+/// mockup (`ESC`).
+///
+/// Sembrado, como el resto del azar del orbe: dos despertares se ven igual, y
+/// una prueba que falle una vez falla siempre.
+final Float64List _desdeDondeDespierta = () {
+  final azar = math.Random(95);
+  final desde = Float64List(_particulas);
+  for (var i = 0; i < _particulas; i++) {
+    desde[i] = azar.nextDouble() < 0.45
+        ? 0.05 + azar.nextDouble() * 0.35
+        : 1.3 + azar.nextDouble() * 1.1;
+  }
+  return desde;
+}();
 
 /// Los destellos sueltos alrededor de la esfera de ondas: posición, fase y
 /// ritmo con que titilan.
@@ -537,6 +604,7 @@ class NexusOrbLayersPainter extends CustomPainter {
     _llenos.fillRange(0, _llenos.length, 0);
     final voz = 0.3 + env;
     final onda = _onda;
+    final despertar = capas.despertar;
     for (var i = 0; i < _particulas; i++) {
       final px = onda.x[i], py = onda.y[i], pz = onda.z[i];
       // Dos familias de ondas cruzadas y una vibración fina, todo escalado por
@@ -546,7 +614,14 @@ class NexusOrbLayersPainter extends CustomPainter {
               0.09 * math.sin(onda.th[i] * 0.5 + py * 4.0 - t * 2.3) +
               0.03 * math.sin(py * 21 + t * 7)) *
           voz;
-      final k = 1 + d;
+      var k = 1 + d;
+      // Al despertar, cada una viene de su sitio —de las brasas o de fuera— y
+      // se junta en la esfera. Las de fuera entran por el borde de la caja,
+      // que las va encendiendo según se acercan (`_cabe`).
+      if (despertar != null) {
+        final desde = _desdeDondeDespierta[i];
+        k *= desde + (1 - desde) * despertar;
+      }
       final x = px * k, y = py * k, z = pz * k;
       final x1 = x * cr + z * sr, z1 = -x * sr + z * cr;
       final y2 = y * ct - z1 * st, z2 = y * st + z1 * ct;

@@ -23,6 +23,8 @@ import 'package:nexus/features/workspace/domain/entities/workspace.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/hasta_que.dart';
+
 /// Lo suyo lo contesta ella, también escribiendo.
 ///
 /// 🔴 Preguntado el 27 sep: «¿esto gasta tokens, va a Claude?». Escrito, «¿quién
@@ -152,13 +154,13 @@ void main() {
     List<ChatMessage> mensajes(ProviderContainer c) =>
         c.read(assistantControllerProvider(conversationId)).messages;
 
-    /// La respuesta se suelta palabra a palabra: se espera a que acabe.
-    Future<void> hasta(bool Function() listo) async {
-      for (var i = 0; i < 400 && !listo(); i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      }
-      expect(listo(), isTrue, reason: 'no llegó a cumplirse a tiempo');
-    }
+    /// La respuesta se suelta palabra a palabra: se espera a que acabe. Con el
+    /// plazo holgado de [hastaQue] y no con cuatro segundos, que con la máquina
+    /// cargada no le alcanzaban a una respuesta que sale a su ritmo.
+    Future<void> hasta(bool Function() listo) => hastaQue(
+      listo,
+      esperando: 'que la respuesta llegue a donde se esperaba',
+    );
 
     test('contesta ella, y Claude ni se entera', () async {
       final m = montar('Soy Ciel, Master.');

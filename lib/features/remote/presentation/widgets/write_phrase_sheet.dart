@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
+import 'package:nexus/features/remote/presentation/el_fallo_en_palabras.dart';
 import 'package:nexus/features/remote/presentation/providers/mirror_providers.dart';
 import 'package:nexus/core/design_system/nexus_typography.dart';
 import 'package:nexus/features/remote/presentation/widgets/mobile_chrome.dart';
+import 'package:nexus_protocol/nexus_protocol.dart';
 
 /// Abrir la escritura con la frase.
 ///
@@ -54,12 +56,16 @@ class _HojaState extends ConsumerState<_Hoja> {
 
   /// Cada código dice **algo distinto que hacer**. Un solo «no se pudo» dejaría a
   /// quien lo lee sin saber si teclear otra vez, ir al Mac, o esperar.
-  String _decir(NexusStrings strings, String codigo) => switch (codigo) {
-    'noPhrase' => strings.mobileNoPhrase,
-    'wrongPhrase' => strings.mobileWrongPhrase,
-    'tooManyAttempts' => strings.mobileTooManyAttempts,
-    _ => strings.mobileUnlockFailed,
-  };
+  ///
+  /// Por el traductor de los códigos del contrato, que es el que los dice en el
+  /// idioma del teléfono. Lo único propio de esta hoja es qué decir cuando **no
+  /// hubo un «no» del Mac** —el enlace se cayó, o algo se rompió por dentro—:
+  /// que no se pudo abrir la escritura, que es lo que se estaba intentando.
+  String _decir(NexusStrings strings, String codigo) =>
+      switch (FailureCode.tryParse(codigo)) {
+        null || FailureCode.internal => strings.mobileUnlockFailed,
+        _ => ElFalloEnPalabras.delCodigo(strings, codigo),
+      };
 
   @override
   Widget build(BuildContext context) {

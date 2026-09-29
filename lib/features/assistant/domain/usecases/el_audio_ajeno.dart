@@ -1,3 +1,4 @@
+import 'package:nexus/features/assistant/domain/entities/audio_frame.dart';
 import 'package:nexus/features/oido/domain/usecases/como_se_le_llama.dart';
 
 /// Qué hacer con lo que suena alrededor y no iba dirigido a Nexus.
@@ -37,7 +38,40 @@ import 'package:nexus/features/oido/domain/usecases/como_se_le_llama.dart';
 /// ahí se sigue con «Ciel, ¿y mañana?». La excepción es cuando ella acaba
 /// preguntando —«¿Lo regenero?»—: lo siguiente es tu respuesta, y un «sí» no
 /// necesita nombre. Ver [pideSuNombre].
+///
+/// ## Y justo después de contestar, sin nombre (29 sep)
+///
+/// 🔴 **Esto revierte a medias una decisión suya, y la revirtió él el 29 sep.**
+/// Lo de arriba —«tras contestar solo atiende lo que lleva su nombre», PR #449,
+/// 1.28.0— lo pidió él por la tele. Al usarlo, la conversación dejó de ser una
+/// conversación: después de cada respuesta había que volver a llamarla, y lo
+/// comparó con un asistente de un vídeo que se sigue de corrido. Así que
+/// **durante unos segundos después de que ella termine de hablar**
+/// —[ventanaSinNombre]—, lo que digas le llega sin nombre.
+///
+/// Lo que protege de la tele sigue en pie, con dos condiciones que la tele no
+/// cumple:
+///
+/// - **Voz cercana y clara**: al menos [trozosDeVozCercana] trozos del micro por
+///   encima de [nivelDeVozCercana] **dentro de la ventana**. El micro de la
+///   conversación llega con el eco cancelado, así que lo fuerte ahí es alguien
+///   hablándole al Mac de cerca; la tele al otro lado de la sala se queda
+///   debajo.
+/// - **Solo justo después de ella**: pasada la ventana vuelve a exigir el
+///   nombre, así que una frase de la tele un minuto después sigue sin colarse.
+///
+/// Se apaga en Ajustes › Oído, y vuelve a ser lo del 27 sep.
 abstract final class ElAudioAjeno {
+  /// Cuánto después de que ella calle se le puede seguir hablando sin su
+  /// nombre. Ocho segundos: lo que tarda en ocurrírsete la repregunta —«¿y
+  /// mañana?»— sin que la sala tenga tiempo de meter una frase entera.
+  static const ventanaSinNombre = Duration(seconds: 8);
+
+  /// Cuántos trozos de voz cercana —de ~100 ms— hacen falta dentro de la
+  /// ventana para que cuente como que le hablas tú. Tres: una sílaba suelta o
+  /// un golpe en la mesa no llegan; una palabra dicha de cerca, sí.
+  static const trozosDeVozCercana = 3;
+
   /// Palabras con las que se corta a alguien que está hablando.
   ///
   /// **Es a propósito una lista más corta que la de cortesía** de
@@ -50,6 +84,17 @@ abstract final class ElAudioAjeno {
     r'stop|wait|hold on|be quiet|quiet|repeat|say that again|never mind)\b',
     caseSensitive: false,
   );
+
+  /// A partir de qué volumen del micro un trozo es **voz cercana**: alguien
+  /// hablándole al Mac desde su sitio, y no la tele o la habitación.
+  ///
+  /// En la escala de [AudioFrame.amplitude] —la raíz de la RMS, de 0 a 1—: 0,2
+  /// es una RMS de 0,04, unos −28 dBFS, que es lo que da una voz normal a medio
+  /// metro con el eco ya cancelado; la tele al otro lado de la sala se queda
+  /// por debajo de 0,15. **Es un punto de partida, no una medida**: cada frase
+  /// que se juzga con él deja su nivel en el registro —«voz · nivel de la
+  /// frase»— para poder afinarlo con la sala de verdad.
+  static const nivelDeVozCercana = 0.2;
 
   /// Si esto puede cortar lo que Nexus está diciendo.
   ///
@@ -90,10 +135,14 @@ abstract final class ElAudioAjeno {
   }
 
   /// Si la próxima frase tiene que llevar su nombre para atenderse.
+  ///
+  /// [sigueLaConversacion] es que empezaste a hablar de cerca justo después de
+  /// que ella callara: ver «Y justo después de contestar, sin nombre», arriba.
   static bool pideSuNombre({
     required bool yaContesto,
     required bool preguntoElla,
-  }) => yaContesto && !preguntoElla;
+    bool sigueLaConversacion = false,
+  }) => yaContesto && !preguntoElla && !sigueLaConversacion;
 
   /// Si este turno se tira: llegó mientras hablaba —o cuando ya tenía que
   /// traer su nombre, ver [pideSuNombre]— y no iba con ella.

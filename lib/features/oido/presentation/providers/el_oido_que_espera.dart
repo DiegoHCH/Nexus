@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_audio_ajeno.dart';
 import 'package:nexus/features/assistant/domain/usecases/la_puerta_de_la_voz.dart';
 import 'package:nexus/core/design_system/accent_preference.dart';
 import 'package:nexus/core/design_system/orbe_preference.dart';
@@ -107,6 +108,20 @@ class ElOidoQueEspera {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(saluda, aSaludar);
     if (_ref.mounted) _ref.invalidate(elOidoSaludaProvider);
+  }
+
+  /// Dónde se guarda si se le sigue hablando sin su nombre justo después de
+  /// que conteste.
+  static const sigueSinNombre = 'oido_sigue_sin_nombre';
+
+  /// 🔴 **Nace encendido** (29 sep): es lo que hace que hablar con ella sea una
+  /// conversación y no una serie de llamadas —lo pidió él, revirtiendo a medias
+  /// el «solo con su nombre» del 27 sep—. Apagarlo vuelve a eso: tras cada
+  /// respuesta, su nombre delante. Ver [ElAudioAjeno].
+  Future<void> cambiarSeguirSinNombre({required bool aEncendido}) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(sigueSinNombre, aEncendido);
+    if (_ref.mounted) _ref.invalidate(seSigueSinNombreProvider);
   }
 
   /// Enciende o apaga según el ajuste y según si hay voz abierta.
@@ -424,6 +439,9 @@ final elOidoQueEsperaProvider = Provider<ElOidoQueEspera>((ref) {
   // Escuchado solo para tenerlo leído: la llamada se contesta en el acto y no
   // puede esperar al disco para saber si saluda.
   ref.listen(elOidoSaludaProvider, (_, _) {});
+  // Y por lo mismo si se sigue sin su nombre: se pregunta a media
+  // conversación, con cada frase, y ahí no se espera al disco.
+  ref.listen(seSigueSinNombreProvider, (_, _) {});
   ref.listen(losNombresProvider.select((nombres) => nombres.agente), (
     antes,
     ahora,
@@ -449,6 +467,13 @@ final _hayVozAbiertaProvider = Provider<bool>(
 final elOidoEstaEncendidoProvider = FutureProvider<bool>((ref) async {
   final prefs = await SharedPreferences.getInstance();
   return prefs.getBool(ElOidoQueEspera.encendido) ?? false;
+});
+
+/// Si justo después de que ella conteste se le sigue hablando sin su nombre.
+/// Nace en sí; ver [ElOidoQueEspera.cambiarSeguirSinNombre].
+final seSigueSinNombreProvider = FutureProvider<bool>((ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(ElOidoQueEspera.sigueSinNombre) ?? true;
 });
 
 /// Si contesta al llamarla. Nace en sí; ver [ElOidoQueEspera.cambiarSaludo].

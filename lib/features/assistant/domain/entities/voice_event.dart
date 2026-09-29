@@ -195,6 +195,29 @@ final class VoiceIgnorado extends VoiceEvent {
   final String texto;
 }
 
+/// Empieza a sonar una frase suya **que no sale del modelo de la conversación**:
+/// el acuse al recibir un encargo, lo que cuenta de por dónde va mientras
+/// trabaja, o el saludo ya guardado de una sesión caliente.
+///
+/// 🔴 **Existe porque el orbe tiene que hablar mientras suena** (pedido el 29
+/// sep). Estas frases no llegan como [VoiceReplyTranscript] —no son un turno
+/// del modelo, y colarlas por ahí las escribiría en la conversación como si
+/// fueran la respuesta—, así que sin un evento propio el orbe seguiría en
+/// TRABAJANDO con su voz sonando encima.
+///
+/// Va en pareja con [VoiceFraseAparteDicha], que llega cuando deja de sonar.
+final class VoiceFraseAparte extends VoiceEvent {
+  const VoiceFraseAparte(this.texto);
+
+  /// Lo que dice, para el subtítulo mientras suena.
+  final String texto;
+}
+
+/// Dejó de sonar la última [VoiceFraseAparte]: dicha entera o cortada.
+final class VoiceFraseAparteDicha extends VoiceEvent {
+  const VoiceFraseAparteDicha();
+}
+
 /// La sesión se cayó o no se pudo abrir.
 final class VoiceSessionFailed extends VoiceEvent {
   const VoiceSessionFailed(this.message);

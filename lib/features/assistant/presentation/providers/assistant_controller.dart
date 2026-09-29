@@ -3135,6 +3135,8 @@ class AssistantController extends Notifier<AssistantHudState> {
             VoiceToolProgress() => _onToolProgress(event.text),
             VoiceToolActivity() => _onVoiceActivity(event),
             VoiceToolFinished() => _onToolFinished(event),
+            VoiceFraseAparte() => _onFraseAparte(event.texto),
+            VoiceFraseAparteDicha() => _onFraseAparteDicha(),
             VoiceSessionFailed() => unawaited(_onVoiceFailed(event.message)),
             // El audio no llega hasta aquí: lo reproduce el caso de uso. La
             // interfaz solo necesita el texto y el estado.
@@ -3357,6 +3359,7 @@ class AssistantController extends Notifier<AssistantHudState> {
   }
 
   void _onHeard(String text) {
+    _diciendoAparte = false;
     if (_reply.isNotEmpty) {
       _reply.clear();
       _heard.clear();
@@ -3382,6 +3385,7 @@ class AssistantController extends Notifier<AssistantHudState> {
   /// `ElSubtituloAlCompas` —lo que ya sonó de lo que llegó— cae sobre el texto
   /// de ese mismo audio.
   void _onReply(String text) {
+    _diciendoAparte = false;
     if (_reply.isEmpty) _sealLast();
     _reply.write(text);
     _appendTo(ChatAuthor.nexus, text, spoken: true);
@@ -3393,14 +3397,56 @@ class AssistantController extends Notifier<AssistantHudState> {
   }
 
   void _onInterrupted() {
+    _diciendoAparte = false;
     _reply.clear();
     state = state.copyWith(orbState: NexusOrbState.listen, isStreaming: false);
   }
 
+  /// Está sonando una frase suya que no es un turno del modelo: el acuse, por
+  /// dónde va o el saludo guardado. Ver [VoiceFraseAparte].
+  ///
+  /// 🔴 **El orbe habla mientras suena** (pedido el 29 sep): con el acuse puesto
+  /// y el orbe en TRABAJANDO, su voz sonaba sobre un orbe que no se movía como
+  /// cuando habla. El subtítulo es la frase, que es lo que se oye; al callarse
+  /// vuelve el titular del trabajo. **No se escribe en la conversación**: es
+  /// relleno para no quedarse muda, no una respuesta.
+  void _onFraseAparte(String texto) {
+    _diciendoAparte = true;
+    state = state.copyWith(orbState: NexusOrbState.speak, subtitle: texto);
+  }
+
+  void _onFraseAparteDicha() {
+    // Si mientras sonaba empezó la respuesta de verdad, o hablaste tú, el
+    // estado ya es de ellos y no se toca.
+    if (!_diciendoAparte) return;
+    _diciendoAparte = false;
+    if (state.orbState != NexusOrbState.speak) return;
+    state = state.copyWith(
+      orbState: state.isStreaming ? NexusOrbState.think : NexusOrbState.listen,
+      subtitle: _titularDelTrabajo ?? '',
+    );
+  }
+
+  /// Si suena una frase aparte: mientras, lo que llega de Claude no devuelve
+  /// el orbe a TRABAJANDO.
+  var _diciendoAparte = false;
+
+  /// El titular del trabajo en curso, para volver a él al callarse.
+  String? _titularDelTrabajo;
+
+  /// TRABAJANDO, salvo que esté sonando una frase aparte.
+  NexusOrbState get _trabajando =>
+      _diciendoAparte ? NexusOrbState.speak : NexusOrbState.think;
+
   void _onVoiceTurnCompleted() {
     // Si Claude está trabajando, el turno hablado que acaba es el "voy a
     // mirarlo": el orbe tiene que seguir en trabajando, no volver a escuchar.
-    if (state.orbState == NexusOrbState.think) return;
+    // Y lo mismo si está sonando el acuse o por dónde va: el orbe habla, pero
+    // el trabajo sigue.
+    if (state.orbState == NexusOrbState.think ||
+        (_diciendoAparte && state.isStreaming)) {
+      return;
+    }
     _sealLast();
     _heard.clear();
     _reply.clear();
@@ -3431,9 +3477,10 @@ class AssistantController extends Notifier<AssistantHudState> {
     // el mismo patrón: se arregló la mitad de después para la voz y la de antes
     // se quedó en el camino de escribir.
     unawaited(_loQueDejo.tomaLaMarca(_workingDirectory));
+    _titularDelTrabajo = instruction;
     state = state.copyWith(
-      orbState: NexusOrbState.think,
-      subtitle: instruction,
+      orbState: _trabajando,
+      subtitle: _diciendoAparte ? state.subtitle : instruction,
       isStreaming: true,
       activity: const [],
       history: _remember(instruction),
@@ -3454,9 +3501,10 @@ class AssistantController extends Notifier<AssistantHudState> {
   void _onLookupStarted(String headline) {
     _heard.clear();
     _reply.clear();
+    _titularDelTrabajo = headline;
     state = state.copyWith(
-      orbState: NexusOrbState.think,
-      subtitle: headline,
+      orbState: _trabajando,
+      subtitle: _diciendoAparte ? state.subtitle : headline,
       isStreaming: true,
       activity: const [],
     );
@@ -3480,9 +3528,10 @@ class AssistantController extends Notifier<AssistantHudState> {
 
   void _onToolProgress(String text) {
     _reply.write(text);
+    _titularDelTrabajo = _reply.toString();
     state = state.copyWith(
-      orbState: NexusOrbState.think,
-      subtitle: _reply.toString(),
+      orbState: _trabajando,
+      subtitle: _diciendoAparte ? state.subtitle : _reply.toString(),
       isStreaming: true,
     );
   }

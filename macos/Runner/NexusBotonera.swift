@@ -210,7 +210,15 @@ final class NexusBotonera: NSObject {
   /// pantallas se posiciona encima de la app que tenga, y debería quedarse
   /// donde esté». Sin él es una ventana como las demás: vive en su escritorio,
   /// y se lleva a otro arrastrándola o desde Mission Control.
-  static let enLosEscritorios: NSWindow.CollectionBehavior = [.fullScreenAuxiliary]
+  ///
+  /// 🔴 **Y `.managed` escrito, que quitar lo otro no bastaba** (29 sep, ya en
+  /// la 1.36.4: «la abrí en un escritorio, me moví a otro y se fue para allá»).
+  /// La barra va en nivel `.floating`, y para una ventana fuera del nivel
+  /// normal lo que macOS pone por defecto es `.transient` —«flota entre
+  /// escritorios», dice la documentación de `CollectionBehavior`—. `.managed`
+  /// es el que la ata a un escritorio, como a cualquier ventana normal; el
+  /// nivel sigue siendo flotante dentro de él.
+  static let enLosEscritorios: NSWindow.CollectionBehavior = [.managed, .fullScreenAuxiliary]
 
   private static func area(_ rect: NSRect) -> CGFloat {
     rect.isNull || rect.isEmpty ? 0 : rect.width * rect.height

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_audio_ajeno.dart';
 import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/oido/domain/usecases/como_se_le_llama.dart';
@@ -26,6 +27,7 @@ class OidoSection extends ConsumerWidget {
     final palabra = ComoSeLeLlama.lasPalabras(nombres.agente).first;
     final encendido = ref.watch(elOidoEstaEncendidoProvider).value ?? false;
     final saluda = ref.watch(elOidoSaludaProvider).value ?? true;
+    final sigueSinNombre = ref.watch(seSigueSinNombreProvider).value ?? true;
 
     return BloquesDeAjustes(
       bloques: [
@@ -87,6 +89,31 @@ class OidoSection extends ConsumerWidget {
                   .read(elOidoQueEsperaProvider)
                   .cambiarSaludo(aSaludar: contesta),
             ),
+          ],
+        ),
+        // 🔴 **Nuevo el 29 sep, y en el mockup con su motivo.** Va aquí y no en
+        // la voz porque es lo mismo que el oído decide —cuándo se le está
+        // hablando a ella—, solo que con la conversación ya abierta. Nace
+        // encendido; apagarlo vuelve al «solo con su nombre» del 27 sep.
+        BloqueDeAjustes(
+          rotulo: strings.sigueSinNombreTitulo,
+          hijos: [
+            TextoDeAjustes(
+              strings.sigueSinNombreExplica(
+                nombres.agente ?? 'Nexus',
+                ElAudioAjeno.ventanaSinNombre.inSeconds,
+              ),
+            ),
+            ApagadoOEncendido(
+              llave: 'sigue-sin-nombre',
+              encendido: sigueSinNombre,
+              costeApagado: strings.sigueSinNombreCosteApagado,
+              costeEncendido: strings.sigueSinNombreCosteEncendido,
+              onCambiar: (on) => ref
+                  .read(elOidoQueEsperaProvider)
+                  .cambiarSeguirSinNombre(aEncendido: on),
+            ),
+            NotaDeAjustes(strings.sigueSinNombrePorQue),
           ],
         ),
       ],

@@ -18,6 +18,7 @@ import 'package:nexus/features/assistant/domain/usecases/la_sesion_de_puerta.dar
 import 'package:nexus/features/agenda/presentation/providers/el_vigilante_de_la_agenda.dart';
 import 'package:nexus/features/assistant/domain/usecases/hold_voice_conversation.dart';
 import 'package:nexus/features/assistant/domain/usecases/la_sesion_caliente.dart';
+import 'package:nexus/features/oido/presentation/providers/el_oido_que_espera.dart';
 import 'package:nexus/features/assistant/presentation/providers/claude_bridge_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/remote/presentation/providers/channel_providers.dart';
@@ -165,6 +166,11 @@ final holdVoiceConversationProvider =
         suVozAparte: ref.watch(suVozAparteProvider),
         laSesionCaliente: ref.watch(laSesionCalienteProvider),
         claveCaliente: () => '$conversationId|${_loQueSuena(ref)}',
+        // Seguir sin su nombre justo después de que conteste: el ajuste de
+        // Ajustes › Oído, que nace encendido. Lo no leído todavía cuenta como
+        // encendido, que es lo de fábrica.
+        seSigueSinNombre: () =>
+            ref.read(seSigueSinNombreProvider).value ?? true,
       ),
     );
 

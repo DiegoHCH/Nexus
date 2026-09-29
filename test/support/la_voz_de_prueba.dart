@@ -366,6 +366,8 @@ HoldVoiceConversation laConversacion({
   ElRitmoDelProgreso ritmo = const ElRitmoDelProgreso(),
   LaSesionCaliente? caliente,
   String clave = 'conversación-1',
+  bool sigueSinNombre = false,
+  Duration ventana = const Duration(seconds: 8),
 }) => HoldVoiceConversation(
   mic ?? MicDePrueba(),
   servicio,
@@ -384,6 +386,8 @@ HoldVoiceConversation laConversacion({
   ritmoDelProgreso: ritmo,
   laSesionCaliente: caliente,
   claveCaliente: () => clave,
+  seSigueSinNombre: () => sigueSinNombre,
+  ventanaSinNombre: ventana,
 );
 
 /// Unas vueltas al bucle, para que lo encolado llegue.

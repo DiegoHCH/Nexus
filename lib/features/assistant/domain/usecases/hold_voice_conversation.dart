@@ -52,7 +52,18 @@ class HoldVoiceConversation {
     this.ritmoDelProgreso = const ElRitmoDelProgreso(),
     this._laSesionCaliente,
     this._claveCaliente,
+    this._seSigueSinNombre,
+    this.ventanaSinNombre = ElAudioAjeno.ventanaSinNombre,
   });
+
+  /// Si justo después de que ella calle se le puede seguir hablando sin su
+  /// nombre —el ajuste de Ajustes › Oído—, leído en el momento. `null` es que
+  /// no: lo de antes, que es lo que esperan las pruebas que no van de esto.
+  /// Ver [ElAudioAjeno], «Y justo después de contestar, sin nombre».
+  final bool Function()? _seSigueSinNombre;
+
+  /// Cuánto dura esa ventana. Inyectable como [graciaDeLaRuta].
+  final Duration ventanaSinNombre;
 
   /// Donde se queda la sesión al colgar, para que la siguiente llamada no
   /// pague la conexión. `null` cierra al colgar, como antes. Ver
@@ -677,6 +688,75 @@ class HoldVoiceConversation {
       if (trabajando()) armarElProgreso(ritmoDelProgreso.silencio);
     };
 
+    /// Si ahora mismo se le puede seguir hablando sin su nombre: acaba de
+    /// callar. Ver [ElAudioAjeno], «Y justo después de contestar, sin nombre».
+    var ventanaAbierta = false;
+    Timer? abreLaVentana;
+    Timer? cierraLaVentana;
+    Timer? margenDeLaVentana;
+
+    /// Los trozos de voz cercana que llegaron con la ventana abierta, y el
+    /// volumen más alto: lo segundo es para el registro, que es con lo que se
+    /// afina el umbral.
+    var trozosCercanos = 0;
+    var nivelMasAlto = 0.0;
+
+    /// Si empezaste a hablar de cerca **dentro** de la ventana. Sobrevive un
+    /// poco a que se cierre: la transcripción llega segundos después de la
+    /// voz, y una frase empezada a tiempo no puede perderse por eso.
+    var vozCercanaDentro = false;
+
+    bool seSigueSinNombre() => _seSigueSinNombre?.call() ?? false;
+
+    /// El silencio de una conversación viva antes de cerrarla.
+    ///
+    /// 🔴 **Con la ventana sin nombre encendida, lo que dure ella y un poco
+    /// más.** Si la sesión se cerraba a los seis segundos de callar, la ventana
+    /// de ocho no llegaba a existir: ya no había sesión a la que hablarle. El
+    /// micro sigue saliendo hacia Google en ese rato, y es el precio de poder
+    /// seguir sin llamarla: se pidió así (29 sep), y se apaga en Ajustes.
+    Duration plazoCorto() {
+      if (!seSigueSinNombre()) return _idleTimeout;
+      final conVentana = ventanaSinNombre + const Duration(milliseconds: 1500);
+      return conVentana > _idleTimeout ? conVentana : _idleTimeout;
+    }
+
+    void abrirLaVentana() {
+      if (!seSigueSinNombre() || closing) return;
+      ventanaAbierta = true;
+      trozosCercanos = 0;
+      nivelMasAlto = 0;
+      vozCercanaDentro = false;
+      margenDeLaVentana?.cancel();
+      cierraLaVentana?.cancel();
+      cierraLaVentana = Timer(ventanaSinNombre, () {
+        ventanaAbierta = false;
+        margenDeLaVentana = Timer(
+          const Duration(seconds: 2),
+          () => vozCercanaDentro = false,
+        );
+      });
+    }
+
+    void cerrarLaVentana() {
+      abreLaVentana?.cancel();
+      cierraLaVentana?.cancel();
+      margenDeLaVentana?.cancel();
+      ventanaAbierta = false;
+      vozCercanaDentro = false;
+    }
+
+    /// Un trozo del micro, mirado con la ventana abierta.
+    void oirConLaVentana(double nivel) {
+      if (!ventanaAbierta) return;
+      if (nivel > nivelMasAlto) nivelMasAlto = nivel;
+      if (nivel < ElAudioAjeno.nivelDeVozCercana) return;
+      trozosCercanos++;
+      if (trozosCercanos >= ElAudioAjeno.trozosDeVozCercana) {
+        vozCercanaDentro = true;
+      }
+    }
+
     Future<void> shutdown() async {
       if (closing) return;
       closing = true;
@@ -705,6 +785,7 @@ class HoldVoiceConversation {
       finDeLaFraseAparte?.cancel();
       relojDelProgreso?.cancel();
       relojDeTuVoz?.cancel();
+      cerrarLaVentana();
       await micSubscription?.cancel();
       await pausaSubscription?.cancel();
       await sessionSubscription?.cancel();
@@ -770,7 +851,7 @@ class HoldVoiceConversation {
       final grace =
           heardAt == null || esperandoRespuesta || (saludoPedido && turn == 0)
           ? _openingGrace
-          : _idleTimeout;
+          : plazoCorto();
       idleTimer?.cancel();
       idleTimer = Timer(grace, () async {
         // Con un encargo en marcha —o con una herramienta a medio atender— no
@@ -795,7 +876,7 @@ class HoldVoiceConversation {
         final pending = await _output.pending();
         if (pending > Duration.zero) {
           idleTimer?.cancel();
-          idleTimer = Timer(pending + _idleTimeout, () => keepAlive());
+          idleTimer = Timer(pending + plazoCorto(), () => keepAlive());
           return;
         }
         _log(
@@ -1424,6 +1505,13 @@ class HoldVoiceConversation {
     /// esté callado—.
     var sigueSonandoHasta = 0;
 
+    /// Si la frase que empieza tiene que traer su nombre.
+    bool tieneQueNombrarla() => ElAudioAjeno.pideSuNombre(
+      yaContesto: yaContesto,
+      preguntoElla: preguntoElla,
+      sigueLaConversacion: vozCercanaDentro,
+    );
+
     /// La sesión está lista para oírte: nueva, o retomada caliente.
     ///
     /// Aparte del evento porque una caliente **no manda otro**
@@ -1508,12 +1596,7 @@ class HoldVoiceConversation {
           // cuenta como actividad.
           final esRuido = switch (event) {
             VoiceUserTranscript(:final text) =>
-              (asked.isEmpty
-                      ? ElAudioAjeno.pideSuNombre(
-                          yaContesto: yaContesto,
-                          preguntoElla: preguntoElla,
-                        )
-                      : pediaSuNombre) &&
+              (asked.isEmpty ? tieneQueNombrarla() : pediaSuNombre) &&
                   !ElAudioAjeno.laNombra(
                     '$asked $text',
                     agente: _comoSeLlama(),
@@ -1598,10 +1681,21 @@ class HoldVoiceConversation {
                 hablabaAlEmpezar =
                     estabaHablando ||
                     clock.elapsedMilliseconds < sigueSonandoHasta;
-                pediaSuNombre = ElAudioAjeno.pideSuNombre(
-                  yaContesto: yaContesto,
-                  preguntoElla: preguntoElla,
-                );
+                pediaSuNombre = tieneQueNombrarla();
+                // Lo que se juzgó, en el registro: el umbral de la voz cercana
+                // es un punto de partida, y esto es con lo que se afina.
+                if (yaContesto && !preguntoElla && seSigueSinNombre()) {
+                  _log(
+                    'voz · nivel de la frase: pico '
+                    '${nivelMasAlto.toStringAsFixed(2)}, $trozosCercanos '
+                    'trozos cercanos (umbral '
+                    '${ElAudioAjeno.nivelDeVozCercana}) · '
+                    '${pediaSuNombre ? 'pide su nombre' : 'sigue sin nombre'}',
+                  );
+                }
+                // Consumida: la siguiente necesita su propia ventana, que se
+                // abre cuando ella vuelva a callar.
+                cerrarLaVentana();
               }
               asked.write(text);
               // Si tenía que traer su nombre, su respuesta no suena hasta que
@@ -1699,6 +1793,18 @@ class HoldVoiceConversation {
                 estabaHablando = false;
                 controller.add(VoiceIgnorado(utterance));
                 break;
+              }
+              // Habló ella de verdad —no lo que se tiró para pasarlo a
+              // Claude—: cuando acabe de sonar, se le puede seguir hablando
+              // sin su nombre un rato.
+              if (sonoDesdeTuFrase && seSigueSinNombre()) {
+                unawaited(
+                  _output.pending().then((queda) {
+                    if (closing) return;
+                    abreLaVentana?.cancel();
+                    abreLaVentana = Timer(queda, abrirLaVentana);
+                  }),
+                );
               }
               estabaHablando = false;
               tirandoLaRespuesta = false;
@@ -1811,6 +1917,7 @@ class HoldVoiceConversation {
             // exactamente la mitad del diagnóstico que este contador existe
             // para dar.
             micFrames++;
+            oirConLaVentana(frame.amplitude);
             // Tu voz, por el volumen del micro: ver [hablasTu].
             if (frame.amplitude >= ElAudioAjeno.nivelDeVozCercana) {
               rachaDeTuVoz++;

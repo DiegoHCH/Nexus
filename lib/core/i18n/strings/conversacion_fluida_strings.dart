@@ -33,6 +33,16 @@ mixin ConversacionFluidaStrings {
 
   /// Cuando del paso no queda nada que se pueda decir.
   String get progresoSigo;
+
+  /// Ajustes › Oído: seguir hablándole sin su nombre justo después de que
+  /// conteste. [segundos] es cuánto dura la ventana.
+  String get sigueSinNombreTitulo;
+  String sigueSinNombreExplica(String agente, int segundos);
+  String get sigueSinNombreCosteApagado;
+  String get sigueSinNombreCosteEncendido;
+
+  /// El porqué, dicho al lado como pide el mockup: qué la protege de la tele.
+  String get sigueSinNombrePorQue;
 }
 
 mixin ConversacionFluidaStringsEs implements ConversacionFluidaStrings {
@@ -63,6 +73,23 @@ mixin ConversacionFluidaStringsEs implements ConversacionFluidaStrings {
   String progresoUsa(String que) => 'Sigo con ello: ahora con $que.';
   @override
   String get progresoSigo => 'Sigo con ello.';
+
+  @override
+  String get sigueSinNombreTitulo => 'Seguir sin repetir su nombre';
+  @override
+  String sigueSinNombreExplica(String agente, int segundos) =>
+      'Durante $segundos s después de que $agente termine de hablar, lo que le '
+      'digas le llega sin su nombre, como en una conversación. Pasado ese rato, '
+      'lo vuelve a pedir.';
+  @override
+  String get sigueSinNombreCosteApagado => 'su nombre en cada frase';
+  @override
+  String get sigueSinNombreCosteEncendido => 'una voz cercana puede colarse';
+  @override
+  String get sigueSinNombrePorQue =>
+      'Solo cuenta la voz cercana y clara —el micrófono llega con el eco '
+      'cancelado—: la tele o la conversación de al lado siguen necesitando su '
+      'nombre.';
 }
 
 mixin ConversacionFluidaStringsEn implements ConversacionFluidaStrings {
@@ -91,4 +118,20 @@ mixin ConversacionFluidaStringsEn implements ConversacionFluidaStrings {
   String progresoUsa(String que) => 'Still on it: now with $que.';
   @override
   String get progresoSigo => 'Still on it.';
+
+  @override
+  String get sigueSinNombreTitulo => 'Keep talking without her name';
+  @override
+  String sigueSinNombreExplica(String agente, int segundos) =>
+      'For $segundos s after $agente stops talking, what you say reaches her '
+      'without her name, like in a conversation. After that, she asks for it '
+      'again.';
+  @override
+  String get sigueSinNombreCosteApagado => 'her name every time';
+  @override
+  String get sigueSinNombreCosteEncendido => 'a nearby voice may slip in';
+  @override
+  String get sigueSinNombrePorQue =>
+      'Only a close, clear voice counts —the microphone arrives with the echo '
+      'cancelled—: the TV or the conversation next door still need her name.';
 }

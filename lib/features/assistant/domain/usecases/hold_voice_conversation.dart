@@ -15,6 +15,7 @@ import 'package:nexus/features/assistant/domain/usecases/ask_claude.dart';
 import 'package:nexus/features/assistant/domain/repositories/correr_una_prueba.dart';
 import 'package:nexus/features/assistant/domain/repositories/el_parte_del_dia.dart';
 import 'package:nexus/features/assistant/domain/usecases/claude_errand.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_ritmo_del_progreso.dart';
 import 'package:nexus/features/assistant/domain/usecases/lo_dicho_sin_su_nombre.dart';
 import 'package:nexus/features/assistant/domain/usecases/lo_que_sale_hacia_la_voz.dart';
 import 'package:nexus/features/oido/domain/usecases/como_se_le_llama.dart';
@@ -47,7 +48,13 @@ class HoldVoiceConversation {
     this._comoSeLlama, {
     this.graciaDeLaRuta = _graciaDeLaRuta,
     this._suVozAparte,
+    this.ritmoDelProgreso = const ElRitmoDelProgreso(),
   });
+
+  /// Cada cuánto cuenta por dónde va en un encargo largo. Inyectable por lo
+  /// mismo que [graciaDeLaRuta]: las pruebas van de **qué** dice y cuándo no,
+  /// no de esperar dieciocho segundos. Ver [ElRitmoDelProgreso].
+  final ElRitmoDelProgreso ritmoDelProgreso;
 
   /// Lo que dice ella por su cuenta mientras se trabaja: el acuse al recibir
   /// un encargo y, en los largos, por dónde va. `null` la deja callada como
@@ -373,12 +380,31 @@ class HoldVoiceConversation {
     /// La frase aparte que se está generando al vuelo, trozo a trozo.
     StreamSubscription<Uint8List>? fraseAlVuelo;
 
+    /// Si la que suena es de por dónde va. Esa, y solo esa, se calla si
+    /// empiezas a hablar: el acuse es un segundo y va justo detrás de ti.
+    var aparteEsDeProgreso = false;
+
+    /// Lo que hay que hacer cuando deja de sonar una frase aparte. Lo pone el
+    /// reloj de por dónde va: el silencio se cuenta desde ahí.
+    void Function()? alCallarAparte;
+
+    /// Si estás hablando tú ahora mismo, **según el micro**.
+    ///
+    /// Por el volumen y no por la transcripción: la transcripción llega tarde
+    /// —segundos— y trae también los últimos pedazos de la frase con la que
+    /// pediste el encargo. El micro de la conversación llega con el eco ya
+    /// cancelado, así que lo que suene fuerte ahí no es ella.
+    var hablasTu = false;
+    var rachaDeTuVoz = 0;
+    Timer? relojDeTuVoz;
+
     void seCalloAparte() {
       finDeLaFraseAparte?.cancel();
       finDeLaFraseAparte = null;
       if (!diciendoAparte) return;
       diciendoAparte = false;
       if (!controller.isClosed) controller.add(const VoiceFraseAparteDicha());
+      alCallarAparte?.call();
     }
 
     /// Se da por callada cuando el altavoz acabe **lo que ya tiene**, que es
@@ -393,8 +419,9 @@ class HoldVoiceConversation {
       );
     }
 
-    void empiezaAparte(String texto) {
+    void empiezaAparte(String texto, {bool deProgreso = false}) {
       diciendoAparte = true;
+      aparteEsDeProgreso = deProgreso;
       sonoDesdeTuFrase = true;
       if (!controller.isClosed) controller.add(VoiceFraseAparte(texto));
     }
@@ -430,6 +457,7 @@ class HoldVoiceConversation {
       String texto, {
       bool Function()? sigueAViniendoACuento,
       void Function()? siNoSalio,
+      bool deProgreso = false,
     }) {
       final voz = _suVozAparte;
       if (voz == null || closing) return;
@@ -448,7 +476,7 @@ class HoldVoiceConversation {
               }
               if (!empezo) {
                 empezo = true;
-                empiezaAparte(texto);
+                empiezaAparte(texto, deProgreso: deProgreso);
               }
               _output.enqueue(trozo);
             },
@@ -501,6 +529,109 @@ class HoldVoiceConversation {
       decirAlVuelo(acuse.texto);
     }
 
+    /// Lo que va haciendo Claude en el encargo de ahora: sus pasos y lo que
+    /// cuenta por escrito. Es la materia de por dónde va.
+    final pasosDelEncargo = <String>[];
+    final loQueCuentaClaude = StringBuffer();
+    final loYaContado = <String>[];
+
+    /// Hasta qué paso se contó ya: sin pasos nuevos no hay nada nuevo que
+    /// decir, y repetir «sigo con ello» no es contar nada.
+    var pasosContados = 0;
+    Timer? relojDelProgreso;
+
+    /// Sube con cada encargo: lo redactado para uno no se dice en el siguiente.
+    var encargoDeAhora = 0;
+
+    late void Function() contarPorDondeVa;
+
+    void armarElProgreso(Duration dentroDe) {
+      relojDelProgreso?.cancel();
+      relojDelProgreso = Timer(dentroDe, contarPorDondeVa);
+    }
+
+    /// Si hay un encargo en marcha, que es lo único durante lo que se cuenta.
+    bool trabajando() => abortErrand != null && !closing;
+
+    /// Cuenta por dónde va, **si le toca y hay algo nuevo**.
+    ///
+    /// 🔴 Nunca encima de nadie: ni de ti hablando, ni de algo suyo que ya
+    /// suena, ni de la respuesta —si llega mientras se redacta, lo redactado
+    /// se tira—. Y nunca lo mismo dos veces: sin pasos nuevos no dice nada, y
+    /// si lo redactado ya se dijo, tampoco.
+    contarPorDondeVa = () {
+      final voz = _suVozAparte;
+      if (voz == null || !trabajando()) return;
+      if (hablasTu ||
+          asked.isNotEmpty ||
+          diciendoAparte ||
+          fraseAlVuelo != null) {
+        armarElProgreso(ritmoDelProgreso.siEstasHablando);
+        return;
+      }
+      if (pasosDelEncargo.length == pasosContados) {
+        armarElProgreso(ritmoDelProgreso.silencio);
+        return;
+      }
+      final hasta = pasosDelEncargo.length;
+      final esteEncargo = encargoDeAhora;
+      final cuenta = loQueCuentaClaude.toString();
+      unawaited(
+        voz
+            .porDondeVa(
+              LoQueLlevaHecho(
+                pasos:
+                    pasosDelEncargo.length >
+                        ElRitmoDelProgreso.pasosQueSeCuentan
+                    ? pasosDelEncargo.sublist(
+                        pasosDelEncargo.length -
+                            ElRitmoDelProgreso.pasosQueSeCuentan,
+                      )
+                    : List.of(pasosDelEncargo),
+                loQueCuenta:
+                    cuenta.length > ElRitmoDelProgreso.loQueCuentaQueSeLee
+                    ? cuenta.substring(
+                        cuenta.length - ElRitmoDelProgreso.loQueCuentaQueSeLee,
+                      )
+                    : cuenta,
+                yaDicho: List.of(loYaContado),
+              ),
+            )
+            .then((frase) {
+              // Llegó la respuesta mientras se redactaba: esto ya no toca.
+              if (!trabajando() || encargoDeAhora != esteEncargo) return;
+              if (frase == null ||
+                  frase.trim().isEmpty ||
+                  ElRitmoDelProgreso.yaDicha(frase, loYaContado)) {
+                armarElProgreso(ritmoDelProgreso.silencio);
+                return;
+              }
+              pasosContados = hasta;
+              loYaContado.add(frase);
+              _log('voz · por dónde va: «$frase»');
+              decirAlVuelo(
+                frase,
+                deProgreso: true,
+                sigueAViniendoACuento: () =>
+                    trabajando() && encargoDeAhora == esteEncargo && !hablasTu,
+                siNoSalio: () {
+                  if (trabajando()) armarElProgreso(ritmoDelProgreso.silencio);
+                },
+              );
+            })
+            .catchError((Object error) {
+              _log('voz · no se pudo contar por dónde va: $error');
+              if (trabajando()) armarElProgreso(ritmoDelProgreso.silencio);
+            }),
+      );
+    };
+
+    // El silencio se cuenta desde que deja de sonar lo suyo —el acuse, o lo
+    // último que contó—, no desde que empezó.
+    alCallarAparte = () {
+      if (trabajando()) armarElProgreso(ritmoDelProgreso.silencio);
+    };
+
     Future<void> shutdown() async {
       closing = true;
       // Primero el encargo: si hay un `claude -p` en marcha, cerrar la
@@ -515,6 +646,8 @@ class HoldVoiceConversation {
       relojDeLaRuta = null;
       cortarAparte(loQueSuena: false);
       finDeLaFraseAparte?.cancel();
+      relojDelProgreso?.cancel();
+      relojDeTuVoz?.cancel();
       await micSubscription?.cancel();
       await pausaSubscription?.cancel();
       await sessionSubscription?.cancel();
@@ -724,6 +857,12 @@ class HoldVoiceConversation {
     /// valer este argumento y hay que moverlo.
     Future<String?> runErrand(String instruction, String headline) async {
       controller.add(VoiceToolStarted(headline));
+      // Un encargo nuevo empieza su cuenta de por dónde va desde cero.
+      encargoDeAhora++;
+      pasosDelEncargo.clear();
+      loQueCuentaClaude.clear();
+      loYaContado.clear();
+      pasosContados = 0;
       final answer = StringBuffer();
       var ok = true;
       var aborted = false;
@@ -809,6 +948,7 @@ class HoldVoiceConversation {
               );
             case ClaudeTextDelta(:final text):
               answer.write(text);
+              loQueCuentaClaude.write(text);
               controller.add(VoiceToolProgress(text));
             case ClaudeTurnCompleted(:final result):
               if (result.isNotEmpty) {
@@ -827,6 +967,7 @@ class HoldVoiceConversation {
                 ..clear()
                 ..write('La tarea falló: $message');
             case ClaudeToolUsed():
+              pasosDelEncargo.add(event.description);
               controller.add(
                 VoiceToolActivity(
                   id: event.id,
@@ -873,9 +1014,16 @@ class HoldVoiceConversation {
         unawaited(errand.cancel());
         finish();
       };
+      // Si el acuse está sonando, el reloj se arma cuando calle; si no, ya.
+      if (!diciendoAparte) armarElProgreso(ritmoDelProgreso.silencio);
 
       await ended.future;
       abortErrand = null;
+      // 🔴 **Llegó la respuesta: lo que se estuviera redactando o generando de
+      // por dónde va ya no se dice.** Lo que ya suena acaba —es una frase— o lo
+      // corta la narración en cuanto empiece, que llega segundos después.
+      relojDelProgreso?.cancel();
+      cortarAparte(loQueSuena: false);
       await errand.cancel();
 
       // Cancelado: no hay a quién contestar, la sesión se está cerrando.
@@ -1343,6 +1491,10 @@ class HoldVoiceConversation {
               unawaited(atender(event));
             case VoiceUserTranscript(:final text):
               cierreDeLaDespedida?.cancel();
+              // Le hablas mientras cuenta por dónde va: se calla y te oye.
+              if (diciendoAparte && aparteEsDeProgreso) {
+                cortarAparte(loQueSuena: true);
+              }
               // El primer pedazo de una frase es el que estrena turno: los
               // siguientes son la misma frase llegando a trozos.
               if (asked.isEmpty) {
@@ -1538,6 +1690,24 @@ class HoldVoiceConversation {
             // exactamente la mitad del diagnóstico que este contador existe
             // para dar.
             micFrames++;
+            // Tu voz, por el volumen del micro: ver [hablasTu].
+            if (frame.amplitude >= ElAudioAjeno.nivelDeVozCercana) {
+              rachaDeTuVoz++;
+              if (rachaDeTuVoz >= 2) {
+                hablasTu = true;
+                relojDeTuVoz?.cancel();
+                relojDeTuVoz = Timer(
+                  const Duration(milliseconds: 1500),
+                  () => hablasTu = false,
+                );
+                // Y si estaba contando por dónde va, se calla: nunca encima.
+                if (diciendoAparte && aparteEsDeProgreso) {
+                  cortarAparte(loQueSuena: true);
+                }
+              }
+            } else {
+              rachaDeTuVoz = 0;
+            }
             final live = session;
             if (live != null && !saludando) {
               live.sendAudio(frame.pcm);

@@ -24,6 +24,26 @@ class FraseHecha {
         );
 }
 
+/// Lo que se lleva hecho de un encargo, para contar por dónde va.
+class LoQueLlevaHecho {
+  const LoQueLlevaHecho({
+    required this.pasos,
+    required this.loQueCuenta,
+    required this.yaDicho,
+  });
+
+  /// Los pasos reales de Claude —«Leyendo lib/main.dart», «Usando
+  /// mcp__jira__search»—, del más viejo al más nuevo, y solo los últimos.
+  final List<String> pasos;
+
+  /// La cola de lo que Claude va contando por escrito mientras trabaja. Es lo
+  /// que dice **para qué** son los pasos: «comparo las tareas con el sprint».
+  final String loQueCuenta;
+
+  /// Lo que ya dijo en este encargo, para no repetirlo.
+  final List<String> yaDicho;
+}
+
 /// **Su voz, fuera del turno del modelo**: lo que dice ella por su cuenta
 /// mientras la conversación espera.
 ///
@@ -51,6 +71,11 @@ abstract class SuVozAparte {
   /// sesión caliente, que no puede pedírselo al modelo: el saludo se dice en el
   /// `setup`, y esa sesión ya lo pasó.
   FraseHecha? elSaludo(String frase);
+
+  /// Una frase corta de por dónde va, sacada de [hecho], o `null` si no hay
+  /// nada que contar. **Tiene que contestar pronto**: se pide con el encargo
+  /// en marcha y, si llega la respuesta mientras tanto, lo redactado se tira.
+  Future<String?> porDondeVa(LoQueLlevaHecho hecho);
 
   /// Dice [frase] con su voz, **a trozos según llegan**: el primero suena
   /// mientras el resto se está generando. El flujo acaba al terminar de

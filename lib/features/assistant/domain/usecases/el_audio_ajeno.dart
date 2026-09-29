@@ -1,3 +1,4 @@
+import 'package:nexus/features/assistant/domain/entities/audio_frame.dart';
 import 'package:nexus/features/oido/domain/usecases/como_se_le_llama.dart';
 
 /// Qué hacer con lo que suena alrededor y no iba dirigido a Nexus.
@@ -50,6 +51,17 @@ abstract final class ElAudioAjeno {
     r'stop|wait|hold on|be quiet|quiet|repeat|say that again|never mind)\b',
     caseSensitive: false,
   );
+
+  /// A partir de qué volumen del micro un trozo es **voz cercana**: alguien
+  /// hablándole al Mac desde su sitio, y no la tele o la habitación.
+  ///
+  /// En la escala de [AudioFrame.amplitude] —la raíz de la RMS, de 0 a 1—: 0,2
+  /// es una RMS de 0,04, unos −28 dBFS, que es lo que da una voz normal a medio
+  /// metro con el eco ya cancelado; la tele al otro lado de la sala se queda
+  /// por debajo de 0,15. **Es un punto de partida, no una medida**: cada frase
+  /// que se juzga con él deja su nivel en el registro —«voz · nivel de la
+  /// frase»— para poder afinarlo con la sala de verdad.
+  static const nivelDeVozCercana = 0.2;
 
   /// Si esto puede cortar lo que Nexus está diciendo.
   ///

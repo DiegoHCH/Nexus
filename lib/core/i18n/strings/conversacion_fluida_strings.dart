@@ -18,6 +18,21 @@ mixin ConversacionFluidaStrings {
   /// trato que sí se sabe —tu nombre— va dentro. Se guardan dichas con su voz,
   /// así que cambiarlas aquí las vuelve a generar solas.
   List<String> acuses(String? tuyo);
+
+  /// Por dónde va, **de plantilla**: lo que se dice si el modelo de texto no
+  /// contesta a tiempo. Una por clase de paso, con lo que se tocó ya dicho en
+  /// voz alta —ver `ElPasoEnVozAlta`—. Es la red: la frase buena la redacta el
+  /// modelo con los pasos y lo que Claude va contando.
+  String progresoLee(String que);
+  String progresoEdita(String que);
+  String progresoEjecuta(String que);
+  String progresoBusca(String que);
+  String progresoDelega(String que);
+  String progresoConsulta(String que);
+  String progresoUsa(String que);
+
+  /// Cuando del paso no queda nada que se pueda decir.
+  String get progresoSigo;
 }
 
 mixin ConversacionFluidaStringsEs implements ConversacionFluidaStrings {
@@ -29,6 +44,25 @@ mixin ConversacionFluidaStringsEs implements ConversacionFluidaStrings {
     'Me pongo con ello.',
     'Ya lo miro.',
   ];
+
+  @override
+  String progresoLee(String que) => 'Sigo con ello: estoy leyendo $que.';
+  @override
+  String progresoEdita(String que) => 'Sigo con ello: estoy tocando $que.';
+  @override
+  String progresoEjecuta(String que) => 'Sigo con ello: estoy corriendo $que.';
+  @override
+  String progresoBusca(String que) => 'Sigo con ello: estoy buscando $que.';
+  @override
+  String progresoDelega(String que) =>
+      'Sigo con ello: tengo a un ayudante con $que.';
+  @override
+  String progresoConsulta(String que) =>
+      'Sigo con ello: estoy consultando $que.';
+  @override
+  String progresoUsa(String que) => 'Sigo con ello: ahora con $que.';
+  @override
+  String get progresoSigo => 'Sigo con ello.';
 }
 
 mixin ConversacionFluidaStringsEn implements ConversacionFluidaStrings {
@@ -40,4 +74,21 @@ mixin ConversacionFluidaStringsEn implements ConversacionFluidaStrings {
     'Looking into it.',
     'Checking now.',
   ];
+
+  @override
+  String progresoLee(String que) => 'Still on it: reading $que.';
+  @override
+  String progresoEdita(String que) => 'Still on it: changing $que.';
+  @override
+  String progresoEjecuta(String que) => 'Still on it: running $que.';
+  @override
+  String progresoBusca(String que) => 'Still on it: searching for $que.';
+  @override
+  String progresoDelega(String que) => 'Still on it: a helper is on $que.';
+  @override
+  String progresoConsulta(String que) => 'Still on it: checking $que.';
+  @override
+  String progresoUsa(String que) => 'Still on it: now with $que.';
+  @override
+  String get progresoSigo => 'Still on it.';
 }

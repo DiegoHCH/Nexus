@@ -16,6 +16,7 @@ import 'package:nexus/features/assistant/domain/repositories/su_voz_aparte.dart'
 import 'package:nexus/features/assistant/domain/repositories/voice_gateway.dart';
 import 'package:nexus/features/assistant/domain/repositories/voice_input.dart';
 import 'package:nexus/features/assistant/domain/usecases/ask_claude.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_ritmo_del_progreso.dart';
 import 'package:nexus/features/assistant/domain/usecases/folder_errand_queue.dart';
 import 'package:nexus/features/assistant/domain/usecases/hold_voice_conversation.dart';
 
@@ -229,7 +230,17 @@ class ClaudeDePrueba implements ClaudeBridge {
 
 /// Su voz aparte: las frases que tiene hechas, y lo que dice al vuelo.
 class SuVozDePrueba implements SuVozAparte {
-  SuVozDePrueba({this.acuse = 'Enseguida.', this.conAudio = true});
+  SuVozDePrueba({
+    this.acuse = 'Enseguida.',
+    this.conAudio = true,
+    this.redacta,
+  });
+
+  /// Cómo redacta por dónde va. Por defecto, con el último paso.
+  final Future<String?> Function(LoQueLlevaHecho hecho)? redacta;
+
+  /// Lo que se le pidió redactar, en orden.
+  final pedidosDeProgreso = <LoQueLlevaHecho>[];
 
   final String? acuse;
 
@@ -258,6 +269,13 @@ class SuVozDePrueba implements SuVozAparte {
   @override
   FraseHecha? elSaludo(String frase) =>
       saludoHecho == frase ? FraseHecha(frase, audioDelSaludo) : null;
+
+  @override
+  Future<String?> porDondeVa(LoQueLlevaHecho hecho) {
+    pedidosDeProgreso.add(hecho);
+    return redacta?.call(hecho) ??
+        Future.value('Voy por ${hecho.pasos.last.toLowerCase()}.');
+  }
 
   @override
   Stream<Uint8List> decir(String frase) {
@@ -344,6 +362,7 @@ HoldVoiceConversation laConversacion({
   SuVozAparte? suVoz,
   void Function(String)? log,
   String? agente,
+  ElRitmoDelProgreso ritmo = const ElRitmoDelProgreso(),
 }) => HoldVoiceConversation(
   mic ?? MicDePrueba(),
   servicio,
@@ -359,6 +378,7 @@ HoldVoiceConversation laConversacion({
   () => agente,
   graciaDeLaRuta: Duration.zero,
   suVozAparte: suVoz,
+  ritmoDelProgreso: ritmo,
 );
 
 /// Unas vueltas al bucle, para que lo encolado llegue.

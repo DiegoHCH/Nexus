@@ -113,19 +113,47 @@ class LaVozQueAvisa {
       // nexus», veinte minutos después de colgar la voz.
       try {
         final empezo = DateTime.now();
-        final dicho = await _ref.read(laVozDelAvisoProvider).decir(frase);
+        // 🔴 **Suena con el primer trozo, no con el audio entero** (29 sep).
+        // Esperar a tenerlo todo se medía en el registro —«decirlo tardó 3859
+        // ms · aviso de 2520 ms»—: casi cuatro segundos entre pedir la frase y
+        // oírla, cuando el primer trozo estaba listo mucho antes. El silencio
+        // de delante va solo en el primero, que es donde hace falta.
+        var sonado = 0;
+        final dicho = await _ref
+            .read(laVozDelAvisoProvider)
+            .decir(
+              frase,
+              alLlegar: (trozo) {
+                if (!_ref.mounted) return;
+                if (sonado == 0) {
+                  debugPrint(
+                    'voz · primer trozo del aviso a los '
+                    '${DateTime.now().difference(empezo).inMilliseconds} ms',
+                  );
+                }
+                final pcm = sonado == 0 ? _conSilencioDelante(trozo) : trozo;
+                sonado += trozo.lengthInBytes;
+                delMac.enqueue(pcm);
+                delMovil.enqueue(pcm);
+              },
+            );
         debugPrint(
           'voz · decirlo tardó '
           '${DateTime.now().difference(empezo).inMilliseconds} ms',
         );
         if (!_ref.mounted) return false;
-        if (!dicho.salio) {
+        // Sin nada sonado, es un aviso mudo: se deja escrito. Si se cortó a
+        // medias, lo que sonó sonó, y la notificación lleva la frase entera.
+        if (sonado == 0) {
           debugPrint('voz · no se pudo decir: ${dicho.problema}');
           await _soloNotificar(titulo, frase);
           return false;
         }
+        if (!dicho.salio) {
+          debugPrint('voz · el aviso se cortó: ${dicho.problema}');
+        }
 
-        await _sonarEnLosDos(delMac, delMovil, dicho.pcm!);
+        await _acabarDeSonar(delMac, sonado);
         // El aviso del sistema va **además** de la voz: si estabas en otra
         // sala, la frase se la lleva el aire y la notificación sigue ahí al
         // volver.
@@ -138,28 +166,18 @@ class LaVozQueAvisa {
     }
   }
 
-  /// 🔴 **En los dos, y es una excepción a la regla del canal.**
+  /// 🔴 **Suena en los dos, y es una excepción a la regla del canal.**
   ///
   /// El canal decide dónde suena la respuesta con «suena donde se preguntó, así
   /// que nunca suenan los dos». Un aviso no se pregunta desde ningún sitio, así
   /// que esa regla no lo cubre — y la salida elegida es sonar en ambos, porque
   /// el aviso existe para sacarte de donde estés y no se sabe si estás delante
-  /// del Mac.
-  Future<void> _sonarEnLosDos(
-    AudioOutput delMac,
-    AudioOutput delMovil,
-    Uint8List pcm,
-  ) async {
-    debugPrint(
-      'voz · aviso de ${_milisegundosDe(pcm)} ms (${pcm.lengthInBytes} bytes)',
-    );
-
-    final conCabecera = _conSilencioDelante(pcm);
-    delMac.enqueue(conCabecera);
-    delMovil.enqueue(conCabecera);
-
-    // Sin esperar a que termine no se puede parar el motor sin cortar a media
-    // palabra — es la misma razón por la que `pending()` existe.
+  /// del Mac. Cada trozo va a los dos según llega: ver [_decirlo].
+  ///
+  /// Aquí solo se espera a que acabe: sin eso no se puede parar el motor sin
+  /// cortar a media palabra — la misma razón por la que `pending()` existe.
+  Future<void> _acabarDeSonar(AudioOutput delMac, int bytes) async {
+    debugPrint('voz · aviso de ${_milisegundosDe(bytes)} ms ($bytes bytes)');
     await Future<void>.delayed(await delMac.pending());
   }
 
@@ -172,8 +190,8 @@ class LaVozQueAvisa {
   /// sobra poco. Es el seguro contra las primeras muestras, no el arreglo.
   static const _silencio = Duration(milliseconds: 250);
 
-  static int _milisegundosDe(Uint8List pcm) =>
-      (pcm.lengthInBytes / _bytesPorSegundo * 1000).round();
+  static int _milisegundosDe(int bytes) =>
+      (bytes / _bytesPorSegundo * 1000).round();
 
   static Uint8List _conSilencioDelante(Uint8List pcm) {
     final muestras = _bytesPorSegundo * _silencio.inMilliseconds ~/ 1000;

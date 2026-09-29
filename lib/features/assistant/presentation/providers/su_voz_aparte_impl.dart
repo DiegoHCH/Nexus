@@ -4,6 +4,13 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
+import 'package:nexus/core/i18n/nexus_strings.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_ritmo_del_progreso.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_verbo_de_un_paso.dart';
+import 'package:nexus/features/assistant/presentation/providers/lo_contesta_ella.dart';
+import 'package:nexus/features/personalidad/domain/la_personalidad.dart';
+import 'package:nexus/features/personalidad/presentation/providers/la_personalidad_provider.dart';
+import 'package:nexus/features/assistant/data/datasources/gemini_text_data_source.dart';
 import 'package:nexus/features/agenda/presentation/providers/el_vigilante_de_la_agenda.dart';
 import 'package:nexus/features/assistant/data/datasources/las_frases_hechas_data_source.dart';
 import 'package:nexus/features/assistant/domain/repositories/su_voz_aparte.dart';
@@ -97,6 +104,105 @@ class LasFrasesHechas implements SuVozAparte {
       return null;
     }
     return FraseHecha(frase, pcm);
+  }
+
+  /// Por dónde va: la redacta el modelo de texto rápido y, si no contesta a
+  /// tiempo, sale de plantilla.
+  ///
+  /// 🔴 **Las dos, y en ese orden, porque es lo más rápido que además no
+  /// falla.** Una plantilla sale al instante pero suena a máquina —«sigo con
+  /// ello: estoy leyendo pubspec»— y no sabe **para qué** es el paso; el modelo
+  /// junta los pasos con lo que Claude va contando y dice «ya tengo Jira
+  /// abierto; estoy comparando las tareas», que es lo que se pidió (29 sep).
+  /// Tarda un segundo largo, y con un tope de tres —un intento, sin reintento:
+  /// ver [GeminiTextDataSource.redactar]—, lo peor que puede pasar es que
+  /// salga la plantilla. La frase se dice al vuelo después, así que esto no
+  /// va con prisa de acuse: va con prisa de «antes de que sea vieja».
+  @override
+  Future<String?> porDondeVa(LoQueLlevaHecho hecho) async {
+    if (hecho.pasos.isEmpty) return null;
+    final strings = _ref.read(stringsProvider);
+    final plantilla = deplantilla(strings, hecho);
+    try {
+      final llave = await _ref.read(geminiKeyStoreProvider).read();
+      if (llave == null || llave.isEmpty || !_ref.mounted) return plantilla;
+      final nombres = _ref.read(losNombresProvider);
+      final redactada = await _ref
+          .read(geminiTextDataSourceProvider)
+          .redactar(
+            llave: llave,
+            peticion: laPeticion(
+              hecho,
+              agente: nombres.agente,
+              tuyo: nombres.tuyo,
+              idioma: _ref
+                  .read(elAcentoProvider)
+                  .conElIdioma(strings.languageName),
+              personalidad: _ref.read(laPersonalidadProvider),
+            ),
+          );
+      return comoSeDice(redactada) ?? plantilla;
+    } on Object catch (error) {
+      debugPrint('voz · por dónde va sin redactar: $error');
+      return plantilla;
+    }
+  }
+
+  /// Lo que se le pide al modelo de texto. **Material para un modelo**, como
+  /// la instrucción de la voz: va en español y dice en qué idioma contestar.
+  @visibleForTesting
+  static String laPeticion(
+    LoQueLlevaHecho hecho, {
+    required String? agente,
+    required String? tuyo,
+    required String idioma,
+    required String? personalidad,
+  }) =>
+      'Eres ${agente ?? 'Nexus'}, una asistente de voz. '
+      '${LaPersonalidad.paraElPrompt(personalidad)}\n'
+      'Estás haciendo un encargo para ${tuyo ?? 'quien te habla'} y llevas un '
+      'rato en silencio. Dile por dónde vas en UNA frase hablada, de doce '
+      'palabras como mucho, en $idioma, en primera persona y en presente '
+      '—por ejemplo: «Ya tengo Jira abierto; estoy comparando las tareas»—.\n'
+      'Di de qué se trata, no lo literal: nada de rutas, comandos, nombres de '
+      'herramientas ni archivos con su extensión. Sin saludar, sin preguntar, '
+      'sin prometer cuánto falta y sin decir quién hace el trabajo.\n'
+      '${hecho.yaDicho.isEmpty ? '' : 'Ya dijiste esto, no lo repitas: ${hecho.yaDicho.map((d) => '«$d»').join(', ')}.\n'}'
+      'Los pasos reales, del más viejo al más nuevo:\n'
+      '${hecho.pasos.map((p) => '- $p').join('\n')}\n'
+      '${hecho.loQueCuenta.trim().isEmpty ? '' : 'Lo último que has escrito mientras trabajabas: «${hecho.loQueCuenta.trim()}»\n'}'
+      'Contesta solo con la frase.';
+
+  /// Lo redactado, listo para decirse: una línea, sin comillas, y corta. Si
+  /// se fue de largo, no vale —se dice la plantilla—: una frase de por dónde
+  /// va que dura diez segundos ya no es una frase.
+  @visibleForTesting
+  static String? comoSeDice(String? redactada) {
+    final linea = redactada
+        ?.split('\n')
+        .map((l) => l.trim())
+        .firstWhere((l) => l.isNotEmpty, orElse: () => '');
+    if (linea == null || linea.isEmpty) return null;
+    final limpia = linea.replaceAll(RegExp('^[«"“]+|[»"”]+\$'), '').trim();
+    if (limpia.isEmpty || limpia.split(RegExp(r'\s+')).length > 20) return null;
+    return limpia;
+  }
+
+  /// La de plantilla, con el último paso dicho en voz alta.
+  @visibleForTesting
+  static String deplantilla(NexusStrings strings, LoQueLlevaHecho hecho) {
+    final (:verbo, :objeto) = ElPasoEnVozAlta.de(hecho.pasos.last);
+    if (objeto.isEmpty) return strings.progresoSigo;
+    return switch (verbo) {
+      VerboDelPaso.lee => strings.progresoLee(objeto),
+      VerboDelPaso.escribe ||
+      VerboDelPaso.edita => strings.progresoEdita(objeto),
+      VerboDelPaso.ejecuta => strings.progresoEjecuta(objeto),
+      VerboDelPaso.busca => strings.progresoBusca(objeto),
+      VerboDelPaso.delega => strings.progresoDelega(objeto),
+      VerboDelPaso.consulta => strings.progresoConsulta(objeto),
+      VerboDelPaso.otro => strings.progresoUsa(objeto),
+    };
   }
 
   @override

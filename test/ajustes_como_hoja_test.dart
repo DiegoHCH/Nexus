@@ -180,12 +180,33 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('seccion-oido')));
       await tester.pump(const Duration(milliseconds: 700));
 
-      expect(find.byType(ApagadoOEncendido), findsOne);
+      // Dos: el oído y, desde el 29 sep, seguir sin repetir su nombre.
+      expect(find.byType(ApagadoOEncendido), findsNWidgets(2));
       expect(find.byKey(const ValueKey('oido-apagado')), findsOne);
       expect(find.byKey(const ValueKey('oido-encendido')), findsOne);
       // Con lo que cuesta cada opción al lado: es lo que la hace decidible.
       expect(find.text(es.oidoCosteEncendido), findsOne);
       expect(find.text(es.oidoCosteApagado), findsOne);
+    });
+
+    // 🔴 Pedido el 29 sep: tras contestar, seguir hablándole sin su nombre
+    // unos segundos. Se apaga aquí, con lo que cuesta cada opción y su porqué.
+    testWidgets('seguir sin su nombre se elige en el oído, con su porqué', (
+      tester,
+    ) async {
+      await abrir(tester);
+      await tester.tap(find.byKey(const ValueKey('seccion-oido')));
+      await tester.pump(const Duration(milliseconds: 700));
+
+      expect(find.text(es.sigueSinNombreTitulo.toUpperCase()), findsOne);
+      expect(find.byKey(const ValueKey('sigue-sin-nombre-apagado')), findsOne);
+      expect(
+        find.byKey(const ValueKey('sigue-sin-nombre-encendido')),
+        findsOne,
+      );
+      expect(find.text(es.sigueSinNombreCosteApagado), findsOne);
+      expect(find.text(es.sigueSinNombreCosteEncendido), findsOne);
+      expect(find.text(es.sigueSinNombrePorQue), findsOne);
     });
 
     testWidgets('y ya no vive dentro de la voz', (tester) async {

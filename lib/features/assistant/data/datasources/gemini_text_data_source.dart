@@ -42,8 +42,7 @@ class GeminiTextDataSource {
       if (intento > 0) await Future<void>.delayed(antesDeReintentar);
       final (texto, reintentable) = await _unaVez(
         llave: llave,
-        instrucciones: instrucciones,
-        frase: frase,
+        entrada: laEntrada(instrucciones, frase),
         tope: tope,
       );
       if (texto != null || !reintentable) return texto;
@@ -56,10 +55,30 @@ class GeminiTextDataSource {
   static bool esPasajero(int estado) =>
       estado == 429 || estado == 500 || estado == 503 || estado == 504;
 
+  /// Una frase redactada para decirse, **en un intento y con prisa**.
+  ///
+  /// 🔴 **Sin reintento, al revés que [contestar].** Esto es lo que cuenta de
+  /// por dónde va un encargo hablado (29 sep): si no llega en un par de
+  /// segundos, lo que iba a contar ya es viejo, y quien pide tiene una frase
+  /// de plantilla lista. Esperar al segundo intento sería llegar tarde dos
+  /// veces. [peticion] va tal cual: aquí no se chatea.
+  Future<String?> redactar({
+    required String llave,
+    required String peticion,
+    Duration tope = const Duration(seconds: 3),
+  }) async {
+    if (llave.isEmpty) return null;
+    final (texto, _) = await _unaVez(
+      llave: llave,
+      entrada: peticion,
+      tope: tope,
+    );
+    return texto;
+  }
+
   Future<(String?, bool)> _unaVez({
     required String llave,
-    required String instrucciones,
-    required String frase,
+    required String entrada,
     required Duration tope,
   }) async {
     final cliente = HttpClient()..connectionTimeout = tope;
@@ -75,7 +94,7 @@ class GeminiTextDataSource {
         jsonEncode({
           'model': modelo,
           'input': [
-            {'type': 'text', 'text': laEntrada(instrucciones, frase)},
+            {'type': 'text', 'text': entrada},
           ],
         }),
       );

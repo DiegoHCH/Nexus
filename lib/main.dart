@@ -38,6 +38,7 @@ import 'package:nexus/features/agenda/presentation/providers/el_vigilante_de_la_
 import 'package:nexus/features/programadas/presentation/providers/el_vigilante_de_las_programadas.dart';
 import 'package:nexus/features/assistant/domain/entities/conversation.dart';
 import 'package:nexus/features/oido/presentation/providers/el_oido_que_espera.dart';
+import 'package:nexus/features/assistant/presentation/providers/su_voz_aparte_impl.dart';
 import 'package:nexus/features/prs/presentation/providers/el_vigilante_de_los_pr.dart';
 import 'package:nexus/features/run/presentation/providers/la_botonera_de_fuera.dart';
 
@@ -328,6 +329,11 @@ class _MainAppState extends ConsumerState<MainApp> {
     // de fondo y tú lejos del teclado—. Él decide si escucha o no; lo que no
     // puede es no existir.
     ref.watch(elOidoQueEsperaProvider);
+
+    // Y las frases que ella dice sin esperar a nadie —«Enseguida, Master»—,
+    // por sexta vez: tienen que estar dichas y guardadas **antes** de que las
+    // pida el primer encargo, no generarse entonces. Ver [LasFrasesHechas].
+    ref.watch(lasFrasesHechasAlArrancarProvider);
 
     // Y el icono del Dock, que sigue a tu orbe mientras la app está abierta: si
     // solo lo armara su ajuste, el Dock seguiría con el de siempre hasta abrir

@@ -19,6 +19,7 @@ import 'package:nexus/features/assistant/domain/usecases/ask_claude.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_ritmo_del_progreso.dart';
 import 'package:nexus/features/assistant/domain/usecases/folder_errand_queue.dart';
 import 'package:nexus/features/assistant/domain/usecases/hold_voice_conversation.dart';
+import 'package:nexus/features/assistant/domain/usecases/la_sesion_caliente.dart';
 
 import 'despacho.dart';
 
@@ -34,7 +35,7 @@ import 'despacho.dart';
 
 /// El micrófono, con el volumen que diga la prueba.
 class MicDePrueba implements VoiceInput {
-  final _trozos = StreamController<AudioFrame>();
+  final _trozos = StreamController<AudioFrame>.broadcast();
 
   /// Cuántas veces se abrió.
   var abierto = 0;
@@ -363,6 +364,8 @@ HoldVoiceConversation laConversacion({
   void Function(String)? log,
   String? agente,
   ElRitmoDelProgreso ritmo = const ElRitmoDelProgreso(),
+  LaSesionCaliente? caliente,
+  String clave = 'conversación-1',
 }) => HoldVoiceConversation(
   mic ?? MicDePrueba(),
   servicio,
@@ -379,6 +382,8 @@ HoldVoiceConversation laConversacion({
   graciaDeLaRuta: Duration.zero,
   suVozAparte: suVoz,
   ritmoDelProgreso: ritmo,
+  laSesionCaliente: caliente,
+  claveCaliente: () => clave,
 );
 
 /// Unas vueltas al bucle, para que lo encolado llegue.

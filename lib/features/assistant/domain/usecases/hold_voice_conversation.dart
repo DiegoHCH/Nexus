@@ -16,6 +16,7 @@ import 'package:nexus/features/assistant/domain/repositories/correr_una_prueba.d
 import 'package:nexus/features/assistant/domain/repositories/el_parte_del_dia.dart';
 import 'package:nexus/features/assistant/domain/usecases/claude_errand.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_ritmo_del_progreso.dart';
+import 'package:nexus/features/assistant/domain/usecases/la_sesion_caliente.dart';
 import 'package:nexus/features/assistant/domain/usecases/lo_dicho_sin_su_nombre.dart';
 import 'package:nexus/features/assistant/domain/usecases/lo_que_sale_hacia_la_voz.dart';
 import 'package:nexus/features/oido/domain/usecases/como_se_le_llama.dart';
@@ -49,7 +50,20 @@ class HoldVoiceConversation {
     this.graciaDeLaRuta = _graciaDeLaRuta,
     this._suVozAparte,
     this.ritmoDelProgreso = const ElRitmoDelProgreso(),
+    this._laSesionCaliente,
+    this._claveCaliente,
   });
+
+  /// Donde se queda la sesión al colgar, para que la siguiente llamada no
+  /// pague la conexión. `null` cierra al colgar, como antes. Ver
+  /// [LaSesionCaliente].
+  final LaSesionCaliente? _laSesionCaliente;
+
+  /// De qué es esta sesión: la conversación y lo que suena —voz, idioma,
+  /// nombres, personalidad—. Solo se retoma una caliente con la misma clave:
+  /// la de otra carpeta tiene otras herramientas a mano, y la de otra voz
+  /// hablaría con la de antes. Leída en el momento, como el resto.
+  final String Function()? _claveCaliente;
 
   /// Cada cuánto cuenta por dónde va en un encargo largo. Inyectable por lo
   /// mismo que [graciaDeLaRuta]: las pruebas van de **qué** dice y cuándo no,
@@ -364,6 +378,36 @@ class HoldVoiceConversation {
           'primera señal del servicio en $heard';
     }
 
+    /// Si en **este** turno del modelo ya ha sonado respuesta.
+    ///
+    /// Es lo que distingue «te estoy hablando» de «hablaron encima mientras
+    /// contestabas»: la conversación de la habitación llega justo cuando el
+    /// modelo está diciendo algo, y ahí es donde hay que filtrar. En silencio no
+    /// se filtra nada — la sesión la abriste tú. Ver [ElAudioAjeno].
+    var estabaHablando = false;
+
+    /// Si esta llamada retomó una sesión caliente en vez de abrir una nueva.
+    var caliente = false;
+
+    /// Si la conversación terminó por un fallo: entonces no se guarda caliente.
+    var seCayo = false;
+
+    /// Cuándo sonó su primera palabra, en el reloj de la sesión.
+    int? primeraPalabra;
+
+    /// 🔴 **De la llamada a su primera palabra, medido y dicho** (29 sep): es
+    /// el número que la sesión caliente viene a bajar, y sin él no se sabe si
+    /// lo hizo. Va con si era caliente o nueva para poder comparar las dos en
+    /// el registro.
+    void marcaSuPrimeraPalabra() {
+      if (primeraPalabra != null) return;
+      primeraPalabra = clock.elapsedMilliseconds;
+      _log(
+        'voz · primera palabra suya a los ${primeraPalabra}ms de la llamada · '
+        'sesión ${caliente ? 'caliente' : 'nueva'}',
+      );
+    }
+
     /// Si desde tu última frase ha sonado algo suyo: su respuesta, o una frase
     /// aparte. Es lo que decide si hace falta el acuse.
     ///
@@ -420,6 +464,7 @@ class HoldVoiceConversation {
     }
 
     void empiezaAparte(String texto, {bool deProgreso = false}) {
+      marcaSuPrimeraPalabra();
       diciendoAparte = true;
       aparteEsDeProgreso = deProgreso;
       sonoDesdeTuFrase = true;
@@ -633,7 +678,19 @@ class HoldVoiceConversation {
     };
 
     Future<void> shutdown() async {
+      if (closing) return;
       closing = true;
+      // Si se puede guardar caliente, se decide **antes** de matar nada: con
+      // una herramienta a medio contestar el modelo se queda esperando su
+      // resultado, y retomarla así sería retomar una conversación colgada.
+      final viva = session;
+      final guardable =
+          _laSesionCaliente != null &&
+          viva != null &&
+          !seCayo &&
+          viva.endReason == null &&
+          abortErrand == null &&
+          herramientasEnVuelo == 0;
       // Primero el encargo: si hay un `claude -p` en marcha, cerrar la
       // conversación sin matarlo lo deja trabajando de fondo para nadie.
       abortErrand?.call();
@@ -652,7 +709,19 @@ class HoldVoiceConversation {
       await pausaSubscription?.cancel();
       await sessionSubscription?.cancel();
       await _output.stop();
-      await session?.close();
+      // 🔴 **Caliente, y con el micro ya cerrado** —justo arriba—: lo que se
+      // guarda es el socket callado, no una escucha. Ver [LaSesionCaliente].
+      if (guardable) {
+        _laSesionCaliente.guardar(
+          viva,
+          clave: _claveCaliente?.call() ?? '',
+          lleva: clock.elapsed,
+          enCalma:
+              !estabaHablando && !esperandoRespuesta && rutaPedidaEn == null,
+        );
+      } else {
+        await session?.close();
+      }
       micSubscription = null;
       pausaSubscription = null;
       sessionSubscription = null;
@@ -1308,6 +1377,7 @@ class HoldVoiceConversation {
       final because = session?.endReason;
 
       if (reconnects >= _maxReconnects) {
+        seCayo = true;
         controller.add(
           VoiceSessionFailed(
             'La conexión con el servicio de voz no se sostiene: ${because ?? 'se cortó varias veces seguidas'}.',
@@ -1323,20 +1393,13 @@ class HoldVoiceConversation {
         sessionSubscription = null;
         attach(await _gateway.resume());
       } catch (error) {
+        seCayo = true;
         controller.add(
           VoiceSessionFailed(because == null ? '$error' : '$error ($because)'),
         );
         if (!controller.isClosed) await controller.close();
       }
     }
-
-    /// Si en **este** turno del modelo ya ha sonado respuesta.
-    ///
-    /// Es lo que distingue «te estoy hablando» de «hablaron encima mientras
-    /// contestabas»: la conversación de la habitación llega justo cuando el
-    /// modelo está diciendo algo, y ahí es donde hay que filtrar. En silencio no
-    /// se filtra nada — la sesión la abriste tú. Ver [ElAudioAjeno].
-    var estabaHablando = false;
 
     /// Si ella ya estaba hablando **cuando empezó** la frase que se está
     /// oyendo. Es lo que el filtro del audio ajeno pregunta de verdad.
@@ -1361,6 +1424,63 @@ class HoldVoiceConversation {
     /// esté callado—.
     var sigueSonandoHasta = 0;
 
+    /// La sesión está lista para oírte: nueva, o retomada caliente.
+    ///
+    /// Aparte del evento porque una caliente **no manda otro**
+    /// `VoiceSessionReady` —ya lo mandó al abrirse, en la llamada anterior—, y
+    /// lo que se hace al estar lista —el primer turno, el saludo— tiene que
+    /// pasar igual.
+    void alEstarLista(VoiceSession live) {
+      if (readyAt == null) {
+        readyAt = clock.elapsedMilliseconds;
+        _log(
+          'voz · lista para oírte a los ${readyAt}ms de la llamada · '
+          'sesión ${caliente ? 'caliente' : 'nueva'}',
+        );
+      }
+      // Una vez por conversación: un reenganche también trae
+      // `VoiceSessionReady`, y volver a saludar a media charla sería raro.
+      if (primeraFrase != null && !saludoPedido) {
+        saludoPedido = true;
+        _log('voz · te llamaron con una frase: va como primer turno');
+        // Como si hubiera llegado transcrita: estrena turno y se acumula en
+        // `asked`, que es lo que juzga el cierre del turno.
+        turn++;
+        asked.write(primeraFrase);
+        live.sendSystemNote(primeraFrase);
+        // Después del «lista» en la pantalla, no antes: si no, la interfaz lo
+        // pintaría y luego lo borraría al abrirse.
+        scheduleMicrotask(
+          () => controller.add(VoiceUserTranscript(primeraFrase)),
+        );
+      } else if (saludo != null && !saludoPedido) {
+        saludoPedido = true;
+        saludando = true;
+        // 🔴 **Caliente, el saludo es el guardado**: el de la sesión va en su
+        // `setup`, y esa sesión ya lo pasó al abrirse la otra vez. Dicho con
+        // su voz de ahora y sin esperar a nadie, que es el sentido de tenerla
+        // caliente.
+        final hecho = caliente ? _suVozAparte?.elSaludo(saludo) : null;
+        if (hecho != null) {
+          _log('voz · te llamaron: saluda con la frase guardada');
+          sonarAparte(hecho);
+          unawaited(
+            _output.pending().then((queda) {
+              sigueSonandoHasta =
+                  clock.elapsedMilliseconds + queda.inMilliseconds;
+              elPlazoDelSaludo = Timer(queda, () => saludando = false);
+            }),
+          );
+          return;
+        }
+        _log('voz · te llamaron: saluda antes de escuchar');
+        live.sendSystemNote(_laSenalDeArranque);
+        // Por si no lo dice: el micro no se queda cerrado esperando un saludo
+        // que no llega.
+        elPlazoDelSaludo = Timer(_plazoDelSaludo, () => saludando = false);
+      }
+    }
+
     attach = (VoiceSession live) {
       session = live;
       sessionSubscription = live.events.listen(
@@ -1373,36 +1493,9 @@ class HoldVoiceConversation {
           // El montaje de la sesión no cuenta como «nos oyó»: llega siempre,
           // hables o no, y es justo el único evento que tenían las sesiones
           // que fallaron.
+          if (event is VoiceSessionFailed) seCayo = true;
           if (event is VoiceSessionReady) {
-            readyAt ??= clock.elapsedMilliseconds;
-            // Una vez por conversación: un reenganche también trae
-            // `VoiceSessionReady`, y volver a saludar a media charla sería
-            // raro.
-            if (primeraFrase != null && !saludoPedido) {
-              saludoPedido = true;
-              _log('voz · te llamaron con una frase: va como primer turno');
-              // Como si hubiera llegado transcrita: estrena turno y se acumula
-              // en `asked`, que es lo que juzga el cierre del turno.
-              turn++;
-              asked.write(primeraFrase);
-              live.sendSystemNote(primeraFrase);
-              // Después del «lista» en la pantalla, no antes: si no, la
-              // interfaz lo pintaría y luego lo borraría al abrirse.
-              scheduleMicrotask(
-                () => controller.add(VoiceUserTranscript(primeraFrase)),
-              );
-            } else if (saludo != null && !saludoPedido) {
-              saludoPedido = true;
-              saludando = true;
-              _log('voz · te llamaron: saluda antes de escuchar');
-              live.sendSystemNote(_laSenalDeArranque);
-              // Por si no lo dice: el micro no se queda cerrado esperando un
-              // saludo que no llega.
-              elPlazoDelSaludo = Timer(
-                _plazoDelSaludo,
-                () => saludando = false,
-              );
-            }
+            alEstarLista(live);
           } else if (heardAt == null) {
             heardAt = clock.elapsedMilliseconds;
             _log('voz · primera señal del servicio · ${reloj()}');
@@ -1457,6 +1550,7 @@ class HoldVoiceConversation {
                   cortarAparte(loQueSuena: true);
                 }
                 sonoDesdeTuFrase = true;
+                marcaSuPrimeraPalabra();
                 _output.enqueue(pcm);
               }
             case VoiceInterrupted():
@@ -1654,7 +1748,10 @@ class HoldVoiceConversation {
               controller.add(event);
           }
         },
-        onError: controller.addError,
+        onError: (Object error, StackTrace stackTrace) {
+          seCayo = true;
+          controller.addError(error, stackTrace);
+        },
         // Que se acabe el stream no significa que se acabe la conversación:
         // puede ser el corte de conexión periódico. Solo se cierra de verdad
         // si ya estábamos apagando o si no hay forma de volver.
@@ -1672,12 +1769,36 @@ class HoldVoiceConversation {
         // juntando micro y altavoz— y abrir el socket otros tantos. En serie,
         // ese retardo se nota entre pulsar el atajo y poder hablar; a la vez,
         // se paga una sola vez.
-        final booted = await (
-          _output.start(),
-          _gateway.connect(perfil: ComoUnaConversacion(saludo: saludo)),
-        ).wait;
-        attach(booted.$2);
-        keepAlive();
+        // 🔴 **Caliente si la hay y vale**: la de esta conversación, con esta
+        // voz, y —si hay que saludar— con el saludo ya guardado para decirlo
+        // sin el modelo. Si no, se abre una nueva como siempre: la caliente es
+        // un atajo, nunca un requisito. Ver [LaSesionCaliente].
+        final guardada = _laSesionCaliente?.tomar(_claveCaliente?.call() ?? '');
+        if (guardada != null &&
+            saludo != null &&
+            _suVozAparte?.elSaludo(saludo) == null) {
+          _log('voz · la caliente no tiene el saludo guardado: se abre nueva');
+          unawaited(guardada.close());
+        } else if (guardada != null) {
+          caliente = true;
+          await _output.start();
+          if (closing) {
+            await guardada.close();
+            return;
+          }
+          attach(guardada);
+          controller.add(const VoiceSessionReady());
+          alEstarLista(guardada);
+          keepAlive();
+        }
+        if (!caliente) {
+          final booted = await (
+            _output.start(),
+            _gateway.connect(perfil: ComoUnaConversacion(saludo: saludo)),
+          ).wait;
+          attach(booted.$2);
+          keepAlive();
+        }
 
         micSubscription = _voiceInput.listen().listen(
           // Se lee `session` en cada trozo a propósito: tras un reenganche es
@@ -1727,8 +1848,10 @@ class HoldVoiceConversation {
           // cuyo flujo solo acaba cuando acaba la sesión — el del teléfono se cierra
           // **sin** terminar su flujo, y para eso está la escucha de pausas de abajo.
           onDone: () => session?.endAudio(),
-          onError: (Object error) =>
-              controller.add(VoiceSessionFailed('$error')),
+          onError: (Object error) {
+            seCayo = true;
+            controller.add(VoiceSessionFailed('$error'));
+          },
         );
 
         // **El aviso que de verdad hacía falta.**
@@ -1749,6 +1872,7 @@ class HoldVoiceConversation {
           session?.endAudio();
         });
       } catch (error, stackTrace) {
+        seCayo = true;
         controller.addError(error, stackTrace);
         await controller.close();
       }

@@ -1,5 +1,7 @@
 import 'package:nexus/features/e2e/presentation/providers/correr_una_prueba_desde_la_voz.dart';
 import 'package:nexus/features/history/presentation/providers/el_parte_desde_la_voz.dart';
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/features/personalidad/presentation/providers/la_personalidad_provider.dart';
@@ -15,6 +17,7 @@ import 'package:nexus/features/assistant/domain/repositories/voice_gateway.dart'
 import 'package:nexus/features/assistant/domain/usecases/la_sesion_de_puerta.dart';
 import 'package:nexus/features/agenda/presentation/providers/el_vigilante_de_la_agenda.dart';
 import 'package:nexus/features/assistant/domain/usecases/hold_voice_conversation.dart';
+import 'package:nexus/features/assistant/domain/usecases/la_sesion_caliente.dart';
 import 'package:nexus/features/assistant/presentation/providers/claude_bridge_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
 import 'package:nexus/features/remote/presentation/providers/channel_providers.dart';
@@ -100,6 +103,33 @@ final audioOutputProvider = Provider<AudioOutput>((ref) {
   );
 });
 
+/// La sesión que se queda abierta —callada, sin micro— unos minutos después de
+/// colgar, para que la siguiente llamada no pague los ~2 s de conexión. **Una
+/// para toda la app**: solo una conversación tiene la voz a la vez, y la
+/// guardada lleva su clave para no retomarse desde otra. Ver
+/// [LaSesionCaliente].
+final laSesionCalienteProvider = Provider<LaSesionCaliente>((ref) {
+  final caliente = LaSesionCaliente(
+    ref.watch(voiceGatewayProvider),
+    debugPrint,
+  );
+  ref.onDispose(() => unawaited(caliente.soltar()));
+  return caliente;
+});
+
+/// Lo que suena y lo que sabe una sesión, junto: si cambia algo de esto, la
+/// caliente ya no vale —hablaría con la voz de antes, o sin lo que le pediste
+/// que recordara—.
+String _loQueSuena(Ref ref) => [
+  ref.read(voicePreferenceProvider).name,
+  ref
+      .read(elAcentoProvider)
+      .conElIdioma(ref.read(stringsProvider).languageName),
+  ref.read(losNombresProvider).paraElPrompt() ?? '',
+  ref.read(laPersonalidadProvider) ?? '',
+  LoQueSeSabeDeTi.paraElPrompt(ref.read(loQueRecuerdaDeTiProvider)) ?? '',
+].join('|');
+
 /// Por conversación, porque el encargo que salga de la voz tiene que ir a la
 /// carpeta de **esa** conversación. El micrófono y el altavoz siguen siendo
 /// únicos: los comparten porque solo la del foco puede abrir sesión.
@@ -133,6 +163,8 @@ final holdVoiceConversationProvider =
         () => ref.read(losNombresProvider).agente,
         // Lo que dice ella sin esperar al modelo: el acuse y por dónde va.
         suVozAparte: ref.watch(suVozAparteProvider),
+        laSesionCaliente: ref.watch(laSesionCalienteProvider),
+        claveCaliente: () => '$conversationId|${_loQueSuena(ref)}',
       ),
     );
 

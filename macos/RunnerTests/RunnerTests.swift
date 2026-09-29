@@ -855,6 +855,10 @@ final class EspejoPegadoTests: XCTestCase {
     XCTAssertFalse(NexusBotonera.enLosEscritorios.contains(.canJoinAllSpaces))
     XCTAssertFalse(NexusBotonera.enLosEscritorios.contains(.moveToActiveSpace))
     XCTAssertTrue(NexusBotonera.enLosEscritorios.contains(.fullScreenAuxiliary))
+    // Escrito y no por defecto: en nivel flotante, el de fábrica es `.transient`,
+    // que la lleva a cualquier escritorio al que pases.
+    XCTAssertTrue(NexusBotonera.enLosEscritorios.contains(.managed))
+    XCTAssertFalse(NexusBotonera.enLosEscritorios.contains(.transient))
   }
 
   /// 🔴 Con el espejo a pantalla completa, «encima del espejo» es fuera de la

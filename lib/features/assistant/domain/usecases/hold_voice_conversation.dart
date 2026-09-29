@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:nexus/features/assistant/domain/entities/audio_frame.dart';
 import 'package:nexus/features/assistant/domain/entities/claude_event.dart';
@@ -9,6 +10,7 @@ import 'package:nexus/features/assistant/domain/repositories/el_despacho_de_carp
 import 'package:nexus/features/assistant/domain/repositories/la_agenda_de_hoy.dart';
 import 'package:nexus/features/assistant/domain/repositories/voice_gateway.dart';
 import 'package:nexus/features/assistant/domain/repositories/voice_input.dart';
+import 'package:nexus/features/assistant/domain/repositories/su_voz_aparte.dart';
 import 'package:nexus/features/assistant/domain/usecases/ask_claude.dart';
 import 'package:nexus/features/assistant/domain/repositories/correr_una_prueba.dart';
 import 'package:nexus/features/assistant/domain/repositories/el_parte_del_dia.dart';
@@ -44,7 +46,28 @@ class HoldVoiceConversation {
     this._puedeEscribir,
     this._comoSeLlama, {
     this.graciaDeLaRuta = _graciaDeLaRuta,
+    this._suVozAparte,
   });
+
+  /// Lo que dice ella por su cuenta mientras se trabaja: el acuse al recibir
+  /// un encargo y, en los largos, por dónde va. `null` la deja callada como
+  /// antes, que es lo que quieren las pruebas que no van de esto. Ver
+  /// [SuVozAparte].
+  final SuVozAparte? _suVozAparte;
+
+  /// Las herramientas que **son un encargo**: las que tardan lo que tarda
+  /// Claude y merecen el acuse.
+  ///
+  /// 🔴 Las demás se contestan aquí mismo en un momento —la agenda ya está
+  /// leída, la prueba se lanza sin esperar a que acabe— y un «enseguida»
+  /// delante de una respuesta que llega enseguida sobra. Lo mismo que lo que
+  /// contesta ella de memoria (la hora, quién es): ahí no hay herramienta y no
+  /// hay acuse.
+  static const _lasQueSonEncargo = {
+    ClaudeErrand.askTool,
+    ClaudeErrand.skillTool,
+    ClaudeErrand.parteTool,
+  };
 
   /// A qué carpeta va lo que se dice, y quien lo lleva.
   ///
@@ -334,6 +357,150 @@ class HoldVoiceConversation {
           'primera señal del servicio en $heard';
     }
 
+    /// Si desde tu última frase ha sonado algo suyo: su respuesta, o una frase
+    /// aparte. Es lo que decide si hace falta el acuse.
+    ///
+    /// 🔴 **Solo lo que sonó de verdad.** Lo que contestó de memoria y se tiró
+    /// para pasarlo por Claude —[pidelaRuta], [enforceClaude]— no cuenta: se
+    /// cortó a media palabra y lo que se oye después es silencio, que es justo
+    /// lo que el acuse viene a tapar.
+    var sonoDesdeTuFrase = false;
+
+    /// Si está sonando una frase aparte. Ver [VoiceFraseAparte].
+    var diciendoAparte = false;
+    Timer? finDeLaFraseAparte;
+
+    /// La frase aparte que se está generando al vuelo, trozo a trozo.
+    StreamSubscription<Uint8List>? fraseAlVuelo;
+
+    void seCalloAparte() {
+      finDeLaFraseAparte?.cancel();
+      finDeLaFraseAparte = null;
+      if (!diciendoAparte) return;
+      diciendoAparte = false;
+      if (!controller.isClosed) controller.add(const VoiceFraseAparteDicha());
+    }
+
+    /// Se da por callada cuando el altavoz acabe **lo que ya tiene**, que es
+    /// lo que se oye: la frase llega más rápido de lo que suena.
+    void cuandoAcabeDeSonar() {
+      unawaited(
+        _output.pending().then((queda) {
+          if (!diciendoAparte || closing) return;
+          finDeLaFraseAparte?.cancel();
+          finDeLaFraseAparte = Timer(queda, seCalloAparte);
+        }),
+      );
+    }
+
+    void empiezaAparte(String texto) {
+      diciendoAparte = true;
+      sonoDesdeTuFrase = true;
+      if (!controller.isClosed) controller.add(VoiceFraseAparte(texto));
+    }
+
+    /// Corta la frase aparte: lo que faltaba por generarse ya no llega y, si
+    /// [loQueSuena], lo que sonaba se tira.
+    void cortarAparte({required bool loQueSuena}) {
+      final alVuelo = fraseAlVuelo;
+      fraseAlVuelo = null;
+      if (alVuelo != null) unawaited(alVuelo.cancel());
+      if (diciendoAparte && loQueSuena) {
+        unawaited(_output.discard());
+        seCalloAparte();
+      }
+    }
+
+    /// Una frase ya hecha: suena **ya**, sin red de por medio.
+    void sonarAparte(FraseHecha frase) {
+      final pcm = frase.pcm;
+      if (pcm == null || closing) return;
+      empiezaAparte(frase.texto);
+      _output.enqueue(pcm);
+      cuandoAcabeDeSonar();
+    }
+
+    /// Una frase que no está hecha: se genera con su voz y **suena con el
+    /// primer trozo**, no al tener el audio entero. Medido en los avisos
+    /// hablados: generarla entera tardaba 3859 ms para un audio de 2520.
+    ///
+    /// [sigueAViniendoACuento] se pregunta con cada trozo: si mientras se
+    /// generaba llegó la respuesta, o hablaste tú, lo que falta ya no suena.
+    void decirAlVuelo(
+      String texto, {
+      bool Function()? sigueAViniendoACuento,
+      void Function()? siNoSalio,
+    }) {
+      final voz = _suVozAparte;
+      if (voz == null || closing) return;
+      cortarAparte(loQueSuena: false);
+      var empezo = false;
+      late final StreamSubscription<Uint8List> esta;
+      esta = voz
+          .decir(texto)
+          .listen(
+            (trozo) {
+              if (closing ||
+                  !(sigueAViniendoACuento?.call() ?? true) ||
+                  fraseAlVuelo != esta) {
+                if (fraseAlVuelo == esta) cortarAparte(loQueSuena: empezo);
+                return;
+              }
+              if (!empezo) {
+                empezo = true;
+                empiezaAparte(texto);
+              }
+              _output.enqueue(trozo);
+            },
+            onError: (Object error) {
+              _log('voz · no se pudo decir «$texto» aparte: $error');
+            },
+            onDone: () {
+              if (fraseAlVuelo == esta) fraseAlVuelo = null;
+              if (empezo) {
+                cuandoAcabeDeSonar();
+              } else {
+                siNoSalio?.call();
+              }
+            },
+          );
+      fraseAlVuelo = esta;
+    }
+
+    /// El acuse: «Enseguida, Master», **en cuanto el turno se convierte en
+    /// encargo**.
+    ///
+    /// 🔴 **Reportado el 29 sep con el registro delante**: al pasar el encargo a
+    /// Claude, 66 s de silencio total —de 16:38:39 a 16:39:45—, ni un «voy».
+    /// La instrucción del modelo ya le pedía decir algo breve si iba a tardar, y
+    /// no lo hacía: pedírselo a un modelo no es garantía, igual que con la ruta
+    /// de los encargos. Así que lo dice la app, con una frase ya dicha y
+    /// guardada con su voz —ver [SuVozAparte.unAcuse]—, sin esperar a nadie.
+    ///
+    /// **Sin duplicarse con él**: si el modelo ya dijo algo antes de llamar a
+    /// la herramienta, eso era su acuse y este sobra. Y después de llamarla no
+    /// habla hasta tener el resultado, así que no pueden pisarse.
+    void acusar(String porQue) {
+      final voz = _suVozAparte;
+      if (voz == null || closing) return;
+      if (sonoDesdeTuFrase) {
+        _log('voz · sin acuse: ya dijo algo antes de ponerse ($porQue)');
+        return;
+      }
+      final acuse = voz.unAcuse();
+      if (acuse == null) return;
+      if (acuse.pcm != null) {
+        _log('voz · acuse «${acuse.texto}», ya hecho · $porQue');
+        sonarAparte(acuse);
+        return;
+      }
+      // Todavía no está guardado —la primera vez, o recién cambiada la voz—:
+      // al vuelo. Llega en dos o tres segundos en vez de en uno, que sigue
+      // siendo mejor que el silencio.
+      _log('voz · acuse «${acuse.texto}», al vuelo · $porQue');
+      decirAlVuelo(acuse.texto);
+    }
+
     Future<void> shutdown() async {
       closing = true;
       // Primero el encargo: si hay un `claude -p` en marcha, cerrar la
@@ -346,6 +513,8 @@ class HoldVoiceConversation {
       idleTimer = null;
       relojDeLaRuta?.cancel();
       relojDeLaRuta = null;
+      cortarAparte(loQueSuena: false);
+      finDeLaFraseAparte?.cancel();
       await micSubscription?.cancel();
       await pausaSubscription?.cancel();
       await sessionSubscription?.cancel();
@@ -751,6 +920,9 @@ class HoldVoiceConversation {
     /// respuesta buena.
     Future<void> enforceClaude(String utterance, int askedAt) async {
       unawaited(_output.discard());
+      // Lo que dijo de memoria se acaba de tirar: no cuenta como que habló.
+      sonoDesdeTuFrase = false;
+      acusar('se pasa a Claude lo que contestó de memoria');
       // Lo que viaja va **marcado como transcripción**, no como una frase que
       // alguien dijo: es lo que le permite a Claude leer la intención en vez de
       // contestar literalmente a una palabra mal oída. El titular sigue siendo
@@ -793,6 +965,7 @@ class HoldVoiceConversation {
       // El audio de memoria se tira igual que antes: es una respuesta que no
       // le tocaba dar, y dejarla sonar mientras se arregla es peor.
       unawaited(_output.discard());
+      sonoDesdeTuFrase = false;
       session?.sendSystemNote(VoiceRouting.pasaloTu);
       // Le toca generar un turno entero, así que manda el plazo largo del
       // reloj de inactividad, igual que después de un resultado.
@@ -1127,7 +1300,17 @@ class HoldVoiceConversation {
               // La respuesta a un turno ignorado no suena. Y no se puede evitar
               // que el servicio la genere: lo que se puede es no ponerla en el
               // altavoz de alguien que no preguntó nada.
-              if (!tirandoLaRespuesta) _output.enqueue(pcm);
+              if (!tirandoLaRespuesta) {
+                // 🔴 **Lo suyo aparte nunca encima de la respuesta.** Suenan
+                // por el mismo altavoz, en fila: si una frase de por dónde va
+                // sigue sonando cuando llega la respuesta, se corta y la
+                // respuesta va detrás, en vez de esperar a que acabe.
+                if (diciendoAparte || fraseAlVuelo != null) {
+                  cortarAparte(loQueSuena: true);
+                }
+                sonoDesdeTuFrase = true;
+                _output.enqueue(pcm);
+              }
             case VoiceInterrupted():
               unawaited(_output.discard());
               controller.add(event);
@@ -1135,6 +1318,11 @@ class HoldVoiceConversation {
             // uso, que es quien tiene el puente. La pantalla ve el trabajo
             // empezar y avanzar, no la fontanería.
             case VoiceToolRequested():
+              // El acuse va lo primero: lo que tiene que tapar es el rato que
+              // empieza ahora mismo.
+              if (_lasQueSonEncargo.contains(event.name)) {
+                acusar('encargo «${event.name}»');
+              }
               // Lo pasó a Claude: este turno cumplió la regla.
               asked.clear();
               loQueSeEnsena = null;
@@ -1159,6 +1347,7 @@ class HoldVoiceConversation {
               // siguientes son la misma frase llegando a trozos.
               if (asked.isEmpty) {
                 turn++;
+                sonoDesdeTuFrase = false;
                 loQueSeEnsena = LoDichoSinSuNombre(agente: _comoSeLlama());
                 hablabaAlEmpezar =
                     estabaHablando ||

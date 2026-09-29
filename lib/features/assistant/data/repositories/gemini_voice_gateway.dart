@@ -112,7 +112,14 @@ class GeminiVoiceGateway implements VoiceGateway {
   }) {
     // Conversación nueva: se tira el asa vieja, o el modelo arrancaría
     // recordando una charla de hace una hora que el usuario ya cerró.
-    _resumptionHandle = null;
+    //
+    // 🔴 **Solo si lo que se abre es una conversación.** Un aviso o la puerta
+    // también pasan por aquí, y desde el 29 sep lo hacen **con una
+    // conversación abierta**: el acuse se genera con una sesión de aviso, y lo
+    // que cuenta de por dónde va también, a mitad de un encargo. Con el asa
+    // tirada aquí, el primer corte del servicio —cada pocos minutos— dejaba a
+    // esa conversación sin forma de reengancharse.
+    if (perfil is ComoUnaConversacion) _resumptionHandle = null;
     return _open(perfil: perfil);
   }
 
@@ -141,7 +148,11 @@ class GeminiVoiceGateway implements VoiceGateway {
     final connection = await _dataSource.open(apiKey: apiKey, setup: setup);
     return _GeminiVoiceSession(
       connection,
-      onResumptionHandle: (handle) => _resumptionHandle = handle,
+      // Y por lo mismo, el asa que manden un aviso o la puerta no pisa la de la
+      // conversación: no se van a reenganchar nunca.
+      onResumptionHandle: perfil is ComoUnaConversacion
+          ? (handle) => _resumptionHandle = handle
+          : (_) {},
     );
   }
 
@@ -169,7 +180,11 @@ class GeminiVoiceGateway implements VoiceGateway {
 
     // Con el asa a `null` se pide igual: es la forma de decirle al servicio
     // que queremos poder reengancharnos, y él va mandando asas nuevas.
-    'sessionResumption': {'handle': _resumptionHandle},
+    // Solo la conversación reanuda: un aviso con el asa de la conversación
+    // abierta **la retomaría** en vez de abrir una sesión suya.
+    'sessionResumption': {
+      'handle': perfil is ComoUnaConversacion ? _resumptionHandle : null,
+    },
   };
 
   /// La instrucción de sistema de la voz.
@@ -227,11 +242,18 @@ class GeminiVoiceGateway implements VoiceGateway {
       'duda, llama a la herramienta — equivocarse llamando cuesta unos '
       'segundos, y equivocarse contestando de memoria cuesta un dato falso '
       'dicho con seguridad.\n'
+      // 🔴 **El «un momento» ya no se le pide a él** (29 sep). Se le pedía
+      // —«si vas a tardar, di algo muy breve»— y no lo hacía: 66 s de silencio
+      // medidos al pasar un encargo. Ahora el acuse lo pone la app con una
+      // frase ya hecha, y si él lo dijera además se oiría dos veces. Ver
+      // `HoldVoiceConversation`, el acuse.
       'CÓMO SUENA: eres una sola asistente, como JARVIS. Quien te habla no '
       'tiene por qué saber cómo resuelves las cosas: NUNCA digas que se lo '
       'vas a pedir a Claude, que vas a consultar a otro sistema, ni nombres '
-      'herramientas. Si vas a tardar, di algo muy breve y natural —«un '
-      'momento», «déjame ver», «ahora lo miro»— y nada más.\n'
+      'herramientas. Cuando vayas a llamar a una herramienta, llámala sin '
+      'anunciarlo antes: el «enseguida» ya suena solo, al instante, y si lo '
+      'dices tú se oye dos veces. Mientras trabaja, también se va contando '
+      'solo por dónde va.\n'
       'Cuando el sistema te entregue lo que devolvió Claude, cuéntalo como '
       'tuyo, en primera persona —«ya lo miré», «encontré»—, sin decir de '
       'dónde viene, sin disculparte ni explicar por qué llega.\n'

@@ -42,7 +42,18 @@ class LaVozDelAviso {
   /// faltó un poco.
   static const plazo = Duration(seconds: 45);
 
-  Future<LoDicho> decir(String frase) async {
+  /// [alLlegar] recibe cada trozo **según llega**, además de todo junto al
+  /// final.
+  ///
+  /// 🔴 **Existe porque esperar al audio entero se oía** (29 sep): «decirlo
+  /// tardó 3859 ms · aviso de 2520 ms» en el registro, o sea que la frase
+  /// sonaba casi cuatro segundos después de pedirla cuando el primer trozo
+  /// estaba listo mucho antes. Quien quiera sonar ya se engancha aquí; quien
+  /// necesite el audio entero —guardarlo, por ejemplo— sigue teniéndolo.
+  Future<LoDicho> decir(
+    String frase, {
+    void Function(Uint8List trozo)? alLlegar,
+  }) async {
     if (frase.trim().isEmpty) {
       return const LoDicho.fallo('no hay nada que decir');
     }
@@ -72,6 +83,7 @@ class LaVozDelAviso {
             live.sendSystemNote(_laSenalDeArranque);
           case VoiceReplyAudio(:final pcm):
             trozos.addAll(pcm);
+            alLlegar?.call(pcm);
           // El turno acaba cuando terminó de decirlo: eso es todo el aviso.
           case VoiceTurnCompleted():
             _log('aviso · dicho en ${trozos.length} bytes');

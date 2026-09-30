@@ -8,6 +8,7 @@ import 'package:nexus/features/assistant/presentation/widgets/conversation_dock.
 import 'package:nexus/features/assistant/presentation/widgets/el_subtitulo_al_compas.dart';
 import 'package:nexus/features/assistant/presentation/widgets/composer_bar.dart';
 import 'package:nexus/features/assistant/presentation/widgets/composer/composer_menus.dart';
+import 'package:nexus/features/assistant/presentation/widgets/composer/usage_menu.dart';
 import 'package:nexus/features/assistant/presentation/widgets/composer/composer_chips.dart';
 import 'package:nexus/core/design_system/campo_de_nombre.dart';
 import 'package:nexus/core/design_system/design_system.dart';
@@ -82,6 +83,10 @@ class ElEscenario extends ConsumerWidget {
   /// La carpeta de la esquina —y su menú—, para quien la busca desde fuera.
   @visibleForTesting
   static const laLlaveDeLaCarpeta = ValueKey('la-carpeta-de-la-sala');
+
+  /// El contexto de la esquina —con su globo y su menú—.
+  @visibleForTesting
+  static const laLlaveDelContexto = ValueKey('el-contexto-de-la-sala');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -758,9 +763,23 @@ class _LasEsquinas extends ConsumerWidget {
               ),
               // Sin turno todavía no se ha gastado nada: 0 %, que es la
               // verdad, y no un guion que parece un dato que falta.
-              Text(
-                strings.escenarioContexto(contexto ?? 0).toUpperCase(),
-                style: dato,
+              //
+              // 🔴 **Y se pulsa, con el globo de las cifras.** Era el círculo
+              // del compositor del chat el que las enseñaba —«Ventana de
+              // contexto · 452,9k / 1,0M (45 %)»— y abría el cupo; se quitó
+              // de ahí (30 sep) porque repetía esta esquina, y lo que hacía se
+              // vino aquí con el mismo menú. Ver [UsageMenu].
+              TourAnchor(
+                stop: TourStop.meter,
+                child: UsageMenu(
+                  key: ElEscenario.laLlaveDelContexto,
+                  meter: meter,
+                  claudeProfile: carpeta?.claudeProfile,
+                  child: Text(
+                    strings.escenarioContexto(contexto ?? 0).toUpperCase(),
+                    style: dato,
+                  ),
+                ),
               ),
               if (cupo != null)
                 Text(

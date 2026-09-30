@@ -524,15 +524,22 @@ class _Controls extends ConsumerWidget {
         // qué, y compruebas que sigue funcionando.
         _Casilla(child: _BotonDePruebas(proyecto: proyecto)),
         const Spacer(),
+        // 🔴 **El contexto, tampoco en el chat.** El círculo de aquí decía lo
+        // que la esquina de arriba a la derecha de la sala ya decía, y ahora
+        // es ella la que se pulsa y enseña el globo con las cifras. Ver
+        // [UsageMenu].
         if (conLoDeLaSala) ...[
           ModelMenu(folder: folder, meter: meter),
           EffortMenu(folder: folder, meter: meter),
           const SizedBox(width: NexusSpacing.s1),
+          TourAnchor(
+            stop: TourStop.meter,
+            child: UsageMenu(
+              meter: meter,
+              claudeProfile: folder?.claudeProfile,
+            ),
+          ),
         ],
-        TourAnchor(
-          stop: TourStop.meter,
-          child: UsageMenu(meter: meter, claudeProfile: folder?.claudeProfile),
-        ),
       ],
     );
   }

@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:nexus/features/assistant/domain/entities/fallo_de_la_voz.dart';
+
 /// Lo que ocurre dentro de una sesión de voz, ya traducido del JSON crudo de
 /// la Live API a algo que el dominio entiende.
 ///
@@ -220,7 +222,12 @@ final class VoiceFraseAparteDicha extends VoiceEvent {
 
 /// La sesión se cayó o no se pudo abrir.
 final class VoiceSessionFailed extends VoiceEvent {
-  const VoiceSessionFailed(this.message);
+  const VoiceSessionFailed(this.message, {this.causa});
 
+  /// Lo que pasó, para el registro. **No es para enseñarlo**: va en crudo.
   final String message;
+
+  /// El error de verdad, si lo hay, para que la presentación lo diga en su
+  /// idioma —ver [FalloDeLaVoz]—. Sin él, [message] es lo único que hay.
+  final Object? causa;
 }

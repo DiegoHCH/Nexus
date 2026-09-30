@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:nexus/features/assistant/data/datasources/gemini_live_data_source.dart';
+import 'package:nexus/features/assistant/domain/entities/fallo_de_la_voz.dart';
 import 'package:nexus/features/assistant/domain/entities/voice_event.dart';
 import 'package:nexus/features/assistant/domain/repositories/voice_gateway.dart';
 import 'package:nexus/features/assistant/domain/usecases/quien_es_nexus.dart';
@@ -125,9 +126,7 @@ class GeminiVoiceGateway implements VoiceGateway {
 
   @override
   Future<VoiceSession> resume() {
-    if (_resumptionHandle == null) {
-      throw StateError('La conversación anterior ya no se puede recuperar.');
-    }
+    if (_resumptionHandle == null) throw const NoSePuedeRetomarLaVoz();
     return _open();
   }
 
@@ -136,8 +135,12 @@ class GeminiVoiceGateway implements VoiceGateway {
   }) async {
     await _ajustesYaLeidos();
     final apiKey = await _readApiKey();
-    if (apiKey == null || apiKey.isEmpty) {
-      throw StateError('No hay llave de Gemini guardada.');
+    // 🔴 **Un fallo con nombre, y no un `StateError`.** Aquel subía por
+    // `toString()` hasta el aviso de la sala: «ParallelWaitError: Bad state: No
+    // hay llave de Gemini guardada.». Con nombre, la sala lo dice en su idioma
+    // y con el botón que lo arregla. Ver [FaltaLaLlaveDeGemini].
+    if (apiKey == null || apiKey.trim().isEmpty) {
+      throw const FaltaLaLlaveDeGemini();
     }
 
     final setup = elSetupDe(perfil);
@@ -796,7 +799,8 @@ class _GeminiVoiceSession implements VoiceSession {
   _GeminiVoiceSession(this._connection, {required this.onResumptionHandle}) {
     _subscription = _connection.messages.listen(
       _translate,
-      onError: (Object error) => _events.add(VoiceSessionFailed('$error')),
+      onError: (Object error) =>
+          _events.add(VoiceSessionFailed('$error', causa: error)),
       onDone: () {
         // Aquí no se juzga: se anota el motivo y se cierra el stream. Google
         // corta la conexión cada pocos minutos —a veces con `goAway` y a

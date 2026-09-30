@@ -28,6 +28,16 @@ mixin LaVozStrings {
 
   /// El arranque, debajo de los pasos: al terminar se enciende el oído.
   String elOidoSeEnciendeAlEmpezar(String palabra);
+
+  /// Por qué no se abrió —o se cayó— la voz, dicho en la sala. Ver
+  /// `FalloDeLaVoz`: ninguno de estos lleva el error en crudo.
+  String get faltaLaLlaveParaHablar;
+  String get ponerLaLlave;
+  String laVozNoSeRetoma(String? detalle);
+  String laVozNoSeSostiene(String? detalle);
+  String get laVozSinConexion;
+  String laVozSinAudio(String detalle);
+  String laVozSeCayo(String detalle);
 }
 
 mixin LaVozStringsEs implements LaVozStrings {
@@ -69,6 +79,31 @@ mixin LaVozStringsEs implements LaVozStrings {
       'Al empezar se enciende el oído: di «$palabra» y se abre la voz. '
       'Mientras escucha, el punto naranja del micrófono de macOS está '
       'encendido; se apaga en Ajustes › Cómo es ella › Oído.';
+
+  @override
+  String get faltaLaLlaveParaHablar =>
+      'Falta la llave de Gemini para hablar. Sin ella se le puede escribir, '
+      'pero no contesta en voz alta.';
+  @override
+  String get ponerLaLlave => 'Poner la llave';
+  @override
+  String laVozNoSeRetoma(String? detalle) =>
+      'Se cortó la conversación de voz y no se pudo retomar'
+      '${detalle == null ? '' : ' ($detalle)'}. Vuelve a abrirla.';
+  @override
+  String laVozNoSeSostiene(String? detalle) =>
+      'La conexión con el servicio de voz no se sostiene: se cortó varias '
+      'veces seguidas${detalle == null ? '' : ' ($detalle)'}.';
+  @override
+  String get laVozSinConexion =>
+      'No se pudo conectar con el servicio de voz. Revisa la conexión a '
+      'internet y vuelve a probar.';
+  @override
+  String laVozSinAudio(String detalle) =>
+      'No se pudo abrir el micrófono o el altavoz ($detalle).';
+  @override
+  String laVozSeCayo(String detalle) =>
+      'La voz se cerró por un fallo: $detalle';
 }
 
 mixin LaVozStringsEn implements LaVozStrings {
@@ -110,4 +145,29 @@ mixin LaVozStringsEn implements LaVozStrings {
       'When you start, hearing turns on: say “$palabra” and the voice opens. '
       'While it listens, the orange macOS microphone dot is on; turn it off in '
       'Settings › What she is like › Hearing.';
+
+  @override
+  String get faltaLaLlaveParaHablar =>
+      'The Gemini key is missing, so she cannot talk. You can still write to '
+      'her, but she will not answer out loud.';
+  @override
+  String get ponerLaLlave => 'Add the key';
+  @override
+  String laVozNoSeRetoma(String? detalle) =>
+      'The voice conversation dropped and could not be resumed'
+      '${detalle == null ? '' : ' ($detalle)'}. Open it again.';
+  @override
+  String laVozNoSeSostiene(String? detalle) =>
+      'The connection to the voice service will not hold: it dropped several '
+      'times in a row${detalle == null ? '' : ' ($detalle)'}.';
+  @override
+  String get laVozSinConexion =>
+      'Could not reach the voice service. Check the internet connection and '
+      'try again.';
+  @override
+  String laVozSinAudio(String detalle) =>
+      'Could not open the microphone or the speaker ($detalle).';
+  @override
+  String laVozSeCayo(String detalle) =>
+      'Voice closed because of a failure: $detalle';
 }

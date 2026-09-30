@@ -91,6 +91,16 @@ class _ElPersonajeState extends State<ElPersonaje> {
   final _tiempo = ValueNotifier<double>(0);
   late final double _fase = math.Random().nextDouble() * 100;
 
+  /// La semilla del parpadeo y de la boca: dos personajes a la vez no
+  /// parpadean a la vez.
+  late final int _semilla = math.Random().nextInt(1 << 20);
+  late final _boca = LaBocaQueHabla(semilla: _semilla);
+  final _nivel = ElNivelSuave();
+
+  /// Lo que cierra los ojos el estado, fundiéndose en 250 ms al cambiar:
+  /// entornarlos al trabajar o cerrarlos al dormirse, y no de golpe.
+  double _cierreDeAntes = 0, _cierreDeAhora = 0, _cambioDeLosOjos = -1;
+
   /// La hora del último fotograma, en segundos: la del reloj de la app, que
   /// en las pruebas es la que avanza `pump`.
   double _ahora = 0;
@@ -119,6 +129,7 @@ class _ElPersonajeState extends State<ElPersonaje> {
       });
     }
     _filtroDeAhora = _filtroDeAntes = elFiltroDe(_como);
+    _cierreDeAhora = _cierreDeAntes = elCierreDe(_como);
   }
 
   @override
@@ -143,6 +154,19 @@ class _ElPersonajeState extends State<ElPersonaje> {
       _filtroDeAhora = nuevo;
       _cambioDelFiltro = _quieto ? -1 : _ahora;
     }
+    final cierre = elCierreDe(_como);
+    if (cierre != _cierreDeAhora) {
+      _cierreDeAntes = _elCierre();
+      _cierreDeAhora = cierre;
+      _cambioDeLosOjos = _quieto ? -1 : _ahora;
+    }
+  }
+
+  double _elCierre() {
+    if (_cambioDeLosOjos < 0) return _cierreDeAhora;
+    final u = suave(0, fundidoDeLosOjos, _ahora - _cambioDeLosOjos);
+    if (u >= 1) _cambioDeLosOjos = -1;
+    return _cierreDeAntes + (_cierreDeAhora - _cierreDeAntes) * u;
   }
 
   ElFiltroDelEstado get _elFiltro {
@@ -163,7 +187,19 @@ class _ElPersonajeState extends State<ElPersonaje> {
         _fotograma = SchedulerBinding.instance.scheduleFrameCallback((cuando) {
           _fotograma = null;
           if (!mounted || !_enMarcha) return;
-          _ahora = cuando.inMicroseconds / 1e6;
+          final ahora = cuando.inMicroseconds / 1e6;
+          // Lo que pasó desde el anterior, con tope: al volver de una pausa
+          // larga —otra ruta encima— no se recupera todo de golpe.
+          final dt = _ahora == 0 ? 0.0 : (ahora - _ahora).clamp(0.0, 0.1);
+          _ahora = ahora;
+          final crudo = _elNivelCrudo();
+          _nivel.avanzar(dt, crudo);
+          _boca.avanzar(
+            dt,
+            nivel: _nivel.valor,
+            crudo: crudo,
+            hablando: _como == ComoEsta.habla,
+          );
           _tiempo.value = _fase + _ahora;
           // El filtro se está mezclando: hace falta reconstruir el pintor.
           if (_cambioDelFiltro >= 0) setState(() {});
@@ -189,7 +225,12 @@ class _ElPersonajeState extends State<ElPersonaje> {
     super.dispose();
   }
 
-  double _elNivel() => widget.nivelVivo?.value ?? widget.nivel ?? 0;
+  double _elNivelCrudo() =>
+      (widget.nivelVivo?.value ?? widget.nivel ?? 0).clamp(0.0, 1.0);
+
+  /// El que se pinta: suavizado, para que ni la boca, ni las luces, ni el
+  /// asentir de la cabeza tiemblen con cada muestra.
+  double _elNivel() => _nivel.valor;
 
   @override
   Widget build(BuildContext context) {
@@ -225,6 +266,9 @@ class _ElPersonajeState extends State<ElPersonaje> {
         quieto: _quieto,
         pasos: widget.pasos,
         hechos: widget.hechos,
+        cierreDelEstado: _elCierre,
+        boca: _boca,
+        semilla: _semilla,
       ),
     );
   }

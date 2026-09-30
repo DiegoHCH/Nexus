@@ -13,114 +13,218 @@ import 'package:nexus/features/personaje/presentation/las_capas_del_personaje.da
 /// cómo se mueve la malla en cada estado. Las cifras son las del mockup
 /// `nexus-ciel-2d.html`, que es la especificación.
 void main() {
-  /// Un momento del ciclo del parpadeo —de 0 a 1— en segundos: el ciclo dura
-  /// 1 / 0,27 s.
-  double enElCiclo(double c, {int vuelta = 3}) => (vuelta + c) / 0.27;
+  /// Los parpadeos de [segundos] con [semilla]: cuándo empieza cada uno y
+  /// cuánto dura, medidos en pasos de 5 ms.
+  List<({double empieza, double dura})> losParpadeos(
+    double segundos, {
+    int semilla = 0,
+  }) {
+    final vistos = <({double empieza, double dura})>[];
+    double? desde;
+    for (var t = 0.0; t < segundos; t += 0.005) {
+      final cerrando = elParpadeo(t, semilla: semilla) > 0.001;
+      if (cerrando && desde == null) desde = t;
+      if (!cerrando && desde != null) {
+        vistos.add((empieza: desde, dura: t - desde));
+        desde = null;
+      }
+    }
+    return vistos;
+  }
 
   group('los ojos', () {
-    test('dormido, sin oído y sin llave, cerrados y sin parpadear', () {
-      for (final como in [
-        ComoEsta.enReposo,
-        ComoEsta.sinOido,
-        ComoEsta.sinLlave,
-      ]) {
-        for (final c in [0.1, 0.5, 0.97]) {
-          expect(losOjosDe(como, enElCiclo(c)), LosOjos.cerrados);
-        }
+    test(
+      'dormido cerrados, trabajando y pensando entornados, si no abiertos',
+      () {
+        expect(elCierreDe(ComoEsta.enReposo), 1);
+        expect(elCierreDe(ComoEsta.sinOido), 1);
+        expect(elCierreDe(ComoEsta.sinLlave), 1);
+        expect(elCierreDe(ComoEsta.trabaja), 0.5);
+        expect(elCierreDe(ComoEsta.piensa), 0.5);
+        expect(elCierreDe(ComoEsta.escucha), 0);
+        expect(elCierreDe(ComoEsta.habla), 0);
+      },
+    );
+
+    test('un parpadeo dura ~300 ms: cierra rápido y abre despacio', () {
+      final simples = losParpadeos(120).where((p) => p.dura < 0.35).toList();
+      expect(simples, isNotEmpty);
+      for (final p in simples) {
+        expect(p.dura, inInclusiveRange(0.28, 0.32));
       }
+      // Cierra en ~100 ms y abre en ~160: a los 50 ms ya va por la mitad de
+      // cerrar; a los 50 ms de empezar a abrir, todavía casi cerrado.
+      final t0 = simples.first.empieza;
+      expect(elParpadeo(t0 + 0.05), closeTo(0.5, 0.1));
+      expect(elParpadeo(t0 + 0.12), 1);
+      expect(elParpadeo(t0 + 0.14 + 0.05), greaterThan(0.7));
     });
 
-    test('trabajando y pensando, entornados; si no, abiertos', () {
-      expect(losOjosDe(ComoEsta.trabaja, enElCiclo(0.5)), LosOjos.entornados);
-      expect(losOjosDe(ComoEsta.piensa, enElCiclo(0.5)), LosOjos.entornados);
-      expect(losOjosDe(ComoEsta.escucha, enElCiclo(0.5)), LosOjos.abiertos);
-      expect(losOjosDe(ComoEsta.habla, enElCiclo(0.5)), LosOjos.abiertos);
-    });
-
-    test('parpadea: abierto, entornado, cerrado, entornado, abierto', () {
-      final secuencia = [
-        for (final c in [0.9, 0.96, 0.978, 0.99, 0.2])
-          losOjosDe(ComoEsta.escucha, enElCiclo(c)),
+    test('a intervalos irregulares, entre 2,5 y 6 s', () {
+      final empiezan = [for (final p in losParpadeos(300)) p.empieza];
+      // Los dobles cuentan como uno: el segundo sale enseguida.
+      final intervalos = <double>[
+        for (var i = 1; i < empiezan.length; i++)
+          if (empiezan[i] - empiezan[i - 1] > 1) empiezan[i] - empiezan[i - 1],
       ];
-      expect(secuencia, [
-        LosOjos.abiertos,
-        LosOjos.entornados,
-        LosOjos.cerrados,
-        LosOjos.entornados,
-        LosOjos.abiertos,
-      ]);
+      expect(intervalos.reduce(math.min), greaterThanOrEqualTo(2.5 - 0.3));
+      expect(intervalos.reduce(math.max), lessThanOrEqualTo(6 + 0.3));
+      // Irregulares de verdad: no dos iguales, ni casi.
+      expect(
+        intervalos.reduce(math.max) - intervalos.reduce(math.min),
+        greaterThan(2),
+      );
     });
 
-    test('cada ~3,7 s, y dura ~160 ms', () {
-      // Se recorren 20 s en pasos de 5 ms y se miden los parpadeos.
-      final empiezan = <double>[];
-      var cerrados = 0.0;
-      LosOjos? antes;
-      for (var t = 0.0; t < 20; t += 0.005) {
-        final ojos = losOjosDe(ComoEsta.escucha, t);
-        if (ojos != LosOjos.abiertos) cerrados += 0.005;
-        if (antes == LosOjos.abiertos && ojos != LosOjos.abiertos) {
-          empiezan.add(t);
-        }
-        antes = ojos;
+    test('de vez en cuando, uno doble: más o menos uno de cada seis', () {
+      final todos = losParpadeos(4.25 * 600);
+      final empiezan = [for (final p in todos) p.empieza];
+      var dobles = 0;
+      for (var i = 1; i < empiezan.length; i++) {
+        if (empiezan[i] - empiezan[i - 1] < 1) dobles++;
       }
-      expect(empiezan.length, 5);
-      expect(empiezan[1] - empiezan[0], closeTo(3.7, 0.05));
-      expect(cerrados / empiezan.length, closeTo(0.156, 0.02));
+      final veces = todos.length - dobles;
+      expect(dobles / veces, inInclusiveRange(0.10, 0.24));
     });
 
-    test('con menos movimiento, sin parpadeo', () {
-      expect(
-        losOjosDe(ComoEsta.escucha, enElCiclo(0.978), parpadea: false),
-        LosOjos.abiertos,
-      );
-      expect(
-        losOjosDe(ComoEsta.trabaja, enElCiclo(0.978), parpadea: false),
-        LosOjos.entornados,
-      );
+    test('determinista por semilla, y distinto entre semillas', () {
+      final a = [
+        for (var t = 0.0; t < 30; t += 0.05) elParpadeo(t, semilla: 7),
+      ];
+      final b = [
+        for (var t = 0.0; t < 30; t += 0.05) elParpadeo(t, semilla: 7),
+      ];
+      final c = [
+        for (var t = 0.0; t < 30; t += 0.05) elParpadeo(t, semilla: 8),
+      ];
+      expect(a, b);
+      expect(a, isNot(c));
     });
 
-    test('el iris solo se tiñe con los ojos abiertos o entornados', () {
-      expect(
-        CapaDelPersonaje.delIris(LosOjos.abiertos),
-        CapaDelPersonaje.irisBase,
-      );
-      expect(
-        CapaDelPersonaje.delIris(LosOjos.entornados),
-        CapaDelPersonaje.irisEntornados,
-      );
-      expect(CapaDelPersonaje.delIris(LosOjos.cerrados), isNull);
+    test('las capas se funden según el cierre, sin saltos', () {
+      final abiertos = losOjosCon(0);
+      expect(abiertos.entornados, 0);
+      expect(abiertos.cerrados, 0);
+      expect(abiertos.iris, 1);
+      final entornados = losOjosCon(0.5);
+      expect(entornados.entornados, 1);
+      expect(entornados.cerrados, 0);
+      expect(entornados.iris, 0);
+      expect(entornados.irisEntornados, 1);
+      final cerrados = losOjosCon(1);
+      expect(cerrados.cerrados, 1);
+      expect(cerrados.iris, 0);
+      expect(cerrados.irisEntornados, 0);
+      // A medio camino, a medio fundir.
+      expect(losOjosCon(0.25).entornados, closeTo(0.5, 1e-9));
+      expect(losOjosCon(0.75).cerrados, closeTo(0.5, 1e-9));
+      // Continuo: un poco más de cierre es un poco más de fundido.
+      for (var c = 0.0; c < 1; c += 0.01) {
+        final a = losOjosCon(c), b = losOjosCon(c + 0.01);
+        expect((a.entornados - b.entornados).abs(), lessThan(0.03));
+        expect((a.cerrados - b.cerrados).abs(), lessThan(0.03));
+        expect((a.irisEntornados - b.irisEntornados).abs(), lessThan(0.03));
+      }
+    });
+  });
+
+  group('la voz', () {
+    test('suavizada: sube en ~60 ms y baja en ~180 ms', () {
+      final nivel = ElNivelSuave();
+      for (var t = 0.0; t < 0.06 - 1e-9; t += 1 / 300) {
+        nivel.avanzar(1 / 300, 1);
+      }
+      expect(nivel.valor, closeTo(1 - math.exp(-1), 0.03));
+      for (var t = 0.0; t < 1; t += 1 / 300) {
+        nivel.avanzar(1 / 300, 1);
+      }
+      for (var t = 0.0; t < 0.18 - 1e-9; t += 1 / 300) {
+        nivel.avanzar(1 / 300, 0);
+      }
+      expect(nivel.valor, closeTo(math.exp(-1), 0.03));
     });
   });
 
   group('la boca', () {
-    test('solo hablando, y con la voz por encima de 0,1', () {
-      expect(laBocaDe(ComoEsta.escucha, 1, 0.9), isNull);
-      expect(laBocaDe(ComoEsta.trabaja, 1, 0.9), isNull);
-      expect(laBocaDe(ComoEsta.habla, 1, 0.05), isNull);
-      expect(laBocaDe(ComoEsta.habla, 1, 0.5), isNotNull);
+    /// Habla [segundos] a 30 fotogramas con el nivel de [nivel] y devuelve cada
+    /// cambio de boca: cuándo y a cuál.
+    List<(double, LaBoca?)> habla(
+      double segundos,
+      double Function(double t) nivel, {
+      int semilla = 0,
+      bool hablando = true,
+    }) {
+      final boca = LaBocaQueHabla(semilla: semilla);
+      final suave = ElNivelSuave();
+      final cambios = <(double, LaBoca?)>[];
+      LaBoca? antes;
+      for (var t = 0.0; t < segundos; t += 1 / 30) {
+        final crudo = nivel(t);
+        boca.avanzar(
+          1 / 30,
+          nivel: suave.avanzar(1 / 30, crudo),
+          crudo: crudo,
+          hablando: hablando,
+        );
+        if (boca.actual != antes) cambios.add((t, boca.actual));
+        antes = boca.actual;
+      }
+      return cambios;
+    }
+
+    test('de 4 a 5 formas por segundo, y ninguna dura menos de 140 ms', () {
+      final cambios = habla(10, (_) => 0.8);
+      final porSegundo = cambios.length / 10;
+      expect(porSegundo, inInclusiveRange(3.5, 5.2));
+      for (var i = 1; i < cambios.length; i++) {
+        expect(
+          cambios[i].$1 - cambios[i - 1].$1,
+          greaterThanOrEqualTo(LaBocaQueHabla.permanencia - 1e-9),
+        );
+      }
     });
 
-    test('cuanto más alto habla, más abierta', () {
-      Set<LaBoca?> bocas(double nivel) => {
-        for (var s = 0; s < 400; s++)
-          laBocaDe(ComoEsta.habla, s / 9 + 0.01, nivel),
-      };
-      expect(bocas(0.2), {LaBoca.u, LaBoca.e});
-      expect(bocas(0.4), {LaBoca.e, LaBoca.o, LaBoca.u});
-      expect(bocas(0.8), {LaBoca.a, LaBoca.o});
+    test('sin saltos de «a» a «u»: pasa por otra', () {
+      for (final semilla in [0, 1, 2, 3, 4]) {
+        // Una voz que va y viene, para que salgan todas las bocas.
+        final cambios = habla(
+          20,
+          (t) => 0.5 + 0.45 * math.sin(t * 2.3),
+          semilla: semilla,
+        );
+        for (var i = 1; i < cambios.length; i++) {
+          final (de, a) = (cambios[i - 1].$2, cambios[i].$2);
+          expect(
+            {de, a},
+            isNot({LaBoca.a, LaBoca.u}),
+            reason: 'de $de a $a sin pasar por otra',
+          );
+        }
+      }
     });
 
-    test('una vocal por sílaba de ~110 ms, siempre la misma para la misma', () {
-      const silaba = 1 / 9;
-      final t0 = 40 * silaba;
-      final vocal = laBocaDe(ComoEsta.habla, t0 + 0.001, 0.8);
-      expect(laBocaDe(ComoEsta.habla, t0 + silaba * 0.9, 0.8), vocal);
-      final cambia = {
-        for (var s = 0; s < 30; s++)
-          laBocaDe(ComoEsta.habla, (40 + s) * silaba + 0.001, 0.8),
-      };
-      expect(cambia.length, greaterThan(1));
+    test('cerrada con la voz baja, en las pausas y sin hablar', () {
+      expect(habla(3, (_) => 0.05), isEmpty);
+      // Habla un segundo y calla: a los 250 ms de silencio, cerrada.
+      final cambios = habla(2, (t) => t < 1 ? 0.8 : 0);
+      expect(cambios.last.$2, isNull);
+      expect(cambios.last.$1, lessThan(1 + 0.25 + 0.3));
+      expect(habla(3, (_) => 0.8, hablando: false), isEmpty);
+    });
+
+    test('se funde con la anterior en ~70 ms', () {
+      final boca = LaBocaQueHabla();
+      var t = 0.0;
+      while (boca.actual == null && t < 2) {
+        boca.avanzar(1 / 30, nivel: 0.8, crudo: 0.8, hablando: true);
+        t += 1 / 30;
+      }
+      expect(boca.actual, isNotNull);
+      expect(boca.mezcla, lessThan(1));
+      boca.avanzar(0.035, nivel: 0.8, crudo: 0.8, hablando: true);
+      expect(boca.mezcla, closeTo(0.5, 0.01));
+      boca.avanzar(0.04, nivel: 0.8, crudo: 0.8, hablando: true);
+      expect(boca.mezcla, 1);
     });
   });
 

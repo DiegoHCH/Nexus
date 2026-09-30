@@ -46,6 +46,9 @@ class ElPersonajePainter extends CustomPainter {
     this.quieto = false,
     this.pasos,
     this.hechos,
+    this.cierreDelEstado,
+    this.boca,
+    this.semilla = 0,
   }) : super(repaint: reloj);
 
   final LasCapasDelPersonaje capas;
@@ -78,6 +81,17 @@ class ElPersonajePainter extends CustomPainter {
 
   final int? pasos;
   final int? hechos;
+
+  /// Cuánto cierra los ojos el estado ahora —ver [elCierreDe]—, que se lee en
+  /// cada fotograma: al cambiar de estado se funde en 250 ms. Sin él, el del
+  /// estado tal cual.
+  final double Function()? cierreDelEstado;
+
+  /// La boca, que avanza quien lleva el reloj. Sin ella, cerrada.
+  final LaBocaQueHabla? boca;
+
+  /// La del parpadeo, para que dos personajes no parpadeen a la vez.
+  final int semilla;
 
   static final _malla = LaMalla();
   static final _todos = _malla.indices;
@@ -193,7 +207,9 @@ class ElPersonajePainter extends CustomPainter {
     CapaDelPersonaje capa, {
     Color? tinte,
     BlendMode mezcla = BlendMode.srcOver,
+    double opacidad = 1,
   }) {
+    if (opacidad <= 0) return;
     canvas.drawVertices(
       ui.Vertices.raw(
         VertexMode.triangles,
@@ -206,24 +222,61 @@ class ElPersonajePainter extends CustomPainter {
         ..shader = tinte == null
             ? capas.pincel(capa)
             : capas.pincelTenido(capa, tinte)
-        ..blendMode = mezcla,
+        ..blendMode = mezcla
+        // La opacidad del `Paint` sí la respeta Impeller en `drawVertices`.
+        ..color = Color.fromRGBO(0, 0, 0, opacidad.clamp(0.0, 1.0)),
     );
   }
 
-  /// La base, los ojos, la boca y el iris teñido.
+  /// La base, los ojos, la boca y el iris teñido, fundidos según su cierre y
+  /// su mezcla.
   void _lasCapasDeLaCara(Canvas canvas, Float32List v, double t, double lv) {
-    final losOjos = losOjosDe(como, t, parpadea: !quieto);
-    final boca = quieto ? null : laBocaDe(como, t, lv);
+    final delEstado = cierreDelEstado?.call() ?? elCierreDe(como);
+    final parpadeo = quieto || como.dormido
+        ? 0.0
+        : elParpadeo(t, semilla: semilla);
+    final ojos = losOjosCon(math.max(delEstado, parpadeo));
     _pinta(canvas, v, CapaDelPersonaje.base);
-    if (CapaDelPersonaje.deLosOjos(losOjos) case final ojos?) {
-      _pinta(canvas, v, ojos);
-    }
-    if (boca != null) _pinta(canvas, v, CapaDelPersonaje.deLaBoca(boca));
-    final color = ojos;
-    if (color != null) {
-      if (CapaDelPersonaje.delIris(losOjos) case final iris?) {
-        _pinta(canvas, v, iris, tinte: color);
+    _pinta(
+      canvas,
+      v,
+      CapaDelPersonaje.ojosEntornados,
+      opacidad: ojos.entornados,
+    );
+    _pinta(canvas, v, CapaDelPersonaje.ojosCerrados, opacidad: ojos.cerrados);
+    final boca = this.boca;
+    if (boca != null && !quieto) {
+      final (antes, ahora, m) = (boca.anterior, boca.actual, boca.mezcla);
+      // La de antes, entera mientras entra la de ahora encima; si la de ahora
+      // es la cerrada —la de la base—, la de antes se va.
+      if (antes != null) {
+        _pinta(
+          canvas,
+          v,
+          CapaDelPersonaje.deLaBoca(antes),
+          opacidad: ahora == null ? 1 - m : (m < 1 ? 1 : 0),
+        );
       }
+      if (ahora != null) {
+        _pinta(canvas, v, CapaDelPersonaje.deLaBoca(ahora), opacidad: m);
+      }
+    }
+    final color = this.ojos;
+    if (color != null) {
+      _pinta(
+        canvas,
+        v,
+        CapaDelPersonaje.irisBase,
+        tinte: color,
+        opacidad: ojos.iris,
+      );
+      _pinta(
+        canvas,
+        v,
+        CapaDelPersonaje.irisEntornados,
+        tinte: color,
+        opacidad: ojos.irisEntornados,
+      );
     }
   }
 
@@ -421,7 +474,9 @@ class ElPersonajePainter extends CustomPainter {
       old.filtro != filtro ||
       old.quieto != quieto ||
       old.pasos != pasos ||
-      old.hechos != hechos;
+      old.hechos != hechos ||
+      old.boca != boca ||
+      old.semilla != semilla;
 }
 
 /// El filtro del estado, como el del mockup: dormido y sin oído más oscuros

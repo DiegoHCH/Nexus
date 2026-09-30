@@ -61,54 +61,227 @@ enum ComoEsta {
   bool get enElTurno => this == trabaja || this == piensa;
 }
 
-/// Qué ojos lleva puestos.
-enum LosOjos { abiertos, entornados, cerrados }
-
 /// Qué vocal dice. Son las cuatro bocas que hay dibujadas.
 enum LaBoca { a, e, o, u }
 
-/// Qué ojos lleva en [t], contando con el parpadeo.
+// ── Los ojos ───────────────────────────────────────────────────────────────
+//
+// 🔴 **Un número de cierre y no tres capas que se turnan.** El primer paso
+// cambiaba de capa de golpe —abierto, entornado, cerrado, entornado, abierto
+// en 160 ms, cada 3,7 s exactos— y a 30 fotogramas eran tres cuadros: se veía
+// un parpadeo eléctrico y de reloj («muy rápidos, no se ven naturales»). Ahora
+// los ojos tienen un cierre de 0 (abiertos) a 1 (cerrados), pasando por 0,5
+// (entornados), y las capas se funden entre sí según ese número.
+
+/// El cierre de los ojos de [como], sin parpadeo: abiertos 0, entornados
+/// trabajando o pensando 0,5, cerrados dormido 1.
+double elCierreDe(ComoEsta como) => como.dormido
+    ? 1
+    : como.enElTurno
+    ? 0.5
+    : 0;
+
+/// Cuánto dura el fundido de los ojos al cambiar de estado: entornarlos al
+/// ponerse a trabajar, cerrarlos al dormirse.
+const fundidoDeLosOjos = 0.25;
+
+/// Lo que dura un parpadeo: cierra en 100 ms, se queda cerrado 40 y abre en
+/// 160 —abrir es más lento que cerrar, como en una persona—.
+const cierraElParpadeo = 0.10,
+    quietoElParpadeo = 0.04,
+    abreElParpadeo = 0.16,
+    duraElParpadeo = cierraElParpadeo + quietoElParpadeo + abreElParpadeo;
+
+/// Cada cuánto parpadea: entre 2,5 y 6 s, nunca a intervalos fijos.
 ///
-/// Parpadea cada ~3,7 s, en ~160 ms: abierto → entornado → cerrado →
-/// entornado → abierto. Trabajando y pensando los entorna. [parpadea] a falso
-/// es para quien pidió menos movimiento: pose fija, sin parpadeo.
-LosOjos losOjosDe(ComoEsta como, double t, {bool parpadea = true}) {
-  if (como.dormido) return LosOjos.cerrados;
-  final quietos = como.enElTurno ? LosOjos.entornados : LosOjos.abiertos;
-  if (!parpadea) return quietos;
-  return _elParpadeo(t) ?? quietos;
+/// El tiempo se parte en ranuras de [_ranura] segundos y en cada una hay un
+/// parpadeo, desplazado al azar hasta [_holgura]: dos seguidos quedan entre
+/// `_ranura - _holgura` y `_ranura + _holgura`. Así se sabe dónde cae el
+/// parpadeo de cualquier instante sin recorrer los anteriores —el reloj lleva
+/// horas contando— y sale igual para la misma semilla, que es lo que deja
+/// probarlo.
+const _ranura = 4.25, _holgura = 1.75;
+
+/// Cada cuántos parpadeos, uno doble: uno de cada seis.
+const _dobles = 1 / 6;
+
+/// Lo que tarda en empezar el segundo de un parpadeo doble.
+const _entreLosDos = duraElParpadeo + 0.1;
+
+/// Cuánto cierra el parpadeo en [t], de 0 a 1. [semilla] cambia el azar: dos
+/// personajes en pantalla no parpadean a la vez.
+double elParpadeo(double t, {int semilla = 0}) {
+  final k = (t / _ranura).floor();
+  final empieza = k * _ranura + _azar(semilla, k, 1) * _holgura;
+  var u = t - empieza;
+  if (u < 0) return 0;
+  if (u >= duraElParpadeo && _azar(semilla, k, 2) < _dobles) u -= _entreLosDos;
+  return _unParpadeo(u);
 }
 
-/// En qué punto del parpadeo va, o `null` si no está parpadeando.
-LosOjos? _elParpadeo(double t) {
-  final ciclo = _fraccion(t * 0.27);
-  if (ciclo < 0.958) return null;
-  final u = (ciclo - 0.958) / 0.042;
-  return u < 0.25 || u > 0.75 ? LosOjos.entornados : LosOjos.cerrados;
+double _unParpadeo(double u) {
+  if (u < 0 || u >= duraElParpadeo) return 0;
+  if (u < cierraElParpadeo) return suave(0, cierraElParpadeo, u);
+  if (u < cierraElParpadeo + quietoElParpadeo) return 1;
+  return 1 - suave(cierraElParpadeo + quietoElParpadeo, duraElParpadeo, u);
 }
 
-/// La boca con que dice una sílaba, o `null` si está callado o con la boca
-/// cerrada.
+/// Cuánto se ve cada capa de los ojos con este [cierre], de 0 a 1: lo que se
+/// pinta encima de la base, en este orden.
 ///
-/// Una vocal por sílaba —~110 ms— elegida al azar pero siempre la misma para
-/// la misma sílaba, y cuanto más alto habla más abierta: con la voz baja,
-/// «u» o «e»; con la voz media, «e», «o» o «u»; alto, «a» u «o».
+/// Hasta 0,5 los entornados entran sobre los abiertos de la base; de ahí a 1,
+/// los cerrados sobre los entornados. El iris sigue a sus ojos: el de los
+/// abiertos se va mientras entra el de los entornados, y con los ojos cerrados
+/// no hay iris.
+({double entornados, double cerrados, double iris, double irisEntornados})
+losOjosCon(double cierre) {
+  final c = cierre.clamp(0.0, 1.0);
+  final hastaEntornados = (c / 0.5).clamp(0.0, 1.0);
+  final hastaCerrados = ((c - 0.5) / 0.5).clamp(0.0, 1.0);
+  return (
+    entornados: hastaEntornados,
+    cerrados: hastaCerrados,
+    iris: 1 - hastaEntornados,
+    irisEntornados: c <= 0.5 ? hastaEntornados : 1 - hastaCerrados,
+  );
+}
+
+// ── La voz y la boca ───────────────────────────────────────────────────────
+
+/// El nivel de la voz, suavizado: sube en ~60 ms y baja en ~180 ms.
 ///
-/// 🔴 **Se abre con SU voz, no con la tuya**: [nivel] es el del altavoz. Solo
-/// habla hablando.
-LaBoca? laBocaDe(ComoEsta como, double t, double nivel) {
-  if (como != ComoEsta.habla || nivel < 0.1) return null;
-  final silaba = (t * 9).floor();
-  final r = _fraccion((math.sin(silaba * 12.9898) * 43758.5453).abs());
-  if (nivel < 0.3) return r < 0.5 ? LaBoca.u : LaBoca.e;
-  if (nivel < 0.55) {
-    return r < 0.45
-        ? LaBoca.e
-        : r < 0.8
-        ? LaBoca.o
-        : LaBoca.u;
+/// El nivel llega cincuenta veces por segundo y tiembla con cada muestra; con
+/// él tal cual, la boca, las luces y el asentir de la cabeza temblaban con él.
+/// Subir rápido y bajar despacio es lo que hace un vúmetro: se ve el golpe de
+/// cada sílaba y no el ruido entre dos.
+class ElNivelSuave {
+  static const sube = 0.06, baja = 0.18;
+
+  double valor = 0;
+
+  double avanzar(double dt, double nivel) {
+    final tau = nivel > valor ? sube : baja;
+    valor += (nivel - valor) * (1 - math.exp(-dt / tau));
+    return valor;
   }
-  return r < 0.6 ? LaBoca.a : LaBoca.o;
+}
+
+/// **La boca que habla**: qué vocal pone y cuándo cambia, sílaba a sílaba.
+///
+/// 🔴 **Con memoria, y por eso una clase.** La primera versión elegía una vocal
+/// cada 110 ms por el nivel de ese instante: nueve formas por segundo saltando
+/// entre sí, el doble que el habla de verdad («muy rápidos, no se ven
+/// naturales»). Ahora:
+///
+/// - **Una sílaba cada 200–250 ms** —el habla de verdad son 4 o 5 por
+///   segundo—, y ninguna boca dura menos de [permanencia].
+/// - **Se funde** en [fundido] con la anterior, en vez de saltar.
+/// - **Sin saltos bruscos**: de «a» a «u» o al revés se pasa por «o».
+/// - **Cerrada** con el nivel por debajo de [umbral] y en las pausas —más de
+///   [pausa] de silencio—.
+class LaBocaQueHabla {
+  LaBocaQueHabla({this.semilla = 0});
+
+  static const umbral = 0.1,
+      pausa = 0.25,
+      permanencia = 0.14,
+      fundido = 0.07,
+      silabaMinima = 0.2,
+      silabaMaxima = 0.25;
+
+  final int semilla;
+
+  /// La boca de antes, que se va fundiendo, y la de ahora. `null` es cerrada:
+  /// la de la base.
+  LaBoca? anterior;
+  LaBoca? actual;
+
+  /// Cuánto hace que cambió, en segundos.
+  double desdeElCambio = 1;
+
+  /// Cuánto lleva la voz por debajo del umbral.
+  double silencio = 0;
+
+  var _silabas = 0;
+  double _hastaLaSilaba = 0;
+
+  /// Cuánto se ve ya la boca de ahora sobre la de antes, de 0 a 1.
+  double get mezcla => (desdeElCambio / fundido).clamp(0.0, 1.0);
+
+  /// Avanza [dt] segundos con el nivel suavizado [nivel] y el de este instante
+  /// [crudo]. Sin [hablando], la boca se cierra.
+  void avanzar(
+    double dt, {
+    required double nivel,
+    required double crudo,
+    required bool hablando,
+  }) {
+    desdeElCambio += dt;
+    silencio = crudo < umbral ? silencio + dt : 0;
+    _hastaLaSilaba -= dt;
+    if (!hablando) {
+      _poner(null);
+      return;
+    }
+    if (_hastaLaSilaba > 0) return;
+    _silabas++;
+    _hastaLaSilaba =
+        silabaMinima +
+        (silabaMaxima - silabaMinima) * _azar(semilla, _silabas, 3);
+    if (desdeElCambio < permanencia) return;
+    _poner(
+      nivel < umbral || silencio > pausa
+          ? null
+          : _sinSaltos(
+              actual,
+              _laVocal(nivel, _azar(semilla, _silabas, 4), actual),
+            ),
+    );
+  }
+
+  void _poner(LaBoca? boca) {
+    if (boca == actual) return;
+    anterior = actual;
+    actual = boca;
+    desdeElCambio = 0;
+  }
+
+  /// La vocal de una sílaba con este nivel: con la voz baja, «u» o «e»; media,
+  /// «e», «o» o «u»; alta, «a» u «o».
+  ///
+  /// **Nunca la misma que la de ahora**: cada sílaba mueve la boca. Repetir
+  /// vocal dejaba la boca quieta y abierta varias sílabas seguidas, que se lee
+  /// como alguien con la boca abierta y no como alguien hablando.
+  static LaBoca _laVocal(double nivel, double r, LaBoca? ahora) {
+    final (vocales, pesos) = nivel < 0.3
+        ? (const [LaBoca.u, LaBoca.e], const [0.5, 1.0])
+        : nivel < 0.55
+        ? (const [LaBoca.e, LaBoca.o, LaBoca.u], const [0.45, 0.8, 1.0])
+        : (const [LaBoca.a, LaBoca.o], const [0.6, 1.0]);
+    var i = pesos.indexWhere((p) => r < p);
+    if (i < 0) i = vocales.length - 1;
+    if (vocales[i] == ahora) i = (i + 1) % vocales.length;
+    return vocales[i];
+  }
+
+  /// De la más abierta a la más cerrada no se salta: se pasa por la «o».
+  static LaBoca _sinSaltos(LaBoca? de, LaBoca a) =>
+      (de == LaBoca.a && a == LaBoca.u) || (de == LaBoca.u && a == LaBoca.a)
+      ? LaBoca.o
+      : a;
+}
+
+/// Un azar fijo de 0 a 1 para ([semilla], [n], [canal]): siempre el mismo para
+/// los mismos, que es lo que hace el parpadeo y la boca deterministas.
+double _azar(int semilla, int n, int canal) {
+  var h =
+      (semilla * 0x9E3779B1 + n * 0x85EBCA77 + canal * 0xC2B2AE3D) & 0xFFFFFFFF;
+  h ^= h >> 16;
+  h = (h * 0x7FEB352D) & 0xFFFFFFFF;
+  h ^= h >> 15;
+  h = (h * 0x846CA68B) & 0xFFFFFFFF;
+  h ^= h >> 16;
+  return h / 0x100000000;
 }
 
 /// Cuánto se encienden las luces del traje, de 0 a 1.
@@ -392,21 +565,6 @@ enum CapaDelPersonaje {
   final double x, y, w, h;
 
   String get ruta => 'assets/personaje/$archivo.webp';
-
-  /// La capa de estos ojos, o `null` con los de la base, que ya los lleva.
-  static CapaDelPersonaje? deLosOjos(LosOjos ojos) => switch (ojos) {
-    LosOjos.abiertos => null,
-    LosOjos.entornados => ojosEntornados,
-    LosOjos.cerrados => ojosCerrados,
-  };
-
-  /// El iris para teñir con estos ojos, o `null` con los ojos cerrados, que no
-  /// enseñan iris.
-  static CapaDelPersonaje? delIris(LosOjos ojos) => switch (ojos) {
-    LosOjos.abiertos => irisBase,
-    LosOjos.entornados => irisEntornados,
-    LosOjos.cerrados => null,
-  };
 
   static CapaDelPersonaje deLaBoca(LaBoca boca) => switch (boca) {
     LaBoca.a => bocaA,

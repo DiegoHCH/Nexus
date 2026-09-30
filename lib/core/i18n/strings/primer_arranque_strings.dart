@@ -98,7 +98,7 @@ mixin PrimerArranqueStringsEs implements PrimerArranqueStrings {
   @override
   String pasoSuNombreExplica(String palabra) =>
       'Es también la palabra que la despierta: con el oído encendido '
-      '(Ajustes › Oído), decir «$palabra» abre la voz.';
+      '(Ajustes › Cómo es ella › Oído), decir «$palabra» abre la voz.';
   @override
   String get pasoTuNombreExplica =>
       'Para que te llame por tu nombre de vez en cuando. En blanco, no te llama '
@@ -132,10 +132,10 @@ mixin PrimerArranqueStringsEs implements PrimerArranqueStrings {
   String get guiaCortaComoHablarle => 'Cómo se le habla';
   @override
   String get guiaCortaComoHablarleCuerpo =>
-      'Di su nombre con el oído encendido (Ajustes › Oído), o pulsa ⌥Espacio '
-      'desde cualquier app. Por escrito, en la caja de abajo: ahí también caen '
-      'los archivos que arrastres. Y desde el teléfono, emparejándolo en '
-      'Ajustes › Móvil.';
+      'Di su nombre con el oído encendido (Ajustes › Cómo es ella › Oído), o '
+      'pulsa ⌥Espacio desde cualquier app. Por escrito, en la caja de abajo: '
+      'ahí también caen los archivos que arrastres. Y desde el teléfono, '
+      'emparejándolo en Ajustes › Móvil.';
   @override
   String get guiaCortaQuePuede => 'Qué puede';
   @override
@@ -201,8 +201,8 @@ mixin PrimerArranqueStringsEn implements PrimerArranqueStrings {
       'Pick the folder first: the account goes with each folder.';
   @override
   String pasoSuNombreExplica(String palabra) =>
-      'It is also the word that wakes her: with hearing on (Settings › '
-      'Hearing), saying “$palabra” opens the voice.';
+      'It is also the word that wakes her: with hearing on (Settings › What '
+      'she is like › Hearing), saying “$palabra” opens the voice.';
   @override
   String get pasoTuNombreExplica =>
       'So she calls you by your name now and then. Leave it empty and she '
@@ -238,9 +238,10 @@ mixin PrimerArranqueStringsEn implements PrimerArranqueStrings {
   String get guiaCortaComoHablarle => 'How to talk to her';
   @override
   String get guiaCortaComoHablarleCuerpo =>
-      'Say her name with hearing on (Settings › Hearing), or press ⌥Space from '
-      'any app. In writing, in the box at the bottom: files you drag land '
-      'there too. And from your phone, once paired in Settings › Mobile.';
+      'Say her name with hearing on (Settings › What she is like › Hearing), '
+      'or press ⌥Space from any app. In writing, in the box at the bottom: '
+      'files you drag land there too. And from your phone, once paired in '
+      'Settings › Mobile.';
   @override
   String get guiaCortaQuePuede => 'What she can do';
   @override

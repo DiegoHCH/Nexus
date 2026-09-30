@@ -210,12 +210,21 @@ void main() {
     // 🔴 **Y con la carpeta ya en la caja**, que es cuando una persona
     // escribiría. El enrutado lee la carpeta del disco por su cuenta y las
     // carpetas de la app se cargan después: escribir en ese hueco mandaba el
-    // encargo a ninguna parte y la prueba se caía una vez de cada cuatro. El
-    // chip de la carpeta es la señal visible de que ya se sabe dónde se trabaja.
-    await _hastaQueSeVea(
+    // encargo a ninguna parte y la prueba se caía una vez de cada cuatro.
+    //
+    // 🔴 **Se pregunta al estado y no a un texto.** La señal era el chip de la
+    // carpeta en la caja, y ese chip se quitó del chat (30 sep: la carpeta ya
+    // la dice la esquina de la sala). Lo que el chip enseñaba era esto mismo —
+    // que las carpetas de la app ya se cargaron y está la emparejada—, así que
+    // se mira en su origen: no depende de cómo se pinte, ni de en qué esquina.
+    final estado = ProviderScope.containerOf(tester.element(caja));
+    await _hastaQueSeCumpla(
       tester,
-      find.textContaining('PROYECTO-DE-PRUEBA', findRichText: true),
-      esperando: 'la carpeta emparejada en la caja',
+      () => estado
+          .read(workspaceControllerProvider)
+          .folders
+          .any((f) => f.path == carpeta),
+      esperando: 'la carpeta emparejada, ya cargada',
     );
 
     // **Escribir** y mandar con Intro, como se hace.
@@ -332,6 +341,27 @@ String _loQueSeLee(WidgetTester tester) => tester
     .where((texto) => texto.isNotEmpty)
     .take(40)
     .join(' | ');
+
+/// El primo de [_hastaQueSeVea] para lo que no se ve: bombea hasta que
+/// [cumple] diga que sí.
+Future<void> _hastaQueSeCumpla(
+  WidgetTester tester,
+  bool Function() cumple, {
+  required String esperando,
+  Duration limite = const Duration(seconds: 60),
+}) async {
+  final hasta = DateTime.now().add(limite);
+  while (!cumple()) {
+    if (DateTime.now().isAfter(hasta)) {
+      fail(
+        'no llegó a pasar: $esperando (${limite.inSeconds} s)\n'
+        'lo que se veía: ${_loQueSeLee(tester)}',
+      );
+    }
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  await tester.pump(const Duration(milliseconds: 100));
+}
 
 /// El gemelo de [_hastaQueSeVea]: hasta que [finder] ya no encuentre nada.
 Future<void> _hastaQueDesaparezca(

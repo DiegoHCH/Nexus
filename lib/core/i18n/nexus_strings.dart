@@ -9,6 +9,7 @@ import 'package:nexus/core/i18n/strings/ejecucion_strings.dart';
 import 'package:nexus/core/i18n/strings/estadisticas_strings.dart';
 import 'package:nexus/core/i18n/strings/historial_strings.dart';
 import 'package:nexus/core/i18n/strings/icono_strings.dart';
+import 'package:nexus/core/i18n/strings/la_voz_strings.dart';
 import 'package:nexus/core/i18n/strings/lo_que_costo_strings.dart';
 import 'package:nexus/core/i18n/strings/movil_fallos_strings.dart';
 import 'package:nexus/core/i18n/strings/movil_strings.dart';
@@ -66,7 +67,8 @@ abstract class NexusStrings
         MovilActualizarStrings,
         MovilFallosStrings,
         AjustesStrings,
-        RenombrarStrings {
+        RenombrarStrings,
+        LaVozStrings {
   const NexusStrings();
 
   static const supported = [Locale('es'), Locale('en')];
@@ -104,7 +106,8 @@ class NexusStringsEs extends NexusStrings
         MovilActualizarStringsEs,
         MovilFallosStringsEs,
         AjustesStringsEs,
-        RenombrarStringsEs {
+        RenombrarStringsEs,
+        LaVozStringsEs {
   const NexusStringsEs();
 
   @override
@@ -131,7 +134,8 @@ class NexusStringsEn extends NexusStrings
         MovilActualizarStringsEn,
         MovilFallosStringsEn,
         AjustesStringsEn,
-        RenombrarStringsEn {
+        RenombrarStringsEn,
+        LaVozStringsEn {
   const NexusStringsEn();
 
   @override

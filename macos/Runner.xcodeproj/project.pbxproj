@@ -27,6 +27,7 @@
 		33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC10F02044A3C60003C045 /* AppDelegate.swift */; };
 		33CC10F32044A3C60003C045 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 33CC10F22044A3C60003C045 /* Assets.xcassets */; };
 		33CC10F62044A3C60003C045 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 33CC10F42044A3C60003C045 /* MainMenu.xib */; };
+		3A7E1C2D2F0A4B5C00ABCDEF /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3A7E1C2E2F0A4B5C00ABCDEF /* InfoPlist.strings */; };
 		33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC11122044BFA00003C045 /* MainFlutterWindow.swift */; };
 		NX0000000000000000000001 /* NexusAudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = NX0000000000000000000002 /* NexusAudioEngine.swift */; };
 		NX0000000000000000000091 /* NexusSinReventar.m in Sources */ = {isa = PBXBuildFile; fileRef = NX0000000000000000000092 /* NexusSinReventar.m */; };
@@ -90,6 +91,8 @@
 		33CC10F22044A3C60003C045 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = Runner/Assets.xcassets; sourceTree = "<group>"; };
 		33CC10F52044A3C60003C045 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		33CC10F72044A3C60003C045 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = Runner/Info.plist; sourceTree = "<group>"; };
+		3A7E1C2F2F0A4B5C00ABCDEF /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		3A7E1C302F0A4B5C00ABCDEF /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		33CC11122044BFA00003C045 /* MainFlutterWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainFlutterWindow.swift; sourceTree = "<group>"; };
 		NX0000000000000000000002 /* NexusAudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusAudioEngine.swift; sourceTree = "<group>"; };
 		NX0000000000000000000092 /* NexusSinReventar.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NexusSinReventar.m; sourceTree = "<group>"; };
@@ -190,6 +193,7 @@
 				33CC10F22044A3C60003C045 /* Assets.xcassets */,
 				33CC10F42044A3C60003C045 /* MainMenu.xib */,
 				33CC10F72044A3C60003C045 /* Info.plist */,
+				3A7E1C2E2F0A4B5C00ABCDEF /* InfoPlist.strings */,
 			);
 			name = Resources;
 			path = ..;
@@ -342,6 +346,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				es,
 				Base,
 			);
 			mainGroup = 33CC10E42044A3C60003C045;
@@ -370,6 +375,7 @@
 			files = (
 				33CC10F32044A3C60003C045 /* Assets.xcassets in Resources */,
 				33CC10F62044A3C60003C045 /* MainMenu.xib in Resources */,
+				3A7E1C2D2F0A4B5C00ABCDEF /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -549,6 +555,16 @@
 				33CC10F52044A3C60003C045 /* Base */,
 			);
 			name = MainMenu.xib;
+			path = Runner;
+			sourceTree = "<group>";
+		};
+		3A7E1C2E2F0A4B5C00ABCDEF /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				3A7E1C2F2F0A4B5C00ABCDEF /* en */,
+				3A7E1C302F0A4B5C00ABCDEF /* es */,
+			);
+			name = InfoPlist.strings;
 			path = Runner;
 			sourceTree = "<group>";
 		};

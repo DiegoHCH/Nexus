@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:nexus/features/assistant/domain/entities/audio_frame.dart';
 import 'package:nexus/features/assistant/domain/entities/claude_event.dart';
+import 'package:nexus/features/assistant/domain/entities/fallo_de_la_voz.dart';
 import 'package:nexus/features/assistant/domain/entities/voice_event.dart';
 import 'package:nexus/features/assistant/domain/repositories/audio_output.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_audio_ajeno.dart';
@@ -1462,6 +1463,7 @@ class HoldVoiceConversation {
         controller.add(
           VoiceSessionFailed(
             'La conexión con el servicio de voz no se sostiene: ${because ?? 'se cortó varias veces seguidas'}.',
+            causa: LaVozNoSeSostiene(porque: because),
           ),
         );
         if (!controller.isClosed) await controller.close();
@@ -1475,8 +1477,16 @@ class HoldVoiceConversation {
         attach(await _gateway.resume());
       } catch (error) {
         seCayo = true;
+        final causa = laCausaDe(error);
         controller.add(
-          VoiceSessionFailed(because == null ? '$error' : '$error ($because)'),
+          VoiceSessionFailed(
+            because == null ? '$causa' : '$causa ($because)',
+            // Sin asa con la que volver es «no se puede retomar», y lo que
+            // dijo el servicio al cortar va con ello: es la causa de verdad.
+            causa: causa is NoSePuedeRetomarLaVoz
+                ? NoSePuedeRetomarLaVoz(porque: because)
+                : causa,
+          ),
         );
         if (!controller.isClosed) await controller.close();
       }
@@ -1957,7 +1967,7 @@ class HoldVoiceConversation {
           onDone: () => session?.endAudio(),
           onError: (Object error) {
             seCayo = true;
-            controller.add(VoiceSessionFailed('$error'));
+            controller.add(VoiceSessionFailed('$error', causa: error));
           },
         );
 
@@ -1980,7 +1990,10 @@ class HoldVoiceConversation {
         });
       } catch (error, stackTrace) {
         seCayo = true;
-        controller.addError(error, stackTrace);
+        // 🔴 **La causa, y no el envoltorio del `.wait`.** Sin llave, lo que
+        // salía era un `ParallelWaitError` y la sala lo pintaba tal cual. Ver
+        // [laCausaDe].
+        controller.addError(laCausaDe(error), stackTrace);
         await controller.close();
       }
     }

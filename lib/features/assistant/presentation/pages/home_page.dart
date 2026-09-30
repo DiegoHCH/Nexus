@@ -269,6 +269,21 @@ class _HomePageState extends ConsumerState<HomePage> {
                       texto: context.strings.entrarConLaCuenta,
                       alPulsar: () => unawaited(controller.entrarConLaCuenta()),
                     )
+                  // Sin llave, el aviso lleva a donde se pone: es lo único
+                  // que lo arregla, y decirlo sin el camino obliga a buscarlo.
+                  : hud.faltaLaLlaveDeGemini
+                  ? (
+                      texto: context.strings.ponerLaLlave,
+                      alPulsar: () {
+                        controller.dismissError();
+                        unawaited(
+                          SettingsPage.open(
+                            context,
+                            en: SeccionDeAjustes.llaves,
+                          ),
+                        );
+                      },
+                    )
                   : null,
             ),
       aviso: hud.notice == null
@@ -384,7 +399,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             _margenDelPanel,
             22,
           ),
-          alSepararse: () => unawaited(controller.irSola()),
           onSubmit: (texto, adjuntos) =>
               controller.submit(texto, attachments: adjuntos),
           onFocusChanged: controller.setListening,

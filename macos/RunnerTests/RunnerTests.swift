@@ -1586,3 +1586,70 @@ final class ElOrbeFlotanteTests: XCTestCase {
     XCTAssertEqual(NexusOrbeFlotante.fundido, 0.5)
   }
 }
+
+/// Con qué idioma se escucha: **el de la app**, con el del sistema de respaldo.
+///
+/// 🔴 Salió al escribir la guía de configuración de la voz (30 sep): el oído
+/// reconocía con el idioma del sistema y la voz hablaba el de la app, así que
+/// con el Mac en español y la app en inglés ella contestaba en inglés y el oído
+/// esperaba oírte en español.
+final class ElIdiomaDelOidoTests: XCTestCase {
+  let soportados = ["en-GB", "en-US", "en-AU", "es-CO", "es-ES", "es-MX", "fr-FR"]
+
+  func testMandaElIdiomaDeLaAppAunqueElSistemaSeaOtro() {
+    let orden = NexusEscucha.losCandidatos(
+      idiomaDeLaApp: "en", preferidos: ["es-CO"], soportados: soportados)
+    XCTAssertEqual(orden.first, "en-US")
+    XCTAssertEqual(Array(orden.prefix(3)), ["en-US", "en-AU", "en-GB"])
+  }
+
+  func testTuVarianteVaPrimeroSiEsDelIdiomaDeLaApp() {
+    let orden = NexusEscucha.losCandidatos(
+      idiomaDeLaApp: "es", preferidos: ["es-CO", "en-US"], soportados: soportados)
+    // «es-CO» existe y no trabaja en el Mac: por eso detrás van sus hermanas.
+    XCTAssertEqual(Array(orden.prefix(3)), ["es-CO", "es-ES", "es-MX"])
+  }
+
+  func testElDelSistemaQuedaDeRespaldoYNoSeMezcla() {
+    let orden = NexusEscucha.losCandidatos(
+      idiomaDeLaApp: "en", preferidos: ["es-CO"], soportados: soportados)
+    let ingles = orden.prefix { $0.hasPrefix("en") }
+    let espanol = orden.drop { $0.hasPrefix("en") }
+    XCTAssertEqual(ingles.count, 3)
+    XCTAssertTrue(espanol.allSatisfy { $0.hasPrefix("es") })
+    XCTAssertEqual(espanol.first, "es-CO")
+    XCTAssertFalse(orden.contains("fr-FR"))
+  }
+
+  func testSinIdiomaDeLaAppSeEscuchaComoAntes() {
+    let orden = NexusEscucha.losCandidatos(
+      idiomaDeLaApp: nil, preferidos: ["es-CO"], soportados: soportados)
+    XCTAssertEqual(orden, ["es-CO", "es-ES", "es-MX"])
+  }
+
+  func testLosGuionesBajosDelSistemaCuentanIgual() {
+    let orden = NexusEscucha.losCandidatos(
+      idiomaDeLaApp: "es", preferidos: ["en-US"], soportados: ["es_MX", "en_US"])
+    XCTAssertEqual(orden, ["es-MX", "en-US"])
+  }
+}
+
+/// Por qué no se pudo poner la escucha viaja **por su nombre** hasta Dart.
+///
+/// 🔴 Iba solo al registro unificado de macOS y a la app llegaba un `false`:
+/// `nexus.log` decía «no se pudo poner» y ya. Estos nombres son el contrato
+/// con `PorQueNoEscucha` de `escucha_channel.dart`, que fija los mismos.
+final class PorQueNoEscuchaTests: XCTestCase {
+  func testLosMotivosViajanPorSuNombre() {
+    let nombres: [PorQueNoEscucha] = [
+      .sinPalabras, .sinPermisoDeVoz, .sinPermisoDelMicrofono, .microfonoOcupado,
+      .sinReconocedorLocal, .sinMicrofono, .fallaElMotor,
+    ]
+    XCTAssertEqual(
+      nombres.map(\.rawValue),
+      [
+        "sinPalabras", "sinPermisoDeVoz", "sinPermisoDelMicrofono", "microfonoOcupado",
+        "sinReconocedorLocal", "sinMicrofono", "fallaElMotor",
+      ])
+  }
+}

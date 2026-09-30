@@ -77,17 +77,21 @@ class ComposerBar extends ConsumerStatefulWidget {
 
   final String? folderPath;
 
-  /// Ver [ComposerChips.alSepararse].
+  /// Ver [ComposerChips.alSepararse]. Solo cuenta con [conLoDeLaSala]: sin
+  /// él, separar se hace desde la esquina de la sala.
   final VoidCallback? alSepararse;
   final SessionMeter meter;
   final bool voiceActive;
   final VoidCallback? onToggleVoice;
 
-  /// Si la caja trae también el permiso, el modelo y el esfuerzo.
+  /// Si la caja trae también lo que dicen las esquinas de la sala: dónde se
+  /// trabaja —carpeta, repo, rama, cuenta—, el permiso, el modelo y el
+  /// esfuerzo.
   ///
-  /// En el panel de la conversación no: esos tres están a la vista en las
-  /// esquinas de la sala, al lado, y repetirlos en una caja estrecha partía su
-  /// fila de controles.
+  /// En el panel de la conversación no: todo eso está a la vista en las
+  /// esquinas de la sala, al lado, y repetirlo en una caja estrecha partía su
+  /// fila de controles. En la casa sin conversación sí, porque ahí no hay sala
+  /// con esquinas.
   final bool conLoDeLaSala;
 
   /// La caja de escribir, para quien la busca desde fuera: el recorrido del Mac
@@ -207,12 +211,19 @@ class _ComposerBarState extends ConsumerState<ComposerBar> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              ComposerChips(
-                folder: folder,
-                folderPath: widget.folderPath,
-                alSepararse: widget.alSepararse,
-              ),
-              const SizedBox(height: NexusSpacing.s2),
+              // 🔴 **Sin las fichas en el panel del chat.** Carpeta, repo, rama
+              // y cuenta están en la esquina de arriba a la izquierda de la
+              // sala, a un palmo de aquí: «ya en la pantalla principal, en la
+              // parte superior izquierda, ya sale» (30 sep). Lo que hacían al
+              // tocarlas se mudó con ellas. Ver [ComposerChips].
+              if (widget.conLoDeLaSala) ...[
+                ComposerChips(
+                  folder: folder,
+                  folderPath: widget.folderPath,
+                  alSepararse: widget.alSepararse,
+                ),
+                const SizedBox(height: NexusSpacing.s2),
+              ],
               AttachmentStrip(paths: _attachments, onRemove: _detach),
               _Field(
                 controller: _controller,
@@ -513,15 +524,22 @@ class _Controls extends ConsumerWidget {
         // qué, y compruebas que sigue funcionando.
         _Casilla(child: _BotonDePruebas(proyecto: proyecto)),
         const Spacer(),
+        // 🔴 **El contexto, tampoco en el chat.** El círculo de aquí decía lo
+        // que la esquina de arriba a la derecha de la sala ya decía, y ahora
+        // es ella la que se pulsa y enseña el globo con las cifras. Ver
+        // [UsageMenu].
         if (conLoDeLaSala) ...[
           ModelMenu(folder: folder, meter: meter),
           EffortMenu(folder: folder, meter: meter),
           const SizedBox(width: NexusSpacing.s1),
+          TourAnchor(
+            stop: TourStop.meter,
+            child: UsageMenu(
+              meter: meter,
+              claudeProfile: folder?.claudeProfile,
+            ),
+          ),
         ],
-        TourAnchor(
-          stop: TourStop.meter,
-          child: UsageMenu(meter: meter, claudeProfile: folder?.claudeProfile),
-        ),
       ],
     );
   }

@@ -44,6 +44,7 @@ import 'package:nexus/features/assistant/presentation/providers/lo_que_dejo_el_e
 import 'package:nexus/features/assistant/presentation/providers/model_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/voice_session_providers.dart';
 import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.dart';
+import 'package:nexus/features/assistant/presentation/state/que_decir_del_fallo_de_la_voz.dart';
 import 'package:nexus/features/assistant/presentation/state/chat_message.dart';
 import 'package:nexus/features/assistant/presentation/state/lo_que_hace_cada_comando.dart';
 import 'package:nexus/features/assistant/presentation/state/el_orbe_cuando_calla.dart';
@@ -3137,7 +3138,9 @@ class AssistantController extends Notifier<AssistantHudState> {
             VoiceToolFinished() => _onToolFinished(event),
             VoiceFraseAparte() => _onFraseAparte(event.texto),
             VoiceFraseAparteDicha() => _onFraseAparteDicha(),
-            VoiceSessionFailed() => unawaited(_onVoiceFailed(event.message)),
+            VoiceSessionFailed() => unawaited(
+              _onVoiceFailed(event.causa, event.message),
+            ),
             // El audio no llega hasta aquí: lo reproduce el caso de uso. La
             // interfaz solo necesita el texto y el estado.
             VoiceReplyAudio() => null,
@@ -3146,7 +3149,7 @@ class AssistantController extends Notifier<AssistantHudState> {
             VoiceToolRequested() => null,
           },
           onError: (Object error) =>
-              unawaited(_onVoiceFailed(error.toString())),
+              unawaited(_onVoiceFailed(error, error.toString())),
           onDone: () => state = state.copyWith(
             voiceActive: false,
             orbState: NexusOrbState.sleep,
@@ -3571,15 +3574,28 @@ class AssistantController extends Notifier<AssistantHudState> {
     _afterErrand();
   }
 
-  Future<void> _onVoiceFailed(String message) async {
+  /// La voz no se abrió o se cayó.
+  ///
+  /// 🔴 **Lo que se enseña lo dice [QueDecirDelFalloDeLaVoz], y lo crudo va al
+  /// registro.** Antes el aviso era `error.toString()` tal cual, y sin llave
+  /// la sala decía «ParallelWaitError: Bad state: No hay llave de Gemini
+  /// guardada.».
+  Future<void> _onVoiceFailed(Object? causa, String mensaje) async {
     await _voiceSubscription?.cancel();
     _voiceSubscription = null;
     if (!_vive) return;
+    debugPrint('voz · no se abrió o se cayó: $mensaje');
+    final dicho = QueDecirDelFalloDeLaVoz.de(
+      causa,
+      mensaje,
+      ref.read(stringsProvider),
+    );
     state = state.copyWith(
       voiceActive: false,
       orbState: NexusOrbState.sleep,
       isStreaming: false,
-      errorMessage: message,
+      errorMessage: dicho.texto,
+      faltaLaLlaveDeGemini: dicho.faltaLaLlave,
     );
   }
 }

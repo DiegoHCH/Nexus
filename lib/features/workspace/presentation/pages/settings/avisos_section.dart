@@ -51,6 +51,47 @@ class AvisosSection extends ConsumerWidget {
               costeEncendido: strings.avisosCosteEncendido(cuanto),
               onCambiar: (on) => vigilante.cambiar(encendidos: on),
             ),
+            // 🔴 **Aquí y no en «Cuando algo termina»**, que es donde estaban:
+            // leer el calendario y oír un aviso de prueba son de las reuniones,
+            // y al final de la hoja parecían mandos de los avisos de encargos.
+            // Salió al escribir la guía de configuración de la voz (30 sep).
+            //
+            // La hora y los botones juntos, y no los botones solos.
+            //
+            // La agenda en memoria **envejece sin avisar**: lo que programes a
+            // media mañana no está en lo que se leyó al arrancar. Ver a qué
+            // hora se leyó es lo que convierte eso en algo que puedes
+            // corregir, en vez de en una ausencia de la que nadie se entera.
+            EstadoDeAjustes(
+              tono: avisos.ultimaLectura == null
+                  ? TonoDeAjustes.apagado
+                  : TonoDeAjustes.bien,
+              texto: switch (avisos.ultimaLectura) {
+                final cuando? => strings.avisosLeidoA(_laHora(cuando)),
+                null => strings.avisosSinLeer,
+              },
+            ),
+            AccionesDeAjustes(
+              botones: [
+                BotonDeAjustes(
+                  texto: strings.avisosReleer,
+                  tono: TonoDeBoton.principal,
+                  onPulsar: avisos.listos ? vigilante.releer : null,
+                ),
+                // Oírlo cuando quieras, y no cuando te toque una reunión.
+                //
+                // Sin esto, la única forma de saber si funciona —o a qué
+                // volumen suena, o si falta la llave— es esperar a que pase de
+                // verdad. Y ese día es justo el peor para descubrirlo.
+                //
+                // No pide carpeta: no mira el calendario, así que se puede
+                // pulsar antes de haber configurado nada.
+                BotonDeAjustes(
+                  texto: strings.avisosProbar,
+                  onPulsar: vigilante.probar,
+                ),
+              ],
+            ),
           ],
         ),
         BloqueDeAjustes(
@@ -140,42 +181,6 @@ class AvisosSection extends ConsumerWidget {
                 },
               ),
             ],
-            // 🔴 La hora y los botones juntos, y no los botones solos.
-            //
-            // La agenda en memoria **envejece sin avisar**: lo que programes a
-            // media mañana no está en lo que se leyó al arrancar. Ver a qué
-            // hora se leyó es lo que convierte eso en algo que puedes
-            // corregir, en vez de en una ausencia de la que nadie se entera.
-            EstadoDeAjustes(
-              tono: avisos.ultimaLectura == null
-                  ? TonoDeAjustes.apagado
-                  : TonoDeAjustes.bien,
-              texto: switch (avisos.ultimaLectura) {
-                final cuando? => strings.avisosLeidoA(_laHora(cuando)),
-                null => strings.avisosSinLeer,
-              },
-            ),
-            AccionesDeAjustes(
-              botones: [
-                BotonDeAjustes(
-                  texto: strings.avisosReleer,
-                  tono: TonoDeBoton.principal,
-                  onPulsar: avisos.listos ? vigilante.releer : null,
-                ),
-                // Oírlo cuando quieras, y no cuando te toque una reunión.
-                //
-                // Sin esto, la única forma de saber si funciona —o a qué
-                // volumen suena, o si falta la llave— es esperar a que pase de
-                // verdad. Y ese día es justo el peor para descubrirlo.
-                //
-                // No pide carpeta: no mira el calendario, así que se puede
-                // pulsar antes de haber configurado nada.
-                BotonDeAjustes(
-                  texto: strings.avisosProbar,
-                  onPulsar: vigilante.probar,
-                ),
-              ],
-            ),
           ],
         ),
       ],

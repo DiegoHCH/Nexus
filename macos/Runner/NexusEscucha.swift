@@ -51,6 +51,10 @@ final class NexusEscucha: NSObject {
 
   /// Las palabras que lo despiertan, en minúsculas y sin acentos.
   private var palabras: [String] = []
+
+  /// El idioma de la app —`es`, `en`—, que es con el que se reconoce. Ver
+  /// [elReconocedor].
+  private var idiomaDeLaApp: String?
   private var escuchando = false
 
   /// Qué arranque es el vigente. Cada `arrancar` lo sube, y la tarea de
@@ -86,7 +90,15 @@ final class NexusEscucha: NSObject {
       case "empezar":
         let args = call.arguments as? [String: Any]
         let palabras = (args?["palabras"] as? [String]) ?? []
+        if let idioma = args?["idioma"] as? String { compartida.idiomaDeLaApp = idioma }
         compartida.empezar(palabras: palabras, result: result)
+      // Cambiaste el idioma en Ajustes: si estaba escuchando, vuelve a empezar
+      // con el reconocedor del idioma nuevo. Sin esto seguiría transcribiendo
+      // en el de antes hasta que algo lo reiniciara.
+      case "idioma":
+        let args = call.arguments as? [String: Any]
+        compartida.cambiarIdioma(args?["idioma"] as? String)
+        result(compartida.escuchando)
       case "parar":
         compartida.parar()
         result(nil)
@@ -115,6 +127,16 @@ final class NexusEscucha: NSObject {
         result(self.arrancar())
       }
     }
+  }
+
+  /// Cambia el idioma con el que se reconoce y, si estaba escuchando, vuelve a
+  /// empezar con él.
+  private func cambiarIdioma(_ idioma: String?) {
+    guard idioma != idiomaDeLaApp else { return }
+    idiomaDeLaApp = idioma
+    guard escuchando else { return }
+    Self.log.notice("cambió el idioma de la app · se vuelve a empezar en \(idioma ?? "el del sistema", privacy: .public)")
+    reiniciar()
   }
 
   /// Si el micrófono ya lo está usando otra app.
@@ -165,7 +187,7 @@ final class NexusEscucha: NSObject {
       return false
     }
 
-    guard let reconocedor = Self.elReconocedor() else {
+    guard let reconocedor = Self.elReconocedor(idioma: idiomaDeLaApp) else {
       // Ver arriba: sin reconocimiento local esto no se enciende.
       Self.log.notice("no hay reconocedor que trabaje en el dispositivo · no se escucha")
       return false
@@ -258,35 +280,74 @@ final class NexusEscucha: NSObject {
     return true
   }
 
-  /// El reconocedor con el que se escucha: el del idioma en que hablas, y si
-  /// ese no puede trabajar en el Mac, otra variante **del mismo idioma** que sí.
+  /// El reconocedor con el que se escucha: **el del idioma de la app**, y si
+  /// ese no puede trabajar en el Mac, el del sistema.
   ///
-  /// 🔴 **«El idioma en que hablas» no es el de la app.** `SFSpeechRecognizer()`
-  /// a secas usa `Locale.current`, y dentro de Nexus eso sale en inglés: el
-  /// bundle nativo solo declara `en`, así que macOS le da a la app su idioma y
-  /// no el tuyo. Por eso se lee `Locale.preferredLanguages`, que es lo que
-  /// elegiste en el sistema aunque la app no lo traiga.
+  /// 🔴 **El de la app y no el del sistema** (30 sep, al escribir la guía de
+  /// configuración de la voz). Se escuchaba con `Locale.preferredLanguages` y la
+  /// voz hablaba el idioma elegido en Ajustes › Idioma: con el Mac en español y
+  /// la app en inglés, ella contestaba en inglés y el oído esperaba oírte en
+  /// español. Ahora los dos siguen al mismo ajuste, que llega por el canal al
+  /// ponerse y cada vez que cambia.
   ///
-  /// 🔴 **Y la variante regional no es un detalle.** macOS solo trae modelo
-  /// local para algunas: el reconocedor de `es-CO` existe, está disponible… y
-  /// no trabaja en el dispositivo. El mexicano sí, y «Hestia» suena igual en
-  /// los dos. Lo que no se hace es cambiar de idioma: transcribir español con
-  /// el reconocedor inglés convierte el nombre en cualquier cosa.
-  static func elReconocedor() -> SFSpeechRecognizer? {
-    let tuyo = Locale(identifier: Locale.preferredLanguages.first ?? Locale.current.identifier)
-    let delSistema = SFSpeechRecognizer(locale: tuyo)
-    if let delSistema, delSistema.isAvailable, delSistema.supportsOnDeviceRecognition {
-      return delSistema
-    }
-    let idioma = tuyo as NSLocale
-    let hermanas = SFSpeechRecognizer.supportedLocales()
-      .filter { ($0 as NSLocale).languageCode == idioma.languageCode }
-      .sorted { $0.identifier < $1.identifier }
-    for variante in hermanas {
-      guard let otro = SFSpeechRecognizer(locale: variante) else { continue }
-      if otro.isAvailable, otro.supportsOnDeviceRecognition { return otro }
+  /// El del sistema queda **de respaldo**: si el idioma de la app no tiene
+  /// modelo local, mejor oír en el del sistema que no oír. Y el orden dentro de
+  /// cada idioma lo explica [losCandidatos].
+  static func elReconocedor(idioma: String?) -> SFSpeechRecognizer? {
+    let soportados = SFSpeechRecognizer.supportedLocales().map(\.identifier)
+    for candidato in losCandidatos(
+      idiomaDeLaApp: idioma, preferidos: Locale.preferredLanguages, soportados: soportados)
+    {
+      guard let reconocedor = SFSpeechRecognizer(locale: Locale(identifier: candidato)) else {
+        continue
+      }
+      if reconocedor.isAvailable, reconocedor.supportsOnDeviceRecognition { return reconocedor }
     }
     return nil
+  }
+
+  /// En qué orden se prueban los reconocedores. Pura para poder probarla: lo
+  /// que no se puede probar sin un Mac es cuál trae modelo local.
+  ///
+  /// Primero el idioma de la app y después el del sistema, y dentro de cada uno:
+  ///
+  /// 1. **Tu variante**, la que tengas entre tus idiomas preferidos: con el Mac
+  ///    en `es-CO` y la app en español, `es-CO`. Así se escuchaba hasta ahora.
+  /// 2. 🔴 **Las hermanas, porque la variante regional no es un detalle.**
+  ///    macOS solo trae modelo local para algunas: el reconocedor de `es-CO`
+  ///    existe, está disponible… y no trabaja en el dispositivo. El mexicano sí,
+  ///    y «Hestia» suena igual en los dos. En inglés va primero `en-US`, que es
+  ///    el que casi siempre lo tiene; el resto, en orden alfabético.
+  ///
+  /// Lo que no se hace es mezclar idiomas dentro de uno: transcribir español con
+  /// el reconocedor inglés convierte el nombre en cualquier cosa. El salto al
+  /// del sistema es el respaldo entero, no una hermana más.
+  static func losCandidatos(
+    idiomaDeLaApp: String?, preferidos: [String], soportados: [String]
+  ) -> [String] {
+    var orden: [String] = []
+    func anadir(_ id: String) {
+      let limpio = id.replacingOccurrences(of: "_", with: "-")
+      if !orden.contains(limpio) { orden.append(limpio) }
+    }
+    func lenguaDe(_ id: String) -> String {
+      String(id.replacingOccurrences(of: "_", with: "-").split(separator: "-").first ?? "")
+        .lowercased()
+    }
+    func delIdioma(_ lengua: String) {
+      guard !lengua.isEmpty else { return }
+      for preferido in preferidos where lenguaDe(preferido) == lengua { anadir(preferido) }
+      let hermanas = soportados.filter { lenguaDe($0) == lengua }
+        .map { $0.replacingOccurrences(of: "_", with: "-") }
+        .sorted()
+      let principal = lengua == "en" ? "en-US" : nil
+      if let principal, hermanas.contains(principal) { anadir(principal) }
+      for hermana in hermanas { anadir(hermana) }
+    }
+    if let idiomaDeLaApp { delIdioma(lenguaDe(idiomaDeLaApp)) }
+    // El respaldo: el idioma del sistema, como se escuchaba antes.
+    if let sistema = preferidos.first { delIdioma(lenguaDe(sistema)) }
+    return orden
   }
 
   private func reiniciar() {

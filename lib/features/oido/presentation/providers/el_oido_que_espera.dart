@@ -166,7 +166,7 @@ class ElOidoQueEspera {
     // aunque la hubieras llamado Hestia, y se quedaba así toda la sesión.
     await _ref.read(losNombresProvider.notifier).leidos;
     if (!_ref.mounted) return;
-    _puesto = await EscuchaChannel.empezar(_lasPalabras());
+    _puesto = await EscuchaChannel.empezar(_lasPalabras(), idioma: _elIdioma());
     debugPrint('escucha · ${_puesto ? 'puesta' : 'no se pudo poner'}');
     if (!_puesto) _volverAProbar();
   }
@@ -198,6 +198,27 @@ class ElOidoQueEspera {
     await EscuchaChannel.parar();
     await cuadrar();
   }
+
+  /// Cambió el idioma de la app: el oído pasa a escuchar en ese.
+  ///
+  /// 🔴 **El oído escucha en el idioma de la app, no en el del sistema** (30
+  /// sep, al escribir la guía de configuración de la voz). Antes reconocía con
+  /// `Locale.preferredLanguages` y la voz hablaba el de Ajustes › Idioma: con el
+  /// Mac en español y la app en inglés, ella contestaba en inglés y el oído
+  /// esperaba español. El idioma viaja al ponerse —ver [cuadrar]— y aquí,
+  /// cuando cambia; sin escuchar no hay nada que cambiar, y el siguiente
+  /// `empezar` ya lleva el nuevo.
+  Future<void> cambiarIdioma(String idioma) async {
+    if (!_puesto) return;
+    _puesto = await EscuchaChannel.cambiarIdioma(idioma);
+    debugPrint(
+      'escucha · idioma $idioma · ${_puesto ? 'sigue puesta' : 'no pudo volver'}',
+    );
+    if (!_puesto) _volverAProbar();
+  }
+
+  /// El idioma de la app, como código: el mismo con el que habla la voz.
+  String _elIdioma() => _ref.read(localeProvider).languageCode;
 
   Future<bool> _debeEscuchar() async {
     if (_llamando) return false;
@@ -461,6 +482,13 @@ final elOidoQueEsperaProvider = Provider<ElOidoQueEspera>((ref) {
   // Y por lo mismo si se sigue sin su nombre: se pregunta a media
   // conversación, con cada frase, y ahí no se espera al disco.
   ref.listen(seSigueSinNombreProvider, (_, _) {});
+  // Y el idioma: el oído escucha en el de la app, que es en el que habla ella.
+  ref.listen(localeProvider.select((locale) => locale.languageCode), (
+    antes,
+    ahora,
+  ) {
+    if (antes != ahora) unawaited(oido.cambiarIdioma(ahora));
+  });
   ref.listen(losNombresProvider.select((nombres) => nombres.agente), (
     antes,
     ahora,

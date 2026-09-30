@@ -11,14 +11,33 @@ abstract final class EscuchaChannel {
   /// Empieza a escuchar esas palabras. `false` si no se pudo: sin permiso, sin
   /// reconocedor, o sin reconocimiento local — que es el único con el que esto
   /// se enciende.
-  static Future<bool> empezar(List<String> palabras) async {
+  ///
+  /// [idioma] es el de la app —`es`, `en`—: el reconocedor escucha en ese, con
+  /// el del sistema de respaldo si ese no tiene modelo local. Ver
+  /// `NexusEscucha.elReconocedor`.
+  static Future<bool> empezar(List<String> palabras, {String? idioma}) async {
     try {
       final puesto = await _canal.invokeMethod<bool>('empezar', {
         'palabras': palabras,
+        'idioma': ?idioma,
       });
       return puesto ?? false;
     } on Object catch (error) {
       debugPrint('escucha · no se pudo empezar: $error');
+      return false;
+    }
+  }
+
+  /// Cambió el idioma de la app: si está escuchando, vuelve a empezar con el
+  /// reconocedor del nuevo. Devuelve si sigue escuchando.
+  static Future<bool> cambiarIdioma(String idioma) async {
+    try {
+      final sigue = await _canal.invokeMethod<bool>('idioma', {
+        'idioma': idioma,
+      });
+      return sigue ?? false;
+    } on Object catch (error) {
+      debugPrint('escucha · no se pudo cambiar el idioma: $error');
       return false;
     }
   }

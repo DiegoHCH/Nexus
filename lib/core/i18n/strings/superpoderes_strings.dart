@@ -27,6 +27,19 @@ mixin SuperpoderesStrings {
   String get orbeIntensidad;
   String get orbeFabrica;
   String get orbeSinPlasma;
+
+  // El personaje: la tercera forma del orbe, su luz y sus ojos. Sin su
+  // nombre: lo elige cada uno, y no tiene por qué ser el de fábrica.
+  String get orbePersonaje;
+  String get personajeExplica;
+  String get personajeLuz;
+  String get personajeLuzTraje;
+  String get personajeLuzAura;
+  String get personajeLuzHorizonte;
+  String get personajeOjos;
+  String get personajeOjosComoEstan;
+  String get personajeOjosDelAcento;
+  String get personajeOjosOtroColor;
   String get accentAdjusted;
   String get accentReset;
   String get accentInDark;
@@ -193,6 +206,29 @@ mixin SuperpoderesStringsEs implements SuperpoderesStrings {
   @override
   String get orbeSinPlasma =>
       'Este Mac no pudo cargar el plasma: se ven los puntos.';
+  @override
+  String get orbePersonaje => 'Personaje';
+  @override
+  String get personajeExplica =>
+      'En la sala del Mac y en la conversación del móvil. El Dock, el orbe '
+      'flotante y los orbes pequeños siguen con la forma de antes. Las luces '
+      'siguen el color de acento.';
+  @override
+  String get personajeLuz => 'Su luz';
+  @override
+  String get personajeLuzTraje => 'Traje';
+  @override
+  String get personajeLuzAura => 'Aura';
+  @override
+  String get personajeLuzHorizonte => 'Horizonte';
+  @override
+  String get personajeOjos => 'Sus ojos';
+  @override
+  String get personajeOjosComoEstan => 'Como están';
+  @override
+  String get personajeOjosDelAcento => 'Del acento';
+  @override
+  String get personajeOjosOtroColor => 'Otro color';
   @override
   String get accentAdjusted =>
       'Se ajusta el brillo, no el color: sobre el vacío hace falta un tono más '
@@ -449,6 +485,31 @@ mixin SuperpoderesStringsEn implements SuperpoderesStrings {
   @override
   String get orbeSinPlasma =>
       'This Mac could not load the plasma: you see the dots.';
+  @override
+  String get orbePersonaje => 'Character';
+  @override
+  String get personajeExplica =>
+      'In the Mac room and in the phone conversation. The Dock, the floating '
+      'orb and the small orbs keep the shape you had. The lights follow the '
+      'accent colour.';
+  // «Light» y «Eyes» y no «Her light»: el personaje puede ser otro, y el
+  // inglés obliga a elegir un género que el español aquí no pide.
+  @override
+  String get personajeLuz => 'Light';
+  @override
+  String get personajeLuzTraje => 'Suit';
+  @override
+  String get personajeLuzAura => 'Aura';
+  @override
+  String get personajeLuzHorizonte => 'Horizon';
+  @override
+  String get personajeOjos => 'Eyes';
+  @override
+  String get personajeOjosComoEstan => 'As drawn';
+  @override
+  String get personajeOjosDelAcento => 'Accent';
+  @override
+  String get personajeOjosOtroColor => 'Other colour';
   @override
   String get accentAdjusted =>
       'The brightness is adjusted, not the colour: over the void a lighter tone '

@@ -177,6 +177,8 @@ class _ConectadoState extends ConsumerState<_Conectado> {
     // aquí, encima de la lista, porque tiene que estar escuchando **antes** del primer
     // saludo: el acento llega con él.
     ref.watch(accentFromMacProvider);
+    // Y el personaje, por lo mismo: llega con el saludo.
+    ref.watch(personajeFromMacProvider);
     // Y esto acorta la espera al volver del fondo: sin él, volver a la app caía
     // casi siempre en medio de la escalera de reintentos —que acaba en 30 s— y se
     // veía «reconectando» clavado.

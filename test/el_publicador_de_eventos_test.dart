@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexus/core/design_system/orbe_preference.dart';
 import 'package:nexus/features/assistant/domain/entities/conversation.dart';
 import 'package:nexus/features/assistant/domain/repositories/conversation_memory.dart';
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
@@ -211,5 +212,34 @@ void main() {
     // ya cerrado.
     expect(publicados, isEmpty);
     expect(puente.ventanasAbiertas, 0);
+  });
+
+  test('el personaje sale al cambiar lo que viaja, y solo entonces', () async {
+    final (c, _, publicador) = montar();
+    publicador.arrancar();
+    pasarElTiempo();
+    // Sin disparar al arrancar: el de ahora ya va en el saludo.
+    expect(deTipo('character'), isEmpty);
+    // Lo guardado se lee de disco al arrancar el controlador: se espera a que
+    // termine, o su valor pisaría lo elegido aquí.
+    c.read(orbeEstiloProvider);
+    await Future<void>.delayed(Duration.zero);
+    final control = c.read(orbeEstiloProvider.notifier);
+
+    await control.elegir(const OrbeEstilo(personaje: true));
+    expect(deTipo('character').single.data['shown'], isTrue);
+
+    // Un deslizador del plasma no le dice nada al teléfono.
+    await control.elegir(const OrbeEstilo(personaje: true, filamentos: 3));
+    expect(deTipo('character'), hasLength(1));
+
+    await control.elegir(
+      const OrbeEstilo(
+        personaje: true,
+        filamentos: 3,
+        luz: LuzDelPersonaje.aura,
+      ),
+    );
+    expect(deTipo('character').last.data['light'], 'aura');
   });
 }

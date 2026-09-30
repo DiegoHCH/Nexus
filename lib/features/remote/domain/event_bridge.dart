@@ -105,6 +105,16 @@ class EventBridge {
     publicar(log.emitir('accent', {'argb': argb}));
   }
 
+  /// Avisa de que cambió el personaje del Mac —si va en la sala, su luz, sus
+  /// ojos—, en la forma de `docs/PROTOCOL.md` (4.9).
+  ///
+  /// Sin conversación y por el registro numerado, por lo mismo que [acento]: es
+  /// del Mac entero, y un teléfono que se reincorpora lo recibe en su resync.
+  void personaje(Map<String, Object?> datos) {
+    if (_cerrado) return;
+    publicar(log.emitir('character', datos));
+  }
+
   /// Lo último que se contó de la actualización del Mac.
   ///
   /// Para no repetirlo: quien llama avisa en cada cambio del actualizador —y la

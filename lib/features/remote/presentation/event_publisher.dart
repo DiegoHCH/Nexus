@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/design_system/orbe_preference.dart';
+import 'package:nexus/features/remote/data/el_personaje_por_el_canal.dart';
 import 'package:nexus/features/assistant/domain/entities/conversation.dart';
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
@@ -37,6 +40,7 @@ class EventPublisher {
   final _escuchas = <String, ProviderSubscription<AssistantHudState>>{};
   ProviderSubscription<Conversations>? _deLaLista;
   ProviderSubscription<Accent>? _delAcento;
+  ProviderSubscription<OrbeEstilo>? _delPersonaje;
   ProviderSubscription<ActualizacionDelMac?>? _deLaActualizacion;
 
   void arrancar() {
@@ -55,6 +59,19 @@ class EventPublisher {
     _delAcento = ref.listen(accentControllerProvider, (antes, ahora) {
       if (antes?.chosen == ahora.chosen) return;
       bridge.acento(ahora.chosen.toARGB32());
+    });
+
+    // El personaje, en vivo y **sin `fireImmediately`** por lo mismo que el
+    // acento: el de ahora ya viaja en el saludo. Solo si cambió lo que viaja:
+    // mover un deslizador del plasma cambia el estilo y no le dice nada al
+    // teléfono.
+    _delPersonaje = ref.listen(orbeEstiloProvider, (antes, ahora) {
+      final nuevo = ElPersonajePorElCanal.deEstilo(ahora);
+      if (antes != null &&
+          mapEquals(ElPersonajePorElCanal.deEstilo(antes), nuevo)) {
+        return;
+      }
+      bridge.personaje(nuevo);
     });
 
     // La actualización, en vivo, y **sin `fireImmediately`** por lo mismo que el
@@ -76,6 +93,8 @@ class EventPublisher {
     _deLaLista = null;
     _delAcento?.close();
     _delAcento = null;
+    _delPersonaje?.close();
+    _delPersonaje = null;
     _deLaActualizacion?.close();
     _deLaActualizacion = null;
     bridge.cerrar();

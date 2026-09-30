@@ -155,7 +155,17 @@ losOjosCon(double cierre) {
 /// Subir rápido y bajar despacio es lo que hace un vúmetro: se ve el golpe de
 /// cada sílaba y no el ruido entre dos.
 class ElNivelSuave {
-  static const sube = 0.06, baja = 0.18;
+  ElNivelSuave({this.sube = 0.06, this.baja = 0.18});
+
+  /// El de las luces: sube en ~150 ms y baja en ~450 ms.
+  ///
+  /// 🔴 **Más lento que el de la boca, a propósito** (30 sep: «en el estado
+  /// escuchando las luces parpadean»). La boca tiene que seguir cada sílaba;
+  /// una luz que la sigue igual de rápido no late, parpadea. Con este, la luz
+  /// del traje, el aura, el horizonte y el asentir respiran con la voz.
+  ElNivelSuave.deLaLuz() : this(sube: 0.15, baja: 0.45);
+
+  final double sube, baja;
 
   double valor = 0;
 

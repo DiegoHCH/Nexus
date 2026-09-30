@@ -143,6 +143,20 @@ void main() {
       }
       expect(nivel.valor, closeTo(math.exp(-1), 0.03));
     });
+
+    // 🔴 «En el estado escuchando las luces parpadean» (30 sep): las luces van
+    // con un nivel más lento que el de la boca. Un golpe de voz de 80 ms mueve
+    // mucho la boca y poco la luz.
+    test('el de las luces es más lento que el de la boca', () {
+      final boca = ElNivelSuave(), luz = ElNivelSuave.deLaLuz();
+      for (var t = 0.0; t < 0.08; t += 1 / 60) {
+        boca.avanzar(1 / 60, 1);
+        luz.avanzar(1 / 60, 1);
+      }
+      expect(boca.valor, greaterThan(0.7));
+      expect(luz.valor, lessThan(0.45));
+      expect(luz.valor, greaterThan(0.2), reason: 'lenta, pero se mueve');
+    });
   });
 
   group('la boca', () {

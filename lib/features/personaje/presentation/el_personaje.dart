@@ -97,6 +97,10 @@ class _ElPersonajeState extends State<ElPersonaje> {
   late final _boca = LaBocaQueHabla(semilla: _semilla);
   final _nivel = ElNivelSuave();
 
+  /// El de las luces, el aura, el horizonte y el asentir: más lento. Ver
+  /// [ElNivelSuave.deLaLuz].
+  final _luz = ElNivelSuave.deLaLuz();
+
   /// Lo que cierra los ojos el estado, fundiéndose en 250 ms al cambiar:
   /// entornarlos al trabajar o cerrarlos al dormirse, y no de golpe.
   double _cierreDeAntes = 0, _cierreDeAhora = 0, _cambioDeLosOjos = -1;
@@ -194,6 +198,7 @@ class _ElPersonajeState extends State<ElPersonaje> {
           _ahora = ahora;
           final crudo = _elNivelCrudo();
           _nivel.avanzar(dt, crudo);
+          _luz.avanzar(dt, crudo);
           _boca.avanzar(
             dt,
             nivel: _nivel.valor,
@@ -228,9 +233,9 @@ class _ElPersonajeState extends State<ElPersonaje> {
   double _elNivelCrudo() =>
       (widget.nivelVivo?.value ?? widget.nivel ?? 0).clamp(0.0, 1.0);
 
-  /// El que se pinta: suavizado, para que ni la boca, ni las luces, ni el
-  /// asentir de la cabeza tiemblen con cada muestra.
-  double _elNivel() => _nivel.valor;
+  /// El que se pinta —las luces, el aura, el horizonte, el asentir—: el lento.
+  /// La boca va con el rápido, en [_boca].
+  double _elNivel() => _luz.valor;
 
   @override
   Widget build(BuildContext context) {

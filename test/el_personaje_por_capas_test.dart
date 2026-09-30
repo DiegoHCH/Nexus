@@ -7,6 +7,7 @@ import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/personaje/domain/el_personaje_por_capas.dart';
 import 'package:nexus/features/personaje/presentation/el_personaje.dart';
 import 'package:nexus/features/personaje/presentation/el_personaje_painter.dart';
+import 'package:nexus/features/personaje/presentation/las_capas_del_personaje.dart';
 
 /// El personaje por capas, sin pintar nada: qué ojos, qué boca, cuánta luz y
 /// cómo se mueve la malla en cada estado. Las cifras son las del mockup
@@ -321,15 +322,14 @@ void main() {
 
   group('el color', () {
     test('solo dormido, sin oído y sin llave llevan filtro', () {
-      expect(elFiltroDe(ComoEsta.escucha), isNull);
-      expect(elFiltroDe(ComoEsta.habla), isNull);
-      expect(elFiltroDe(ComoEsta.enReposo), isNotNull);
-      // Sin llave, en gris: las tres filas de color son iguales.
-      final gris = elFiltroDe(ComoEsta.sinLlave)!;
-      expect(gris.sublist(0, 3), gris.sublist(5, 8));
-      expect(gris.sublist(0, 3), gris.sublist(10, 13));
-      // Y a 0,6 de brillo: un blanco sale al 60 %.
-      expect(gris[0] + gris[1] + gris[2], closeTo(0.6, 1e-3));
+      expect(elFiltroDe(ComoEsta.escucha), ElFiltroDelEstado.neutro);
+      expect(elFiltroDe(ComoEsta.habla), ElFiltroDelEstado.neutro);
+      // Dormido, más oscuro y un poco menos de color: brillo 0,74.
+      expect(elFiltroDe(ComoEsta.enReposo).oscuro, closeTo(0.26, 1e-9));
+      expect(elFiltroDe(ComoEsta.enReposo).gris, closeTo(0.15, 1e-9));
+      // Sin llave, en gris del todo y a 0,6.
+      expect(elFiltroDe(ComoEsta.sinLlave).gris, 1);
+      expect(elFiltroDe(ComoEsta.sinLlave).oscuro, closeTo(0.4, 1e-9));
     });
 
     test('el tinte no toca el alfa y lleva el tono del color', () {
@@ -361,11 +361,13 @@ void main() {
     });
 
     test('el filtro se mezcla: a medio camino, a medio camino', () {
-      final a = laMatrizNeutra, b = elFiltroDe(ComoEsta.sinLlave)!;
-      final medio = mezclaDeMatrices(a, b, 0.5);
-      for (var i = 0; i < 20; i++) {
-        expect(medio[i], closeTo((a[i] + b[i]) / 2, 1e-9));
-      }
+      final medio = ElFiltroDelEstado.mezcla(
+        ElFiltroDelEstado.neutro,
+        elFiltroDe(ComoEsta.sinLlave),
+        0.5,
+      );
+      expect(medio.gris, closeTo(0.5, 1e-9));
+      expect(medio.oscuro, closeTo(0.2, 1e-9));
     });
   });
 }

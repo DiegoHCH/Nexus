@@ -100,8 +100,8 @@ class _ElPersonajeState extends State<ElPersonaje> {
   bool _enMarcha = false;
 
   /// El filtro del estado, que se mezcla en 600 ms al cambiar.
-  List<double> _filtroDeAntes = laMatrizNeutra;
-  List<double> _filtroDeAhora = laMatrizNeutra;
+  ElFiltroDelEstado _filtroDeAntes = ElFiltroDelEstado.neutro;
+  ElFiltroDelEstado _filtroDeAhora = ElFiltroDelEstado.neutro;
   double _cambioDelFiltro = -1;
   static const _duraElCambio = 0.6;
 
@@ -118,7 +118,7 @@ class _ElPersonajeState extends State<ElPersonaje> {
         if (mounted && capas != null) setState(() => _capas = capas);
       });
     }
-    _filtroDeAhora = _filtroDeAntes = elFiltroDe(_como) ?? laMatrizNeutra;
+    _filtroDeAhora = _filtroDeAntes = elFiltroDe(_como);
   }
 
   @override
@@ -137,22 +137,22 @@ class _ElPersonajeState extends State<ElPersonaje> {
   @override
   void didUpdateWidget(covariant ElPersonaje oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final nuevo = elFiltroDe(_como) ?? laMatrizNeutra;
-    if (!listEquals(nuevo, _filtroDeAhora)) {
+    final nuevo = elFiltroDe(_como);
+    if (nuevo != _filtroDeAhora) {
       _filtroDeAntes = _elFiltro;
       _filtroDeAhora = nuevo;
       _cambioDelFiltro = _quieto ? -1 : _ahora;
     }
   }
 
-  List<double> get _elFiltro {
+  ElFiltroDelEstado get _elFiltro {
     if (_cambioDelFiltro < 0) return _filtroDeAhora;
     final u = ((_ahora - _cambioDelFiltro) / _duraElCambio).clamp(0.0, 1.0);
     if (u >= 1) {
       _cambioDelFiltro = -1;
       return _filtroDeAhora;
     }
-    return mezclaDeMatrices(_filtroDeAntes, _filtroDeAhora, u);
+    return ElFiltroDelEstado.mezcla(_filtroDeAntes, _filtroDeAhora, u);
   }
 
   void _siguiente() {
@@ -221,7 +221,7 @@ class _ElPersonajeState extends State<ElPersonaje> {
         acento: acento,
         luzDelTraje: esElCianDeFabrica(acento) ? null : brillante,
         ojos: ojos,
-        filtro: identical(filtro, laMatrizNeutra) ? null : filtro,
+        filtro: filtro,
         quieto: _quieto,
         pasos: widget.pasos,
         hechos: widget.hechos,

@@ -20,6 +20,18 @@ import 'package:nexus/features/personaje/presentation/las_capas_del_personaje.da
 /// el dibujo ya compuesto. Fundiendo cada capa por separado, las líneas del
 /// traje, pintadas sobre la chaqueta ya medio transparente, se verían más
 /// opacas que ella justo en la franja que se funde.
+///
+/// 🔴 **Ningún `ColorFilter` en `drawVertices` ni en `saveLayer`: Impeller los
+/// ignora.** Medido con el motor de verdad (`integration_test`, macOS): un
+/// `drawVertices` con pincel de imagen y `colorFilter`, o dentro de un
+/// `saveLayer` con `colorFilter`, sale sin filtrar —el iris gris, las luces del
+/// traje grises y el filtro de dormido sin hacer nada—, y `flutter test` no lo
+/// ve porque pinta con otro rasterizador. Lo que sí respeta, y es lo que se
+/// usa: la opacidad del `Paint` de un `saveLayer`, `dstIn`/`dstOut`/`srcATop`,
+/// `plus` con desenfoque, los modos de mezcla sobre un `drawRect` y el
+/// `colorFilter` de un `drawImage`. Por eso los tintes se hornean una vez en
+/// una imagen (ver [LasCapasDelPersonaje.pincelTenido]) y el filtro del estado
+/// se pinta encima (ver [ElFiltroDelEstado]).
 class ElPersonajePainter extends CustomPainter {
   ElPersonajePainter({
     required this.capas,
@@ -58,9 +70,8 @@ class ElPersonajePainter extends CustomPainter {
   /// El color de los ojos, o `null` para dejarlos como están.
   final Color? ojos;
 
-  /// La matriz de color del estado —dormido más oscuro, sin llave en gris—, o
-  /// `null` sin filtro.
-  final List<double>? filtro;
+  /// El filtro del estado —dormido más oscuro, sin llave en gris—.
+  final ElFiltroDelEstado filtro;
 
   /// Sin malla ni parpadeo: para quien pidió menos movimiento.
   final bool quieto;
@@ -100,15 +111,14 @@ class ElPersonajePainter extends CustomPainter {
     }
 
     final vertices = _losVertices(k, ox, oy, t, lv);
+    final zona = caja.inflate(24 * k);
     // Con margen para el resplandor del traje, que se sale de las líneas.
-    canvas.saveLayer(
-      caja.inflate(24 * k),
-      Paint()..colorFilter = _matriz(filtro),
-    );
+    canvas.saveLayer(zona, Paint());
     _lasCapasDeLaCara(canvas, vertices, t, lv);
     if (luz == LuzDelPersonaje.traje) {
       _elTraje(canvas, vertices, aLienzo, k, t, lv);
     }
+    _elFiltro(canvas, vertices, zona);
     // El busto se funde con la sala por abajo.
     final desde = aLienzo(0, _h * ElPersonajePorCapas.fundidoDesde).dy;
     canvas
@@ -134,6 +144,33 @@ class ElPersonajePainter extends CustomPainter {
     }
   }
 
+  /// El filtro del estado, pintado encima del busto ya compuesto.
+  ///
+  /// El gris es un rectángulo gris con el modo `saturation` —el tono y el
+  /// brillo del dibujo, la saturación del gris: le quita el color en la medida
+  /// de su opacidad—; lo oscuro, negro con `srcATop`, que solo cae donde hay
+  /// dibujo. El modo `saturation` sí pinta donde no hay nada, así que después
+  /// se recorta con la silueta de la base.
+  void _elFiltro(Canvas canvas, Float32List v, Rect zona) {
+    if (filtro.gris > 0) {
+      canvas.drawRect(
+        zona,
+        Paint()
+          ..blendMode = BlendMode.saturation
+          ..color = Color.fromRGBO(128, 128, 128, filtro.gris),
+      );
+      _pinta(canvas, v, CapaDelPersonaje.base, mezcla: BlendMode.dstIn);
+    }
+    if (filtro.oscuro > 0) {
+      canvas.drawRect(
+        zona,
+        Paint()
+          ..blendMode = BlendMode.srcATop
+          ..color = Color.fromRGBO(0, 0, 0, filtro.oscuro),
+      );
+    }
+  }
+
   /// Dónde va cada vértice de la malla en el lienzo, en este fotograma.
   Float32List _losVertices(
     double k,
@@ -154,7 +191,8 @@ class ElPersonajePainter extends CustomPainter {
     Canvas canvas,
     Float32List v,
     CapaDelPersonaje capa, {
-    ColorFilter? tinte,
+    Color? tinte,
+    BlendMode mezcla = BlendMode.srcOver,
   }) {
     canvas.drawVertices(
       ui.Vertices.raw(
@@ -165,8 +203,10 @@ class ElPersonajePainter extends CustomPainter {
       ),
       BlendMode.srcOver,
       Paint()
-        ..shader = capas.pincel(capa)
-        ..colorFilter = tinte,
+        ..shader = tinte == null
+            ? capas.pincel(capa)
+            : capas.pincelTenido(capa, tinte)
+        ..blendMode = mezcla,
     );
   }
 
@@ -182,7 +222,7 @@ class ElPersonajePainter extends CustomPainter {
     final color = ojos;
     if (color != null) {
       if (CapaDelPersonaje.delIris(losOjos) case final iris?) {
-        _pinta(canvas, v, iris, tinte: ColorFilter.matrix(elTinte(color)));
+        _pinta(canvas, v, iris, tinte: color);
       }
     }
   }
@@ -203,7 +243,6 @@ class ElPersonajePainter extends CustomPainter {
     final capa = color == null
         ? CapaDelPersonaje.trajeLuz
         : CapaDelPersonaje.trajeGris;
-    final tinte = color == null ? null : ColorFilter.matrix(elTinte(color));
     final zona = Rect.fromPoints(
       aLienzo(capa.x, capa.y),
       aLienzo(capa.x + capa.w, capa.y + capa.h),
@@ -212,7 +251,7 @@ class ElPersonajePainter extends CustomPainter {
 
     void luces(Paint comoSeCompone) {
       canvas.saveLayer(zona, comoSeCompone);
-      _pinta(canvas, v, capa, tinte: tinte);
+      _pinta(canvas, v, capa, tinte: color);
       if (mascara != null) {
         canvas.drawRect(
           zona,
@@ -250,7 +289,7 @@ class ElPersonajePainter extends CustomPainter {
           luzFueraDeLaFranja +
           (1 - luzFueraDeLaFranja) * enLaFranja.clamp(0.0, 1.0);
       if (hasta != null) {
-        a = math.max(a, 0.25 + 0.35 * suave(hasta + 12, hasta - 12, y));
+        a = math.max(a, 0.25 + 0.2 * suave(hasta + 12, hasta - 12, y));
       }
       colores.add(Color.fromRGBO(0, 0, 0, a));
       paradas.add(u);
@@ -371,9 +410,6 @@ class ElPersonajePainter extends CustomPainter {
     }
   }
 
-  static ColorFilter? _matriz(List<double>? m) =>
-      m == null ? null : ColorFilter.matrix(m);
-
   @override
   bool shouldRepaint(ElPersonajePainter old) =>
       old.capas != capas ||
@@ -382,83 +418,55 @@ class ElPersonajePainter extends CustomPainter {
       old.acento != acento ||
       old.luzDelTraje != luzDelTraje ||
       old.ojos != ojos ||
-      !listEquals(old.filtro, filtro) ||
+      old.filtro != filtro ||
       old.quieto != quieto ||
       old.pasos != pasos ||
       old.hechos != hechos;
 }
 
-/// La matriz de color del filtro de [como], la del mockup: dormido y sin oído
-/// más oscuros —brillo 0,74, saturación 0,85—; sin llave, en gris y a 0,6.
-/// `null` sin filtro.
-List<double>? elFiltroDe(ComoEsta como) => switch (como) {
-  ComoEsta.enReposo || ComoEsta.sinOido => _saturacion(0.85, brillo: 0.74),
-  ComoEsta.sinLlave => _saturacion(0, brillo: 0.6),
-  _ => null,
-};
-
-/// La matriz sin filtro, para mezclar hacia ella.
-const laMatrizNeutra = <double>[
-  1, 0, 0, 0, 0, //
-  0, 1, 0, 0, 0, //
-  0, 0, 1, 0, 0, //
-  0, 0, 0, 1, 0, //
-];
-
-/// `saturate(s)` después de `brightness(b)`, las de CSS: es como se escribió
-/// el filtro del mockup, y así sale igual.
-List<double> _saturacion(double s, {double brillo = 1}) {
-  final b = brillo;
-  return [
-    (0.213 + 0.787 * s) * b,
-    (0.715 - 0.715 * s) * b,
-    (0.072 - 0.072 * s) * b,
-    0,
-    0, //
-    (0.213 - 0.213 * s) * b,
-    (0.715 + 0.285 * s) * b,
-    (0.072 - 0.072 * s) * b,
-    0,
-    0, //
-    (0.213 - 0.213 * s) * b,
-    (0.715 - 0.715 * s) * b,
-    (0.072 + 0.928 * s) * b,
-    0,
-    0, //
-    0, 0, 0, 1, 0, //
-  ];
-}
-
-/// Mezcla dos matrices de color: para que el filtro cambie en 600 ms al
-/// cambiar de estado, como la transición del mockup, y no de golpe.
-List<double> mezclaDeMatrices(List<double> a, List<double> b, double u) => [
-  for (var i = 0; i < 20; i++) a[i] + (b[i] - a[i]) * u,
-];
-
-/// La matriz que tiñe una capa en gris con [color] conservando su brillo: el
-/// modo `color` de CSS —el tono y la saturación del color, la luminosidad de
-/// la capa—.
+/// El filtro del estado, como el del mockup: dormido y sin oído más oscuros
+/// —`brightness(.74) saturate(.85)`—; sin llave, en gris y a 0,6.
 ///
-/// 🔴 **Una matriz y no `BlendMode.color`**, que es lo que usa el mockup. Con
-/// `ColorFilter.mode(color, BlendMode.color)` el alfa del resultado es el del
-/// color —opaco—, así que lo transparente de la capa se volvía un rectángulo
-/// de color; el mockup lo arregla con un segundo `destination-in`, que aquí
-/// sería una capa de composición por cada tinte y fotograma. Como la capa es
-/// gris, el modo `color` se queda en sumar a su luminosidad la diferencia
-/// entre el color y la luminosidad del color, que es lineal: cabe en una
-/// matriz y el alfa no se toca. Lo único que se pierde es cómo recorta los
-/// extremos: aquí cada canal se recorta solo, y en los más claros el tono sale
-/// un poco más saturado.
-List<double> elTinte(Color color) {
-  final lum = 0.3 * color.r + 0.59 * color.g + 0.11 * color.b;
-  double desplaza(double canal) => (canal - lum) * 255;
-  return [
-    0.3, 0.59, 0.11, 0, desplaza(color.r), //
-    0.3, 0.59, 0.11, 0, desplaza(color.g), //
-    0.3, 0.59, 0.11, 0, desplaza(color.b), //
-    0, 0, 0, 1, 0, //
-  ];
+/// Dos números y no una matriz, porque se pinta encima (ver
+/// [ElPersonajePainter]): [gris] es cuánto color se le quita, [oscuro] cuánta
+/// luz.
+@immutable
+class ElFiltroDelEstado {
+  const ElFiltroDelEstado({this.gris = 0, this.oscuro = 0});
+
+  static const neutro = ElFiltroDelEstado();
+
+  final double gris;
+  final double oscuro;
+
+  /// Para que cambie en 600 ms al cambiar de estado, como la transición del
+  /// mockup, y no de golpe.
+  static ElFiltroDelEstado mezcla(
+    ElFiltroDelEstado a,
+    ElFiltroDelEstado b,
+    double u,
+  ) => ElFiltroDelEstado(
+    gris: a.gris + (b.gris - a.gris) * u,
+    oscuro: a.oscuro + (b.oscuro - a.oscuro) * u,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      other is ElFiltroDelEstado &&
+      other.gris == gris &&
+      other.oscuro == oscuro;
+
+  @override
+  int get hashCode => Object.hash(gris, oscuro);
 }
+
+/// El filtro de [como].
+ElFiltroDelEstado elFiltroDe(ComoEsta como) => switch (como) {
+  ComoEsta.enReposo ||
+  ComoEsta.sinOido => const ElFiltroDelEstado(gris: 0.15, oscuro: 0.26),
+  ComoEsta.sinLlave => const ElFiltroDelEstado(gris: 1, oscuro: 0.4),
+  _ => ElFiltroDelEstado.neutro,
+};
 
 /// Si [color] es el cian de fábrica, con el brillo que le haya puesto el tema.
 ///

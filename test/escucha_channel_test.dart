@@ -43,7 +43,7 @@ void main() {
       EscuchaChannel.cuandoTeLlamen(
         (resto) => oido.add('llamada:$resto'),
         alOirTuNombre: () => oido.add('nombre'),
-        siSeCalla: () => oido.add('calla'),
+        siSeCalla: (_) => oido.add('calla'),
       );
 
       await comoSiDijera('teOyo');

@@ -72,6 +72,19 @@ mixin LaVozStrings {
   String get acentoDeArgentina;
   String get acentoDeChile;
   String get acentoDeEspana;
+
+  /// Ajustes › Oído: en qué idioma escucha, o por qué no te oye. Ver
+  /// `ComoQuedoLaEscucha`.
+  String oidoEsperaEn(String palabra, String idioma);
+  String oidoNoTeOye(String porque);
+  String get oidoPorqueSinPalabras;
+  String get oidoPorqueSinPermisoDeVoz;
+  String get oidoPorqueSinPermisoDelMicrofono;
+  String get oidoPorqueMicrofonoOcupado;
+  String get oidoPorqueSinReconocedorLocal;
+  String get oidoPorqueSinMicrofono;
+  String get oidoPorqueFallaElMotor;
+  String get oidoPorqueDesconocido;
 }
 
 mixin LaVozStringsEs implements LaVozStrings {
@@ -195,6 +208,37 @@ mixin LaVozStringsEs implements LaVozStrings {
   String get acentoDeChile => 'De Chile';
   @override
   String get acentoDeEspana => 'De España';
+  @override
+  String oidoEsperaEn(String palabra, String idioma) =>
+      'Escuchando «$palabra» · $idioma';
+  @override
+  String oidoNoTeOye(String porque) => 'Ahora no te oye: $porque.';
+  @override
+  String get oidoPorqueSinPalabras => 'no tiene ningún nombre que esperar';
+  @override
+  String get oidoPorqueSinPermisoDeVoz =>
+      'falta el permiso de reconocimiento de voz. Dáselo a Nexus en Ajustes del '
+      'Sistema › Privacidad y seguridad › Reconocimiento de voz';
+  @override
+  String get oidoPorqueSinPermisoDelMicrofono =>
+      'falta el permiso del micrófono. Dáselo a Nexus en Ajustes del Sistema › '
+      'Privacidad y seguridad › Micrófono';
+  @override
+  String get oidoPorqueMicrofonoOcupado =>
+      'el micrófono lo está usando otra app —una reunión, casi siempre—. '
+      'Vuelve a probar sola en un rato';
+  @override
+  String get oidoPorqueSinReconocedorLocal =>
+      'este Mac no reconoce ese idioma sin conexión, y el oído solo escucha en '
+      'local. Añade el idioma en Ajustes del Sistema › Teclado › Dictado';
+  @override
+  String get oidoPorqueSinMicrofono => 'no hay ningún micrófono conectado';
+  @override
+  String get oidoPorqueFallaElMotor =>
+      'macOS no dejó abrir la entrada de audio. Vuelve a probar sola en un rato';
+  @override
+  String get oidoPorqueDesconocido =>
+      'no se pudo poner, y macOS no dijo por qué';
 }
 
 mixin LaVozStringsEn implements LaVozStrings {
@@ -318,4 +362,37 @@ mixin LaVozStringsEn implements LaVozStrings {
   String get acentoDeChile => 'From Chile';
   @override
   String get acentoDeEspana => 'From Spain';
+  @override
+  String oidoEsperaEn(String palabra, String idioma) =>
+      'Listening for “$palabra” · $idioma';
+  @override
+  String oidoNoTeOye(String porque) => 'It cannot hear you right now: $porque.';
+  @override
+  String get oidoPorqueSinPalabras => 'there is no name to listen for';
+  @override
+  String get oidoPorqueSinPermisoDeVoz =>
+      'the Speech Recognition permission is missing. Grant it to Nexus in '
+      'System Settings › Privacy & Security › Speech Recognition';
+  @override
+  String get oidoPorqueSinPermisoDelMicrofono =>
+      'the microphone permission is missing. Grant it to Nexus in System '
+      'Settings › Privacy & Security › Microphone';
+  @override
+  String get oidoPorqueMicrofonoOcupado =>
+      'another app is using the microphone, usually a meeting. It will try '
+      'again on its own in a while';
+  @override
+  String get oidoPorqueSinReconocedorLocal =>
+      'this Mac cannot recognize that language offline, and hearing only '
+      'listens on device. Add the language in System Settings › Keyboard › '
+      'Dictation';
+  @override
+  String get oidoPorqueSinMicrofono => 'there is no microphone connected';
+  @override
+  String get oidoPorqueFallaElMotor =>
+      'macOS did not let it open the audio input. It will try again on its own '
+      'in a while';
+  @override
+  String get oidoPorqueDesconocido =>
+      'it could not start, and macOS did not say why';
 }

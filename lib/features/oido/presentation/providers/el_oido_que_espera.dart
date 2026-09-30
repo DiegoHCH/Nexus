@@ -152,11 +152,15 @@ class ElOidoQueEspera {
     // «encendido y no pudo», y con el micrófono de por medio esa es justo la
     // pregunta que hay que poder contestar sin adivinar.
     if (debe == _puesto) {
-      if (!debe) debugPrint('escucha · no toca escuchar ahora');
+      if (!debe) {
+        debugPrint('escucha · no toca escuchar ahora');
+        _apuntar(null);
+      }
       return;
     }
     if (!debe) {
       _puesto = false;
+      _apuntar(null);
       await EscuchaChannel.parar();
       return;
     }
@@ -166,9 +170,24 @@ class ElOidoQueEspera {
     // aunque la hubieras llamado Hestia, y se quedaba así toda la sesión.
     await _ref.read(losNombresProvider.notifier).leidos;
     if (!_ref.mounted) return;
-    _puesto = await EscuchaChannel.empezar(_lasPalabras(), idioma: _elIdioma());
-    debugPrint('escucha · ${_puesto ? 'puesta' : 'no se pudo poner'}');
+    final como = await EscuchaChannel.empezar(
+      _lasPalabras(),
+      idioma: _elIdioma(),
+    );
+    if (!_ref.mounted) return;
+    _puesto = como.puesta;
+    // 🔴 **Con el porqué**: «no se pudo poner» a secas obligaba a abrir
+    // Consola para saber si era el permiso, una reunión con el micrófono o que
+    // no hay reconocedor local. Ver [ComoQuedoLaEscucha].
+    debugPrint('escucha · $como');
+    _apuntar(como);
     if (!_puesto) _volverAProbar();
+  }
+
+  /// Lo que se sabe de la escucha, para Ajustes › Oído.
+  void _apuntar(ComoQuedoLaEscucha? como) {
+    if (!_ref.mounted) return;
+    _ref.read(comoQuedoLaEscuchaProvider.notifier).apuntar(como);
   }
 
   /// 🔴 **Si no pudo ponerse, se vuelve a probar en un rato**, en vez de
@@ -210,10 +229,11 @@ class ElOidoQueEspera {
   /// `empezar` ya lleva el nuevo.
   Future<void> cambiarIdioma(String idioma) async {
     if (!_puesto) return;
-    _puesto = await EscuchaChannel.cambiarIdioma(idioma);
-    debugPrint(
-      'escucha · idioma $idioma · ${_puesto ? 'sigue puesta' : 'no pudo volver'}',
-    );
+    final como = await EscuchaChannel.cambiarIdioma(idioma);
+    if (!_ref.mounted) return;
+    _puesto = como.puesta;
+    debugPrint('escucha · idioma $idioma · $como');
+    _apuntar(como);
     if (!_puesto) _volverAProbar();
   }
 
@@ -247,9 +267,12 @@ class ElOidoQueEspera {
   /// Se intenta **una vez** al rato, no en bucle: si sigue sin poder, `empezar`
   /// devuelve que no y ahí se queda, igual que al arrancar. Lo que no se hace
   /// es seguir creyendo que escucha.
-  void _seCallo() {
+  void _seCallo(ComoQuedoLaEscucha como) {
     _puesto = false;
-    debugPrint('escucha · se calló sola; se prueba otra vez en un rato');
+    debugPrint(
+      'escucha · se calló sola ($como); se prueba otra vez en un rato',
+    );
+    _apuntar(como);
     unawaited(
       Future<void>.delayed(_reintento, () async {
         if (_ref.mounted) await cuadrar();
@@ -509,6 +532,21 @@ final _hayVozAbiertaProvider = Provider<bool>(
         ),
       ),
 );
+
+/// Cómo quedó la última vez que se puso la escucha —puesta y en qué idioma, o
+/// por qué no—, o `null` si no toca escuchar. Lo apunta [ElOidoQueEspera] y lo
+/// enseña Ajustes › Oído.
+class ComoQuedoLaEscuchaController extends Notifier<ComoQuedoLaEscucha?> {
+  @override
+  ComoQuedoLaEscucha? build() => null;
+
+  void apuntar(ComoQuedoLaEscucha? como) => state = como;
+}
+
+final comoQuedoLaEscuchaProvider =
+    NotifierProvider<ComoQuedoLaEscuchaController, ComoQuedoLaEscucha?>(
+      ComoQuedoLaEscuchaController.new,
+    );
 
 /// Si alguien ya decidió encenderlo o apagarlo; `null` es que nunca se tocó.
 /// Lo mira el arranque para no prometer que lo enciende cuando no lo hará.

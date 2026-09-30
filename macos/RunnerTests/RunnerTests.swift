@@ -1633,3 +1633,23 @@ final class ElIdiomaDelOidoTests: XCTestCase {
     XCTAssertEqual(orden, ["es-MX", "en-US"])
   }
 }
+
+/// Por qué no se pudo poner la escucha viaja **por su nombre** hasta Dart.
+///
+/// 🔴 Iba solo al registro unificado de macOS y a la app llegaba un `false`:
+/// `nexus.log` decía «no se pudo poner» y ya. Estos nombres son el contrato
+/// con `PorQueNoEscucha` de `escucha_channel.dart`, que fija los mismos.
+final class PorQueNoEscuchaTests: XCTestCase {
+  func testLosMotivosViajanPorSuNombre() {
+    let nombres: [PorQueNoEscucha] = [
+      .sinPalabras, .sinPermisoDeVoz, .sinPermisoDelMicrofono, .microfonoOcupado,
+      .sinReconocedorLocal, .sinMicrofono, .fallaElMotor,
+    ]
+    XCTAssertEqual(
+      nombres.map(\.rawValue),
+      [
+        "sinPalabras", "sinPermisoDeVoz", "sinPermisoDelMicrofono", "microfonoOcupado",
+        "sinReconocedorLocal", "sinMicrofono", "fallaElMotor",
+      ])
+  }
+}

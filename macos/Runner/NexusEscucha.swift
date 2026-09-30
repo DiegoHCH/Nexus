@@ -37,6 +37,33 @@ import os
 /// motor de audio de verdad necesita la entrada entera para cancelar el eco, y
 /// dos capturas peleándose por el micrófono no es un problema que merezca la
 /// pena resolver: quien ya está hablando no necesita que lo llamen.
+/// Por qué no se pudo poner la escucha, **con nombre**.
+///
+/// 🔴 **Iba solo al registro unificado de macOS** y a la app llegaba un `false`:
+/// `nexus.log` decía «no se pudo poner» y ya, y para saber si era el permiso, el
+/// micrófono de una reunión o que no hay modelo local había que abrir Consola.
+/// Ahora el motivo viaja por el canal, queda en `nexus.log` y se enseña en
+/// Ajustes › Oído. Salió al escribir la guía de configuración de la voz (30 sep).
+///
+/// El valor crudo es lo que viaja: Dart lo lee por nombre, así que cambiar uno
+/// es cambiarlo en los dos lados.
+enum PorQueNoEscucha: String {
+  /// No hay ninguna palabra que esperar.
+  case sinPalabras
+  /// El reconocimiento de voz no está permitido en Ajustes del sistema.
+  case sinPermisoDeVoz
+  /// El micrófono no está permitido en Ajustes del sistema.
+  case sinPermisoDelMicrofono
+  /// Otra app tiene la entrada —una reunión, casi siempre—.
+  case microfonoOcupado
+  /// Ningún reconocedor del idioma trabaja en este Mac.
+  case sinReconocedorLocal
+  /// No hay micrófono de entrada: un Mac mini sin nada enchufado.
+  case sinMicrofono
+  /// AVFAudio no quiso: el tap o el motor fallaron al arrancar.
+  case fallaElMotor
+}
+
 final class NexusEscucha: NSObject {
   private static let log = Logger(
     subsystem: "com.katanalabs.nexus", category: "escucha")
@@ -56,6 +83,18 @@ final class NexusEscucha: NSObject {
   /// [elReconocedor].
   private var idiomaDeLaApp: String?
   private var escuchando = false
+
+  /// Por qué no está escuchando, si no lo está. Ver [PorQueNoEscucha].
+  private var motivo: PorQueNoEscucha?
+
+  /// Cómo quedó, tal como viaja por el canal: `puesta`, y o bien `idioma` —el
+  /// del reconocedor, `es-MX`— o bien `motivo`.
+  private func comoQuedo() -> [String: Any] {
+    var estado: [String: Any] = ["puesta": escuchando]
+    if escuchando, let reconocedor { estado["idioma"] = reconocedor.locale.identifier }
+    if !escuchando, let motivo { estado["motivo"] = motivo.rawValue }
+    return estado
+  }
 
   /// Qué arranque es el vigente. Cada `arrancar` lo sube, y la tarea de
   /// reconocimiento solo actúa si sigue siendo la suya —ver `arrancar`—.
@@ -98,7 +137,7 @@ final class NexusEscucha: NSObject {
       case "idioma":
         let args = call.arguments as? [String: Any]
         compartida.cambiarIdioma(args?["idioma"] as? String)
-        result(compartida.escuchando)
+        result(compartida.comoQuedo())
       case "parar":
         compartida.parar()
         result(nil)
@@ -111,20 +150,24 @@ final class NexusEscucha: NSObject {
     log.info("canal de escucha registrado")
   }
 
-  /// Arranca, pidiendo permiso si hace falta. Devuelve si quedó escuchando.
+  /// Arranca, pidiendo permiso si hace falta. Contesta [comoQuedo].
   private func empezar(palabras: [String], result: @escaping FlutterResult) {
-    guard !palabras.isEmpty else { return result(false) }
     self.palabras = palabras.map { Self.normalizar($0) }.filter { !$0.isEmpty }
-    guard !self.palabras.isEmpty else { return result(false) }
-    if escuchando { return result(true) }
+    guard !self.palabras.isEmpty else {
+      motivo = .sinPalabras
+      return result(comoQuedo())
+    }
+    if escuchando { return result(comoQuedo()) }
 
     SFSpeechRecognizer.requestAuthorization { estado in
       DispatchQueue.main.async {
         guard estado == .authorized else {
           Self.log.notice("sin permiso para reconocer voz · \(estado.rawValue)")
-          return result(false)
+          self.motivo = .sinPermisoDeVoz
+          return result(self.comoQuedo())
         }
-        result(self.arrancar())
+        self.motivo = self.arrancar()
+        result(self.comoQuedo())
       }
     }
   }
@@ -176,7 +219,20 @@ final class NexusEscucha: NSObject {
     return enUso != 0
   }
 
-  private func arrancar() -> Bool {
+  /// Pone la escucha. `nil` si quedó escuchando; si no, [PorQueNoEscucha].
+  private func arrancar() -> PorQueNoEscucha? {
+    // El permiso del micrófono se mira antes de tocar el motor: sin él, lo que
+    // falla después es el tap o el arranque, con un error que no dice que la
+    // solución está en Ajustes del sistema. «Sin decidir» sigue adelante: ahí
+    // es el motor quien lo pregunta.
+    switch AVCaptureDevice.authorizationStatus(for: .audio) {
+    case .denied, .restricted:
+      Self.log.notice("sin permiso para el micrófono · no se escucha")
+      return .sinPermisoDelMicrofono
+    default:
+      break
+    }
+
     // Si quien tiene la entrada somos nosotros —el motor de voz, caliente tras
     // colgar—, se le pide que la suelte en vez de rendirse. Ver
     // `NexusAudioEngine.soltarElMicroSiSoloEstaCaliente`.
@@ -184,13 +240,13 @@ final class NexusEscucha: NSObject {
       NexusAudioEngine.principal?.soltarElMicroSiSoloEstaCaliente() != true
     {
       Self.log.notice("el micrófono ya lo usa otra app · no se escucha")
-      return false
+      return .microfonoOcupado
     }
 
     guard let reconocedor = Self.elReconocedor(idioma: idiomaDeLaApp) else {
       // Ver arriba: sin reconocimiento local esto no se enciende.
       Self.log.notice("no hay reconocedor que trabaje en el dispositivo · no se escucha")
-      return false
+      return .sinReconocedorLocal
     }
     self.reconocedor = reconocedor
 
@@ -216,7 +272,7 @@ final class NexusEscucha: NSObject {
     guard formato.sampleRate > 0, formato.channelCount > 0 else {
       Self.log.notice("no hay micrófono de entrada · no se escucha")
       limpiar()
-      return false
+      return .sinMicrofono
     }
     do {
       try NexusSinReventar.correr {
@@ -228,7 +284,7 @@ final class NexusEscucha: NSObject {
     } catch {
       Self.log.error("AVFAudio rechazó el tap de escucha · \(error.localizedDescription, privacy: .public)")
       limpiar()
-      return false
+      return .fallaElMotor
     }
 
     do {
@@ -237,7 +293,7 @@ final class NexusEscucha: NSObject {
     } catch {
       Self.log.error("no arrancó el motor de escucha · \(error.localizedDescription, privacy: .public)")
       limpiar()
-      return false
+      return .fallaElMotor
     }
 
     generacion += 1
@@ -275,9 +331,10 @@ final class NexusEscucha: NSObject {
     }
 
     escuchando = true
+    motivo = nil
     Self.log.notice(
       "escuchando · \(self.palabras.joined(separator: ", "), privacy: .public) · \(reconocedor.locale.identifier, privacy: .public) · \(formato.sampleRate, privacy: .public) Hz \(formato.channelCount, privacy: .public) ch")
-    return true
+    return nil
   }
 
   /// El reconocedor con el que se escucha: **el del idioma de la app**, y si
@@ -354,11 +411,13 @@ final class NexusEscucha: NSObject {
     let palabras = self.palabras
     parar()
     self.palabras = palabras
-    guard arrancar() else {
-      // 🔴 **Y si no vuelve, se dice.** Antes se apagaba aquí sin avisar, y la
-      // app seguía creyendo que escuchaba: el ajuste encendido y nadie oyendo.
+    motivo = arrancar()
+    if motivo != nil {
+      // 🔴 **Y si no vuelve, se dice** —y por qué—. Antes se apagaba aquí sin
+      // avisar, y la app seguía creyendo que escuchaba: el ajuste encendido y
+      // nadie oyendo.
       Self.log.notice("la escucha no pudo volver a empezar · se avisa a la app")
-      Self.canal?.invokeMethod("seCallo", arguments: nil)
+      Self.canal?.invokeMethod("seCallo", arguments: comoQuedo())
       return
     }
   }

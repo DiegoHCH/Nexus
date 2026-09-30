@@ -15,7 +15,35 @@ enum FormaDelOrbe {
   puntos,
 }
 
-/// Cómo es el orbe: su forma y, si es de plasma, sus siete ajustes.
+/// Dónde se ve el estado del personaje: en qué luz.
+///
+/// Las tres que se propusieron en el mockup al quitar el anillo alrededor del
+/// retrato —«el halo alrededor no me gusta»—. Las tres siguen el acento.
+enum LuzDelPersonaje {
+  /// Las líneas de luz de su chaqueta: la luz sale del dibujo, no se añade.
+  traje,
+
+  /// Un resplandor detrás, centrado en la cabeza.
+  aura,
+
+  /// Una línea de luz bajo el busto.
+  horizonte,
+}
+
+/// De qué color lleva los ojos el personaje.
+enum OjosDelPersonaje {
+  /// Como están dibujados.
+  comoEstan,
+
+  /// Del acento, que cambia con él.
+  delAcento,
+
+  /// De un color elegido aparte: [OrbeEstilo.colorDeLosOjos].
+  deColor,
+}
+
+/// Cómo es el orbe: su forma y, si es de plasma, sus siete ajustes; y si en
+/// la sala va el personaje, su luz y sus ojos.
 ///
 /// 🔴 **Son la base, no el estado.** Encima de esto cada estado se mueve a su
 /// manera —dormido respira, trabajando gira rápido, hablando late con la voz—
@@ -33,7 +61,15 @@ class OrbeEstilo {
     this.nucleo = 3,
     this.tamano = 0.30,
     this.intensidad = 2.2,
+    this.personaje = false,
+    this.luz = LuzDelPersonaje.traje,
+    this.ojos = OjosDelPersonaje.comoEstan,
+    this.colorDeLosOjos = _cianDeLosOjos,
   });
+
+  /// El color que se ofrece la primera vez que se eligen ojos de otro color:
+  /// el cian de fábrica del acento.
+  static const _cianDeLosOjos = Color(0xFF56E1EA);
 
   static const fabrica = OrbeEstilo();
 
@@ -61,6 +97,33 @@ class OrbeEstilo {
   /// Cuánta luz da. De 0,2 a 3,5.
   final double intensidad;
 
+  /// Si en la sala del Mac —y en la conversación del móvil— va **el
+  /// personaje** en vez del orbe: un dibujo que respira, parpadea y habla. Ver
+  /// `ElPersonaje` y el mockup `nexus-ciel-2d.html`.
+  ///
+  /// 🔴 **Aparte de [forma], y no una tercera forma.** El personaje solo va en
+  /// la sala grande: el icono del Dock, el orbe flotante y los orbes pequeños
+  /// de las conversaciones siguen siendo el orbe de siempre. Con una tercera
+  /// forma, esos sitios tendrían que adivinar cuál pintar en su lugar; así
+  /// pintan [forma], la que tenías antes de elegir el personaje, y volver a
+  /// Plasma o Puntos deja todo como estaba.
+  ///
+  /// 🔴 **«Personaje» y no el nombre de quien contesta**: ese nombre lo elige
+  /// cada uno en Ajustes (ver `LosNombres`), y un ajuste que se llamara como la
+  /// de fábrica diría otra cosa en cuanto alguien la renombrara.
+  final bool personaje;
+
+  /// Con [personaje], dónde se ve su estado.
+  final LuzDelPersonaje luz;
+
+  /// Con [personaje], de qué color lleva los ojos.
+  final OjosDelPersonaje ojos;
+
+  /// El color de los ojos con [OjosDelPersonaje.deColor]. Se guarda aunque se
+  /// vuelva a «como están», para que volver a elegir otro color empiece en el
+  /// último.
+  final Color colorDeLosOjos;
+
   /// Los límites de cada ajuste, para los deslizadores y para no aceptar de
   /// disco un valor que rompa el shader.
   static const rangos = {
@@ -82,6 +145,10 @@ class OrbeEstilo {
     double? nucleo,
     double? tamano,
     double? intensidad,
+    bool? personaje,
+    LuzDelPersonaje? luz,
+    OjosDelPersonaje? ojos,
+    Color? colorDeLosOjos,
   }) => OrbeEstilo(
     forma: forma ?? this.forma,
     filamentos: filamentos ?? this.filamentos,
@@ -91,6 +158,10 @@ class OrbeEstilo {
     nucleo: nucleo ?? this.nucleo,
     tamano: tamano ?? this.tamano,
     intensidad: intensidad ?? this.intensidad,
+    personaje: personaje ?? this.personaje,
+    luz: luz ?? this.luz,
+    ojos: ojos ?? this.ojos,
+    colorDeLosOjos: colorDeLosOjos ?? this.colorDeLosOjos,
   );
 
   Map<String, Object> toMap() => {
@@ -102,6 +173,10 @@ class OrbeEstilo {
     'nucleo': nucleo,
     'tamano': tamano,
     'intensidad': intensidad,
+    'personaje': personaje,
+    'luz': luz.name,
+    'ojos': ojos.name,
+    'colorDeLosOjos': colorDeLosOjos.toARGB32(),
   };
 
   /// Lee lo guardado o lo que llega por un canal. Lo que falte o no se entienda
@@ -129,6 +204,21 @@ class OrbeEstilo {
       nucleo: leer('nucleo', fabrica.nucleo),
       tamano: leer('tamano', fabrica.tamano),
       intensidad: leer('intensidad', fabrica.intensidad),
+      personaje: datos['personaje'] == true,
+      luz:
+          LuzDelPersonaje.values
+              .where((l) => l.name == datos['luz'])
+              .firstOrNull ??
+          fabrica.luz,
+      ojos:
+          OjosDelPersonaje.values
+              .where((o) => o.name == datos['ojos'])
+              .firstOrNull ??
+          fabrica.ojos,
+      colorDeLosOjos: switch (datos['colorDeLosOjos']) {
+        final int argb => Color(argb),
+        _ => fabrica.colorDeLosOjos,
+      },
     );
   }
 
@@ -142,7 +232,11 @@ class OrbeEstilo {
       other.velocidad == velocidad &&
       other.nucleo == nucleo &&
       other.tamano == tamano &&
-      other.intensidad == intensidad;
+      other.intensidad == intensidad &&
+      other.personaje == personaje &&
+      other.luz == luz &&
+      other.ojos == ojos &&
+      other.colorDeLosOjos == colorDeLosOjos;
 
   @override
   int get hashCode => Object.hash(
@@ -154,6 +248,10 @@ class OrbeEstilo {
     nucleo,
     tamano,
     intensidad,
+    personaje,
+    luz,
+    ojos,
+    colorDeLosOjos,
   );
 }
 
@@ -184,7 +282,17 @@ class OrbeEstiloController extends Notifier<OrbeEstilo> {
     await prefs.setString(_key, jsonEncode(estilo.toMap()));
   }
 
-  Future<void> restablecer() => elegir(OrbeEstilo(forma: state.forma));
+  /// Los siete del plasma a fábrica. La forma y lo del personaje se quedan:
+  /// el botón está debajo de los deslizadores y es de ellos.
+  Future<void> restablecer() => elegir(
+    OrbeEstilo(
+      forma: state.forma,
+      personaje: state.personaje,
+      luz: state.luz,
+      ojos: state.ojos,
+      colorDeLosOjos: state.colorDeLosOjos,
+    ),
+  );
 }
 
 final orbeEstiloProvider = NotifierProvider<OrbeEstiloController, OrbeEstilo>(

@@ -68,6 +68,23 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  # Las capas del personaje, la tercera forma del orbe. Ver
+  # `assets/personaje/README.md` y `CapaDelPersonaje`. Una a una y no la
+  # carpeta, que metería el README en la app.
+  assets:
+    - assets/personaje/base.webp
+    - assets/personaje/ojos-entornados.webp
+    - assets/personaje/ojos-cerrados.webp
+    - assets/personaje/boca-a.webp
+    - assets/personaje/boca-e.webp
+    - assets/personaje/boca-o.webp
+    - assets/personaje/boca-u.webp
+    - assets/personaje/iris-base.webp
+    - assets/personaje/iris-entornados.webp
+    - assets/personaje/traje-apagado.webp
+    - assets/personaje/traje-luz.webp
+    - assets/personaje/traje-gris.webp
+
   # El orbe de plasma. Ver `NexusOrbPlasmaPainter`.
   shaders:
     - shaders/orbe_plasma.frag

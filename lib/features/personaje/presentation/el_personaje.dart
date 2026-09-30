@@ -96,6 +96,12 @@ class _ElPersonajeState extends State<ElPersonaje> {
   late final int _semilla = math.Random().nextInt(1 << 20);
   late final _boca = LaBocaQueHabla(semilla: _semilla);
   final _nivel = ElNivelSuave();
+  final _aLaMedida = ElNivelALaMedida();
+
+  /// Lo que dio el nivel crudo mientras hablaba, para dejarlo en el registro
+  /// al terminar: es la forma de saber en qué escala llega su voz de verdad.
+  double _suPico = 0, _suSuma = 0;
+  int _susMuestras = 0;
 
   /// El de las luces, el aura, el horizonte y el asentir: más lento. Ver
   /// [ElNivelSuave.deLaLuz].
@@ -114,8 +120,8 @@ class _ElPersonajeState extends State<ElPersonaje> {
   bool _enMarcha = false;
 
   /// El filtro del estado, que se mezcla en 600 ms al cambiar.
-  ElFiltroDelEstado _filtroDeAntes = ElFiltroDelEstado.neutro;
-  ElFiltroDelEstado _filtroDeAhora = ElFiltroDelEstado.neutro;
+  ElFiltro _filtroDeAntes = ElFiltro.ninguno;
+  ElFiltro _filtroDeAhora = ElFiltro.ninguno;
   double _cambioDelFiltro = -1;
   static const _duraElCambio = 0.6;
 
@@ -154,7 +160,9 @@ class _ElPersonajeState extends State<ElPersonaje> {
     super.didUpdateWidget(oldWidget);
     final nuevo = elFiltroDe(_como);
     if (nuevo != _filtroDeAhora) {
-      _filtroDeAntes = _elFiltro;
+      // Si cambia a media transición, se parte del que más se veía.
+      final antes = _elFiltro;
+      _filtroDeAntes = antes.mezcla < 0.5 ? antes.antes : antes.ahora;
       _filtroDeAhora = nuevo;
       _cambioDelFiltro = _quieto ? -1 : _ahora;
     }
@@ -174,13 +182,13 @@ class _ElPersonajeState extends State<ElPersonaje> {
   }
 
   ElFiltroDelEstado get _elFiltro {
-    if (_cambioDelFiltro < 0) return _filtroDeAhora;
+    if (_cambioDelFiltro < 0) return ElFiltroDelEstado(_filtroDeAhora);
     final u = ((_ahora - _cambioDelFiltro) / _duraElCambio).clamp(0.0, 1.0);
     if (u >= 1) {
       _cambioDelFiltro = -1;
-      return _filtroDeAhora;
+      return ElFiltroDelEstado(_filtroDeAhora);
     }
-    return ElFiltroDelEstado.mezcla(_filtroDeAntes, _filtroDeAhora, u);
+    return ElFiltroDelEstado(_filtroDeAhora, antes: _filtroDeAntes, mezcla: u);
   }
 
   void _siguiente() {
@@ -196,7 +204,9 @@ class _ElPersonajeState extends State<ElPersonaje> {
           // larga —otra ruta encima— no se recupera todo de golpe.
           final dt = _ahora == 0 ? 0.0 : (ahora - _ahora).clamp(0.0, 0.1);
           _ahora = ahora;
-          final crudo = _elNivelCrudo();
+          final tal = _elNivelCrudo();
+          _anotarSuVoz(tal);
+          final crudo = _aLaMedida.avanzar(dt, tal);
           _nivel.avanzar(dt, crudo);
           _luz.avanzar(dt, crudo);
           _boca.avanzar(
@@ -228,6 +238,23 @@ class _ElPersonajeState extends State<ElPersonaje> {
     _para();
     _tiempo.dispose();
     super.dispose();
+  }
+
+  void _anotarSuVoz(double nivel) {
+    if (_como == ComoEsta.habla) {
+      _suPico = math.max(_suPico, nivel);
+      _suSuma += nivel;
+      _susMuestras++;
+      return;
+    }
+    if (_susMuestras == 0) return;
+    debugPrint(
+      'personaje · su voz: pico ${_suPico.toStringAsFixed(2)}, media '
+      '${(_suSuma / _susMuestras).toStringAsFixed(2)} en $_susMuestras '
+      'fotogramas',
+    );
+    _suPico = _suSuma = 0;
+    _susMuestras = 0;
   }
 
   double _elNivelCrudo() =>

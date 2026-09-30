@@ -176,6 +176,31 @@ class ElNivelSuave {
   }
 }
 
+/// El nivel de la voz **a la medida de esa voz**: el de este instante dividido
+/// por lo más alto que ha sonado hace poco.
+///
+/// 🔴 **La boca y las luces no se movían hablando** (30 sep). El nivel llega
+/// en la escala de `ElNivelDeLaVoz` —la raíz de la RMS de cada trozo—, y lo
+/// que da depende de lo fuerte que venga la voz: la del altavoz y la del
+/// micrófono no se parecen, ni dos micrófonos entre sí. El orbe lo usa tal
+/// cual porque late además con su propio movimiento; el personaje decide con
+/// umbrales —la boca se abre por encima de 0,1, las luces van de su mínimo a
+/// su máximo— y una voz floja no los cruzaba nunca. Así cada voz llega a su
+/// máximo en sus propios picos, fuerte o floja.
+///
+/// El pico se olvida en ~2 s, para seguir a quien baja la voz; y nunca cuenta
+/// por debajo de [piso], para no convertir en voz el ruido de un silencio.
+class ElNivelALaMedida {
+  static const olvida = 2.0, piso = 0.25;
+
+  double pico = 0;
+
+  double avanzar(double dt, double nivel) {
+    pico = math.max(nivel, pico * math.exp(-dt / olvida));
+    return (nivel / math.max(pico, piso)).clamp(0.0, 1.0);
+  }
+}
+
 /// **La boca que habla**: qué vocal pone y cuándo cambia, sílaba a sílaba.
 ///
 /// 🔴 **Con memoria, y por eso una clase.** La primera versión elegía una vocal

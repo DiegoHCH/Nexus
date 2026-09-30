@@ -1,7 +1,9 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexus/core/audio/el_nivel_de_la_voz.dart';
 import 'package:nexus/core/design_system/accent_preference.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/personaje/domain/el_personaje_por_capas.dart';
@@ -129,6 +131,34 @@ void main() {
   });
 
   group('la voz', () {
+    test('a la medida de esa voz: una voz floja también llega arriba', () {
+      final medida = ElNivelALaMedida();
+      // Una voz floja, que oscila entre 0,02 y 0,08 en la escala del altavoz.
+      final vistos = [
+        for (var t = 0.0; t < 3; t += 1 / 30)
+          medida.avanzar(1 / 30, 0.05 + 0.03 * math.sin(t * 25)),
+      ];
+      // Con el piso, como mucho se multiplica por cuatro: pasa del umbral de
+      // la boca, pero no se hace un grito.
+      expect(vistos.reduce(math.max), greaterThan(LaBocaQueHabla.umbral));
+      expect(vistos.reduce(math.max), lessThan(0.4));
+      // Una voz fuerte llega a su máximo en sus picos.
+      final fuerte = ElNivelALaMedida();
+      final altos = [
+        for (var t = 0.0; t < 3; t += 1 / 30)
+          fuerte.avanzar(1 / 30, 0.45 + 0.2 * math.sin(t * 25)),
+      ];
+      expect(altos.reduce(math.max), closeTo(1, 0.01));
+      expect(altos.reduce(math.min), lessThan(0.5));
+    });
+
+    test('el silencio se queda en silencio, no se agranda', () {
+      final medida = ElNivelALaMedida();
+      for (var t = 0.0; t < 5; t += 1 / 30) {
+        expect(medida.avanzar(1 / 30, 0.01), lessThan(0.05));
+      }
+    });
+
     test('suavizada: sube en ~60 ms y baja en ~180 ms', () {
       final nivel = ElNivelSuave();
       for (var t = 0.0; t < 0.06 - 1e-9; t += 1 / 300) {
@@ -196,6 +226,42 @@ void main() {
           greaterThanOrEqualTo(LaBocaQueHabla.permanencia - 1e-9),
         );
       }
+    });
+
+    test('una voz floja abre la boca a la medida, y cruda no la abría', () {
+      // La escala de verdad: el nivel de `ElNivelDeLaVoz.deUnTrozo` de una voz
+      // floja, sílabas a 4 Hz con una RMS de 0,001 a 0,008.
+      double nivelDe(double t) {
+        final rms = 0.001 + 0.007 * (0.5 + 0.5 * math.sin(t * 2 * math.pi * 4));
+        final pcm = ByteData(960 * 2);
+        for (var i = 0; i < 960; i++) {
+          final v = rms * math.sqrt2 * math.sin(i * 2 * math.pi * 200 / 24000);
+          pcm.setInt16(i * 2, (v * 32767).round(), Endian.little);
+        }
+        return ElNivelDeLaVoz.deUnTrozo(pcm.buffer.asUint8List());
+      }
+
+      List<LaBoca?> bocas({required bool aLaMedida}) {
+        final boca = LaBocaQueHabla();
+        final suave = ElNivelSuave();
+        final medida = ElNivelALaMedida();
+        final vistas = <LaBoca?>[];
+        for (var t = 0.0; t < 4; t += 1 / 30) {
+          final tal = nivelDe(t);
+          final crudo = aLaMedida ? medida.avanzar(1 / 30, tal) : tal;
+          boca.avanzar(
+            1 / 30,
+            nivel: suave.avanzar(1 / 30, crudo),
+            crudo: crudo,
+            hablando: true,
+          );
+          vistas.add(boca.actual);
+        }
+        return vistas;
+      }
+
+      expect(bocas(aLaMedida: false).whereType<LaBoca>(), isEmpty);
+      expect(bocas(aLaMedida: true).whereType<LaBoca>(), isNotEmpty);
     });
 
     test('sin saltos de «a» a «u»: pasa por otra', () {
@@ -440,14 +506,47 @@ void main() {
 
   group('el color', () {
     test('solo dormido, sin oído y sin llave llevan filtro', () {
-      expect(elFiltroDe(ComoEsta.escucha), ElFiltroDelEstado.neutro);
-      expect(elFiltroDe(ComoEsta.habla), ElFiltroDelEstado.neutro);
-      // Dormido, más oscuro y un poco menos de color: brillo 0,74.
-      expect(elFiltroDe(ComoEsta.enReposo).oscuro, closeTo(0.26, 1e-9));
-      expect(elFiltroDe(ComoEsta.enReposo).gris, closeTo(0.15, 1e-9));
-      // Sin llave, en gris del todo y a 0,6.
-      expect(elFiltroDe(ComoEsta.sinLlave).gris, 1);
-      expect(elFiltroDe(ComoEsta.sinLlave).oscuro, closeTo(0.4, 1e-9));
+      expect(elFiltroDe(ComoEsta.escucha), ElFiltro.ninguno);
+      expect(elFiltroDe(ComoEsta.habla), ElFiltro.ninguno);
+      expect(elFiltroDe(ComoEsta.enReposo), ElFiltro.dormido);
+      expect(elFiltroDe(ComoEsta.sinOido), ElFiltro.dormido);
+      expect(elFiltroDe(ComoEsta.sinLlave), ElFiltro.sinLlave);
+      // Sin llave, en gris: las tres filas de color son iguales, a 0,6.
+      final gris = laMatrizDe(ElFiltro.sinLlave);
+      expect(gris.sublist(0, 3), gris.sublist(5, 8));
+      expect(gris[0] + gris[1] + gris[2], closeTo(0.6, 1e-3));
+      // Dormido, un blanco sale al 74 %.
+      final dormido = laMatrizDe(ElFiltro.dormido);
+      expect(dormido[0] + dormido[1] + dormido[2], closeTo(0.74, 1e-3));
+    });
+
+    test('tinte y filtro se componen: primero el tinte, luego el filtro', () {
+      const violeta = Color(0xFFB06EFF);
+      final m = componerMatrices(
+        laMatrizDe(ElFiltro.sinLlave),
+        elTinte(violeta),
+      );
+      List<double> aplica(List<double> m, List<double> rgb) => [
+        for (var f = 0; f < 3; f++)
+          m[f * 5] * rgb[0] +
+              m[f * 5 + 1] * rgb[1] +
+              m[f * 5 + 2] * rgb[2] +
+              m[f * 5 + 4] / 255,
+      ];
+      final gris = [0.5, 0.5, 0.5];
+      final aMano = aplica(
+        laMatrizDe(ElFiltro.sinLlave),
+        aplica(elTinte(violeta), gris),
+      );
+      final compuesta = aplica(m, gris);
+      for (var i = 0; i < 3; i++) {
+        expect(compuesta[i], closeTo(aMano[i], 1e-9));
+      }
+      // Con la neutra, igual que sin ella.
+      expect(
+        componerMatrices(laMatrizNeutra, elTinte(violeta)),
+        elTinte(violeta),
+      );
     });
 
     test('el tinte no toca el alfa y lleva el tono del color', () {
@@ -478,14 +577,10 @@ void main() {
       expect(esElCianDeFabrica(const Color(0xFF7FB2FF)), isFalse);
     });
 
-    test('el filtro se mezcla: a medio camino, a medio camino', () {
-      final medio = ElFiltroDelEstado.mezcla(
-        ElFiltroDelEstado.neutro,
-        elFiltroDe(ComoEsta.sinLlave),
-        0.5,
-      );
-      expect(medio.gris, closeTo(0.5, 1e-9));
-      expect(medio.oscuro, closeTo(0.2, 1e-9));
+    test('sin cambio, el filtro de ahora entero', () {
+      const quieto = ElFiltroDelEstado(ElFiltro.dormido);
+      expect(quieto.antes, ElFiltro.dormido);
+      expect(quieto.mezcla, 1);
     });
   });
 }

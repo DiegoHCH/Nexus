@@ -29,9 +29,10 @@ import 'package:nexus/features/personaje/presentation/las_capas_del_personaje.da
 /// ve porque pinta con otro rasterizador. Lo que sí respeta, y es lo que se
 /// usa: la opacidad del `Paint` de un `saveLayer`, `dstIn`/`dstOut`/`srcATop`,
 /// `plus` con desenfoque, los modos de mezcla sobre un `drawRect` y el
-/// `colorFilter` de un `drawImage`. Por eso los tintes se hornean una vez en
-/// una imagen (ver [LasCapasDelPersonaje.pincelTenido]) y el filtro del estado
-/// se pinta encima (ver [ElFiltroDelEstado]).
+/// `colorFilter` de un `drawImage`. Por eso los tintes y el filtro del estado
+/// se hornean en las capas (ver [LasCapasDelPersonaje.pincel]): dormida se
+/// pinta con sus capas ya oscurecidas, y el cambio entre estados es un
+/// fundido de opacidad entre dos pinturas del busto.
 class ElPersonajePainter extends CustomPainter {
   ElPersonajePainter({
     required this.capas,
@@ -93,6 +94,9 @@ class ElPersonajePainter extends CustomPainter {
   /// La del parpadeo, para que dos personajes no parpadeen a la vez.
   final int semilla;
 
+  /// Con qué filtro se está pintando el busto ahora mismo: ver [_elBusto].
+  ElFiltro _variante = ElFiltro.ninguno;
+
   static final _malla = LaMalla();
   static final _todos = _malla.indices;
   static final _deCadaCapa = {
@@ -128,11 +132,26 @@ class ElPersonajePainter extends CustomPainter {
     final zona = caja.inflate(24 * k);
     // Con margen para el resplandor del traje, que se sale de las líneas.
     canvas.saveLayer(zona, Paint());
-    _lasCapasDeLaCara(canvas, vertices, t, lv);
-    if (luz == LuzDelPersonaje.traje) {
-      _elTraje(canvas, vertices, aLienzo, k, t, lv);
+    void elDibujo(ElFiltro cual) {
+      _variante = cual;
+      _lasCapasDeLaCara(canvas, vertices, t, lv);
+      if (luz == LuzDelPersonaje.traje) {
+        _elTraje(canvas, vertices, aLienzo, k, t, lv);
+      }
     }
-    _elFiltro(canvas, vertices, zona);
+
+    // Mientras cambia de filtro, el de antes y encima el de ahora, entrando.
+    if (filtro.mezcla < 1 && filtro.antes != filtro.ahora) {
+      elDibujo(filtro.antes);
+      canvas.saveLayer(
+        zona,
+        Paint()..color = Color.fromRGBO(0, 0, 0, filtro.mezcla),
+      );
+      elDibujo(filtro.ahora);
+      canvas.restore();
+    } else {
+      elDibujo(filtro.ahora);
+    }
     // El busto se funde con la sala por abajo.
     final desde = aLienzo(0, _h * ElPersonajePorCapas.fundidoDesde).dy;
     canvas
@@ -155,33 +174,6 @@ class ElPersonajePainter extends CustomPainter {
 
     if (luz == LuzDelPersonaje.horizonte) {
       _elHorizonte(canvas, aLienzo, k, t, lv, delante: true);
-    }
-  }
-
-  /// El filtro del estado, pintado encima del busto ya compuesto.
-  ///
-  /// El gris es un rectángulo gris con el modo `saturation` —el tono y el
-  /// brillo del dibujo, la saturación del gris: le quita el color en la medida
-  /// de su opacidad—; lo oscuro, negro con `srcATop`, que solo cae donde hay
-  /// dibujo. El modo `saturation` sí pinta donde no hay nada, así que después
-  /// se recorta con la silueta de la base.
-  void _elFiltro(Canvas canvas, Float32List v, Rect zona) {
-    if (filtro.gris > 0) {
-      canvas.drawRect(
-        zona,
-        Paint()
-          ..blendMode = BlendMode.saturation
-          ..color = Color.fromRGBO(128, 128, 128, filtro.gris),
-      );
-      _pinta(canvas, v, CapaDelPersonaje.base, mezcla: BlendMode.dstIn);
-    }
-    if (filtro.oscuro > 0) {
-      canvas.drawRect(
-        zona,
-        Paint()
-          ..blendMode = BlendMode.srcATop
-          ..color = Color.fromRGBO(0, 0, 0, filtro.oscuro),
-      );
     }
   }
 
@@ -219,9 +211,7 @@ class ElPersonajePainter extends CustomPainter {
       ),
       BlendMode.srcOver,
       Paint()
-        ..shader = tinte == null
-            ? capas.pincel(capa)
-            : capas.pincelTenido(capa, tinte)
+        ..shader = capas.pincel(capa, tinte: tinte, filtro: _variante)
         ..blendMode = mezcla
         // La opacidad del `Paint` sí la respeta Impeller en `drawVertices`.
         ..color = Color.fromRGBO(0, 0, 0, opacidad.clamp(0.0, 1.0)),
@@ -479,48 +469,32 @@ class ElPersonajePainter extends CustomPainter {
       old.semilla != semilla;
 }
 
-/// El filtro del estado, como el del mockup: dormido y sin oído más oscuros
-/// —`brightness(.74) saturate(.85)`—; sin llave, en gris y a 0,6.
-///
-/// Dos números y no una matriz, porque se pinta encima (ver
-/// [ElPersonajePainter]): [gris] es cuánto color se le quita, [oscuro] cuánta
-/// luz.
+/// El filtro del estado en este fotograma: el de antes, el de ahora y cuánto
+/// ha entrado el de ahora —en 600 ms, como la transición del mockup—.
 @immutable
 class ElFiltroDelEstado {
-  const ElFiltroDelEstado({this.gris = 0, this.oscuro = 0});
+  const ElFiltroDelEstado(this.ahora, {ElFiltro? antes, this.mezcla = 1})
+    : antes = antes ?? ahora;
 
-  static const neutro = ElFiltroDelEstado();
-
-  final double gris;
-  final double oscuro;
-
-  /// Para que cambie en 600 ms al cambiar de estado, como la transición del
-  /// mockup, y no de golpe.
-  static ElFiltroDelEstado mezcla(
-    ElFiltroDelEstado a,
-    ElFiltroDelEstado b,
-    double u,
-  ) => ElFiltroDelEstado(
-    gris: a.gris + (b.gris - a.gris) * u,
-    oscuro: a.oscuro + (b.oscuro - a.oscuro) * u,
-  );
+  final ElFiltro antes, ahora;
+  final double mezcla;
 
   @override
   bool operator ==(Object other) =>
       other is ElFiltroDelEstado &&
-      other.gris == gris &&
-      other.oscuro == oscuro;
+      other.antes == antes &&
+      other.ahora == ahora &&
+      other.mezcla == mezcla;
 
   @override
-  int get hashCode => Object.hash(gris, oscuro);
+  int get hashCode => Object.hash(antes, ahora, mezcla);
 }
 
-/// El filtro de [como].
-ElFiltroDelEstado elFiltroDe(ComoEsta como) => switch (como) {
-  ComoEsta.enReposo ||
-  ComoEsta.sinOido => const ElFiltroDelEstado(gris: 0.15, oscuro: 0.26),
-  ComoEsta.sinLlave => const ElFiltroDelEstado(gris: 1, oscuro: 0.4),
-  _ => ElFiltroDelEstado.neutro,
+/// El filtro de [como]: dormido y sin oído, más oscuro; sin llave, en gris.
+ElFiltro elFiltroDe(ComoEsta como) => switch (como) {
+  ComoEsta.enReposo || ComoEsta.sinOido => ElFiltro.dormido,
+  ComoEsta.sinLlave => ElFiltro.sinLlave,
+  _ => ElFiltro.ninguno,
 };
 
 /// Si [color] es el cian de fábrica, con el brillo que le haya puesto el tema.

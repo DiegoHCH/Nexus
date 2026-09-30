@@ -19,37 +19,54 @@ final class LasCapasDelPersonaje {
 
   final Map<CapaDelPersonaje, ui.Image> _imagenes;
   final Map<CapaDelPersonaje, ui.ImageShader> _pinceles;
-  final _tenidos = <(CapaDelPersonaje, int), ui.ImageShader>{};
+  final _horneados = <(CapaDelPersonaje, int?, ElFiltro), ui.ImageShader>{};
 
   /// El pincel de [capa], que pinta la capa **en sus coordenadas de siempre**
-  /// —las de la capa entera, 1024 × 1381— aunque esté recortada.
-  /// Así la malla es la misma para todas.
-  ui.ImageShader pincel(CapaDelPersonaje capa) => _pinceles[capa]!;
-
-  /// El pincel de [capa] teñida de [color] —el iris y el traje en gris—.
+  /// —las de la capa entera, 1024 × 1381— aunque esté recortada. Así la malla
+  /// es la misma para todas.
   ///
-  /// 🔴 **Horneado una vez en una imagen, y no un `colorFilter` al pintar**:
-  /// Impeller no aplica el filtro de un `drawVertices`, y el iris salía gris
-  /// (ver [ElPersonajePainter]). Aquí se pinta la capa con el tinte en un
-  /// `drawImage`, que sí lo respeta, y se guarda por color: el color cambia
-  /// cuando se elige otro, no en cada fotograma. Se guardan los últimos ocho.
-  ui.ImageShader pincelTenido(CapaDelPersonaje capa, Color color) {
-    final llave = (capa, color.toARGB32());
-    final hecho = _tenidos.remove(llave);
-    if (hecho != null) return _tenidos[llave] = hecho;
+  /// Con [tinte] —el iris, el traje en gris— y con [filtro] —dormida, sin
+  /// llave—, la capa sale ya teñida y filtrada.
+  ///
+  /// 🔴 **Horneado en una imagen, y no un `colorFilter` al pintar**: Impeller
+  /// no aplica el filtro de un `drawVertices` ni el de un `saveLayer`, y el
+  /// iris salía gris (ver [ElPersonajePainter]). Con el filtro del estado
+  /// pintado encima —un rectángulo en modo `saturation` y otro negro en
+  /// `srcATop`— Impeller oscurecía el rectángulo entero de la capa, no la
+  /// silueta: dormida salía dentro de un recuadro oscuro. Aquí se pinta la
+  /// capa con su matriz en un `drawImage`, que sí la respeta, y se guarda: el
+  /// color y el estado cambian de vez en cuando, no en cada fotograma. Se
+  /// guardan los últimos [_hornadas].
+  ui.ImageShader pincel(
+    CapaDelPersonaje capa, {
+    Color? tinte,
+    ElFiltro filtro = ElFiltro.ninguno,
+  }) {
+    if (tinte == null && filtro == ElFiltro.ninguno) return _pinceles[capa]!;
+    final llave = (capa, tinte?.toARGB32(), filtro);
+    final hecho = _horneados.remove(llave);
+    if (hecho != null) return _horneados[llave] = hecho;
+    var matriz = tinte == null ? laMatrizNeutra : elTinte(tinte);
+    if (filtro != ElFiltro.ninguno) {
+      matriz = componerMatrices(laMatrizDe(filtro), matriz);
+    }
     final imagen = _imagenes[capa]!;
     final grabadora = ui.PictureRecorder();
     ui.Canvas(grabadora).drawImage(
       imagen,
       ui.Offset.zero,
-      ui.Paint()..colorFilter = ui.ColorFilter.matrix(elTinte(color)),
+      ui.Paint()..colorFilter = ui.ColorFilter.matrix(matriz),
     );
     final foto = grabadora.endRecording();
-    final tenida = foto.toImageSync(imagen.width, imagen.height);
+    final horneada = foto.toImageSync(imagen.width, imagen.height);
     foto.dispose();
-    if (_tenidos.length >= 8) _tenidos.remove(_tenidos.keys.first);
-    return _tenidos[llave] = _elPincel(capa, tenida);
+    if (_horneados.length >= _hornadas) {
+      _horneados.remove(_horneados.keys.first);
+    }
+    return _horneados[llave] = _elPincel(capa, horneada);
   }
+
+  static const _hornadas = 24;
 
   static ui.ImageShader _elPincel(CapaDelPersonaje capa, ui.Image imagen) {
     final sx = capa.w / imagen.width, sy = capa.h / imagen.height;
@@ -126,3 +143,55 @@ List<double> elTinte(Color color) {
     0, 0, 0, 1, 0, //
   ];
 }
+
+/// El filtro del estado con que se pintan las capas.
+enum ElFiltro {
+  ninguno,
+
+  /// Dormido y sin oído: `brightness(.74) saturate(.85)`, el del mockup.
+  dormido,
+
+  /// Sin llave: en gris y a 0,6 de brillo.
+  sinLlave,
+}
+
+/// La matriz de [filtro].
+List<double> laMatrizDe(ElFiltro filtro) => switch (filtro) {
+  ElFiltro.ninguno => laMatrizNeutra,
+  ElFiltro.dormido => _saturacion(0.85, brillo: 0.74),
+  ElFiltro.sinLlave => _saturacion(0, brillo: 0.6),
+};
+
+/// La matriz que no cambia nada.
+const laMatrizNeutra = <double>[
+  1, 0, 0, 0, 0, //
+  0, 1, 0, 0, 0, //
+  0, 0, 1, 0, 0, //
+  0, 0, 0, 1, 0, //
+];
+
+/// `saturate(s)` después de `brightness(b)`, las de CSS: es como se escribió
+/// el filtro del mockup, y así sale igual.
+List<double> _saturacion(double s, {double brillo = 1}) {
+  final b = brillo;
+  return [
+    (0.213 + 0.787 * s) * b, (0.715 - 0.715 * s) * b, (0.072 - 0.072 * s) * b,
+    0, 0, //
+    (0.213 - 0.213 * s) * b, (0.715 + 0.285 * s) * b, (0.072 - 0.072 * s) * b,
+    0, 0, //
+    (0.213 - 0.213 * s) * b, (0.715 - 0.715 * s) * b, (0.072 + 0.928 * s) * b,
+    0, 0, //
+    0, 0, 0, 1, 0, //
+  ];
+}
+
+/// [a] después de [b], las dos matrices de color de 4 × 5: lo que sale de
+/// aplicar primero [b] y a su resultado [a].
+List<double> componerMatrices(List<double> a, List<double> b) => [
+  for (var fila = 0; fila < 4; fila++)
+    for (var col = 0; col < 5; col++)
+      (col < 4 ? 0.0 : a[fila * 5 + 4]) +
+          [
+            for (var k = 0; k < 4; k++) a[fila * 5 + k] * b[k * 5 + col],
+          ].reduce((x, y) => x + y),
+];

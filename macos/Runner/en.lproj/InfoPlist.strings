@@ -1,0 +1,9 @@
+/* What macOS shows when asking for each permission, in English.
+   See es.lproj/InfoPlist.strings; Info.plist keeps the Spanish text as the
+   fallback, since Spanish is the product's default language. */
+
+/* The microphone: for the voice. */
+"NSMicrophoneUsageDescription" = "Nexus needs your microphone to hear you when you talk to it.";
+
+/* Speech recognition: for hearing, which wakes her when you say her name. */
+"NSSpeechRecognitionUsageDescription" = "To hear you when you call her by name. Recognition happens on this Mac: nothing it hears leaves it.";

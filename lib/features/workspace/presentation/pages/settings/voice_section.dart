@@ -6,6 +6,7 @@ import 'package:nexus/features/assistant/domain/entities/el_acento.dart';
 import 'package:nexus/features/assistant/domain/entities/nexus_voice.dart';
 import 'package:nexus/features/assistant/presentation/providers/audio_output_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/voice_preference_providers.dart';
+import 'package:nexus/features/assistant/presentation/state/como_se_dice_la_voz.dart';
 import 'package:nexus/features/assistant/presentation/widgets/microphone_tester.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/salidas_section.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/secciones_de_ajustes.dart';
@@ -65,7 +66,8 @@ class VoiceSection extends ConsumerWidget {
                 (voice) => voice.name == selected.name,
                 orElse: () => NexusVoice.all.first,
               ),
-              nombre: (voice) => '${voice.name} · ${voice.character}',
+              // En el idioma de la app: ver [ComoSeDiceLaVoz].
+              nombre: (voice) => ComoSeDiceLaVoz.laVoz(voice, strings),
               cuantasSeVen: _vocesALaVista,
               masOpciones: strings.masVoces,
               onElegir: controller.select,
@@ -80,12 +82,9 @@ class VoiceSection extends ConsumerWidget {
               llave: 'acento',
               opciones: ElAcento.opciones,
               elegida: ref.watch(elAcentoProvider),
-              // «de Colombia» es como se le dice al modelo; en el botón va con
-              // mayúscula, que es un nombre y no media frase.
-              nombre: (acento) => switch (acento.variante) {
-                null => strings.elAcentoAutomatico,
-                final v => '${v[0].toUpperCase()}${v.substring(1)}',
-              },
+              // «de Colombia» es como se le dice al modelo; el botón lo dice en
+              // el idioma de la app. Ver [ComoSeDiceLaVoz.elAcento].
+              nombre: (acento) => ComoSeDiceLaVoz.elAcento(acento, strings),
               onElegir: ref.read(elAcentoProvider.notifier).select,
             ),
           ],

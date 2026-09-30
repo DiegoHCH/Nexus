@@ -38,6 +38,40 @@ mixin LaVozStrings {
   String get laVozSinConexion;
   String laVozSinAudio(String detalle);
   String laVozSeCayo(String detalle);
+
+  /// Cómo suena cada voz, en una palabra: las cualidades con que Google
+  /// describe las suyas. Ver `ComoSuena`.
+  String get vozBrillante;
+  String get vozAnimada;
+  String get vozInformativa;
+  String get vozFirme;
+  String get vozExcitable;
+  String get vozJuvenil;
+  String get vozLigera;
+  String get vozTranquila;
+  String get vozSusurrada;
+  String get vozClara;
+  String get vozSuave;
+  String get vozAspera;
+  String get vozDelicada;
+  String get vozTemplada;
+  String get vozMadura;
+  String get vozDirecta;
+  String get vozCercana;
+  String get vozInformal;
+  String get vozAmable;
+  String get vozViva;
+  String get vozDocta;
+  String get vozCalida;
+
+  /// Cómo se nombra cada acento en su botón. Lo que se le dice al modelo va
+  /// aparte y no cambia: ver `ElAcento.variante`.
+  String get acentoLatinoamericano;
+  String get acentoDeColombia;
+  String get acentoDeMexico;
+  String get acentoDeArgentina;
+  String get acentoDeChile;
+  String get acentoDeEspana;
 }
 
 mixin LaVozStringsEs implements LaVozStrings {
@@ -104,6 +138,63 @@ mixin LaVozStringsEs implements LaVozStrings {
   @override
   String laVozSeCayo(String detalle) =>
       'La voz se cerró por un fallo: $detalle';
+
+  @override
+  String get vozBrillante => 'brillante';
+  @override
+  String get vozAnimada => 'animada';
+  @override
+  String get vozInformativa => 'informativa';
+  @override
+  String get vozFirme => 'firme';
+  @override
+  String get vozExcitable => 'excitable';
+  @override
+  String get vozJuvenil => 'juvenil';
+  @override
+  String get vozLigera => 'ligera';
+  @override
+  String get vozTranquila => 'tranquila';
+  @override
+  String get vozSusurrada => 'susurrada';
+  @override
+  String get vozClara => 'clara';
+  @override
+  String get vozSuave => 'suave';
+  @override
+  String get vozAspera => 'áspera';
+  @override
+  String get vozDelicada => 'delicada';
+  @override
+  String get vozTemplada => 'templada';
+  @override
+  String get vozMadura => 'madura';
+  @override
+  String get vozDirecta => 'directa';
+  @override
+  String get vozCercana => 'cercana';
+  @override
+  String get vozInformal => 'informal';
+  @override
+  String get vozAmable => 'amable';
+  @override
+  String get vozViva => 'viva';
+  @override
+  String get vozDocta => 'docta';
+  @override
+  String get vozCalida => 'cálida';
+  @override
+  String get acentoLatinoamericano => 'Latinoamericano';
+  @override
+  String get acentoDeColombia => 'De Colombia';
+  @override
+  String get acentoDeMexico => 'De México';
+  @override
+  String get acentoDeArgentina => 'De Argentina';
+  @override
+  String get acentoDeChile => 'De Chile';
+  @override
+  String get acentoDeEspana => 'De España';
 }
 
 mixin LaVozStringsEn implements LaVozStrings {
@@ -170,4 +261,61 @@ mixin LaVozStringsEn implements LaVozStrings {
   @override
   String laVozSeCayo(String detalle) =>
       'Voice closed because of a failure: $detalle';
+
+  @override
+  String get vozBrillante => 'bright';
+  @override
+  String get vozAnimada => 'upbeat';
+  @override
+  String get vozInformativa => 'informative';
+  @override
+  String get vozFirme => 'firm';
+  @override
+  String get vozExcitable => 'excitable';
+  @override
+  String get vozJuvenil => 'youthful';
+  @override
+  String get vozLigera => 'breezy';
+  @override
+  String get vozTranquila => 'easy-going';
+  @override
+  String get vozSusurrada => 'breathy';
+  @override
+  String get vozClara => 'clear';
+  @override
+  String get vozSuave => 'smooth';
+  @override
+  String get vozAspera => 'gravelly';
+  @override
+  String get vozDelicada => 'soft';
+  @override
+  String get vozTemplada => 'even';
+  @override
+  String get vozMadura => 'mature';
+  @override
+  String get vozDirecta => 'forward';
+  @override
+  String get vozCercana => 'friendly';
+  @override
+  String get vozInformal => 'casual';
+  @override
+  String get vozAmable => 'gentle';
+  @override
+  String get vozViva => 'lively';
+  @override
+  String get vozDocta => 'knowledgeable';
+  @override
+  String get vozCalida => 'warm';
+  @override
+  String get acentoLatinoamericano => 'Latin American';
+  @override
+  String get acentoDeColombia => 'From Colombia';
+  @override
+  String get acentoDeMexico => 'From Mexico';
+  @override
+  String get acentoDeArgentina => 'From Argentina';
+  @override
+  String get acentoDeChile => 'From Chile';
+  @override
+  String get acentoDeEspana => 'From Spain';
 }

@@ -1,0 +1,9 @@
+/* Lo que macOS enseña al pedir cada permiso, en español.
+   Van aquí y no solo en Info.plist para que la app en inglés los pida en
+   inglés: el Info.plist es el de respaldo. Ver en.lproj/InfoPlist.strings. */
+
+/* El micrófono: para la voz. */
+"NSMicrophoneUsageDescription" = "Nexus necesita tu micrófono para escucharte cuando le hables.";
+
+/* El reconocimiento de voz: para el oído, que la despierta por su nombre. */
+"NSSpeechRecognitionUsageDescription" = "Para oírte cuando la llamas por su nombre. El reconocimiento ocurre en este Mac: nada de lo que oye sale de aquí.";

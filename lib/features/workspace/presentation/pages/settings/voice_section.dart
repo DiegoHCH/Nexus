@@ -47,14 +47,18 @@ class VoiceSection extends ConsumerWidget {
         // día** —medido en la consola de Google, `RPD 13 / 10`, ya pasado—,
         // así que escuchar treinta voces no es lento, es imposible.
         //
-        // Y peor: esas diez son las mismas que necesitan los avisos de agenda.
-        // Probar voces por la mañana te dejaba sin avisos hablados el resto
-        // del día, que es una función que sí hace falta.
+        // Cuando se quitó, además, esas diez eran las mismas que usaban los
+        // avisos de agenda, y probar voces por la mañana dejaba sin avisos
+        // hablados el resto del día. 🔴 **Eso ya no es así** (corregido el 30
+        // sep, al escribir la guía de configuración de la voz): desde la 1.8.0
+        // los avisos no pasan por el TTS sino por la sesión Live —ver
+        // `LaVozDelAviso`—, que no se agota en uso normal. El motivo que queda
+        // para no traer el botón de vuelta es el primero: diez al día no
+        // alcanzan para comparar treinta voces.
         //
         // Para comparar voces está AI Studio, que es lo que recomienda la
         // propia doc de Google y no gasta cuota. Un botón que consume un
-        // recurso escaso sin decirlo es una trampa, y uno que se lo quita a
-        // algo que importa más es peor que no tenerlo.
+        // recurso escaso sin decirlo es una trampa.
         BloqueDeAjustes(
           rotulo: strings.nexusVoice,
           hijos: [

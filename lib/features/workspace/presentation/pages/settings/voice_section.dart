@@ -6,6 +6,7 @@ import 'package:nexus/features/assistant/domain/entities/el_acento.dart';
 import 'package:nexus/features/assistant/domain/entities/nexus_voice.dart';
 import 'package:nexus/features/assistant/presentation/providers/audio_output_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/voice_preference_providers.dart';
+import 'package:nexus/features/assistant/presentation/state/como_se_dice_la_voz.dart';
 import 'package:nexus/features/assistant/presentation/widgets/microphone_tester.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/salidas_section.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/secciones_de_ajustes.dart';
@@ -46,14 +47,18 @@ class VoiceSection extends ConsumerWidget {
         // día** —medido en la consola de Google, `RPD 13 / 10`, ya pasado—,
         // así que escuchar treinta voces no es lento, es imposible.
         //
-        // Y peor: esas diez son las mismas que necesitan los avisos de agenda.
-        // Probar voces por la mañana te dejaba sin avisos hablados el resto
-        // del día, que es una función que sí hace falta.
+        // Cuando se quitó, además, esas diez eran las mismas que usaban los
+        // avisos de agenda, y probar voces por la mañana dejaba sin avisos
+        // hablados el resto del día. 🔴 **Eso ya no es así** (corregido el 30
+        // sep, al escribir la guía de configuración de la voz): desde la 1.8.0
+        // los avisos no pasan por el TTS sino por la sesión Live —ver
+        // `LaVozDelAviso`—, que no se agota en uso normal. El motivo que queda
+        // para no traer el botón de vuelta es el primero: diez al día no
+        // alcanzan para comparar treinta voces.
         //
         // Para comparar voces está AI Studio, que es lo que recomienda la
         // propia doc de Google y no gasta cuota. Un botón que consume un
-        // recurso escaso sin decirlo es una trampa, y uno que se lo quita a
-        // algo que importa más es peor que no tenerlo.
+        // recurso escaso sin decirlo es una trampa.
         BloqueDeAjustes(
           rotulo: strings.nexusVoice,
           hijos: [
@@ -65,7 +70,8 @@ class VoiceSection extends ConsumerWidget {
                 (voice) => voice.name == selected.name,
                 orElse: () => NexusVoice.all.first,
               ),
-              nombre: (voice) => '${voice.name} · ${voice.character}',
+              // En el idioma de la app: ver [ComoSeDiceLaVoz].
+              nombre: (voice) => ComoSeDiceLaVoz.laVoz(voice, strings),
               cuantasSeVen: _vocesALaVista,
               masOpciones: strings.masVoces,
               onElegir: controller.select,
@@ -80,12 +86,9 @@ class VoiceSection extends ConsumerWidget {
               llave: 'acento',
               opciones: ElAcento.opciones,
               elegida: ref.watch(elAcentoProvider),
-              // «de Colombia» es como se le dice al modelo; en el botón va con
-              // mayúscula, que es un nombre y no media frase.
-              nombre: (acento) => switch (acento.variante) {
-                null => strings.elAcentoAutomatico,
-                final v => '${v[0].toUpperCase()}${v.substring(1)}',
-              },
+              // «de Colombia» es como se le dice al modelo; el botón lo dice en
+              // el idioma de la app. Ver [ComoSeDiceLaVoz.elAcento].
+              nombre: (acento) => ComoSeDiceLaVoz.elAcento(acento, strings),
               onElegir: ref.read(elAcentoProvider.notifier).select,
             ),
           ],

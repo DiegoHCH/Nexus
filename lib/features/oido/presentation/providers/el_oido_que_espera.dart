@@ -95,6 +95,25 @@ class ElOidoQueEspera {
     await cuadrar();
   }
 
+  /// Lo enciende **si nadie lo ha decidido todavía**, y dice si lo encendió.
+  ///
+  /// 🔴 **Es lo que hace el arranque al terminar con micrófono y llave.** Salió
+  /// al escribir la guía de configuración de la voz (30 sep): el arranque pedía
+  /// el micrófono y la llave, y después la llamabas por su nombre y no te oía,
+  /// porque el oído nace apagado y nada lo decía. Quien acaba de conceder el
+  /// micrófono y pegar una llave está pidiendo hablarle; el arranque lo dice en
+  /// pantalla —con el punto naranja que cuesta— antes de pulsar «Empezar».
+  ///
+  /// «Si nadie lo ha decidido» porque retomar el arranque desde Ajustes pasa
+  /// por aquí también, y quien lo apagó a propósito no tiene que encontrárselo
+  /// encendido por haber pegado una llave.
+  Future<bool> encenderSiNadieLoDecidio() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(encendido) != null) return false;
+    await cambiar(aEncendido: true);
+    return true;
+  }
+
   /// Dónde se guarda si contesta al llamarla.
   static const saluda = 'oido_saluda';
 
@@ -133,11 +152,15 @@ class ElOidoQueEspera {
     // «encendido y no pudo», y con el micrófono de por medio esa es justo la
     // pregunta que hay que poder contestar sin adivinar.
     if (debe == _puesto) {
-      if (!debe) debugPrint('escucha · no toca escuchar ahora');
+      if (!debe) {
+        debugPrint('escucha · no toca escuchar ahora');
+        _apuntar(null);
+      }
       return;
     }
     if (!debe) {
       _puesto = false;
+      _apuntar(null);
       await EscuchaChannel.parar();
       return;
     }
@@ -147,9 +170,24 @@ class ElOidoQueEspera {
     // aunque la hubieras llamado Hestia, y se quedaba así toda la sesión.
     await _ref.read(losNombresProvider.notifier).leidos;
     if (!_ref.mounted) return;
-    _puesto = await EscuchaChannel.empezar(_lasPalabras());
-    debugPrint('escucha · ${_puesto ? 'puesta' : 'no se pudo poner'}');
+    final como = await EscuchaChannel.empezar(
+      _lasPalabras(),
+      idioma: _elIdioma(),
+    );
+    if (!_ref.mounted) return;
+    _puesto = como.puesta;
+    // 🔴 **Con el porqué**: «no se pudo poner» a secas obligaba a abrir
+    // Consola para saber si era el permiso, una reunión con el micrófono o que
+    // no hay reconocedor local. Ver [ComoQuedoLaEscucha].
+    debugPrint('escucha · $como');
+    _apuntar(como);
     if (!_puesto) _volverAProbar();
+  }
+
+  /// Lo que se sabe de la escucha, para Ajustes › Oído.
+  void _apuntar(ComoQuedoLaEscucha? como) {
+    if (!_ref.mounted) return;
+    _ref.read(comoQuedoLaEscuchaProvider.notifier).apuntar(como);
   }
 
   /// 🔴 **Si no pudo ponerse, se vuelve a probar en un rato**, en vez de
@@ -180,6 +218,28 @@ class ElOidoQueEspera {
     await cuadrar();
   }
 
+  /// Cambió el idioma de la app: el oído pasa a escuchar en ese.
+  ///
+  /// 🔴 **El oído escucha en el idioma de la app, no en el del sistema** (30
+  /// sep, al escribir la guía de configuración de la voz). Antes reconocía con
+  /// `Locale.preferredLanguages` y la voz hablaba el de Ajustes › Idioma: con el
+  /// Mac en español y la app en inglés, ella contestaba en inglés y el oído
+  /// esperaba español. El idioma viaja al ponerse —ver [cuadrar]— y aquí,
+  /// cuando cambia; sin escuchar no hay nada que cambiar, y el siguiente
+  /// `empezar` ya lleva el nuevo.
+  Future<void> cambiarIdioma(String idioma) async {
+    if (!_puesto) return;
+    final como = await EscuchaChannel.cambiarIdioma(idioma);
+    if (!_ref.mounted) return;
+    _puesto = como.puesta;
+    debugPrint('escucha · idioma $idioma · $como');
+    _apuntar(como);
+    if (!_puesto) _volverAProbar();
+  }
+
+  /// El idioma de la app, como código: el mismo con el que habla la voz.
+  String _elIdioma() => _ref.read(localeProvider).languageCode;
+
   Future<bool> _debeEscuchar() async {
     if (_llamando) return false;
     try {
@@ -207,9 +267,12 @@ class ElOidoQueEspera {
   /// Se intenta **una vez** al rato, no en bucle: si sigue sin poder, `empezar`
   /// devuelve que no y ahí se queda, igual que al arrancar. Lo que no se hace
   /// es seguir creyendo que escucha.
-  void _seCallo() {
+  void _seCallo(ComoQuedoLaEscucha como) {
     _puesto = false;
-    debugPrint('escucha · se calló sola; se prueba otra vez en un rato');
+    debugPrint(
+      'escucha · se calló sola ($como); se prueba otra vez en un rato',
+    );
+    _apuntar(como);
     unawaited(
       Future<void>.delayed(_reintento, () async {
         if (_ref.mounted) await cuadrar();
@@ -442,6 +505,13 @@ final elOidoQueEsperaProvider = Provider<ElOidoQueEspera>((ref) {
   // Y por lo mismo si se sigue sin su nombre: se pregunta a media
   // conversación, con cada frase, y ahí no se espera al disco.
   ref.listen(seSigueSinNombreProvider, (_, _) {});
+  // Y el idioma: el oído escucha en el de la app, que es en el que habla ella.
+  ref.listen(localeProvider.select((locale) => locale.languageCode), (
+    antes,
+    ahora,
+  ) {
+    if (antes != ahora) unawaited(oido.cambiarIdioma(ahora));
+  });
   ref.listen(losNombresProvider.select((nombres) => nombres.agente), (
     antes,
     ahora,
@@ -462,6 +532,28 @@ final _hayVozAbiertaProvider = Provider<bool>(
         ),
       ),
 );
+
+/// Cómo quedó la última vez que se puso la escucha —puesta y en qué idioma, o
+/// por qué no—, o `null` si no toca escuchar. Lo apunta [ElOidoQueEspera] y lo
+/// enseña Ajustes › Oído.
+class ComoQuedoLaEscuchaController extends Notifier<ComoQuedoLaEscucha?> {
+  @override
+  ComoQuedoLaEscucha? build() => null;
+
+  void apuntar(ComoQuedoLaEscucha? como) => state = como;
+}
+
+final comoQuedoLaEscuchaProvider =
+    NotifierProvider<ComoQuedoLaEscuchaController, ComoQuedoLaEscucha?>(
+      ComoQuedoLaEscuchaController.new,
+    );
+
+/// Si alguien ya decidió encenderlo o apagarlo; `null` es que nunca se tocó.
+/// Lo mira el arranque para no prometer que lo enciende cuando no lo hará.
+final elOidoSeDecidioProvider = FutureProvider.autoDispose<bool?>((ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(ElOidoQueEspera.encendido);
+});
 
 /// Si está encendido, para pintarlo en Ajustes.
 final elOidoEstaEncendidoProvider = FutureProvider<bool>((ref) async {

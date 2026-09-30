@@ -110,6 +110,7 @@ class AssistantHudState {
     this.meter = const SessionMeter(),
     this.errorMessage,
     this.laSesionCaduco = false,
+    this.faltaLaLlaveDeGemini = false,
     this.notice,
     this.puedeEmpezarDeCero = false,
     this.memoriaPropia = false,
@@ -155,6 +156,15 @@ class AssistantHudState {
   /// idioma que puede ser cualquiera de los dos. La señal se toma donde
   /// todavía existe —la salida cruda del CLI— y se guarda.
   final bool laSesionCaduco;
+
+  /// El fallo de arriba es que falta la llave de Gemini, y por eso se ofrece
+  /// abrir Ajustes › Llaves desde el aviso.
+  ///
+  /// Bandera y no texto por lo mismo que [laSesionCaduco]: el aviso ya va
+  /// traducido. Y **va atada al aviso**: poner otro fallo la apaga sola —ver
+  /// [copyWith]—, porque un botón de «Poner la llave» debajo de un error de
+  /// Claude mandaría a arreglar lo que no está roto.
+  final bool faltaLaLlaveDeGemini;
 
   /// Algo que conviene saber y que **no es un fallo**: hoy, que los archivos de
   /// reglas del repositorio no son los mismos que la última vez.
@@ -221,6 +231,7 @@ class AssistantHudState {
     SessionMeter? meter,
     Object? errorMessage = _unset,
     bool? laSesionCaduco,
+    bool? faltaLaLlaveDeGemini,
     Object? notice = _unset,
     bool? puedeEmpezarDeCero,
     bool? memoriaPropia,
@@ -241,6 +252,9 @@ class AssistantHudState {
           ? this.errorMessage
           : errorMessage as String?,
       laSesionCaduco: laSesionCaduco ?? this.laSesionCaduco,
+      faltaLaLlaveDeGemini:
+          faltaLaLlaveDeGemini ??
+          (errorMessage == _unset ? this.faltaLaLlaveDeGemini : false),
       notice: notice == _unset ? this.notice : notice as String?,
       puedeEmpezarDeCero: puedeEmpezarDeCero ?? this.puedeEmpezarDeCero,
       memoriaPropia: memoriaPropia ?? this.memoriaPropia,

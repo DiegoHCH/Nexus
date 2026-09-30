@@ -29,15 +29,38 @@ const cupoEnAmbarDesde = 60;
 /// vacía y el cupo de la semana en las últimas. El contexto lo reporta el CLI en
 /// cada turno; el cupo sale del mismo endpoint que usa la app de la barra de
 /// menús.
+///
+/// 🔴 **Ya no vive en el compositor del chat, vive en la esquina de la sala.**
+/// El círculo repetía, abajo a la derecha de la caja, lo que la esquina de
+/// arriba a la derecha ya decía —«contexto 45 %»—, y el globo con las cifras
+/// solo estaba en el círculo. Se quitó el círculo del chat (30 sep) y la esquina
+/// pasó a ser lo que se pulsa: el mismo menú y **el mismo globo**, «Ventana de
+/// contexto · 452,9k / 1,0M (45 %)». Por eso lo que se pinta llega en [child]:
+/// el cálculo y el texto del globo son de aquí, se pulse donde se pulse.
 class UsageMenu extends ConsumerWidget {
   const UsageMenu({
     super.key,
     required this.meter,
     required this.claudeProfile,
+    this.child,
   });
 
   final SessionMeter meter;
   final String? claudeProfile;
+
+  /// Lo que se pulsa. Sin él, el círculo que se llena: es lo que queda en la
+  /// casa sin conversación, donde no hay esquina que lo diga.
+  final Widget? child;
+
+  /// El globo al pasar por encima: el nombre y las tres cifras juntas.
+  ///
+  /// Aparte para que lo compartan el círculo y la esquina de la sala sin
+  /// repetir el formato: las cifras son [SessionMeter.contextLabel], y sin
+  /// ninguna lectura todavía se dice solo qué es.
+  static String elGlobo(NexusStrings strings, SessionMeter meter) =>
+      meter.contextLabel == null
+      ? strings.contextWindow
+      : '${strings.contextWindow} · ${meter.contextLabel}';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -151,17 +174,17 @@ class UsageMenu extends ConsumerWidget {
           ),
         ],
         child: Tooltip(
-          message: meter.contextLabel == null
-              ? strings.contextWindow
-              : '${strings.contextWindow} · ${meter.contextLabel}',
-          child: CustomPaint(
-            size: const Size(15, 15),
-            painter: _ContextDial(
-              fraction: meter.contextFraction,
-              ring: colors.rule,
-              fill: context_ >= 85 ? colors.warn : colors.accent,
-            ),
-          ),
+          message: elGlobo(strings, meter),
+          child:
+              child ??
+              CustomPaint(
+                size: const Size(15, 15),
+                painter: _ContextDial(
+                  fraction: meter.contextFraction,
+                  ring: colors.rule,
+                  fill: context_ >= 85 ? colors.warn : colors.accent,
+                ),
+              ),
         ),
       ),
     );

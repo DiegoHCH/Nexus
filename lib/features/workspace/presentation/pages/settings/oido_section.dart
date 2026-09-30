@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
+import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
+import 'package:nexus/core/platform/escucha_channel.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_audio_ajeno.dart';
 import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
@@ -28,6 +30,7 @@ class OidoSection extends ConsumerWidget {
     final encendido = ref.watch(elOidoEstaEncendidoProvider).value ?? false;
     final saluda = ref.watch(elOidoSaludaProvider).value ?? true;
     final sigueSinNombre = ref.watch(seSigueSinNombreProvider).value ?? true;
+    final como = ref.watch(comoQuedoLaEscuchaProvider);
 
     return BloquesDeAjustes(
       bloques: [
@@ -61,12 +64,35 @@ class OidoSection extends ConsumerWidget {
             ),
             // Qué palabra espera, y solo con el oído encendido: si le cambiaste
             // el nombre, es la forma de comprobar sin llamarla que ya espera el
-            // nuevo.
+            // nuevo. Con el idioma en que escucha, como el mockup —«es-MX»—:
+            // es el de la app, o el del sistema si el de la app no tiene
+            // modelo en este Mac.
+            //
+            // 🔴 **Y si no te oye, por qué.** Iba solo al registro de macOS y
+            // aquí seguía diciendo «Escuchando» con nadie escuchando. Salió al
+            // escribir la guía de configuración de la voz (30 sep).
             if (encendido)
-              EstadoDeAjustes(
-                tono: TonoDeAjustes.bien,
-                texto: strings.oidoEspera(palabra),
-              ),
+              switch (como) {
+                ComoQuedoLaEscucha(puesta: false, :final motivo) =>
+                  EstadoDeAjustes(
+                    key: const ValueKey('el-oido-no-te-oye'),
+                    tono: TonoDeAjustes.atencion,
+                    texto: strings.oidoNoTeOye(
+                      porQueNoTeOye(
+                        motivo ?? PorQueNoEscucha.desconocido,
+                        strings,
+                      ),
+                    ),
+                  ),
+                ComoQuedoLaEscucha(:final idioma?) => EstadoDeAjustes(
+                  tono: TonoDeAjustes.bien,
+                  texto: strings.oidoEsperaEn(palabra, idioma),
+                ),
+                _ => EstadoDeAjustes(
+                  tono: TonoDeAjustes.bien,
+                  texto: strings.oidoEspera(palabra),
+                ),
+              },
             // 🔴 **Esto no está en el mockup, y se queda.** Es lo que cuesta
             // de verdad tener el micrófono abierto, y el mockup pide que lo
             // que cuesta cada opción se diga al lado: con auriculares
@@ -120,3 +146,19 @@ class OidoSection extends ConsumerWidget {
     );
   }
 }
+
+/// Por qué no te oye, dicho para ir detrás de «Ahora no te oye:». Exhaustivo a
+/// propósito: un motivo nuevo en el canal no compila sin su frase.
+String porQueNoTeOye(PorQueNoEscucha motivo, NexusStrings strings) =>
+    switch (motivo) {
+      PorQueNoEscucha.sinPalabras => strings.oidoPorqueSinPalabras,
+      PorQueNoEscucha.sinPermisoDeVoz => strings.oidoPorqueSinPermisoDeVoz,
+      PorQueNoEscucha.sinPermisoDelMicrofono =>
+        strings.oidoPorqueSinPermisoDelMicrofono,
+      PorQueNoEscucha.microfonoOcupado => strings.oidoPorqueMicrofonoOcupado,
+      PorQueNoEscucha.sinReconocedorLocal =>
+        strings.oidoPorqueSinReconocedorLocal,
+      PorQueNoEscucha.sinMicrofono => strings.oidoPorqueSinMicrofono,
+      PorQueNoEscucha.fallaElMotor => strings.oidoPorqueFallaElMotor,
+      PorQueNoEscucha.desconocido => strings.oidoPorqueDesconocido,
+    };

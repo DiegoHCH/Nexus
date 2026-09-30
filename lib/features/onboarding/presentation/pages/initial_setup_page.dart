@@ -3,15 +3,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
+import 'package:nexus/features/assistant/domain/repositories/microphone_access.dart'
+    as sistema;
 import 'package:nexus/features/assistant/presentation/orb/nexus_orb.dart';
+import 'package:nexus/features/assistant/presentation/providers/voice_input_providers.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/oido/domain/usecases/como_se_le_llama.dart';
+import 'package:nexus/features/oido/presentation/providers/el_oido_que_espera.dart';
 import 'package:nexus/features/onboarding/domain/entities/pasos_del_arranque.dart';
 import 'package:nexus/features/onboarding/presentation/providers/onboarding_providers.dart';
 import 'package:nexus/features/onboarding/presentation/state/onboarding_state.dart';
 import 'package:nexus/features/onboarding/presentation/widgets/arranque_con_orbe.dart';
 import 'package:nexus/features/personalidad/domain/la_personalidad.dart';
 import 'package:nexus/features/workspace/data/datasources/claude_profiles_data_source.dart';
+import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
+import 'package:nexus/features/workspace/domain/usecases/la_modalidad_al_emparejar.dart';
+import 'package:nexus/features/workspace/presentation/pages/settings/permissions_section.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -216,6 +223,30 @@ class _InitialSetupPageState extends ConsumerState<InitialSetupPage>
       hayPersonalidad: base.hayPersonalidad || setup.personalidadGuardada,
     );
 
+    // Lo que tendrá la voz al terminar, **tal como está ahora en pantalla**: el
+    // micrófono concedido aquí —o ya concedido antes, que al retomar no se
+    // pide— y una llave, guardada o escrita y sin dejar para luego. Es lo que
+    // decide en qué entra la carpeta y si se enciende el oído, y se enseña
+    // antes de pulsar para que no sea una sorpresa.
+    final microfonoDelSistema =
+        ref.watch(_elMicrofonoYaConcedidoProvider).value ?? false;
+    final tieneAhora = LoQueTieneLaVoz(
+      microfono: como.microfonoConcedido || microfonoDelSistema,
+      llave:
+          base.hayLlave ||
+          (setup.keyText.trim().isNotEmpty &&
+              !setup.saltados.contains(QueSePide.llave)),
+    );
+    final laModalidad =
+        setup.modalidadElegida ?? LaModalidadAlEmparejar.para(tieneAhora);
+    // Solo si nadie lo decidió: quien lo apagó a propósito no lo va a
+    // encontrar encendido, y prometerlo aquí sería mentir.
+    final oidoSinDecidir = ref.watch(elOidoSeDecidioProvider).value == null;
+    final seEnciendeElOido =
+        tieneAhora.puedeHablar &&
+        oidoSinDecidir &&
+        !ref.watch(elOidoSeDecidioProvider).isLoading;
+
     final pedidos = _queSePide();
     final etapas = LoQueFaltaPorConfigurar.etapas(pedidos);
     final etapa = _etapa ?? etapas.firstOrNull ?? EtapaDelArranque.trabajar;
@@ -246,7 +277,14 @@ class _InitialSetupPageState extends ConsumerState<InitialSetupPage>
           onSaltar: saltar,
           onRetomar: retomar,
         ),
-        QueSePide.carpeta => _PasoDeLaCarpeta(paso: paso),
+        QueSePide.carpeta => _PasoDeLaCarpeta(
+          paso: paso,
+          modalidad: laModalidad,
+          elegida: setup.modalidadElegida != null,
+          falta: loQueLeFaltaALaVoz(tieneAhora, strings),
+          onEmparejar: notifier.emparejar,
+          onElegir: notifier.elegirModalidad,
+        ),
         QueSePide.cuenta => _PasoDeLaCuenta(
           paso: paso,
           elegida: setup.cuentaElegida,
@@ -332,6 +370,25 @@ class _InitialSetupPageState extends ConsumerState<InitialSetupPage>
           Text(
             strings.keySaveFailed(setup.errorMessage ?? ''),
             style: NexusTypography.nota.copyWith(color: colors.err),
+          ),
+        ],
+        // 🔴 **Que el oído se enciende, dicho antes de pulsar.** Nace apagado
+        // porque encendido tiene el punto naranja del micrófono todo el rato;
+        // el arranque lo enciende al terminar con micrófono y llave, y eso no
+        // puede pasar sin que se vea —ni lo que cuesta—.
+        if (esLaUltima && seEnciendeElOido) ...[
+          const SizedBox(height: NexusSpacing.s3),
+          Text(
+            strings.elOidoSeEnciendeAlEmpezar(
+              ComoSeLeLlama.lasPalabras(
+                setup.suNombre.trim().isEmpty ? null : setup.suNombre.trim(),
+              ).first,
+            ),
+            key: const ValueKey('el-oido-se-enciende'),
+            style: NexusTypography.nota.copyWith(
+              color: colors.mute,
+              fontSize: 12.5,
+            ),
           ),
         ],
         const SizedBox(height: 18),
@@ -614,7 +671,11 @@ class _Paso extends StatelessWidget {
 
 /// Un enlace discreto, subrayado y en el tono de las notas.
 class _EnlaceDelPaso extends StatelessWidget {
-  const _EnlaceDelPaso({required this.texto, required this.onPulsar});
+  const _EnlaceDelPaso({
+    super.key,
+    required this.texto,
+    required this.onPulsar,
+  });
 
   final String texto;
   final VoidCallback onPulsar;
@@ -774,9 +835,27 @@ class _PasoDelMicrofono extends StatelessWidget {
 /// —la raíz del disco— y respondería sobre todo el Mac. Una carpeta concreta
 /// no es una preferencia, es la condición para que exista el trabajo.
 class _PasoDeLaCarpeta extends ConsumerWidget {
-  const _PasoDeLaCarpeta({required this.paso});
+  const _PasoDeLaCarpeta({
+    required this.paso,
+    required this.modalidad,
+    required this.elegida,
+    required this.falta,
+    required this.onEmparejar,
+    required this.onElegir,
+  });
 
   final PasoDelArranque paso;
+
+  /// En qué va a entrar la carpeta al terminar.
+  final FolderModality modalidad;
+
+  /// Si esa modalidad la eligió alguien con el botón, y no la voz.
+  final bool elegida;
+
+  /// Qué le falta a la voz, o `null` si nada.
+  final String? falta;
+  final VoidCallback onEmparejar;
+  final ValueChanged<FolderModality> onElegir;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -784,6 +863,7 @@ class _PasoDeLaCarpeta extends ConsumerWidget {
     final strings = context.strings;
     final home = ref.watch(homeDirectoryProvider);
     final folder = ref.watch(workspaceControllerProvider).folders.firstOrNull;
+    final enVoz = modalidad.allowsVoice;
     return _Paso(
       paso: paso,
       titulo: strings.pasoCarpeta,
@@ -791,22 +871,71 @@ class _PasoDeLaCarpeta extends ConsumerWidget {
           ? BotonDelArranque(
               texto: strings.choose,
               principal: true,
-              onPulsar: ref
-                  .read(workspaceControllerProvider.notifier)
-                  .pairFolder,
+              onPulsar: onEmparejar,
             )
           : _Estado(color: colors.ok, texto: strings.chosen),
-      // Elegida, se enseña la ruta —un dato, en mono—; sin elegir, qué es.
+      // Elegida, se enseña la ruta —un dato, en mono— y en qué entra; sin
+      // elegir, qué es.
       cuerpo: folder == null
           ? Text(strings.workFolderTitle, style: _cuerpoDelPaso(colors))
-          : Text(
-              folder.displayPath(home),
-              overflow: TextOverflow.ellipsis,
-              style: NexusTypography.data.copyWith(color: colors.mute),
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  folder.displayPath(home),
+                  overflow: TextOverflow.ellipsis,
+                  style: NexusTypography.data.copyWith(color: colors.mute),
+                ),
+                // 🔴 **En qué entra, dicho aquí.** Toda carpeta entraba en solo
+                // texto y el arranque no lo contaba: se descubría al pulsar
+                // ⌥Espacio. Ahora entra en voz si al terminar hay micrófono y
+                // llave, y esta línea cambia en vivo mientras se completan los
+                // pasos —ver [LaModalidadAlEmparejar]—, con el botón para
+                // elegir lo contrario.
+                const SizedBox(height: 6),
+                Text(
+                  enVoz
+                      ? strings.entraraEnVoz
+                      : elegida || falta == null
+                      ? strings.entraraEnSoloTextoElegido
+                      : strings.entraraEnSoloTexto(falta!),
+                  key: const ValueKey('en-que-entra-la-carpeta'),
+                  style: NexusTypography.nota.copyWith(
+                    color: enVoz ? colors.mute : colors.warn,
+                    fontSize: 12.5,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: _EnlaceDelPaso(
+                    key: const ValueKey('cambiar-en-que-entra'),
+                    texto: enVoz
+                        ? strings.dejarlaEnSoloTexto
+                        : strings.pasarlaAVoz,
+                    onPulsar: () => onElegir(
+                      enVoz ? FolderModality.textOnly : FolderModality.voice,
+                    ),
+                  ),
+                ),
+              ],
             ),
     );
   }
 }
+
+/// Si el micrófono ya estaba concedido **sin pedirlo**: al retomar el arranque
+/// desde Ajustes el paso del micrófono no se enseña, y sin esto la pantalla
+/// diría que falta un micrófono que ya está.
+final _elMicrofonoYaConcedidoProvider = FutureProvider.autoDispose<bool>((
+  ref,
+) async {
+  try {
+    return await ref.read(microphoneAccessProvider).status() ==
+        sistema.MicrophoneStatus.granted;
+  } on Object {
+    return false;
+  }
+});
 
 class _PasoDeLaLlave extends StatelessWidget {
   const _PasoDeLaLlave({

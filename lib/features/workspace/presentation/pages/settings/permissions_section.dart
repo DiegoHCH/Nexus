@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
@@ -10,6 +12,7 @@ import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/domain/entities/workspace.dart';
 import 'package:nexus/features/workspace/domain/usecases/allowed_commands.dart';
 import 'package:nexus/features/workspace/domain/usecases/el_permiso_que_vale.dart';
+import 'package:nexus/features/workspace/domain/usecases/la_modalidad_al_emparejar.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
 /// Permisos: el tope de la app, las carpetas emparejadas y qué puede ejecutar.
@@ -99,6 +102,7 @@ class _PermissionsSectionState extends ConsumerState<PermissionsSection> {
                     ),
                 ],
               ),
+            const ComoEntroLaCarpetaAviso(),
             AccionesDeAjustes(
               botones: [
                 BotonDeAjustes(
@@ -120,6 +124,91 @@ class _PermissionsSectionState extends ConsumerState<PermissionsSection> {
           ),
           _AllowedCommands(folder: activa),
         ],
+      ],
+    );
+  }
+}
+
+/// Qué le falta a la voz, dicho para ir detrás de «falta…», o `null` si no le
+/// falta nada.
+String? loQueLeFaltaALaVoz(LoQueTieneLaVoz tiene, NexusStrings strings) =>
+    switch ((tiene.microfono, tiene.llave)) {
+      (true, true) => null,
+      (false, true) => strings.faltaElMicrofono,
+      (true, false) => strings.faltaLaLlave,
+      (false, false) => strings.faltanElMicrofonoYLaLlave,
+    };
+
+/// En qué modalidad entró la carpeta que acabas de emparejar, **junto a ella**
+/// y con el botón para cambiarla.
+///
+/// 🔴 **Existe porque antes no se decía.** Toda carpeta nueva entraba en solo
+/// texto y ninguna pantalla lo contaba: se descubría pulsando ⌥Espacio y
+/// leyendo «La carpeta … está en modo solo texto». Ahora entra en voz si la voz
+/// ya está lista —ver [LaModalidadAlEmparejar]— y, entre en lo que entre, aquí
+/// se dice en qué y por qué. En voz se dice también lo que sale hacia Google,
+/// que es lo que la decisión i5 quería que nadie aceptara sin saberlo.
+///
+/// Solo la última emparejada y solo en esta sesión: es «acabas de hacer esto»,
+/// no un recordatorio. Pulsar el botón la cambia y el aviso se va, porque la
+/// fila ya dice en qué quedó.
+class ComoEntroLaCarpetaAviso extends ConsumerWidget {
+  const ComoEntroLaCarpetaAviso({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = context.strings;
+    final como = ref.watch(comoEntroLaCarpetaProvider);
+    final workspace = ref.watch(workspaceControllerProvider);
+    final carpeta = como == null
+        ? null
+        : workspace.folders.where((f) => f.path == como.path).firstOrNull;
+    if (como == null || carpeta == null) return const SizedBox.shrink();
+
+    // Si el repositorio pide solo texto, eso manda: no hay botón que ofrecer.
+    final bloqueada = workspace.delRepo[carpeta.path]?.soloTexto ?? false;
+    final enVoz = como.modalidad.allowsVoice;
+    final falta = loQueLeFaltaALaVoz(como.tiene, strings);
+
+    void cambiar(FolderModality a) {
+      unawaited(
+        ref
+            .read(workspaceControllerProvider.notifier)
+            .setModality(como.path, a),
+      );
+      ref.read(comoEntroLaCarpetaProvider.notifier).apuntar(null);
+    }
+
+    return Column(
+      key: const ValueKey('como-entro-la-carpeta'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        EstadoDeAjustes(
+          tono: enVoz ? TonoDeAjustes.bien : TonoDeAjustes.atencion,
+          texto: bloqueada
+              ? strings.repoLoFija
+              : enVoz
+              ? strings.entroEnVoz(carpeta.name)
+              // Sin nada que falte y en solo texto no se llega aquí desde
+              // emparejar, pero si se llegara, lo honrado es decir la llave.
+              : strings.entroEnSoloTexto(
+                  carpeta.name,
+                  falta ?? strings.faltaLaLlave,
+                ),
+        ),
+        if (!bloqueada)
+          AccionesDeAjustes(
+            botones: [
+              BotonDeAjustes(
+                key: const ValueKey('cambiar-como-entro'),
+                texto: enVoz ? strings.dejarlaEnSoloTexto : strings.pasarlaAVoz,
+                tono: enVoz ? TonoDeBoton.neutro : TonoDeBoton.principal,
+                onPulsar: () => cambiar(
+                  enVoz ? FolderModality.textOnly : FolderModality.voice,
+                ),
+              ),
+            ],
+          ),
       ],
     );
   }

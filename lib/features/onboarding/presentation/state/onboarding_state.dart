@@ -1,5 +1,6 @@
 import 'package:nexus/features/onboarding/domain/entities/pasos_del_arranque.dart';
 import 'package:nexus/features/onboarding/domain/entities/readiness.dart';
+import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 
 /// A qué pantalla va la app al arrancar: siempre pasa por el splash
 /// ([AppRouteLoading]), y desde ahí a la comprobación de que puede trabajar
@@ -48,6 +49,8 @@ class SetupState {
     this.personalidadGuardada = false,
     this.cuentaElegida = false,
     this.saltados = const {},
+    this.carpetasDelArranque = const {},
+    this.modalidadElegida,
     this.saving = false,
     this.errorMessage,
   });
@@ -81,6 +84,15 @@ class SetupState {
   /// Lo que se dejó para luego con «Ahora no» en esta pantalla.
   final Set<QueSePide> saltados;
 
+  /// Las carpetas emparejadas **en esta pantalla**. Son las únicas cuya
+  /// modalidad se decide al terminar: las que ya estaban no se tocan.
+  final Set<String> carpetasDelArranque;
+
+  /// La modalidad elegida a mano con el botón del paso de la carpeta, o `null`
+  /// si se deja que la decida lo que tenga la voz al terminar. Ver
+  /// [LaModalidadAlEmparejar].
+  final FolderModality? modalidadElegida;
+
   final bool saving;
   final String? errorMessage;
 
@@ -107,6 +119,8 @@ class SetupState {
     bool? personalidadGuardada,
     bool? cuentaElegida,
     Set<QueSePide>? saltados,
+    Set<String>? carpetasDelArranque,
+    FolderModality? modalidadElegida,
     bool? saving,
     String? errorMessage,
   }) {
@@ -120,6 +134,8 @@ class SetupState {
       personalidadGuardada: personalidadGuardada ?? this.personalidadGuardada,
       cuentaElegida: cuentaElegida ?? this.cuentaElegida,
       saltados: saltados ?? this.saltados,
+      carpetasDelArranque: carpetasDelArranque ?? this.carpetasDelArranque,
+      modalidadElegida: modalidadElegida ?? this.modalidadElegida,
       saving: saving ?? this.saving,
       errorMessage: errorMessage,
     );

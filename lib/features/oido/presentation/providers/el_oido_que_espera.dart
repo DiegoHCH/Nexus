@@ -95,6 +95,25 @@ class ElOidoQueEspera {
     await cuadrar();
   }
 
+  /// Lo enciende **si nadie lo ha decidido todavía**, y dice si lo encendió.
+  ///
+  /// 🔴 **Es lo que hace el arranque al terminar con micrófono y llave.** Salió
+  /// al escribir la guía de configuración de la voz (30 sep): el arranque pedía
+  /// el micrófono y la llave, y después la llamabas por su nombre y no te oía,
+  /// porque el oído nace apagado y nada lo decía. Quien acaba de conceder el
+  /// micrófono y pegar una llave está pidiendo hablarle; el arranque lo dice en
+  /// pantalla —con el punto naranja que cuesta— antes de pulsar «Empezar».
+  ///
+  /// «Si nadie lo ha decidido» porque retomar el arranque desde Ajustes pasa
+  /// por aquí también, y quien lo apagó a propósito no tiene que encontrárselo
+  /// encendido por haber pegado una llave.
+  Future<bool> encenderSiNadieLoDecidio() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(encendido) != null) return false;
+    await cambiar(aEncendido: true);
+    return true;
+  }
+
   /// Dónde se guarda si contesta al llamarla.
   static const saluda = 'oido_saluda';
 
@@ -462,6 +481,13 @@ final _hayVozAbiertaProvider = Provider<bool>(
         ),
       ),
 );
+
+/// Si alguien ya decidió encenderlo o apagarlo; `null` es que nunca se tocó.
+/// Lo mira el arranque para no prometer que lo enciende cuando no lo hará.
+final elOidoSeDecidioProvider = FutureProvider.autoDispose<bool?>((ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(ElOidoQueEspera.encendido);
+});
 
 /// Si está encendido, para pintarlo en Ajustes.
 final elOidoEstaEncendidoProvider = FutureProvider<bool>((ref) async {

@@ -16,7 +16,10 @@ import 'package:nexus/features/onboarding/domain/repositories/readiness_probe.da
 import 'package:nexus/features/onboarding/data/repositories/readiness_probe_impl.dart';
 import 'package:nexus/features/onboarding/domain/usecases/check_readiness.dart';
 import 'package:nexus/features/onboarding/domain/usecases/save_gemini_key.dart';
+import 'package:nexus/features/oido/presentation/providers/el_oido_que_espera.dart';
 import 'package:nexus/features/personalidad/presentation/providers/la_personalidad_provider.dart';
+import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
+import 'package:nexus/features/workspace/domain/usecases/la_modalidad_al_emparejar.dart';
 import 'package:nexus/features/workspace/domain/entities/los_nombres.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:nexus/features/onboarding/presentation/state/onboarding_state.dart';
@@ -283,6 +286,63 @@ class SetupController extends Notifier<SetupState> {
   void retomar(QueSePide que) =>
       state = state.copyWith(saltados: {...state.saltados}..remove(que));
 
+  /// Empareja la carpeta de trabajo por el mismo camino que Ajustes, y apunta
+  /// que es de este arranque: es la única cuya modalidad se decide al terminar.
+  Future<void> emparejar() async {
+    final path = await ref
+        .read(workspaceControllerProvider.notifier)
+        .pairFolder();
+    if (path == null || !ref.mounted) return;
+    state = state.copyWith(
+      carpetasDelArranque: {...state.carpetasDelArranque, path},
+    );
+  }
+
+  /// El botón del paso de la carpeta: fija a mano en qué entra, en vez de
+  /// dejar que lo decida lo que tenga la voz al terminar.
+  void elegirModalidad(FolderModality modalidad) =>
+      state = state.copyWith(modalidadElegida: modalidad);
+
+  /// La modalidad de las carpetas de este arranque y el oído, **con lo que hay
+  /// al terminar**.
+  ///
+  /// 🔴 **Al terminar y no al emparejar**, porque en el arranque la carpeta va
+  /// antes que la llave: al elegirla casi nunca hay llave todavía, y decidirlo
+  /// ahí la dejaba siempre en solo texto —que es justo lo que se reportó—. Se
+  /// mira con el mismo [loQueTieneLaVozProvider] que usa Ajustes, así que la
+  /// regla es una sola.
+  ///
+  /// Solo las carpetas emparejadas aquí, y el oído solo si nadie lo decidió:
+  /// lo que ya estaba no se toca.
+  Future<void> _dejarLaVozComoQuedo() async {
+    final tiene = await ref.read(loQueTieneLaVozProvider)();
+    if (!ref.mounted) return;
+    final modalidad =
+        state.modalidadElegida ?? LaModalidadAlEmparejar.para(tiene);
+    final workspace = ref.read(workspaceControllerProvider.notifier);
+    for (final path in state.carpetasDelArranque) {
+      final carpeta = workspace.guardado.folders
+          .where((folder) => folder.path == path)
+          .firstOrNull;
+      if (carpeta == null || carpeta.modality == modalidad) continue;
+      await workspace.setModality(path, modalidad);
+      if (!ref.mounted) return;
+    }
+    // El arranque ya dijo en qué entró: repetirlo en Ajustes › Permisos
+    // hablaría de lo que había al elegirla, que ya no es verdad.
+    if (state.carpetasDelArranque.isNotEmpty) {
+      ref.read(comoEntroLaCarpetaProvider.notifier).apuntar(null);
+    }
+    if (tiene.puedeHablar) {
+      final encendido = await ref
+          .read(elOidoQueEsperaProvider)
+          .encenderSiNadieLoDecidio();
+      debugPrint(
+        'arranque · ${encendido ? 'el oído queda encendido' : 'el oído ya estaba decidido'}',
+      );
+    }
+  }
+
   /// La cuenta de Claude de la carpeta, con el **mismo** caso de uso que
   /// Ajustes › Permisos. `null` es la de siempre.
   Future<void> elegirCuenta(String? perfil) async {
@@ -377,6 +437,10 @@ class SetupController extends Notifier<SetupState> {
       }
       await _micSubscription?.cancel();
       _micSubscription = null;
+      // Después de soltar el micrófono de la prueba de sonido y de guardar la
+      // llave: el oído necesita el micro libre, y la modalidad, saber si la
+      // llave ya está.
+      await _dejarLaVozComoQuedo();
       if (pedidos.isNotEmpty) {
         // Lo que se pidió y no se hizo —saltado o dejado en blanco— queda para
         // luego; lo que se hizo sale de la lista, venga de donde venga.

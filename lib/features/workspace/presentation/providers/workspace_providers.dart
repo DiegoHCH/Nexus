@@ -1,7 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/features/assistant/domain/repositories/microphone_access.dart';
+import 'package:nexus/features/assistant/presentation/providers/voice_input_providers.dart';
+import 'package:nexus/features/onboarding/presentation/providers/onboarding_providers.dart';
+import 'package:nexus/features/workspace/domain/usecases/la_modalidad_al_emparejar.dart';
 import 'package:nexus/features/workspace/data/datasources/los_nombres_data_source.dart';
 import 'package:nexus/features/workspace/domain/entities/los_nombres.dart';
 import 'package:nexus/features/workspace/data/datasources/workspace_preferences_data_source.dart';
@@ -32,6 +37,53 @@ final repoConfigDataSourceProvider = Provider<RepoConfigDataSource>(
 final homeDirectoryProvider = Provider<String>(
   (ref) => Platform.environment['HOME'] ?? '',
 );
+
+/// Mira lo que la voz necesita **sin pedir nada**: el micrófono por
+/// `authorizationStatus` —que no saca el diálogo del sistema— y la llave por el
+/// llavero de la voz.
+///
+/// Una función y no un valor porque se pregunta en el momento de emparejar: lo
+/// que había al abrir Ajustes puede no ser lo de ahora.
+///
+/// Cada pregunta, sin lanzar: lo que no se pueda leer cuenta como que no está,
+/// y eso deja la carpeta en solo texto — el lado seguro.
+final loQueTieneLaVozProvider = Provider<Future<LoQueTieneLaVoz> Function()>(
+  (ref) => () async {
+    Future<bool> sinLanzar(Future<bool> Function() mirar) async {
+      try {
+        return await mirar();
+      } on Object catch (error) {
+        debugPrint('emparejar · no se pudo mirar la voz: $error');
+        return false;
+      }
+    }
+
+    final microfono = await sinLanzar(
+      () async =>
+          await ref.read(microphoneAccessProvider).status() ==
+          MicrophoneStatus.granted,
+    );
+    final llave = await sinLanzar(() async {
+      final guardada = await ref.read(geminiKeyStoreProvider).read();
+      return guardada != null && guardada.trim().isNotEmpty;
+    });
+    return LoQueTieneLaVoz(microfono: microfono, llave: llave);
+  },
+);
+
+/// Cómo entró la última carpeta emparejada, para decirlo junto a ella. Ver
+/// [ComoEntroLaCarpeta].
+class ComoEntroLaCarpetaController extends Notifier<ComoEntroLaCarpeta?> {
+  @override
+  ComoEntroLaCarpeta? build() => null;
+
+  void apuntar(ComoEntroLaCarpeta? como) => state = como;
+}
+
+final comoEntroLaCarpetaProvider =
+    NotifierProvider<ComoEntroLaCarpetaController, ComoEntroLaCarpeta?>(
+      ComoEntroLaCarpetaController.new,
+    );
 
 /// Las carpetas emparejadas y sus permisos, en memoria y en disco.
 class WorkspaceController extends Notifier<Workspace> {
@@ -100,27 +152,45 @@ class WorkspaceController extends Notifier<Workspace> {
     state = _guardado.copyWith(folders: folders, delRepo: configs);
   }
 
-  /// Abre el diálogo del sistema y empareja lo que se elija.
+  /// Abre el diálogo del sistema y empareja lo que se elija. Devuelve la
+  /// carpeta emparejada, o `null` si no se eligió ninguna.
   ///
-  /// La carpeta nueva entra en **solo texto**: el modo restrictivo. Si entrara
-  /// en voz, la primera carpeta emparejada se filtraría hacia Google por
-  /// omisión, que es exactamente el fallo que este control existe para evitar
-  /// (decisión i5).
-  Future<void> pairFolder() async {
+  /// La carpeta nueva entra en **voz si la voz ya está lista** —micrófono
+  /// concedido y llave de Gemini— y en **solo texto** si no. Ver
+  /// [LaModalidadAlEmparejar] para por qué ya no es siempre solo texto, y
+  /// [comoEntroLaCarpetaProvider] para dónde se dice.
+  ///
+  /// 🔴 **Las carpetas que ya estaban no se tocan**, ni al emparejar otra ni al
+  /// actualizar la app. La modalidad es lo que decide si lo que Claude lee de
+  /// ese repo puede acabar narrado por Google, y pasar a voz carpetas que
+  /// llevaban meses en solo texto —elegido o por omisión, desde fuera no se
+  /// distingue— sería tomar esa decisión por alguien sin que lo pida. Quien las
+  /// quiera en voz lo cambia en Ajustes › Permisos, con un clic.
+  Future<String?> pairFolder() async {
     final path = await ref.read(folderPickerProvider).pickFolder();
-    if (path == null) return;
+    if (path == null) return null;
     if (_guardado.folders.any((folder) => folder.path == path)) {
       await _persist(_guardado.copyWith(activePath: path));
-      return;
+      return path;
     }
 
-    final folder = PairedFolder(path: path, modality: FolderModality.textOnly);
+    final tiene = await ref.read(loQueTieneLaVozProvider)();
+    if (!ref.mounted) return null;
+    final modalidad = LaModalidadAlEmparejar.para(tiene);
+    final folder = PairedFolder(path: path, modality: modalidad);
     await _persist(
       _guardado.copyWith(
         folders: [..._guardado.folders, folder],
         activePath: path,
       ),
     );
+    if (!ref.mounted) return path;
+    ref
+        .read(comoEntroLaCarpetaProvider.notifier)
+        .apuntar(
+          ComoEntroLaCarpeta(path: path, modalidad: modalidad, tiene: tiene),
+        );
+    return path;
   }
 
   Future<void> removeFolder(String path) async {

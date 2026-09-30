@@ -125,7 +125,8 @@ mixin LaVozStringsEs implements LaVozStrings {
   String elOidoSeEnciendeAlEmpezar(String palabra) =>
       'Al empezar se enciende el oído: di «$palabra» y se abre la voz. '
       'Mientras escucha, el punto naranja del micrófono de macOS está '
-      'encendido; se apaga en Ajustes › Cómo es ella › Oído.';
+      'encendido; se apaga en Ajustes › Cómo es ella › Oído. La primera vez, '
+      'macOS te pide el permiso de Reconocimiento de voz.';
 
   @override
   String get faltaLaLlaveParaHablar =>
@@ -279,7 +280,8 @@ mixin LaVozStringsEn implements LaVozStrings {
   String elOidoSeEnciendeAlEmpezar(String palabra) =>
       'When you start, hearing turns on: say “$palabra” and the voice opens. '
       'While it listens, the orange macOS microphone dot is on; turn it off in '
-      'Settings › What she is like › Hearing.';
+      'Settings › What she is like › Hearing. The first time, macOS asks you '
+      'for the Speech Recognition permission.';
 
   @override
   String get faltaLaLlaveParaHablar =>

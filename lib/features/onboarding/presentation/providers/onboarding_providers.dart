@@ -314,13 +314,31 @@ class SetupController extends Notifier<SetupState> {
   ///
   /// Solo las carpetas emparejadas aquí, y el oído solo si nadie lo decidió:
   /// lo que ya estaba no se toca.
+  ///
+  /// 🔴 **Y sin tumbar el arranque.** Lo que se hace aquí es de más —lo que
+  /// había que guardar ya está guardado—, así que si falla se anota y se entra
+  /// igual: quedarse en esta pantalla por no poder encender el oído sería peor
+  /// que entrar con el oído apagado.
   Future<void> _dejarLaVozComoQuedo() async {
+    try {
+      await _dejarLaVozComoQuedoSinRed();
+    } on Object catch (error) {
+      debugPrint('arranque · no se pudo dejar la voz como quedó: $error');
+    }
+  }
+
+  Future<void> _dejarLaVozComoQuedoSinRed() async {
     final tiene = await ref.read(loQueTieneLaVozProvider)();
     if (!ref.mounted) return;
     final modalidad =
         state.modalidadElegida ?? LaModalidadAlEmparejar.para(tiene);
-    final workspace = ref.read(workspaceControllerProvider.notifier);
+    // Sin carpetas de este arranque no hay modalidad que decidir, y ni se
+    // pregunta al workspace: al retomar desde Ajustes no se empareja nada.
+    final workspace = state.carpetasDelArranque.isEmpty
+        ? null
+        : ref.read(workspaceControllerProvider.notifier);
     for (final path in state.carpetasDelArranque) {
+      if (workspace == null) break;
       final carpeta = workspace.guardado.folders
           .where((folder) => folder.path == path)
           .firstOrNull;

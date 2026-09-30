@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
+import 'package:nexus/features/assistant/presentation/providers/voice_input_providers.dart';
 import 'package:nexus/features/onboarding/domain/repositories/gemini_key_store.dart';
 import 'package:nexus/features/onboarding/presentation/providers/onboarding_providers.dart';
 import 'package:nexus/features/onboarding/presentation/pages/initial_setup_page.dart';
@@ -13,6 +14,7 @@ import 'package:nexus/features/workspace/presentation/pages/settings_page.dart';
 import 'package:nexus/features/workspace/presentation/providers/las_llaves_guardadas.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
+import 'support/microfono.dart';
 import 'support/screen_harness.dart';
 
 /// Lo que Nexus pide antes de dejarte entrar.
@@ -64,7 +66,12 @@ void main() {
   group('lo que se guarda al terminar', () {
     ProviderContainer conLlavero(_Llavero llavero) {
       final container = ProviderContainer(
-        overrides: [geminiKeyStoreProvider.overrideWithValue(llavero)],
+        overrides: [
+          geminiKeyStoreProvider.overrideWithValue(llavero),
+          // Sin micrófono, para que terminar no encienda el oído: estas
+          // pruebas van de la llave, y el oído escribe en preferencias.
+          microphoneAccessProvider.overrideWithValue(const MicrofonoDenegado()),
+        ],
       );
       addTearDown(container.dispose);
       return container;

@@ -399,7 +399,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             _margenDelPanel,
             22,
           ),
-          alSepararse: () => unawaited(controller.irSola()),
           onSubmit: (texto, adjuntos) =>
               controller.submit(texto, attachments: adjuntos),
           onFocusChanged: controller.setListening,

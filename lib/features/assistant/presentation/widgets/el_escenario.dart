@@ -8,6 +8,7 @@ import 'package:nexus/features/assistant/presentation/widgets/conversation_dock.
 import 'package:nexus/features/assistant/presentation/widgets/el_subtitulo_al_compas.dart';
 import 'package:nexus/features/assistant/presentation/widgets/composer_bar.dart';
 import 'package:nexus/features/assistant/presentation/widgets/composer/composer_menus.dart';
+import 'package:nexus/features/assistant/presentation/widgets/composer/composer_chips.dart';
 import 'package:nexus/core/design_system/campo_de_nombre.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/design_system/la_entrada_de_la_hoja.dart';
@@ -77,6 +78,10 @@ class ElEscenario extends ConsumerWidget {
   /// La caja del orbe, para medir dónde queda con una hoja abierta.
   @visibleForTesting
   static const laLlaveDelOrbe = ValueKey('el-orbe-de-la-sala');
+
+  /// La carpeta de la esquina —y su menú—, para quien la busca desde fuera.
+  @visibleForTesting
+  static const laLlaveDeLaCarpeta = ValueKey('la-carpeta-de-la-sala');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -626,9 +631,16 @@ class _LasEsquinas extends ConsumerWidget {
     final carpeta = workspace.folders
         .where((f) => f.path == folderPath)
         .firstOrNull;
-    final git = carpeta == null
+    final leido = carpeta == null
         ? null
-        : ref.watch(gitInfoProvider(carpeta.workingDirectory)).value;
+        : ref.watch(gitInfoProvider(carpeta.workingDirectory));
+    final git = leido?.value;
+    final repos = carpeta == null
+        ? const <String>[]
+        : ref.watch(reposInsideProvider(carpeta.path)).value ?? const [];
+    final suelta = esSinProyecto(ref, folderPath);
+    final cuenta = laCuentaQueSeEnsena(ref, carpeta);
+    final comparten = cuantasCompartenLaSesion(ref, folderPath);
     final hud = ref.watch(assistantControllerProvider(conversationId));
     final meter = hud.meter;
     final contexto = meter.contextPercent;
@@ -649,10 +661,78 @@ class _LasEsquinas extends ConsumerWidget {
           top: margen,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            // 🔴 **Dónde se trabaja, y cambiarlo, vive aquí.** Las fichas de
+            // encima de la caja del chat decían lo mismo a un palmo de esta
+            // esquina —«ya en la pantalla principal, en la parte superior
+            // izquierda, ya sale», 30 sep— y se quitaron. Lo que hacían al
+            // tocarlas se mudó con ellas: la carpeta abre su menú (otra
+            // carpeta, sin proyecto, emparejar una), el repo elige dentro de
+            // una raíz con varios y la memoria compartida se separa. La
+            // cuenta, «sin git» y el repo, que la esquina no decía, también.
             children: [
               Text(strings.escenarioCarpeta.toUpperCase(), style: etiqueta),
-              Text(carpeta?.name ?? strings.escenarioSinCarpeta, style: dato),
+              MenuDeLaCarpeta(
+                key: ElEscenario.laLlaveDeLaCarpeta,
+                folder: carpeta,
+                folderPath: folderPath,
+                child: Text(
+                  suelta
+                      ? strings.noProject
+                      : carpeta?.name ?? strings.escenarioSinCarpeta,
+                  style: dato,
+                ),
+              ),
+              // El repo solo si no se llama como la carpeta: repetir el mismo
+              // nombre en dos líneas era lo que hacía la fila de fichas.
+              if (repos.length > 1 && carpeta != null)
+                MenuDelRepo(
+                  carpeta: carpeta,
+                  repos: repos,
+                  child: Text(
+                    git?.repository ?? carpeta.name,
+                    style: etiqueta.copyWith(color: colors.mute),
+                  ),
+                )
+              else if (git != null && git.repository != carpeta?.name)
+                Text(git.repository, style: etiqueta),
               if (git?.branch case final rama?) Text(rama, style: etiqueta),
+              // Sin repositorio no hay nada que deshacer. **Solo leído**: con
+              // la lectura en vuelo `git` también es `null`, y decir «sin git»
+              // durante ese parpadeo sería afirmar algo que no se ha mirado.
+              if (leido != null && leido.hasValue && git == null)
+                Text(
+                  strings.noGitRepo,
+                  style: etiqueta.copyWith(color: colors.warn),
+                ),
+              if (cuenta != null)
+                Text(strings.escenarioCuenta(cuenta), style: etiqueta),
+              if (comparten > 1)
+                Tooltip(
+                  message: strings.tocaParaSepararla,
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () => unawaited(
+                        ref
+                            .read(
+                              assistantControllerProvider(
+                                conversationId,
+                              ).notifier,
+                            )
+                            .irSola(),
+                      ),
+                      child: Text(
+                        laMemoriaCompartida(
+                          ref,
+                          strings,
+                          folderPath!,
+                          comparten,
+                        ),
+                        style: etiqueta.copyWith(color: colors.accent),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

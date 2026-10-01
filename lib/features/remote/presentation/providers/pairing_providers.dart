@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/accent_preference.dart';
+import 'package:nexus/core/design_system/orbe_preference.dart';
+import 'package:nexus/features/remote/data/el_personaje_por_el_canal.dart';
 import 'package:nexus/core/storage/secure_storage_data_source.dart';
 import 'package:nexus/features/remote/data/channel_link.dart';
 import 'package:nexus/features/remote/data/pairing_store_impl.dart';
@@ -149,6 +151,25 @@ final accentFromMacProvider = Provider<void>((ref) {
     // disco para dejarlo igual.
     if (argb == actual) return;
     unawaited(ref.read(accentControllerProvider.notifier).select(Color(argb)));
+  });
+  ref.onDispose(suscripcion.cancel);
+});
+
+/// Aplica en el teléfono el personaje del Mac: si en su sala va el personaje, el
+/// teléfono lo pinta en la conversación, con la misma luz y los mismos ojos.
+///
+/// Como el acento: se guarda, así que se pinta bien antes del primer saludo de
+/// la siguiente sesión, y **el Mac sigue siendo la fuente** —cada saludo y cada
+/// cambio lo vuelve a decir—. Un Mac sin el campo es un Mac de antes: el orbe.
+final personajeFromMacProvider = Provider<void>((ref) {
+  final enlace = ref.watch(channelLinkProvider);
+  final suscripcion = enlace.personaje.listen((datos) {
+    final actual = ref.read(orbeEstiloProvider);
+    final nuevo = ElPersonajePorElCanal.aplicar(actual, datos);
+    // Solo si cambió: `elegir` escribe en preferencias, y un móvil entra y sale
+    // de cobertura todo el rato.
+    if (nuevo == actual) return;
+    unawaited(ref.read(orbeEstiloProvider.notifier).elegir(nuevo));
   });
   ref.onDispose(suscripcion.cancel);
 });

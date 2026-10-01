@@ -110,6 +110,7 @@ final class Welcome extends Frame {
     this.accent,
     this.app,
     this.update,
+    this.character,
   });
 
   factory Welcome.fromJson(Map<String, Object?> j) => Welcome(
@@ -120,6 +121,12 @@ final class Welcome extends Frame {
     // Solo si es un objeto: cualquier otra cosa es un Mac que no se entiende, y un
     // aviso que no se entiende no se enseña — no se revienta por él.
     update: switch (j['update']) {
+      final Map<String, Object?> datos => datos,
+      _ => null,
+    },
+    // Lo mismo: un personaje que no es un objeto no se entiende, y sin entenderlo
+    // el teléfono pinta el orbe, que es lo que pintaba.
+    character: switch (j['character']) {
       final Map<String, Object?> datos => datos,
       _ => null,
     },
@@ -168,6 +175,18 @@ final class Welcome extends Frame {
   /// acento.
   final Map<String, Object?>? update;
 
+  /// Si en la sala del Mac va el personaje en vez del orbe, y con qué luz y qué
+  /// ojos, en la forma que describe `docs/PROTOCOL.md` (el evento `character`).
+  /// `null` si el Mac es más viejo que este campo: el teléfono pinta el orbe.
+  ///
+  /// Un mapa y no un tipo propio por lo mismo que [update]: lo que va dentro son
+  /// ajustes de la app, que los leen los dos extremos con su propio modelo, y el
+  /// paquete solo es el sobre.
+  ///
+  /// En el saludo **además** de en su evento, como el acento: quien conecta
+  /// después de que se eligiera no vio el evento que lo contó.
+  final Map<String, Object?>? character;
+
   /// El último evento emitido. Con esto el cliente sabe si va al día o le faltan
   /// cosas, **sin pedir el snapshot entero**.
   final int seq;
@@ -180,6 +199,7 @@ final class Welcome extends Frame {
     'accent': ?accent,
     'app': ?app,
     'update': ?update,
+    'character': ?character,
   };
 }
 

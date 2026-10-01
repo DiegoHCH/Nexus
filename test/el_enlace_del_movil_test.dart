@@ -710,4 +710,49 @@ void main() {
       );
     });
   });
+
+  group('el personaje del Mac', () {
+    test('llega en el saludo; un saludo sin él es el orbe', () async {
+      enlace = montar();
+      final vistos = <Map<String, Object?>?>[];
+      final s1 = enlace.personaje.listen(vistos.add);
+      addTearDown(s1.cancel);
+      await conectado(enlace);
+      socket.recibe(
+        const Welcome(
+          protocol: ProtocolRange.mine,
+          seq: 0,
+          character: {'shown': true, 'light': 'aura'},
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      // El primero es el saludo de un Mac de antes, sin el campo: `null`, que es
+      // «el orbe», y tiene que llegar para dejar de pintar el personaje.
+      expect(vistos, [
+        null,
+        {'shown': true, 'light': 'aura'},
+      ]);
+    });
+
+    test('su evento llega al personaje, no al espejo', () async {
+      enlace = montar();
+      await conectado(enlace);
+      final vistos = <Map<String, Object?>?>[];
+      final delEspejo = <Event>[];
+      final s1 = enlace.personaje.listen(vistos.add);
+      final s2 = enlace.eventos.listen(delEspejo.add);
+      addTearDown(s1.cancel);
+      addTearDown(s2.cancel);
+
+      socket.recibe(
+        const Event(seq: 1, kind: 'character', data: {'shown': false}),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(vistos, [
+        {'shown': false},
+      ]);
+      expect(delEspejo, isEmpty);
+    });
+  });
 }

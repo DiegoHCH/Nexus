@@ -306,6 +306,16 @@ class ChannelLink {
   /// nadie lo pida.
   Stream<int> get acento => _acento.stream;
 
+  final _personaje = StreamController<Map<String, Object?>?>.broadcast();
+
+  /// El personaje del Mac —si va en la sala, su luz, sus ojos— en la forma de
+  /// `docs/PROTOCOL.md` (4.9): en cada saludo y en cada cambio, como el acento.
+  ///
+  /// `null` es un saludo sin el campo, de un Mac de antes del personaje: para el
+  /// teléfono es «el orbe», y lo tiene que oír para dejar de pintarlo si antes
+  /// hablaba con uno más nuevo.
+  Stream<Map<String, Object?>?> get personaje => _personaje.stream;
+
   final _actualizacion = StreamController<DelMac>.broadcast();
 
   /// Lo que el Mac cuenta de su propia actualización: en cada saludo —con la versión
@@ -366,6 +376,7 @@ class ChannelLink {
     await _eventos.close();
     await _fotos.close();
     await _acento.close();
+    await _personaje.close();
     await _actualizacion.close();
     await _audio.close();
     await _descartar.close();
@@ -614,8 +625,15 @@ class ChannelLink {
     }
 
     switch (marco) {
-      case Welcome(:final seq, :final accent, :final app, :final update):
+      case Welcome(
+        :final seq,
+        :final accent,
+        :final app,
+        :final update,
+        :final character,
+      ):
         if (accent != null && !_acento.isClosed) _acento.add(accent);
+        if (!_personaje.isClosed) _personaje.add(character);
         // **Siempre**, aunque no traiga aviso: un saludo sin `update` es «no hay
         // nada», y es justo lo que dice un Mac que acaba de volver de instalar. Un
         // Mac viejo tampoco lo trae, y para él es igual de cierto.
@@ -759,6 +777,13 @@ class ChannelLink {
     if (evento.kind == 'accent') {
       final argb = evento.data['argb'];
       if (argb is int && !_acento.isClosed) _acento.add(argb);
+      return;
+    }
+
+    // El personaje, por lo mismo que el acento: es del Mac entero y al espejo no
+    // le sirve.
+    if (evento.kind == 'character') {
+      if (!_personaje.isClosed) _personaje.add(evento.data);
       return;
     }
 

@@ -28,6 +28,7 @@ class ChannelServer {
     this.acento,
     this.version,
     this.actualizacion,
+    this.personaje,
     this.registro,
     this.diario,
     ProtocolRange? protocolo,
@@ -73,6 +74,11 @@ class ChannelServer {
   /// evento que la anunció, y los eventos viejos no se le mandan a quien acaba de
   /// llegar.
   final Map<String, Object?>? Function()? actualizacion;
+
+  /// Si en la sala va el personaje y cómo —ver `ElPersonajePorElCanal`—, para el
+  /// saludo. Una función por lo mismo que [acento]: se lee al saludar, así que
+  /// quien conecta después de elegirlo lo ve sin haber visto su evento.
+  final Map<String, Object?> Function()? personaje;
 
   /// El estado entero, para quien pide desde un `seq` que ya se tiró.
   ///
@@ -428,6 +434,7 @@ class ChannelServer {
             accent: acento?.call(),
             app: version?.call(),
             update: actualizacion?.call(),
+            character: personaje?.call(),
           ),
         );
         _anotar(

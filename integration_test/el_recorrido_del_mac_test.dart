@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+
+import 'el_personaje_con_el_motor.dart';
 import 'package:nexus/core/design_system/campo_de_nombre.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
@@ -307,6 +309,10 @@ void main() {
       esperando: 'el nombre nuevo al volver a abrir el historial',
     );
   });
+
+  // El personaje pintado por Impeller: ver [elPersonajeConElMotor], y por qué
+  // va aquí y no en su propio archivo.
+  group('el personaje con el motor de verdad', elPersonajeConElMotor);
 }
 
 /// Bombea hasta que [finder] encuentre algo.

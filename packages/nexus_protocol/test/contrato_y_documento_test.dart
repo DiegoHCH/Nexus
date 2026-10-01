@@ -109,13 +109,14 @@ void main() {
 
   test('el documento sigue diciendo lo que el código implementa', () {
     final texto = documento.readAsStringSync();
-    // Cuatro afirmaciones del documento que aquí son código. Si alguna se reescribe
+    // Las afirmaciones del documento que aquí son código. Si alguna se reescribe
     // en el documento sin tocar el código —o al revés— esto lo dice.
     const afirmaciones = {
       'clientMsgId': 'la deduplicación se apoya en un id del cliente',
       'lastSeq': 'reconectar pide desde el último visto',
       'Host': 'se valida el origen del upgrade',
       'nunca en la URL': 'el token va en una cabecera',
+      '`character`': 'el saludo y su evento llevan el personaje del Mac',
     };
     for (final entrada in afirmaciones.entries) {
       expect(

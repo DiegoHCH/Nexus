@@ -98,6 +98,9 @@ class _ElPersonajeState extends State<ElPersonaje> {
   final _nivel = ElNivelSuave();
   final _aLaMedida = ElNivelALaMedida();
 
+  /// Cuánto lleva hablando sin que suene nada. Ver [laVozSinAudio].
+  double _sinAudio = 0;
+
   /// Lo que dio el nivel crudo mientras hablaba, para dejarlo en el registro
   /// al terminar: es la forma de saber en qué escala llega su voz de verdad.
   double _suPico = 0, _suSuma = 0;
@@ -206,7 +209,15 @@ class _ElPersonajeState extends State<ElPersonaje> {
           _ahora = ahora;
           final tal = _elNivelCrudo();
           _anotarSuVoz(tal);
-          final crudo = _aLaMedida.avanzar(dt, tal);
+          final real = _aLaMedida.avanzar(dt, tal);
+          // Hablando sin que suene nada —una respuesta escrita—, su voz
+          // inventada. En cuanto suena audio de verdad, manda el audio.
+          _sinAudio = _como == ComoEsta.habla && tal < 0.02
+              ? _sinAudio + dt
+              : 0;
+          final crudo = _sinAudio > sinAudioTras
+              ? laVozSinAudio(_fase + _ahora)
+              : real;
           _nivel.avanzar(dt, crudo);
           _luz.avanzar(dt, crudo);
           _boca.avanzar(

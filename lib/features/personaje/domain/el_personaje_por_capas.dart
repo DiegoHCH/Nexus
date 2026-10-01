@@ -329,8 +329,11 @@ double laLuzDelTraje(ComoEsta como, double t, double nivel) {
   final a = switch (como) {
     ComoEsta.sinOido || ComoEsta.sinLlave => 0.0,
     ComoEsta.enReposo => 0.12 + math.sin(t * 1.05) * 0.06,
-    ComoEsta.escucha => 0.3 + nivel * 0.7,
-    ComoEsta.habla => 0.45 + nivel * 0.55,
+    // 🔴 Escuchando, encendidas de entrada (30 sep: «en el escuchando las
+    // luces del traje siguen sin alumbrar»): con 0,3 de base, callado se
+    // veían apagadas. Ahora alumbran y suben con tu voz.
+    ComoEsta.escucha => 0.55 + nivel * 0.45,
+    ComoEsta.habla => 0.5 + nivel * 0.5,
     ComoEsta.trabaja || ComoEsta.piensa => 1.0,
   };
   return a.clamp(0.0, 1.0);
@@ -342,6 +345,25 @@ double laLuzDelTraje(ComoEsta como, double t, double nivel) {
 /// Baja a ~260 px/s de la capa desde el cuello y da la vuelta; pensando, a la
 /// mitad. El recorrido pasa del borde de abajo a propósito: es la pausa entre
 /// dos pasadas.
+/// **Su voz cuando no suena nada**: un nivel de habla inventado, de 0 a 1.
+///
+/// 🔴 Una respuesta escrita también la pone a hablar —se va mostrando palabra
+/// a palabra— pero no suena, así que su nivel es cero y la boca no se movía
+/// (30 sep: «así no sea la respuesta por voz, si es escrita también entra en
+/// el estado hablando, entonces debería mover la boca»). Con esto habla igual:
+/// unas 4,5 sílabas por segundo, con su golpe y su caída, y una pausa corta
+/// cada pocos segundos, como entre dos frases.
+double laVozSinAudio(double t) {
+  final silaba = math.pow(math.sin(t * math.pi * 4.5).abs(), 1.4).toDouble();
+  final frase = math.sin(t * 0.85) > -0.75 ? 1.0 : 0.0;
+  final matiz = 0.55 + 0.35 * (math.sin(t * 2.3) * 0.5 + 0.5);
+  return (silaba * frase * matiz).clamp(0.0, 1.0);
+}
+
+/// Cuánto silencio hace falta, hablando, para pasar a [laVozSinAudio]: lo
+/// justo para no pisar las pausas de una voz de verdad.
+const sinAudioTras = 0.35;
+
 double? laFranjaDelTraje(ComoEsta como, double t) {
   if (!como.enElTurno) return null;
   final velocidad = como == ComoEsta.piensa ? 130.0 : 260.0;

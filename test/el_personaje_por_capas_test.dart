@@ -177,6 +177,42 @@ void main() {
     // 🔴 «En el estado escuchando las luces parpadean» (30 sep): las luces van
     // con un nivel más lento que el de la boca. Un golpe de voz de 80 ms mueve
     // mucho la boca y poco la luz.
+    // 🔴 Una respuesta escrita también la pone a hablar, sin audio: la boca
+    // tiene que moverse igual, a ritmo de habla.
+    test('sin audio, su voz inventada mueve la boca a ritmo de habla', () {
+      final boca = LaBocaQueHabla(semilla: 3);
+      final suave = ElNivelSuave();
+      LaBoca? antes;
+      var cambios = 0, abierta = 0;
+      for (var t = 0.0; t < 6; t += 1 / 30) {
+        final v = laVozSinAudio(t);
+        boca.avanzar(
+          1 / 30,
+          nivel: suave.avanzar(1 / 30, v),
+          crudo: v,
+          hablando: true,
+        );
+        if (boca.actual != antes) cambios++;
+        if (boca.actual != null) abierta++;
+        antes = boca.actual;
+      }
+      expect(
+        cambios / 6,
+        inInclusiveRange(2.5, 7.0),
+        reason: 'cambios por segundo',
+      );
+      expect(
+        abierta / (6 * 30),
+        greaterThan(0.35),
+        reason: 'abierta buena parte del tiempo',
+      );
+    });
+
+    test('escuchando, las luces alumbran aunque no hables', () {
+      expect(laLuzDelTraje(ComoEsta.escucha, 0, 0), greaterThanOrEqualTo(0.5));
+      expect(laLuzDelTraje(ComoEsta.escucha, 0, 1), 1.0);
+    });
+
     test('el de las luces es más lento que el de la boca', () {
       final boca = ElNivelSuave(), luz = ElNivelSuave.deLaLuz();
       for (var t = 0.0; t < 0.08; t += 1 / 60) {
@@ -326,10 +362,10 @@ void main() {
     });
 
     test('escuchando va con tu voz; hablando, con la suya', () {
-      expect(laLuzDelTraje(ComoEsta.escucha, 0, 0), closeTo(0.3, 1e-9));
-      expect(laLuzDelTraje(ComoEsta.escucha, 0, 0.5), closeTo(0.65, 1e-9));
+      expect(laLuzDelTraje(ComoEsta.escucha, 0, 0), closeTo(0.55, 1e-9));
+      expect(laLuzDelTraje(ComoEsta.escucha, 0, 0.5), closeTo(0.775, 1e-9));
       expect(laLuzDelTraje(ComoEsta.escucha, 0, 1), 1);
-      expect(laLuzDelTraje(ComoEsta.habla, 0, 0), closeTo(0.45, 1e-9));
+      expect(laLuzDelTraje(ComoEsta.habla, 0, 0), closeTo(0.5, 1e-9));
       expect(laLuzDelTraje(ComoEsta.habla, 0, 1), 1);
     });
 

@@ -123,15 +123,22 @@ void elPersonajeConElMotor() {
     );
     final hablando = await foto(tester, m.llave);
     // Cuántas luces se ven encendidas, del ámbar del acento: con tu voz, más.
-    final antes = callada.cuantosDeTono(traje, 20, 45);
-    final despues = hablando.cuantosDeTono(traje, 20, 45);
+    final encendidas = callada.cuantosDeTono(traje, 20, 45);
+    final antes = callada.brillo(traje), despues = hablando.brillo(traje);
     // ignore: avoid_print
-    print('personaje · luces escuchando: $antes → $despues');
-    expect(
-      despues,
-      greaterThan(antes * 1.3),
-      reason: 'con tu voz, el traje se enciende',
+    print(
+      'personaje · luces escuchando: $encendidas ámbar · brillo $antes → $despues',
     );
+    // 🔴 Callada ya alumbran (30 sep: «en el escuchando no se está alumbrando
+    // el traje como en el mockup»), y con tu voz, más. El brillo y no la
+    // cuenta de ámbar: a plena luz el centro de las líneas se vuelve blanco y
+    // deja de contar como ámbar aunque brille más.
+    expect(
+      encendidas,
+      greaterThan(1200),
+      reason: 'escuchando, el traje alumbra',
+    );
+    expect(despues, greaterThan(antes + 0.5), reason: 'con tu voz, brilla más');
   });
 
   testWidgets('hablando, la boca se abre con su voz, aunque venga floja', (

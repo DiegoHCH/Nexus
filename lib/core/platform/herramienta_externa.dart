@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -54,6 +55,112 @@ abstract final class HerramientaExterna {
     '/opt/homebrew/bin/flutter',
     '/usr/local/bin/flutter',
   ];
+
+  /// Las versiones que fvm tiene instaladas, de la más nueva a la más vieja.
+  ///
+  /// 🔴 **fvm sin versión global no deja nada en un sitio fijo** (2 oct). Una
+  /// instalación con diez versiones en `~/fvm/versions` y sin `fvm global`
+  /// no tiene `~/fvm/default`, ni `flutter` en el PATH de la terminal: Nexus
+  /// decía «No se encontró Flutter» a alguien que lo usa a diario. Sin
+  /// proyecto que diga cuál, la más nueva es la apuesta menos mala.
+  static List<String> enLasVersionesDeFvm(String home) {
+    if (home.isEmpty) return const [];
+    final raiz = Directory('$home/fvm/versions');
+    if (!raiz.existsSync()) return const [];
+    final nombres = [
+      for (final v in raiz.listSync())
+        if (v is Directory || v is Link)
+          v.uri.pathSegments.lastWhere((s) => s.isNotEmpty),
+    ];
+    return [
+      for (final v in deLaMasNueva(nombres))
+        '$home/fvm/versions/$v/bin/flutter',
+    ];
+  }
+
+  /// Ordena nombres de versión —`3.41.8`, `3.44.6`, `stable`— de la más nueva
+  /// a la más vieja. Los que no son números, como los canales, van detrás.
+  @visibleForTesting
+  static List<String> deLaMasNueva(List<String> nombres) {
+    List<int>? numeros(String v) {
+      final partes = v.split(RegExp(r'[.+-]')).take(3).map(int.tryParse);
+      return partes.contains(null) ? null : partes.cast<int>().toList();
+    }
+
+    int compara(String a, String b) {
+      final na = numeros(a), nb = numeros(b);
+      if (na == null || nb == null) {
+        if (na != null) return -1;
+        if (nb != null) return 1;
+        return a.compareTo(b);
+      }
+      for (var i = 0; i < 3; i++) {
+        final x = i < na.length ? na[i] : 0, y = i < nb.length ? nb[i] : 0;
+        if (x != y) return y.compareTo(x);
+      }
+      return 0;
+    }
+
+    return [...nombres]..sort(compara);
+  }
+
+  /// El `flutter` que fija el proyecto con fvm, si lo fija y está instalado.
+  ///
+  /// Va **antes** que cualquier otro: un proyecto con fvm compila con su
+  /// versión, y correrlo con otra es pelearse con el `pubspec.lock`. Se mira
+  /// primero el enlace que deja fvm dentro del proyecto y después lo que dice
+  /// su configuración —`.fvmrc` en fvm 3, `.fvm/fvm_config.json` en fvm 2—, que
+  /// es lo único que hay cuando el enlace no se creó.
+  static String? delProyectoConFvm(
+    String proyecto,
+    String home, {
+    bool Function(String ruta)? existe,
+    String? Function(String ruta)? leer,
+  }) {
+    final hay = existe ?? (ruta) => File(ruta).existsSync();
+    final lee =
+        leer ??
+        (ruta) {
+          final archivo = File(ruta);
+          return archivo.existsSync() ? archivo.readAsStringSync() : null;
+        };
+
+    final enlace = '$proyecto/.fvm/flutter_sdk/bin/flutter';
+    if (hay(enlace)) return enlace;
+
+    String? version(String ruta, String clave) {
+      final texto = lee(ruta);
+      if (texto == null) return null;
+      try {
+        final json = jsonDecode(texto);
+        final v = json is Map ? json[clave] : null;
+        return v is String && RegExp(r'^[\w.+-]{1,40}$').hasMatch(v) ? v : null;
+      } on FormatException {
+        return null;
+      }
+    }
+
+    final fijada =
+        version('$proyecto/.fvmrc', 'flutter') ??
+        version('$proyecto/.fvm/fvm_config.json', 'flutterSdkVersion');
+    if (fijada == null || home.isEmpty) return null;
+    final instalada = '$home/fvm/versions/$fijada/bin/flutter';
+    return hay(instalada) ? instalada : null;
+  }
+
+  /// El `flutter` con que correr [proyecto]: el que fija con fvm, o el de la
+  /// máquina.
+  static Future<String?> flutterPara(String proyecto) async {
+    final home = Platform.environment['HOME'] ?? '';
+    return delProyectoConFvm(proyecto, home) ??
+        await donde(
+          'flutter',
+          candidatos: [
+            ...candidatosDeFlutter(home),
+            ...enLasVersionesDeFvm(home),
+          ],
+        );
+  }
 
   /// Donde deja `adb` el SDK de Android.
   ///

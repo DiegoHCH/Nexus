@@ -446,10 +446,13 @@ class EmuladoresDataSource {
 
   // ── Lo de dentro ───────────────────────────────────────────────────────────
 
-  Future<String?> _flutter() => buscar(
-    'flutter',
-    HerramientaExterna.candidatosDeFlutter(Platform.environment['HOME'] ?? ''),
-  );
+  Future<String?> _flutter() {
+    final home = Platform.environment['HOME'] ?? '';
+    return buscar('flutter', [
+      ...HerramientaExterna.candidatosDeFlutter(home),
+      ...HerramientaExterna.enLasVersionesDeFvm(home),
+    ]);
+  }
 
   Future<String?> _adb() => buscar(
     'adb',

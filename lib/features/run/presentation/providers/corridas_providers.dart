@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/platform/herramienta_externa.dart';
@@ -58,12 +57,7 @@ class CorridasController extends Notifier<Map<String, Corrida>> {
       return 'Ya hay una corrida de ${plataforma.name} en ${otra.dispositivo}';
     }
 
-    final flutter = await HerramientaExterna.donde(
-      'flutter',
-      candidatos: HerramientaExterna.candidatosDeFlutter(
-        Platform.environment['HOME'] ?? '',
-      ),
-    );
+    final flutter = await HerramientaExterna.flutterPara(proyecto);
     if (flutter == null) return 'No se encontró Flutter';
 
     state = {

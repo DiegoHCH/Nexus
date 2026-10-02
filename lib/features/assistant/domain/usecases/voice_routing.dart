@@ -82,11 +82,24 @@ abstract final class VoiceRouting {
     caseSensitive: false,
   );
 
+  ///
+  /// 🔴 **«No necesito más» también despide** (2 oct). «Eso es todo, no
+  /// necesito más» no cabía: «necesito» no era cortesía ni relleno, así que se
+  /// tomó por encargo, se le pasó a Claude como transcripción, y Claude se puso
+  /// a trabajar justo cuando le habían dicho que no hacía falta nada más.
   static const _adios =
       r'adi[oó]s|hasta luego|hasta ma[nñ]ana|hasta pronto|hasta la pr[oó]xima|'
       r'chao|chau|nos vemos|buenas noches|eso es todo|eso era todo|es todo|'
-      r'nada m[aá]s|en nada|bye|goodbye|see you|good night|'
-      r"that.?s all|that.?s it";
+      r'eso ser[ií]a todo|ser[ií]a todo|con eso es todo|con eso basta|'
+      'nada m[aá]s|en nada|$_noNecesitoMas|bye|goodbye|see you|good night|'
+      r"that.?s all|that.?s it|that.?s all i need|nothing else|"
+      r"i don.?t need anything else|i don.?t need anything more";
+
+  /// «No necesito más» y sus primas: dicho entero, es que ya acabaste.
+  static const _noNecesitoMas =
+      r'(?:ya )?no (?:necesito|ocupo|hace falta|quiero) (?:nada )?m[aá]s|'
+      r'(?:ya )?no (?:necesito|ocupo|hace falta|quiero) nada|'
+      r'no necesito nada m[aá]s por (?:ahora|hoy)|ya no es necesario';
 
   /// Lo que se dice alrededor de una cortesía sin pedir nada.
   static const _relleno =
@@ -98,12 +111,16 @@ abstract final class VoiceRouting {
       r'c[oó]mo est[aá]s|c[oó]mo te encuentras|c[oó]mo te va|c[oó]mo vas|hey|'
       r'oye|nexus|gracias|much[ií]simas gracias|muchas gracias|vale|ok|okey|'
       r'perfecto|gen(?:i)?al|listo|de acuerdo|muy bien|igualmente|nada|'
-      r'nada m[aá]s|eso es todo|eso era todo|es todo|adi[oó]s|hasta luego|'
+      r'nada m[aá]s|eso es todo|eso era todo|es todo|eso ser[ií]a todo|'
+      'ser[ií]a todo|con eso es todo|con eso basta|$_noNecesitoMas|'
+      r'adi[oó]s|hasta luego|'
       r'hasta ma[nñ]ana|hasta pronto|chao|chau|nos vemos|buen d[ií]a|para|'
       r'p[aá]rate|espera|esp[eé]rate|silencio|c[aá]llate|repite|rep[ií]telo|'
       r'otra vez|no te entend[ií]|qu[eé] dijiste|'
       r'hi|hello|hey there|thanks|thank you|thanks a lot|okay|cool|bye|'
       r'goodbye|see you|good night|nothing|that.?s all|that.?s it|stop|wait|'
+      r"nothing else|i don.?t need anything else|i don.?t need anything more|"
+      r"that.?s all i need|"
       r'hold on|be quiet|repeat|say that again|what did you say';
 
   /// 🔴 **Lo que le preguntan sobre sí mismo lo contesta él**, y no por
@@ -190,6 +207,9 @@ abstract final class VoiceRouting {
     // Lo suyo, primero: ver [_quienEres] para por qué va delante del tope.
     if (esSobreElla(clean)) return false;
     if (esElReloj(clean)) return false;
+    // Una despedida nunca es un encargo: pasarla a Claude es ponerlo a
+    // trabajar justo cuando le dijiste que no hacía falta nada más.
+    if (esDespedida(clean)) return false;
     if (clean.split(' ').length > _maxSmallTalkWords) return true;
     return !_smallTalk.hasMatch(clean);
   }

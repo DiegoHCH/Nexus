@@ -1031,6 +1031,77 @@ void main() {
     });
   });
 
+  // 🔴 2 oct: hablándole encima, el servicio retiró la llamada en vuelo y pidió
+  // otra con lo nuevo, tres veces. Sin atender la retirada, los tres encargos
+  // seguían vivos y Claude hacía el mismo trabajo en fila.
+  group('lo que el servicio retira', () {
+    test('se corta, no se contesta, y la pantalla lo ve acabar', () async {
+      final session = _Session();
+      final bridge = _Bridge(tarda: const Duration(seconds: 30));
+      final registro = <String>[];
+      final conversation = _conversation(session, bridge, log: registro.add);
+
+      final eventos = <VoiceEvent>[];
+      final subscription = conversation().listen(eventos.add);
+      await Future<void>.delayed(Duration.zero);
+
+      session.emit(
+        const VoiceToolRequested(
+          callId: 'fc-1',
+          name: ClaudeErrand.askTool,
+          arguments: {'instruccion': 'actualiza el documento'},
+        ),
+      );
+      await hastaQue(
+        () => bridge.asked.isNotEmpty,
+        esperando: 'que el encargo llegue a Claude',
+        loQueSeVe: () => 'pedidos=${bridge.asked}',
+      );
+
+      session.emit(const VoiceToolCancelled(['fc-1']));
+      await hastaQue(
+        () => eventos.whereType<VoiceToolFinished>().isNotEmpty,
+        esperando: 'que el encargo retirado se dé por acabado',
+        loQueSeVe: () => 'eventos=$eventos',
+      );
+
+      expect(eventos.whereType<VoiceToolFinished>().single.ok, isFalse);
+      expect(session.toolResults, isEmpty, reason: 'ya no lo espera');
+      expect(
+        registro.where((l) => l.contains('retiró un encargo')),
+        hasLength(1),
+      );
+
+      await subscription.cancel();
+    });
+
+    test('lo que retira y no está en vuelo no toca nada', () async {
+      final session = _Session();
+      final bridge = _Bridge(respuesta: 'hecho');
+      final conversation = _conversation(session, bridge);
+
+      final subscription = conversation().listen((_) {});
+      await Future<void>.delayed(Duration.zero);
+
+      session.emit(const VoiceToolCancelled(['otra']));
+      session.emit(
+        const VoiceToolRequested(
+          callId: 'fc-2',
+          name: ClaudeErrand.askTool,
+          arguments: {'instruccion': 'como va eso'},
+        ),
+      );
+      await hastaQue(
+        () => session.toolResults.isNotEmpty,
+        esperando: 'que la respuesta vuelva al servicio de voz',
+        loQueSeVe: () => 'respuestas=${session.toolResults}',
+      );
+      expect(session.toolResults.single, 'hecho');
+
+      await subscription.cancel();
+    });
+  });
+
   group('correr una prueba no pasa por Claude', () {
     // El motivo entero de la herramienta. Antes, hablar el suite era: el modelo
     // elige la herramienta de Claude, Claude elige la del MCP de Maestro, y el

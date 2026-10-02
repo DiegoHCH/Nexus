@@ -151,6 +151,13 @@ void main() {
       'Nada más, gracias',
       "That's all, thanks",
       'Bye',
+      // 🔴 2 oct: esta se le pasó a Claude como encargo, y se puso a trabajar.
+      'Eso es todo, no necesito más.',
+      'No necesito nada más, gracias',
+      'Ya no necesito nada',
+      'Listo, eso sería todo',
+      'Con eso es todo, gracias',
+      "That's all I need",
     ];
     for (final frase in despedidas) {
       test('«$frase» despide', () {
@@ -172,6 +179,20 @@ void main() {
         expect(VoiceRouting.esDespedida(frase), isFalse);
       });
     }
+
+    test('y una despedida no se pasa a Claude', () {
+      expect(
+        VoiceRouting.needsClaude('Eso es todo, no necesito más.'),
+        isFalse,
+      );
+    });
+
+    test('«no necesito» con algo detrás sigue siendo un encargo', () {
+      expect(
+        VoiceRouting.needsClaude('No necesito más tests, borra los de la rama'),
+        isTrue,
+      );
+    });
 
     test('un encargo con un adiós dentro no despide', () {
       expect(VoiceRouting.esDespedida('Corre los tests y adiós'), isFalse);

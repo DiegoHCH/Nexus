@@ -152,7 +152,7 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
   /// Dart. Programando cada trozo en cuanto llega, la primera pausa del camino
   /// se convierte en silencio a media palabra.
   ///
-  /// Con colchón, la pausa se la come la cola: se junta [colchonMinimo] de audio
+  /// Con colchón, la pausa se la come la cola: se junta [colchon] de audio
   /// antes de dejar sonar el primero. Se paga una vez por frase, en el arranque,
   /// y es el intercambio que hace cualquier reproductor de streaming.
   private var enEspera: [AVAudioPCMBuffer] = []
@@ -160,11 +160,21 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
   /// Si esta frase ya está sonando —o sea, si el colchón ya se llenó—.
   private var sonando = false
 
-  /// Cuánto audio se junta antes de empezar. Medido contra los huecos de verdad:
-  /// el peor fue de 509 ms, pero ese incluye el arranque del grafo; los de media
-  /// frase iban de 109 a 259, así que 400 ms cubre los de media frase con
-  /// margen sin que el retardo se note al empezar a hablar.
-  private static let colchonMinimo: TimeInterval = 0.4
+  /// Cuánto audio se junta antes de empezar, aprendido de los huecos de esta
+  /// sesión. Ver [ElColchonQueCrece].
+  private var colchon = ElColchonQueCrece()
+
+  /// Lo que suelta lo que espera cuando deja de llegar audio: el final de una
+  /// respuesta casi nunca llena el colchón, y sin esto se quedaba sin sonar.
+  private var soltarElFinal: DispatchWorkItem?
+
+  /// Cuándo se soltará lo que espera si no llega nada más. Cuenta en
+  /// [pendingPlaybackMilliseconds]: quien espera a que acabe de sonar tiene que
+  /// esperar también eso, o para el motor antes de que suene.
+  private var sueltaEn: Date?
+
+  /// Cuánto sin llegar nada se toma por el final de la respuesta.
+  private static let esperaDelFinal: TimeInterval = 0.5
 
   /// El motor sigue montado, pero la conversación terminó: **no se entrega ni
   /// un bloque de audio a nadie**. Es la diferencia entre tener el micrófono
@@ -859,10 +869,15 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
     enEspera = []
     sonando = false
     pendingLock.unlock()
+    soltarElFinal?.cancel()
+    soltarElFinal = nil
+    sueltaEn = nil
+    let colchonFinal = Int(colchon.segundos * 1000)
+    colchon = ElColchonQueCrece()
     // Igual que el hueco: en `notice` para que quede en el log unificado y se
     // pueda leer después de que pase. Es una línea por sesión.
     Self.log.notice(
-      "reproducción · \(gaps, privacy: .public) huecos, el peor de \(worst, privacy: .public) ms"
+      "reproducción · \(gaps, privacy: .public) huecos, el peor de \(worst, privacy: .public) ms · colchón al colgar \(colchonFinal, privacy: .public) ms"
     )
 
     // 🔴 **Con la salida fuera del altavoz interno se desmonta al colgar, sin
@@ -1223,11 +1238,21 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
     pendingLock.lock()
     // Si la cola se había vaciado y ya sonaba una respuesta, esto que llega
     // llega tarde: el altavoz estuvo callado en medio de una frase.
-    if let gap = HuecoDeReproduccion.mide(
+    let gap = HuecoDeReproduccion.mide(
       vaciaDesde: starvedAt, ahora: Date(), yaSono: playedAnything
-    ) {
+    )
+    // Vacía desde hace más de lo que cabe en una frase: esto es otra respuesta.
+    if gap == nil, starvedAt != nil, playedAnything { colchon.otraRespuesta() }
+    if let gap {
       gapCount += 1
       worstGapMs = max(worstGapMs, gap)
+      // 🔴 **Y el colchón crece** (2 oct). Con el servicio saturado el audio
+      // llega más despacio de lo que suena —medido: 38 huecos en una sesión,
+      // uno cada segundo, de hasta 1387 ms— y 400 ms fijos se vaciaban a cada
+      // sílaba. Juntar más antes de seguir cambia muchos cortes por pocas
+      // pausas, que es lo que se entiende.
+      colchon.hubo(huecoMs: gap)
+      Self.log.notice("colchón · sube a \(Int(self.colchon.segundos * 1000), privacy: .public) ms")
       // 🔴 **`notice` y no `info`, y esto se pagó buscándolo.** El nivel `info`
       // no se persiste en el log unificado: `log show` no lo devuelve, así que
       // el contador solo se podía leer en un build de debug lanzado desde una
@@ -1249,7 +1274,7 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
     playedAnything = true
     pendingLock.unlock()
 
-    // 🔴 **Aquí está el colchón.** Hasta que no haya [colchonMinimo] juntos no
+    // 🔴 **Aquí está el colchón.** Hasta que no haya [colchon] juntos no
     // suena nada: si se programa el primer trozo en cuanto llega, la primera
     // pausa del camino —socket, decodificación, hilo de Dart— se oye como un
     // corte a media palabra. Y cuando la cola se vacía se vuelve a llenar antes
@@ -1260,14 +1285,39 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
       let juntado = enEspera.reduce(0.0) {
         $0 + Double($1.frameLength) / $1.format.sampleRate
       }
-      if juntado < Self.colchonMinimo { return }
-      sonando = true
-      let listos = enEspera
-      enEspera = []
-      for buffer in listos { programar(buffer) }
+      if juntado < colchon.segundos {
+        esperarAlFinal()
+        return
+      }
+      soltarLoQueEspera()
       return
     }
     programar(converted)
+  }
+
+  /// Deja sonar lo juntado, y a partir de aquí lo que llegue va detrás.
+  private func soltarLoQueEspera() {
+    soltarElFinal?.cancel()
+    soltarElFinal = nil
+    sueltaEn = nil
+    sonando = true
+    let listos = enEspera
+    enEspera = []
+    for buffer in listos { programar(buffer) }
+  }
+
+  /// Si en [esperaDelFinal] no llega nada más, lo que espera suena tal cual: la
+  /// respuesta se acabó sin llenar el colchón.
+  private func esperarAlFinal() {
+    soltarElFinal?.cancel()
+    let trabajo = DispatchWorkItem { [weak self] in
+      guard let self, self.running, self.sesionAbierta, !self.sonando,
+            !self.enEspera.isEmpty else { return }
+      self.soltarLoQueEspera()
+    }
+    soltarElFinal = trabajo
+    sueltaEn = Date().addingTimeInterval(Self.esperaDelFinal)
+    DispatchQueue.main.asyncAfter(deadline: .now() + Self.esperaDelFinal, execute: trabajo)
   }
 
   /// Programa un buffer ya convertido y lleva la cuenta de lo que queda.
@@ -1303,7 +1353,9 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
     pendingLock.lock()
     let frames = pendingFrames
     pendingLock.unlock()
-    return Int((Double(frames) / speaker.sampleRate) * 1000)
+    let porSonar = Int((Double(frames) / speaker.sampleRate) * 1000)
+    guard let sueltaEn, !enEspera.isEmpty else { return porSonar }
+    return porSonar + max(0, Int(sueltaEn.timeIntervalSinceNow * 1000))
   }
 
   /// Tira lo que quede por sonar. A diferencia de una cola en Dart, aquí el
@@ -1318,6 +1370,11 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
     // la frase que se acaba de interrumpir.
     enEspera = []
     sonando = false
+    soltarElFinal?.cancel()
+    soltarElFinal = nil
+    sueltaEn = nil
+    // Lo que venga ahora es otra respuesta.
+    colchon.otraRespuesta()
     // Interrumpir vacía la cola a propósito: eso no es un hueco de red y
     // contarlo como tal estropearía la medida justo en las sesiones con más
     // interrupciones.
@@ -1328,6 +1385,44 @@ final class NexusAudioEngine: NSObject, FlutterStreamHandler {
     if engine.isRunning {
       try? sinReventar("reanudar tras vaciar la cola") { self.player.play() }
     }
+  }
+}
+
+/// **Cuánto audio se junta antes de dejar sonar**, aprendido de los huecos de
+/// la sesión.
+///
+/// Eran 400 ms fijos, medidos contra cortes de 109 a 259 ms con el servicio
+/// entregando más rápido que en tiempo real. Con el servicio saturado entrega
+/// **más lento** —2 oct: 38 huecos en una sesión, uno por segundo— y ningún
+/// colchón fijo aguanta eso: se llena, suena, se vacía y corta. Lo que sí se
+/// puede elegir es cuántos cortes: con más colchón son pocas pausas en vez de
+/// una sílaba sí y otra no.
+///
+/// Por eso crece con cada hueco y se encoge cuando una respuesta entera suena
+/// sin cortes: con buena conexión vuelve a los 400 ms, que es lo que no se nota
+/// al empezar a hablar.
+struct ElColchonQueCrece {
+  static let minimo: TimeInterval = 0.4
+  /// Más que esto ya es esperar a que acabe de llegar, y en una conversación
+  /// eso se oye como que no contesta.
+  static let maximo: TimeInterval = 2.0
+
+  private(set) var segundos: TimeInterval = minimo
+  private var huboHueco = false
+
+  /// Un corte a media respuesta: la próxima vez se junta más. Al menos lo que
+  /// duró el corte, y al menos la mitad más de lo que había.
+  mutating func hubo(huecoMs: Int) {
+    let crecido = max(segundos * 1.5, segundos + Double(huecoMs) / 1000)
+    segundos = min(Self.maximo, crecido)
+    huboHueco = true
+  }
+
+  /// Empieza otra respuesta. Si la anterior sonó sin cortes, se devuelve parte
+  /// de lo ganado.
+  mutating func otraRespuesta() {
+    if !huboHueco { segundos = max(Self.minimo, segundos * 0.7) }
+    huboHueco = false
   }
 }
 

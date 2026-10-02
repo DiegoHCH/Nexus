@@ -1653,3 +1653,37 @@ final class PorQueNoEscuchaTests: XCTestCase {
       ])
   }
 }
+
+/// 🔴 Con el servicio saturado el audio llega más lento de lo que suena —2 oct:
+/// 38 huecos en una sesión, uno por segundo— y 400 ms fijos de colchón se
+/// vaciaban a cada sílaba. Estos casos fijan cómo crece y cómo vuelve.
+final class ElColchonQueCreceTests: XCTestCase {
+  func testEmpiezaEnLoQueNoSeNota() {
+    XCTAssertEqual(ElColchonQueCrece().segundos, ElColchonQueCrece.minimo)
+  }
+
+  func testCadaHuecoLoAgranda() {
+    var colchon = ElColchonQueCrece()
+    colchon.hubo(huecoMs: 319)
+    XCTAssertEqual(colchon.segundos, 0.719, accuracy: 0.001, "al menos lo que duró el corte")
+    colchon.hubo(huecoMs: 210)
+    XCTAssertEqual(colchon.segundos, 0.719 * 1.5, accuracy: 0.001, "y al menos la mitad más")
+  }
+
+  func testNoPasaDelMaximo() {
+    var colchon = ElColchonQueCrece()
+    for _ in 0..<20 { colchon.hubo(huecoMs: 1387) }
+    XCTAssertEqual(colchon.segundos, ElColchonQueCrece.maximo)
+  }
+
+  func testUnaRespuestaSinCortesLoEncoge() {
+    var colchon = ElColchonQueCrece()
+    colchon.hubo(huecoMs: 1000)
+    colchon.otraRespuesta()
+    XCTAssertEqual(colchon.segundos, 1.4, accuracy: 0.001, "la que tuvo el hueco no cuenta")
+    colchon.otraRespuesta()
+    XCTAssertEqual(colchon.segundos, 1.4 * 0.7, accuracy: 0.001)
+    for _ in 0..<10 { colchon.otraRespuesta() }
+    XCTAssertEqual(colchon.segundos, ElColchonQueCrece.minimo, "con buena conexión vuelve")
+  }
+}

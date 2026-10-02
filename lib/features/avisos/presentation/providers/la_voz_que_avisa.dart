@@ -118,6 +118,10 @@ class LaVozQueAvisa {
         // ms · aviso de 2520 ms»—: casi cuatro segundos entre pedir la frase y
         // oírla, cuando el primer trozo estaba listo mucho antes. El silencio
         // de delante va solo en el primero, que es donde hace falta.
+        //
+        // 🔴 Lo que llega aquí ya pasó por el colchón (1 oct): el Live entrega
+        // a ritmo de habla, y sonarlo según salía se entrecortaba. Ver
+        // `ElColchonDeLaVoz`.
         var sonado = 0;
         final dicho = await _ref
             .read(laVozDelAvisoProvider)
@@ -127,7 +131,7 @@ class LaVozQueAvisa {
                 if (!_ref.mounted) return;
                 if (sonado == 0) {
                   debugPrint(
-                    'voz · primer trozo del aviso a los '
+                    'voz · el aviso empieza a sonar a los '
                     '${DateTime.now().difference(empezo).inMilliseconds} ms',
                   );
                 }

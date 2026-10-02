@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:nexus/features/agenda/domain/entities/lo_dicho.dart';
+import 'package:nexus/features/agenda/domain/usecases/el_colchon_de_la_voz.dart';
 import 'package:nexus/features/assistant/domain/entities/voice_event.dart';
 import 'package:nexus/features/assistant/domain/repositories/voice_gateway.dart';
 
@@ -50,9 +51,14 @@ class LaVozDelAviso {
   /// sonaba casi cuatro segundos después de pedirla cuando el primer trozo
   /// estaba listo mucho antes. Quien quiera sonar ya se engancha aquí; quien
   /// necesite el audio entero —guardarlo, por ejemplo— sigue teniéndolo.
+  ///
+  /// 🔴 **Pero no trozo a trozo según salen del Live** (1 oct): llegan a ritmo
+  /// de habla o más lento, y sonarlos así se entrecortaba. Pasan por
+  /// [ElColchonDeLaVoz], que los suelta cuando ya no se pueden quedar cortos.
   Future<LoDicho> decir(
     String frase, {
     void Function(Uint8List trozo)? alLlegar,
+    DateTime Function()? ahora,
   }) async {
     if (frase.trim().isEmpty) {
       return const LoDicho.fallo('no hay nada que decir');
@@ -62,6 +68,9 @@ class LaVozDelAviso {
     final trozos = <int>[];
     final terminado = Completer<LoDicho>();
     StreamSubscription<VoiceEvent>? eventos;
+    final colchon = alLlegar == null
+        ? null
+        : ElColchonDeLaVoz(alLlegar, ahora: ahora);
 
     Future<void> cerrar() async {
       await eventos?.cancel();
@@ -70,6 +79,8 @@ class LaVozDelAviso {
 
     void acabar(LoDicho conQue) {
       if (terminado.isCompleted) return;
+      // Lo que se guardó suena aunque se haya cortado: lo que llegó, llegó.
+      colchon?.termina();
       terminado.complete(conQue);
       unawaited(cerrar());
     }
@@ -83,7 +94,7 @@ class LaVozDelAviso {
             live.sendSystemNote(_laSenalDeArranque);
           case VoiceReplyAudio(:final pcm):
             trozos.addAll(pcm);
-            alLlegar?.call(pcm);
+            colchon?.llega(pcm);
           // El turno acaba cuando terminó de decirlo: eso es todo el aviso.
           case VoiceTurnCompleted():
             _log('aviso · dicho en ${trozos.length} bytes');
@@ -102,6 +113,7 @@ class LaVozDelAviso {
       return await terminado.future.timeout(
         plazo,
         onTimeout: () {
+          colchon?.termina();
           unawaited(cerrar());
           return const LoDicho.fallo('no contestó a tiempo');
         },
@@ -110,6 +122,7 @@ class LaVozDelAviso {
       // Todo lo que salga se atrapa: aquí no hay nadie mirando la pantalla, y
       // un fallo sin recoger sería silencio sin más — que es justo el fallo que
       // este aviso viene a evitar.
+      colchon?.termina();
       await cerrar();
       return LoDicho.fallo('$error');
     }

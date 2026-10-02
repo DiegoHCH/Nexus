@@ -383,6 +383,11 @@ class HoldVoiceConversation {
     /// la protección de la otra.
     var herramientasEnVuelo = 0;
 
+    /// Cómo cortar cada encargo en vuelo, por la llamada que lo pidió: el
+    /// servicio retira llamadas por su id. Ver [VoiceToolCancelled].
+    final retirables = <String, void Function()>{};
+    var retiradas = 0;
+
     String reloj() {
       final ready = readyAt == null ? '—' : '${readyAt}ms';
       final heard = heardAt == null ? 'todavía nada' : '${heardAt}ms';
@@ -1006,7 +1011,11 @@ class HoldVoiceConversation {
     /// Lo que **sí** iría a `NexusStrings` es cualquier cosa que se pinte o se
     /// hable directamente. Si algún día uno de estos se enseña tal cual, deja de
     /// valer este argumento y hay que moverlo.
-    Future<String?> runErrand(String instruction, String headline) async {
+    Future<String?> runErrand(
+      String instruction,
+      String headline, {
+      String? callId,
+    }) async {
       controller.add(VoiceToolStarted(headline));
       // Un encargo nuevo empieza su cuenta de por dónde va desde cero.
       encargoDeAhora++;
@@ -1160,21 +1169,45 @@ class HoldVoiceConversation {
       // Se escucha con `listen` y no con `await for` justamente por esto: un
       // `await for` no se puede cortar desde fuera, y cerrar la conversación
       // tiene que matar el encargo — cancelar la suscripción mata el proceso.
-      abortErrand = () {
+      void abortar() {
         aborted = true;
         unawaited(errand.cancel());
         finish();
-      };
+      }
+
+      abortErrand = abortar;
+      // Retirada por el servicio: se corta igual, pero la pantalla tiene que
+      // ver que acabó — la conversación sigue y el encargo no va a volver.
+      var retirado = false;
+      if (callId != null) {
+        retirables[callId] = () {
+          retirado = true;
+          aborted = true;
+          unawaited(errand.cancel());
+          finish();
+        };
+      }
       // Si el acuse está sonando, el reloj se arma cuando calle; si no, ya.
       if (!diciendoAparte) armarElProgreso(ritmoDelProgreso.silencio);
 
       await ended.future;
-      abortErrand = null;
+      if (callId != null) retirables.remove(callId);
+      // Solo si sigue siendo el suyo: retirado uno, el que lo sustituye ya
+      // puede estar en marcha, y borrarle el corte dejaba ese encargo vivo al
+      // colgar.
+      if (abortErrand == abortar) abortErrand = null;
       // 🔴 **Llegó la respuesta: lo que se estuviera redactando o generando de
       // por dónde va ya no se dice.** Lo que ya suena acaba —es una frase— o lo
       // corta la narración en cuanto empiece, que llega segundos después.
       relojDelProgreso?.cancel();
       cortarAparte(loQueSuena: false);
+      // Se da por acabado **antes** de esperar al corte: matar el proceso no
+      // es instantáneo, y la pantalla no tiene por qué seguir en «trabajando».
+      if (retirado && !closing) {
+        controller.add(const VoiceToolFinished(ok: false));
+        unawaited(errand.cancel());
+        return null;
+      }
       await errand.cancel();
 
       // Cancelado: no hay a quién contestar, la sesión se está cerrando.
@@ -1414,7 +1447,11 @@ class HoldVoiceConversation {
         }
       }
 
-      final answer = await runErrand(instruction, _headline(request));
+      final answer = await runErrand(
+        instruction,
+        _headline(request),
+        callId: request.callId,
+      );
       if (answer == null) return;
       responder(
         callId: request.callId,
@@ -1676,6 +1713,20 @@ class HoldVoiceConversation {
                 );
               }
               unawaited(atender(event));
+            // 🔴 **Lo que retira, se corta.** No se le contesta —ya no espera
+            // ese resultado— y el encargo deja de trabajar: lo que quiera de
+            // verdad lo vuelve a pedir, y casi siempre lo hace enseguida.
+            case VoiceToolCancelled(:final callIds):
+              for (final id in callIds) {
+                final cortar = retirables.remove(id);
+                if (cortar == null) continue;
+                retiradas++;
+                _log(
+                  'voz · el servicio retiró un encargo en vuelo y se corta '
+                  '($retiradas en esta sesión)',
+                );
+                cortar();
+              }
             case VoiceUserTranscript(:final text):
               cierreDeLaDespedida?.cancel();
               // Le hablas mientras cuenta por dónde va: se calla y te oye.

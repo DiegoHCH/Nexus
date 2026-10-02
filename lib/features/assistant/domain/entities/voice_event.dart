@@ -64,6 +64,19 @@ final class VoiceToolRequested extends VoiceEvent {
   final Map<String, dynamic> arguments;
 }
 
+/// El modelo **retira** llamadas que había pedido: ya no quiere su resultado.
+///
+/// 🔴 **Y casi siempre vuelve a pedirlas enseguida** (2 oct): hablándole
+/// encima, el servicio cancela la llamada en vuelo y redacta otra con lo nuevo
+/// —tres veces en una misma conversación, cada una a los pocos segundos—. Sin
+/// atender esto, los tres encargos seguían vivos y Claude hacía el mismo
+/// trabajo en fila después de que ya te hubieras despedido.
+final class VoiceToolCancelled extends VoiceEvent {
+  const VoiceToolCancelled(this.callIds);
+
+  final List<String> callIds;
+}
+
 /// Empezó el encargo a Claude. La interfaz pasa a "trabajando".
 final class VoiceToolStarted extends VoiceEvent {
   const VoiceToolStarted(this.instruction);

@@ -712,6 +712,14 @@ class GeminiVoiceGateway implements VoiceGateway {
       return LoQueDiceElMarco(eventos: _lasLlamadas(llamada));
     }
 
+    if (marco['toolCallCancellation'] case final Map<String, dynamic> retiro) {
+      final ids = [
+        for (final id in retiro['ids'] as List<dynamic>? ?? const [])
+          if (id is String) id,
+      ];
+      return LoQueDiceElMarco(eventos: [VoiceToolCancelled(ids)]);
+    }
+
     final server = marco['serverContent'] as Map<String, dynamic>?;
     if (server == null) return const LoQueDiceElMarco(sinReconocer: true);
 

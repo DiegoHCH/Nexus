@@ -154,4 +154,36 @@ void main() {
     expect(dicho.salio, isFalse);
     expect(servicio.conQuePerfil, isNull);
   });
+
+  // 🔴 Sonar cada trozo según salía del Live se entrecortaba: llega a ritmo de
+  // habla o más lento, y el altavoz se quedaba sin nada entre uno y otro.
+  test('lo que llega a ritmo de habla suena entero al terminar', () async {
+    final sonado = <int>[];
+    final futuro = LaVozDelAviso(
+      servicio,
+    ).decir('Reunión en cinco minutos.', alLlegar: (t) => sonado.add(t.length));
+    await vueltas();
+
+    sesion.emite(VoiceReplyAudio(Uint8List(4800)));
+    sesion.emite(VoiceReplyAudio(Uint8List(4800)));
+    await vueltas();
+    expect(sonado, isEmpty, reason: 'poco guardado: aún no se fía');
+
+    sesion.emite(const VoiceTurnCompleted());
+    await futuro;
+    expect(sonado, [9600], reason: 'todo de un tirón');
+  });
+
+  test('si se corta a medias, lo que llegó suena igual', () async {
+    final sonado = <int>[];
+    final futuro = LaVozDelAviso(
+      servicio,
+    ).decir('Reunión en cinco minutos.', alLlegar: (t) => sonado.add(t.length));
+    await vueltas();
+
+    sesion.emite(VoiceReplyAudio(Uint8List(4800)));
+    sesion.emite(const VoiceSessionFailed('se cortó'));
+    await futuro;
+    expect(sonado, [4800]);
+  });
 }

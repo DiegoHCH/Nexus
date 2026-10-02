@@ -229,6 +229,21 @@ void main() {
       ]);
     });
 
+    // 🔴 Antes caía en «algo que no se entiende» y el encargo seguía vivo.
+    test('la retirada de llamadas llega con sus ids', () {
+      final dice = leer({
+        'toolCallCancellation': {
+          'ids': ['fc-1', 'fc-2'],
+        },
+      });
+
+      expect((dice.eventos.single as VoiceToolCancelled).callIds, [
+        'fc-1',
+        'fc-2',
+      ]);
+      expect(dice.sinReconocer, isFalse);
+    });
+
     test('sin argumentos no revienta: llegan vacíos', () {
       final dice = leer({
         'toolCall': {

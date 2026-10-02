@@ -3147,6 +3147,7 @@ class AssistantController extends Notifier<AssistantHudState> {
             // La petición la atiende el caso de uso; la pantalla ve el trabajo,
             // no la fontanería.
             VoiceToolRequested() => null,
+            VoiceToolCancelled() => null,
           },
           onError: (Object error) =>
               unawaited(_onVoiceFailed(error, error.toString())),

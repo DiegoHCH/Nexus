@@ -129,6 +129,12 @@ Lo que ese modo apaga es **el servicio de voz, no el trabajo**: Claude Code sigu
 mandando a Anthropic lo que lee de tu carpeta, porque es así como trabaja. Las
 demás carpetas emparejadas no viajan — cada conversación ve solo la suya.
 
+Salvo que enciendas **Leer todo el Mac** (Ajustes › Permisos, apagado de serie):
+entonces Claude puede leer cualquier archivo de tu carpeta personal sin
+preguntar, esté donde esté la conversación. Solo leer: escribir fuera de la
+carpeta sigue dependiendo de su permiso. Y las carpetas en solo texto siguen
+cerradas para las conversaciones con voz, por el mismo motivo de arriba.
+
 Aparte del modo, cada carpeta tiene su permiso de archivos —solo leer o poder
 editar, y empieza en solo leer— y su propia lista de comandos bloqueados.
 

@@ -203,6 +203,10 @@ class WorkspaceController extends Notifier<Workspace> {
         folders: folders,
         activePath: wasActive ? null : _guardado.activePath,
         permission: _guardado.permission,
+        // A mano porque `copyWith` no sabe quitar la activa: lo que no se
+        // nombre aquí se pierde, y quitar una carpeta apagaba la lectura de
+        // todo el Mac sin decir nada.
+        leeTodoElMac: _guardado.leeTodoElMac,
       ),
     );
   }
@@ -414,6 +418,12 @@ class WorkspaceController extends Notifier<Workspace> {
   Future<void> setPermission(FilePermission permission) async {
     if (_guardado.permission == permission) return;
     await _persist(_guardado.copyWith(permission: permission));
+  }
+
+  /// Enciende o apaga la lectura de todo el Mac. Ver [Workspace.leeTodoElMac].
+  Future<void> setLeeTodoElMac(bool encendido) async {
+    if (_guardado.leeTodoElMac == encendido) return;
+    await _persist(_guardado.copyWith(leeTodoElMac: encendido));
   }
 
   void togglePermission() {

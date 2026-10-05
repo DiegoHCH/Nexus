@@ -213,5 +213,22 @@ void main() {
       // Y sin perder lo que ya decía, que es la otra mitad del aviso.
       expect(aviso, contains('subir'));
     });
+
+    // 🔴 Contarle que `cat` pasa sin preguntar le enseñaba a recorrer archivos
+    // con `for f in …; do cat "$f"; done`, y un bucle no casa con ningún
+    // `Bash(x:*)`: 2 de 10 lecturas pedían permiso, siempre por el `for`. Con
+    // el comodín, 0 de 10. Ver [AllowedCommands.loQuePuedeCorrer].
+    test('y que lo que pregunta es el bucle, no encadenar: con un comodín no '
+        'hace falta', () {
+      final aviso = AllowedCommands.loQuePuedeCorrer(null)!;
+
+      expect(aviso, contains('`for`'));
+      expect(aviso, contains(r'`$( )`'));
+      expect(aviso, contains('`cat notas/*.md`'));
+      expect(aviso, contains('`&&`, `;` o `|`'));
+      // Sin mandarlo solo a Read: quitaba las preguntas, pero leía de uno en
+      // uno y tardaba el doble.
+      expect(aviso, contains('`grep -r patrón .`'));
+    });
   });
 }

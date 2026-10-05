@@ -2726,6 +2726,7 @@ class AssistantController extends Notifier<AssistantHudState> {
       contexto: medida,
       yaComprimiendo: _compacting,
       dondeLoDejoLaUltima: _dondeLoDejoLaUltimaCompresion,
+      tokens: state.meter.contextTokens,
     )) {
       return;
     }

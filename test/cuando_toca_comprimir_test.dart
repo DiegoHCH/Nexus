@@ -11,12 +11,17 @@ import 'package:nexus/features/assistant/domain/usecases/la_compresion_de_la_con
 /// había hecho algo.
 void main() {
   group('cuándo toca', () {
-    bool toca(int? contexto, {bool comprimiendo = false, int? dejoEn}) =>
-        LaCompresionDeLaConversacion.toca(
-          contexto: contexto,
-          yaComprimiendo: comprimiendo,
-          dondeLoDejoLaUltima: dejoEn,
-        );
+    bool toca(
+      int? contexto, {
+      bool comprimiendo = false,
+      int? dejoEn,
+      int? tokens,
+    }) => LaCompresionDeLaConversacion.toca(
+      contexto: contexto,
+      yaComprimiendo: comprimiendo,
+      dondeLoDejoLaUltima: dejoEn,
+      tokens: tokens,
+    );
 
     test('por debajo del umbral no se toca nada', () {
       expect(toca(0), isFalse);
@@ -62,6 +67,28 @@ void main() {
     test('la primera vez no la frena nadie', () {
       expect(toca(90), isTrue);
       expect(toca(84, dejoEn: 50), isFalse, reason: 'el umbral sigue primero');
+    });
+
+    // 🔴 Con 1M de ventana, el 85 % son 850k: la sesión de `front-mobile-b2c`
+    // iba por 770k sin haberse comprimido nunca, y volver a ella con el caché
+    // caducado eran ~$6 de cupo en el primer mensaje.
+    group('el tope en tokens, para las ventanas grandes', () {
+      test('pasado el tope se comprime aunque el porcentaje no llegue', () {
+        expect(toca(20, tokens: 200000), isTrue);
+        expect(toca(77, tokens: 770000), isTrue);
+      });
+
+      test('por debajo del tope manda el porcentaje, como siempre', () {
+        expect(toca(19, tokens: 199999), isFalse);
+        expect(toca(90, tokens: 180000), isTrue, reason: 'ventana de 200k');
+      });
+
+      // El mismo freno del bucle: pasado el tope, una compresión que no baja
+      // no se reintenta hasta que el contexto crezca.
+      test('y no se reintenta donde la dejó la última', () {
+        expect(toca(25, tokens: 250000, dejoEn: 25), isFalse);
+        expect(toca(26, tokens: 260000, dejoEn: 25), isTrue);
+      });
     });
 
     test('sin medida no se decide nada', () {

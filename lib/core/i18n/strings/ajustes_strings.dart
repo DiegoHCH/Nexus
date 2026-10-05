@@ -125,7 +125,9 @@ mixin AjustesStringsEs implements AjustesStrings {
       'Claude puede leer cualquier archivo de tu carpeta personal sin '
       'preguntar, sin importar en qué carpeta esté la conversación. Escribir '
       'fuera de la carpeta sigue dependiendo de su permiso. Las carpetas en '
-      'solo texto no se leen desde una conversación con voz.';
+      'solo texto no se leen desde una conversación con voz. Y puedes abrir '
+      'una conversación en cualquier carpeta diciendo dónde: «abre una '
+      'conversación en ~/notas».';
   @override
   String get leeTodoElMacCosteApagado => 'cada conversación ve solo su carpeta';
   @override
@@ -274,7 +276,8 @@ mixin AjustesStringsEn implements AjustesStrings {
       'Claude can read any file in your home folder without asking, whatever '
       'folder the conversation is in. Writing outside the folder still '
       'depends on its permission. Text-only folders are not read from a voice '
-      'conversation.';
+      'conversation. And you can open a conversation in any folder by saying '
+      'where: "open a conversation in ~/notes".';
   @override
   String get leeTodoElMacCosteApagado =>
       'each conversation sees only its folder';

@@ -169,6 +169,16 @@ class WorkspaceController extends Notifier<Workspace> {
   Future<String?> pairFolder() async {
     final path = await ref.read(folderPickerProvider).pickFolder();
     if (path == null) return null;
+    return emparejar(path);
+  }
+
+  /// Empareja [path] sin pasar por el selector, con las mismas reglas que
+  /// [pairFolder]: la modalidad la decide [LaModalidadAlEmparejar] y la
+  /// escritura nace cerrada.
+  ///
+  /// Existe para «abre una conversación en X», donde la carpeta ya la dijiste
+  /// y pedirte que la vuelvas a buscar en un diálogo sería hacerte repetirla.
+  Future<String?> emparejar(String path) async {
     if (_guardado.folders.any((folder) => folder.path == path)) {
       await _persist(_guardado.copyWith(activePath: path));
       return path;

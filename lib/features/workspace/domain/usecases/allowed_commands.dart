@@ -159,14 +159,18 @@ abstract final class AllowedCommands {
   /// una bóveda de notas: **2 de 10 encargos pedían permiso, y siempre por el
   /// `for`**. Encadenar con `&&`, `;` o `|` no preguntó ni una vez.
   ///
-  /// Mandarlo a Read, Glob y Grep también quitaba las preguntas, pero leía los
+  /// Mandarlo a Read también quitaba las preguntas, pero leía los
   /// archivos de uno en uno: 13 llamadas y ~23 s donde antes eran ~9. Con el
   /// comodín —`cat proyectos/*.md` en una sola llamada— fueron **0 de 10**, y
   /// esa lectura en ~8-10 s.
+  ///
+  /// Solo se nombra Read porque **es la única de lectura que trae el CLI**:
+  /// Grep y Glob no están en su lista de herramientas (claude 2.1.289, mirado
+  /// en el `init`), y nombrarlas era mandarlo a buscar algo que no existe.
   static String? loQuePuedeCorrer(String? loBloqueado) {
     const puede =
-        'En esta carpeta puedes mirar sin pedir permiso con Read, Glob y Grep, '
-        'y con `ls`, `cat`, `head`, `tail`, `wc`, `file`, `stat`, `grep`, `rg` '
+        'En esta carpeta puedes mirar sin pedir permiso con Read y con `ls`, '
+        '`cat`, `head`, `tail`, `wc`, `file`, `stat`, `grep`, `rg` '
         'y las lecturas de git (`status`, `log`, `diff`, `show`). Esos comandos '
         'pasan sin preguntar aunque los encadenes con `&&`, `;` o `|`, y con un '
         'comodín leen muchos archivos de una vez (`cat notas/*.md`, '

@@ -147,19 +147,42 @@ abstract final class AllowedCommands {
   ///
   /// Ya no dicta la forma exacta del comando —eso era la muleta del permiso
   /// estrecho, y apoyarse en que el modelo teclee un prefijo exacto es
-  /// apoyarse en arena—. Dice lo que hay: puede bajar archivos, puede
-  /// convertir imágenes, y no puede subir.
+  /// apoyarse en arena—. Dice lo que hay: puede mirar, puede bajar archivos,
+  /// puede convertir imágenes, y no puede subir.
+  ///
+  /// 🔴 **Y dice qué forma de mirar es la que pregunta, porque la estaba
+  /// provocando.** Contarle que `ls` y `cat` pasan sin preguntar le enseñaba a
+  /// leer con Bash, y para recorrer varios archivos armaba
+  /// `ls && for f in proyectos/*; do cat "$f"; done`: un bucle no casa con
+  /// ningún `Bash(x:*)`, así que el CLI preguntaba. Medido el 5 de octubre con
+  /// los argumentos exactos de un turno real, cinco lecturas distintas sobre
+  /// una bóveda de notas: **2 de 10 encargos pedían permiso, y siempre por el
+  /// `for`**. Encadenar con `&&`, `;` o `|` no preguntó ni una vez.
+  ///
+  /// Mandarlo a Read también quitaba las preguntas, pero leía los
+  /// archivos de uno en uno: 13 llamadas y ~23 s donde antes eran ~9. Con el
+  /// comodín —`cat proyectos/*.md` en una sola llamada— fueron **0 de 10**, y
+  /// esa lectura en ~8-10 s.
+  ///
+  /// Solo se nombra Read porque **es la única de lectura que trae el CLI**:
+  /// Grep y Glob no están en su lista de herramientas (claude 2.1.289, mirado
+  /// en el `init`), y nombrarlas era mandarlo a buscar algo que no existe.
   static String? loQuePuedeCorrer(String? loBloqueado) {
     const puede =
-        'En esta carpeta puedes mirar sin pedir permiso: `ls`, `cat`, `head`, '
-        '`tail`, `wc`, `file`, `stat`, `grep`, `rg` y las lecturas de git '
-        '(`status`, `log`, `diff`, `show`). Puedes descargar archivos con '
-        '`curl` y convertir imágenes con `sips` (por ejemplo `sips -s format '
-        'png entrada.webp --out salida.png`), sin pedir permiso. Lo que no puedes es **subir** '
-        'archivos: las formas de `curl` que mandan un archivo hacia fuera '
-        '—`-d`, `-T`, `-F`, `--json`— están negadas, y no hay que buscarles la '
-        'vuelta. Tampoco `rg --pre` ni `--output` o `--ext-diff` en git: esos '
-        'flags ejecutan o escriben, y aquí solo se mira. '
+        'En esta carpeta puedes mirar sin pedir permiso con Read y con `ls`, '
+        '`cat`, `head`, `tail`, `wc`, `file`, `stat`, `grep`, `rg` '
+        'y las lecturas de git (`status`, `log`, `diff`, `show`). Esos comandos '
+        'pasan sin preguntar aunque los encadenes con `&&`, `;` o `|`, y con un '
+        'comodín leen muchos archivos de una vez (`cat notas/*.md`, '
+        '`grep -r patrón .`). Lo que **sí** se le pregunta a la persona es un '
+        'bucle (`for`, `while`) o un `\$( )`: para recorrer archivos, un comodín '
+        'o `grep -r`, no un bucle. Puedes descargar archivos con `curl` y '
+        'convertir imágenes con `sips` (por ejemplo `sips -s format png '
+        'entrada.webp --out salida.png`), sin pedir permiso. Lo que no puedes es '
+        '**subir** archivos: las formas de `curl` que mandan un archivo hacia '
+        'fuera —`-d`, `-T`, `-F`, `--json`— están negadas, y no hay que '
+        'buscarles la vuelta. Tampoco `rg --pre` ni `--output` o `--ext-diff` en '
+        'git: esos flags ejecutan o escriben, y aquí solo se mira. '
         'Si te piden una imagen y el modelo la devuelve en `.webp`, conviértela '
         'a `.png` antes de darla por hecha.';
     return loBloqueado == null ? puede : '$loBloqueado\n\n$puede';

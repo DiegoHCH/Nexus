@@ -188,6 +188,24 @@ abstract final class AllowedCommands {
     return loBloqueado == null ? puede : '$loBloqueado\n\n$puede';
   }
 
+  /// Lo que se le cuenta cuando puede leer todo el Mac. Ver
+  /// `Workspace.leeTodoElMac`.
+  ///
+  /// Hace falta decirlo: sin esto Claude da por hecho que solo alcanza su
+  /// carpeta —es lo que le cuenta el CLI— y contesta «no tengo acceso» a algo
+  /// que sí puede leer. Y las cerradas se nombran para que no se pase el turno
+  /// chocando con ellas.
+  static String loQueSeLeeFuera(String home, List<String> cerradas) {
+    final base =
+        'Además puedes **leer** cualquier archivo de `$home` sin pedir permiso, '
+        'aunque esté fuera de esta carpeta: con Read o con `cat` y los demás '
+        'comandos de mirar. Escribir fuera de esta carpeta sigue como siempre.';
+    if (cerradas.isEmpty) return base;
+    final lista = cerradas.map((ruta) => '`$ruta`').join(', ');
+    return '$base Salvo estas carpetas, que son de solo texto y no se leen '
+        'desde una conversación con voz: $lista.';
+  }
+
   /// Se admiten comentarios con `#`, como en los bloqueados: aquí hace todavía
   /// más falta, porque dentro de tres meses lo que no se recuerda es por qué se
   /// abrió esta puerta.

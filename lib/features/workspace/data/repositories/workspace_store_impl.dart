@@ -47,6 +47,9 @@ class WorkspaceStoreImpl implements WorkspaceStore {
           ? activePath
           : null,
       permission: permiso,
+      // Cualquier cosa que no sea un `true` escrito es «apagado»: lo que abre
+      // la lectura de todo el disco no se enciende por un valor raro.
+      leeTodoElMac: json['leeTodoElMac'] == true,
     );
   }
 
@@ -56,6 +59,7 @@ class WorkspaceStoreImpl implements WorkspaceStore {
       'folders': workspace.folders.map((folder) => folder.toJson()).toList(),
       'activePath': workspace.activePath,
       'permission': workspace.permission.name,
+      'leeTodoElMac': workspace.leeTodoElMac,
     });
   }
 }

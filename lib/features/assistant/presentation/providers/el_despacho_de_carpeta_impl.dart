@@ -1,4 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/features/assistant/data/datasources/las_carpetas_del_disco_impl.dart';
+import 'package:nexus/features/assistant/domain/repositories/las_carpetas_del_disco.dart';
+import 'package:nexus/features/assistant/domain/usecases/donde_abrir_la_conversacion.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_sitio_que_dijiste.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/features/assistant/domain/repositories/el_despacho_de_carpeta.dart';
 import 'package:nexus/features/assistant/domain/usecases/a_que_carpeta_va.dart';
@@ -28,7 +34,6 @@ class ElDespachoDeCarpetaImpl implements ElDespachoDeCarpeta {
     bool elFocoSigue = true,
     List<TurnoDicho> hilo = const [],
   }) async {
-    final strings = _ref.read(stringsProvider);
     final destino = QueHacerConLoQueSeDijo.de(
       ACarpetaVaLoQueDices.de(
         frase,
@@ -39,7 +44,102 @@ class ElDespachoDeCarpetaImpl implements ElDespachoDeCarpeta {
       abiertas: _ref.read(conversationsProvider),
     );
 
+    // **Ninguna emparejada, pero puede que pidas abrir en otra.** Solo con la
+    // lectura de todo el Mac encendida: abrir donde digas es la otra mitad de
+    // «que entre a donde le dé la gana», y quien no lo encendió conserva la
+    // regla de siempre —solo las emparejadas—. Ver [DondeAbrirLaConversacion].
+    if (destino is AtenderloAqui &&
+        _ref.read(workspaceControllerProvider).leeTodoElMac) {
+      final otro = await _abrirDondeDigas(frase, carpetaDeAqui: carpetaDeAqui);
+      if (otro != null) {
+        return _hacer(
+          otro,
+          loQueSeVe: loQueSeVe,
+          allowWrites: allowWrites,
+          attachments: attachments,
+          elFocoSigue: elFocoSigue,
+          hilo: hilo,
+          carpetaDeAqui: carpetaDeAqui,
+        );
+      }
+    }
+
+    return _hacer(
+      destino,
+      loQueSeVe: loQueSeVe,
+      allowWrites: allowWrites,
+      attachments: attachments,
+      elFocoSigue: elFocoSigue,
+      hilo: hilo,
+      carpetaDeAqui: carpetaDeAqui,
+    );
+  }
+
+  /// Si la frase pide abrir en una carpeta sin emparejar: la busca, la
+  /// empareja y dice qué hacer. `null` es que no lo pedía.
+  Future<QueHacerConElEncargo?> _abrirDondeDigas(
+    String frase, {
+    required String? carpetaDeAqui,
+  }) async {
+    final home = Platform.environment['HOME'] ?? '';
+    final sitio = await ElSitioQueDijiste.buscar(
+      DondeAbrirLaConversacion.de(frase, home: home),
+      _ref.read(lasCarpetasDelDiscoProvider),
+    );
+    final strings = _ref.read(stringsProvider);
+    switch (sitio) {
+      case SeguirAqui():
+        return null;
+      case NoEsta(:final nombre):
+        return Decirlo(strings.noEncuentroLaCarpeta(nombre));
+      case HayVarias(:final nombre, :final rutas):
+        return Decirlo(
+          strings.variasCarpetasConEseNombre(
+            nombre,
+            rutas
+                .take(5)
+                .map(
+                  (r) =>
+                      r.startsWith(home) ? '~${r.substring(home.length)}' : r,
+                )
+                .join(', '),
+          ),
+        );
+      case AbrirEn(:final ruta, :final tarea):
+        // Se empareja con las reglas de siempre —escritura cerrada, modalidad
+        // según lo que tenga la voz— y desde ahí es una carpeta más: la misma
+        // decisión que para las emparejadas, con la conversación que ya esté
+        // abierta ganando a una nueva.
+        await _ref.read(workspaceControllerProvider.notifier).emparejar(ruta);
+        final carpeta = _ref
+            .read(workspaceControllerProvider)
+            .folders
+            .where((f) => f.path == ruta)
+            .firstOrNull;
+        if (carpeta == null) return null;
+        return QueHacerConLoQueSeDijo.de(
+          AEstaCarpeta(carpeta, tarea),
+          frase: frase,
+          carpetaDeAqui: carpetaDeAqui,
+          abiertas: _ref.read(conversationsProvider),
+        );
+    }
+  }
+
+  Future<LoQueQuedaPorHacer> _hacer(
+    QueHacerConElEncargo destino, {
+    required String loQueSeVe,
+    required bool allowWrites,
+    required List<String> attachments,
+    required bool elFocoSigue,
+    required List<TurnoDicho> hilo,
+    required String? carpetaDeAqui,
+  }) async {
+    final strings = _ref.read(stringsProvider);
     switch (destino) {
+      case Decirlo(:final texto):
+        return HayQueDecir(texto);
+
       case AtenderloAqui(:final tarea):
         return AtiendeloTu(tarea);
 
@@ -200,4 +300,9 @@ class ElDespachoDeCarpetaImpl implements ElDespachoDeCarpeta {
 
 final elDespachoDeCarpetaProvider = Provider<ElDespachoDeCarpeta>(
   ElDespachoDeCarpetaImpl.new,
+);
+
+/// Las carpetas del disco, para abrir donde digas. Ver [LasCarpetasDelDisco].
+final lasCarpetasDelDiscoProvider = Provider<LasCarpetasDelDisco>(
+  (ref) => LasCarpetasDelDiscoImpl(home: Platform.environment['HOME'] ?? ''),
 );

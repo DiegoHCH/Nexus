@@ -297,6 +297,12 @@ mixin NucleoStrings {
 
   /// Habría que abrir una conversación y no caben más.
   String noCabeOtraConversacion(String carpeta);
+
+  /// «Abre una conversación en X» y X no está en el disco.
+  String noEncuentroLaCarpeta(String nombre);
+
+  /// «Abre una conversación en X» y hay varias carpetas que se llaman así.
+  String variasCarpetasConEseNombre(String nombre, String cuales);
   String textOnlyFolder(String folder);
   String textOnlyArtifactsFolder(String folder);
   String compacting(int percent);
@@ -828,6 +834,13 @@ mixin NucleoStringsEs implements NucleoStrings {
   String noCabeOtraConversacion(String carpeta) =>
       'Para trabajar en «$carpeta» hace falta otra conversación y no caben más. '
       'Cierra una y lo repito.';
+  @override
+  String noEncuentroLaCarpeta(String nombre) =>
+      'No encuentro ninguna carpeta «$nombre» en tu Mac. Dime la ruta, por '
+      'ejemplo ~/Workspace/$nombre.';
+  @override
+  String variasCarpetasConEseNombre(String nombre, String cuales) =>
+      'Hay varias carpetas «$nombre»: $cuales. ¿En cuál? Dime la ruta.';
   @override
   String textOnlyFolder(String folder) =>
       'La carpeta $folder está en modo solo texto, así que no se abre el '
@@ -1465,6 +1478,13 @@ mixin NucleoStringsEn implements NucleoStrings {
   String noCabeOtraConversacion(String carpeta) =>
       'Working in "$carpeta" needs another conversation and there is no room. '
       'Close one and I will repeat it.';
+  @override
+  String noEncuentroLaCarpeta(String nombre) =>
+      'I can\'t find any "$nombre" folder on your Mac. Tell me the path, for '
+      'example ~/Workspace/$nombre.';
+  @override
+  String variasCarpetasConEseNombre(String nombre, String cuales) =>
+      'There are several "$nombre" folders: $cuales. Which one? Tell me the path.';
   @override
   String textOnlyFolder(String folder) =>
       'The folder $folder is in text-only mode, so the microphone stays shut. '

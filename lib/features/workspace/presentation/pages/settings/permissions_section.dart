@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/features/workspace/presentation/pages/settings/apagado_o_encendido.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
@@ -76,6 +77,21 @@ class _PermissionsSectionState extends ConsumerState<PermissionsSection> {
                 FilePermission.canEdit => strings.permisoPistaPuedeEditar,
               },
               onElegir: controller.setPermission,
+            ),
+          ],
+        ),
+        // Al lado del tope y no por carpeta: es la otra pregunta de app entera,
+        // «¿hasta dónde puede mirar?». Ver [Workspace.leeTodoElMac].
+        BloqueDeAjustes(
+          rotulo: strings.leeTodoElMacTitulo,
+          hijos: [
+            TextoDeAjustes(strings.leeTodoElMacExplica),
+            ApagadoOEncendido(
+              llave: 'lee-todo-el-mac',
+              encendido: workspace.leeTodoElMac,
+              costeApagado: strings.leeTodoElMacCosteApagado,
+              costeEncendido: strings.leeTodoElMacCosteEncendido,
+              onCambiar: controller.setLeeTodoElMac,
             ),
           ],
         ),

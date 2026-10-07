@@ -36,6 +36,13 @@ final class NoCabeOtraConversacion extends QueHacerConElEncargo {
   final PairedFolder carpeta;
 }
 
+/// No se hace nada y hay que decir esto: la carpeta que se pidió no está, o hay
+/// varias con ese nombre. El texto ya viene en el idioma de la app.
+final class Decirlo extends QueHacerConElEncargo {
+  const Decirlo(this.texto);
+  final String texto;
+}
+
 /// Se nombró más de una carpeta: se pregunta.
 final class PreguntarPorCual extends QueHacerConElEncargo {
   const PreguntarPorCual(this.carpetas);

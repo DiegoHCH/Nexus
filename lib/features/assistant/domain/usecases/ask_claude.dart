@@ -307,9 +307,17 @@ class AskClaude {
           // **El AND otra vez**: lo que la carpeta autoriza solo vale si este
           // encargo puede escribir. Un parte del día, que se pide sin escritura,
           // no ejecuta nada aunque la carpeta tenga permitido el mundo entero.
+          //
+          // **Salvo lo que solo lee.** Una regla `Read(…)` ni ejecuta ni
+          // escribe, así que el AND no tiene nada que recortarle: es lo que
+          // deja leer todo el Mac también desde una carpeta de solo lectura,
+          // que era donde más se notaba no poder.
           comandosPermitidos: context.canEdit && allowWrites
               ? context.comandosPermitidos
-              : const [],
+              : [
+                  for (final regla in context.comandosPermitidos)
+                    if (regla.startsWith('Read(')) regla,
+                ],
           constraintsNotice: context.constraintsNotice,
           nombres: context.nombres,
           identidad: context.identidad,

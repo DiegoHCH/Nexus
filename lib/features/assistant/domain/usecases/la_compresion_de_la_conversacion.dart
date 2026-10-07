@@ -34,6 +34,22 @@ abstract final class LaCompresionDeLaConversacion {
   /// contar. Apurando, lo que pasa es que el contexto se recorta solo.
   static const alPorCiento = 85;
 
+  /// Y a partir de cuántos tokens, sea cual sea la ventana.
+  ///
+  /// 🔴 **Con 1M de ventana, el 85 % son 850k tokens, y eso no lo paga el
+  /// tiempo sino el cupo.** Medido el 5 de octubre retomando sesiones reales de
+  /// 30k a 770k: el tiempo hasta la primera palabra apenas cambia —4 a 8 s en
+  /// el mejor caso, con el ruido de la API por encima—, pero cada mensaje lee
+  /// todo el contexto del caché. Con los precios de Opus 5.5 son ~$0,16 de
+  /// cupo por mensaje a 770k frente a ~$0,01 a 30k, y **~$6 el primer mensaje
+  /// al volver** a una conversación de 770k con el caché caducado —pasada una
+  /// hora—, que con la memoria por carpeta es cada mañana. La sesión de
+  /// `front-mobile-b2c` iba por 770k sin que el 85 % la hubiera tocado nunca.
+  ///
+  /// 200k deja volver a una conversación por ~$1,5 y no depende del modelo
+  /// que tenga la carpeta: con una ventana de 200k ya manda el porcentaje.
+  static const topeDeTokens = 200000;
+
   /// Si toca comprimir ahora.
   ///
   /// [yaComprimiendo] entra como parámetro porque **es la mitad de la
@@ -57,14 +73,19 @@ abstract final class LaCompresionDeLaConversacion {
   ///
   /// No hace falta distinguir «no bajó» de «bajó poco»: si bajó de verdad, el
   /// contexto está por debajo del umbral y la primera condición ya lo para.
+  ///
+  /// [tokens] es el mismo contexto contado en tokens, para el
+  /// [topeDeTokens]. Sin él manda solo el porcentaje.
   static bool toca({
     required int? contexto,
     required bool yaComprimiendo,
     int? dondeLoDejoLaUltima,
+    int? tokens,
   }) {
     if (yaComprimiendo) return false;
     if (contexto == null) return false;
-    if (contexto < alPorCiento) return false;
+    final porTope = tokens != null && tokens >= topeDeTokens;
+    if (contexto < alPorCiento && !porTope) return false;
     if (dondeLoDejoLaUltima != null && contexto <= dondeLoDejoLaUltima) {
       return false;
     }

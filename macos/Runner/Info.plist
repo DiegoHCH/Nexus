@@ -26,6 +26,15 @@
 	<string>$(PRODUCT_COPYRIGHT)</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Para oírte cuando la llamas por su nombre. El reconocimiento ocurre en este Mac: nada de lo que oye sale de aquí.</string>
+	<!--
+	  Skia y no Impeller para dibujar. Tres cierres en cuatro días (2, 5 y 6 oct
+	  2026) con el mismo SIGSEGV en io.flutter.raster, dirección 0x0, siempre en
+	  las mismas direcciones del motor: tras un aviso de presión de memoria, tras
+	  una reconfiguración de pantallas. Reportado igual en otras apps en macOS 27
+	  con pantallas externas, sin arreglo en Flutter 3.47.x. Ver el PR que lo trae.
+	-->
+	<key>FLTEnableImpeller</key>
+	<false/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Nexus necesita tu micrófono para escucharte cuando le hables.</string>
 	<key>NSMainNibFile</key>

@@ -1,0 +1,18 @@
+{
+  "_comentario": "Los modelos del menú de Nexus. Se leen de master al abrir la app: cambiar esto no necesita sacar versión. Ver lib/features/assistant/domain/entities/el_catalogo_de_modelos.dart.",
+  "alias": [
+    { "valor": "opus", "modelo": "claude-opus-5-5" },
+    { "valor": "fable", "modelo": "claude-fable-5-1" },
+    { "valor": "sonnet", "modelo": "claude-sonnet-5-5" },
+    { "valor": "haiku", "modelo": "claude-haiku-4-5" }
+  ],
+  "anteriores": [
+    "claude-opus-5",
+    "claude-fable-5",
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-opus-4-7",
+    "claude-opus-4-6",
+    "claude-sonnet-4-6"
+  ]
+}

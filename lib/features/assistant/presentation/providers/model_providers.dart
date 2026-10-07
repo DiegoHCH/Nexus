@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/features/assistant/data/datasources/claude_usage_data_source.dart';
+import 'package:nexus/features/assistant/data/datasources/el_catalogo_de_modelos_data_source.dart';
+import 'package:nexus/features/assistant/domain/entities/el_catalogo_de_modelos.dart';
 import 'package:nexus/features/workspace/data/datasources/claude_profiles_data_source.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -97,27 +99,35 @@ final claudeDefaultsProvider = FutureProvider.family<PerfilDeClaude, String?>((
 String _elDelPerfil(String? configDir) =>
     configDir ?? '${Platform.environment['HOME'] ?? ''}/.claude';
 
-/// Las versiones que se eligen por su nombre entero, como las que el `/model`
-/// del CLI pone debajo de los alias.
+/// Los modelos que ofrece el menú. Ver [ElCatalogoDeModelos].
 ///
-/// **Es la única lista escrita a mano, y no caduca como caducaba la otra.** El
-/// último de cada familia entra solo, por su alias; aquí van los anteriores,
-/// que son hechos del pasado. Cuando salga un modelo nuevo, el que hoy es el
-/// último pasa a esta lista — y mientras nadie lo añada, sigue eligiéndose
-/// escribiéndolo en la consola.
-const versionesAnteriores = [
-  'claude-opus-5',
-  'claude-fable-5',
-  // 🔴 **Se quedó fuera al salir Sonnet 5.5**, y con dos efectos: no se podía
-  // elegir, y el alias `sonnet` —que ya era el 5.5— se rotulaba «Sonnet 5»,
-  // porque la etiqueta sale del último nombre visto de la familia y este era
-  // el único. Reportado con las dos capturas: el menú de Nexus y el `/model`.
-  'claude-sonnet-5',
-  'claude-opus-4-8',
-  'claude-opus-4-7',
-  'claude-opus-4-6',
-  'claude-sonnet-4-6',
-];
+/// Arranca con la última copia buena —o la de fábrica— y se pone al día con la
+/// de `master` en segundo plano: el menú no espera a la red para abrirse, y lo
+/// nuevo aparece en cuanto llega.
+class ElCatalogo extends AsyncNotifier<ElCatalogoDeModelos> {
+  @override
+  Future<ElCatalogoDeModelos> build() async {
+    final fuente = ref.read(elCatalogoDeModelosDataSourceProvider);
+    final guardado = await fuente.guardado();
+    unawaited(_ponerAlDia(fuente));
+    return guardado ?? ElCatalogoDeModelos.deFabrica;
+  }
+
+  Future<void> _ponerAlDia(ElCatalogoDeModelosDataSource fuente) async {
+    final nuevo = await fuente.deGitHub();
+    if (nuevo == null || !ref.mounted) return;
+    await fuente.guardar(nuevo);
+    if (ref.mounted) state = AsyncData(nuevo);
+  }
+}
+
+final elCatalogoDeModelosDataSourceProvider =
+    Provider<ElCatalogoDeModelosDataSource>(
+      (ref) => const ElCatalogoDeModelosDataSource(),
+    );
+
+final elCatalogoProvider =
+    AsyncNotifierProvider<ElCatalogo, ElCatalogoDeModelos>(ElCatalogo.new);
 
 /// Elige el modelo **del perfil**, como `/model` en la consola.
 ///

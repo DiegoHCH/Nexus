@@ -142,6 +142,13 @@ mixin DocumentosStrings {
 
   /// El separador de las versiones que se eligen por su nombre entero.
   String get modelVersionesAnteriores;
+
+  /// «Otro modelo…»: escribir cualquier nombre, como `--model` en la consola.
+  String get modelOtro;
+  String get modelOtroTitulo;
+  String get modelOtroPista;
+  String get modelOtroNoVale;
+  String get modelOtroUsar;
   String get effortTitle;
   String get effortFaster;
   String get effortSmarter;
@@ -392,6 +399,20 @@ mixin DocumentosStringsEs implements DocumentosStrings {
   String get modelPorDefecto => 'Por defecto (recomendado)';
   @override
   String get modelVersionesAnteriores => 'Versiones anteriores';
+  @override
+  String get modelOtro => 'Otro modelo…';
+  @override
+  String get modelOtroTitulo => 'Otro modelo';
+  @override
+  String get modelOtroPista =>
+      'Como con --model en la consola: un alias o el nombre entero, por '
+      'ejemplo claude-sonnet-5-5. Sirve para un modelo que todavía no sale en '
+      'la lista.';
+  @override
+  String get modelOtroNoVale =>
+      'Eso no es un nombre de modelo: solo letras, números, puntos y guiones.';
+  @override
+  String get modelOtroUsar => 'USAR';
   @override
   String get effortTitle => 'Esfuerzo';
   @override
@@ -688,6 +709,19 @@ mixin DocumentosStringsEn implements DocumentosStrings {
   String get modelPorDefecto => 'Default (recommended)';
   @override
   String get modelVersionesAnteriores => 'Previous versions';
+  @override
+  String get modelOtro => 'Other model…';
+  @override
+  String get modelOtroTitulo => 'Other model';
+  @override
+  String get modelOtroPista =>
+      'Like --model in the console: an alias or the full name, for example '
+      'claude-sonnet-5-5. For a model that is not on the list yet.';
+  @override
+  String get modelOtroNoVale =>
+      'That is not a model name: only letters, numbers, dots and dashes.';
+  @override
+  String get modelOtroUsar => 'USE';
   @override
   String get effortTitle => 'Effort';
   @override

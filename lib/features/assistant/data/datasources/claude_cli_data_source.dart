@@ -7,13 +7,26 @@ import 'package:flutter/foundation.dart';
 import 'package:nexus/core/platform/herramienta_externa.dart';
 import 'package:nexus/core/platform/claude_environment.dart';
 import 'package:nexus/features/assistant/data/datasources/el_final_de_la_salida.dart';
+import 'package:nexus/features/assistant/data/datasources/el_proceso_que_espera.dart';
 import 'package:nexus/features/assistant/data/datasources/la_salida_que_se_cancela.dart';
 import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart';
 
 /// Lanza `claude -p` headless y entrega cada línea de su `stream-json` ya
 /// decodificada. No sabe nada de dominio: eso lo traduce el repositorio.
 class ClaudeCliDataSource {
-  const ClaudeCliDataSource();
+  /// [binario] es el ejecutable a lanzar: `null` es el `claude` de la máquina,
+  /// y las pruebas ponen ahí un sustituto que habla el mismo protocolo.
+  ///
+  /// [enEspera] es dónde dejar los procesos que terminan su turno, para que el
+  /// siguiente no pague el arranque: `null` son los de la app. Ver
+  /// [LosProcesosEnEspera].
+  ///
+  /// Privados a propósito: hay dobles que hacen `implements` de esta clase, y
+  /// esto no es interfaz, es cómo se lanza.
+  const ClaudeCliDataSource({this._binario, this._enEspera});
+
+  final String? _binario;
+  final LosProcesosEnEspera? _enEspera;
 
   /// Un evento del flujo, o `null` si esa línea no lo es.
   ///
@@ -133,81 +146,105 @@ class ClaudeCliDataSource {
     // dice el binario: «permission prompts reach the host over stdio»— y sin
     // `--input-format stream-json` no hay por dónde contestarle.
     final preguntando = alPedirPermiso != null;
-    final process = await Process.start(
-      await HerramientaExterna.rutaDeClaude(),
-      [
-        '-p',
-        // Preguntando, la instrucción viaja por stdin: pasarla además aquí la
-        // mandaría dos veces.
-        if (!preguntando) instruction,
-        if (preguntando) ...[
-          '--input-format',
-          'stream-json',
-          '--permission-prompt-tool',
-          'stdio',
-        ],
-        '--output-format',
+    // **Todo lo que decide cómo se lanza**, sin el encargo ni la sesión que
+    // retoma. Es también la llave para reutilizar un proceso: si el turno nuevo
+    // pide exactamente esto, el que espera sirve. Ver [LosProcesosEnEspera].
+    final como = <String>[
+      if (preguntando) ...[
+        '--input-format',
         'stream-json',
-        '--include-partial-messages',
-        '--verbose',
-        '--permission-mode',
-        permissionMode,
-        // Con esto Claude recuerda lo de antes; sin esto, cada encargo empieza
-        // de cero y no sabe ni lo que hizo hace un minuto.
-        if (resumeSessionId != null) ...[
-          '--resume',
-          resumeSessionId,
-          // 🔴 **Bifurcar en vez de escribir en el mismo hilo.** Es lo que
-          // permite que dos conversaciones trabajen a la vez sobre la misma
-          // carpeta: se lleva el contexto hasta aquí y a partir de ahora
-          // escribe en una sesión propia. Sin esto, dos `--resume` a la vez
-          // sobre la misma sesión contestan bien los dos y después **solo
-          // consta uno** — medido con el binario.
-          if (forkSession) '--fork-session',
-        ],
-        // Las reglas del árbol y el contexto del repo, repetidos aquí a
-        // propósito. Claude ya carga los CLAUDE.md por su cuenta, pero los
-        // aplica todos al mismo nivel: sin esto, el protocolo de la carpeta de
-        // arriba diluye las reglas del proyecto.
-        if (appendSystemPrompt != null && appendSystemPrompt.isNotEmpty) ...[
-          '--append-system-prompt',
-          appendSystemPrompt,
-        ],
-        // **El modelo y el esfuerzo de la carpeta.** Se calculaban, se pasaban por
-        // tres capas y se tiraban aquí: llegaban a este método y nunca a la línea de
-        // comandos, así que la elección por carpeta no hacía nada.
-        if (model != null && model.isNotEmpty) ...['--model', model],
-        if (effort != null && effort.isNotEmpty) ...['--effort', effort],
-        // **Las herramientas MCP, permitidas por servidor.**
-        //
-        // En headless nadie aprueba nada, así que sin esto toda llamada a un servidor
-        // MCP se deniega sola: se preguntaba «¿qué reuniones tengo hoy?» y contestaba
-        // que no podía consultar el calendario, con el conector conectado y sano. Y no
-        // lo arregla el modo de permisos — con `acceptEdits` falla igual.
-        //
-        // Por servidor y no por herramienta porque enumerar las de lectura de cada
-        // conector sería una lista que caduca con cada versión suya. Lo que no vale es
-        // el comodín: `mcp__*` no autoriza nada, probado contra el CLI real.
-        if (herramientasMcp.isNotEmpty) ...[
-          '--allowedTools',
-          ...herramientasMcp,
-        ],
-        // **Lo que no puede tocar.** Aquí van los comandos bloqueados de la carpeta y,
-        // cuando es de solo lectura, las herramientas MCP que actúan fuera de la
-        // máquina. La denegación gana al permiso, medido, así que permitir el servidor
-        // entero y negar estas es seguro.
-        if (disallowedTools.isNotEmpty) ...[
-          '--disallowedTools',
-          ...disallowedTools,
-        ],
-        // Al final y de una sola vez: el flag es variádico, así que cualquier
-        // argumento que fuera detrás se lo tragaría como si fuera una carpeta.
-        if (extraDirectories.isNotEmpty) ...['--add-dir', ...extraDirectories],
+        '--permission-prompt-tool',
+        'stdio',
       ],
-      workingDirectory: workingDirectory,
-      environment: ClaudeEnvironment.forProfile(configDir),
-      includeParentEnvironment: false,
-    );
+      '--output-format',
+      'stream-json',
+      '--include-partial-messages',
+      '--verbose',
+      '--permission-mode',
+      permissionMode,
+      // Las reglas del árbol y el contexto del repo, repetidos aquí a
+      // propósito. Claude ya carga los CLAUDE.md por su cuenta, pero los
+      // aplica todos al mismo nivel: sin esto, el protocolo de la carpeta de
+      // arriba diluye las reglas del proyecto.
+      if (appendSystemPrompt != null && appendSystemPrompt.isNotEmpty) ...[
+        '--append-system-prompt',
+        appendSystemPrompt,
+      ],
+      // **El modelo y el esfuerzo de la carpeta.** Se calculaban, se pasaban por
+      // tres capas y se tiraban aquí: llegaban a este método y nunca a la línea de
+      // comandos, así que la elección por carpeta no hacía nada.
+      if (model != null && model.isNotEmpty) ...['--model', model],
+      if (effort != null && effort.isNotEmpty) ...['--effort', effort],
+      // **Las herramientas MCP, permitidas por servidor.**
+      //
+      // En headless nadie aprueba nada, así que sin esto toda llamada a un servidor
+      // MCP se deniega sola: se preguntaba «¿qué reuniones tengo hoy?» y contestaba
+      // que no podía consultar el calendario, con el conector conectado y sano. Y no
+      // lo arregla el modo de permisos — con `acceptEdits` falla igual.
+      //
+      // Por servidor y no por herramienta porque enumerar las de lectura de cada
+      // conector sería una lista que caduca con cada versión suya. Lo que no vale es
+      // el comodín: `mcp__*` no autoriza nada, probado contra el CLI real.
+      if (herramientasMcp.isNotEmpty) ...['--allowedTools', ...herramientasMcp],
+      // **Lo que no puede tocar.** Aquí van los comandos bloqueados de la carpeta y,
+      // cuando es de solo lectura, las herramientas MCP que actúan fuera de la
+      // máquina. La denegación gana al permiso, medido, así que permitir el servidor
+      // entero y negar estas es seguro.
+      if (disallowedTools.isNotEmpty) ...[
+        '--disallowedTools',
+        ...disallowedTools,
+      ],
+      // Al final y de una sola vez: el flag es variádico, así que cualquier
+      // argumento que fuera detrás se lo tragaría como si fuera una carpeta.
+      if (extraDirectories.isNotEmpty) ...['--add-dir', ...extraDirectories],
+    ];
+    final llave = jsonEncode([workingDirectory, configDir ?? '', ...como]);
+    final esperando = _enEspera ?? LosProcesosEnEspera.compartidos;
+
+    // 🔴 **Un proceso que espera solo sirve a quien retoma su misma sesión, y
+    // sin bifurcar.** Bifurcar es pedir un hilo nuevo, y eso solo lo da un
+    // `--fork-session` al arrancar. Y sin nadie a quien preguntar no hay stdin
+    // por el que mandarle el encargo.
+    final reutilizado = preguntando && resumeSessionId != null && !forkSession
+        ? await esperando.tomar(
+            sesion: resumeSessionId,
+            llave: llave,
+            configDir: configDir,
+          )
+        : null;
+    final proceso =
+        reutilizado ??
+        ElProcesoVivo(
+          await Process.start(
+            _binario ?? await HerramientaExterna.rutaDeClaude(),
+            [
+              '-p',
+              // Preguntando, la instrucción viaja por stdin: pasarla además
+              // aquí la mandaría dos veces.
+              if (!preguntando) instruction,
+              // Con esto Claude recuerda lo de antes; sin esto, cada encargo
+              // empieza de cero y no sabe ni lo que hizo hace un minuto.
+              if (resumeSessionId != null) ...[
+                '--resume',
+                resumeSessionId,
+                // 🔴 **Bifurcar en vez de escribir en el mismo hilo.** Es lo
+                // que permite que dos conversaciones trabajen a la vez sobre la
+                // misma carpeta: se lleva el contexto hasta aquí y a partir de
+                // ahora escribe en una sesión propia. Sin esto, dos `--resume`
+                // a la vez sobre la misma sesión contestan bien los dos y
+                // después **solo consta uno** — medido con el binario.
+                if (forkSession) '--fork-session',
+              ],
+              // Delante del resto porque `--add-dir`, que va al final, es
+              // variádico y se tragaría lo que viniera detrás.
+              ...como,
+            ],
+            workingDirectory: workingDirectory,
+            environment: ClaudeEnvironment.forProfile(configDir),
+            includeParentEnvironment: false,
+          ),
+        );
+    final process = proceso.proceso;
     // **Qué manos lleva este encargo, dicho una vez.**
     //
     // Se anota porque su ausencia costó una tarde: «no puedo consultar tu calendario»
@@ -230,7 +267,10 @@ class ClaudeCliDataSource {
       '${herramientasMcp.length} servidores MCP permitidos'
       '${disallowedTools.isEmpty ? '' : ' · ${disallowedTools.length} herramientas negadas'}'
       '${model == null ? '' : ' · $model'}'
-      '${effort == null ? '' : ' · esfuerzo $effort'}',
+      '${effort == null ? '' : ' · esfuerzo $effort'}'
+      // Y si se ahorró el arranque: es lo que hay que mirar para saber si
+      // los procesos en espera sirven de algo.
+      '${reutilizado != null ? ' · proceso reutilizado' : ''}',
     );
 
     // Desde aquí ya se le puede rematar desde fuera, que es lo que hace falta
@@ -259,22 +299,35 @@ class ClaudeCliDataSource {
       unawaited(process.stdin.close());
     }
 
-    final stderrBuffer = StringBuffer();
-    final stderrDone = process.stderr
-        .transform(utf8.decoder)
-        .listen(stderrBuffer.write)
-        .asFuture<void>();
+    // La sesión en la que trabaja este proceso, la que dice su `init`. Es en la
+    // que espera si se queda libre: con `--fork-session` no es la que se pidió.
+    String? sesionDelTurno;
+    if (preguntando) {
+      vivo.alQuedarLibre = () {
+        final sesion = sesionDelTurno;
+        proceso.soltarElTurno();
+        if (sesion == null) {
+          proceso.despedir();
+          return;
+        }
+        unawaited(
+          esperando.aparcar(
+            proceso,
+            sesion: sesion,
+            llave: llave,
+            configDir: configDir,
+          ),
+        );
+      };
+    }
 
+    final noJson = StringBuffer();
     try {
-      // 🔴 **El final lo marca el proceso, no la pipa.** Ver
-      // [ElFinalDeLaSalida]: los servidores MCP heredan esta salida y le
-      // sobreviven, así que esperar a que se cierre sola es esperar a un
-      // huérfano. Sin esto, un CLI que se muere antes del `result` dejaba el
-      // turno girando para siempre y sin un proceso vivo al que culpar.
-      final lines = ElFinalDeLaSalida.cuandoMuera(
-        process.stdout.transform(utf8.decoder).transform(const LineSplitter()),
-        process.exitCode,
-      );
+      // 🔴 **El final lo marca el proceso, no la pipa** —ver
+      // [ElFinalDeLaSalida], que es lo que hay debajo—, **o que el proceso se
+      // quede libre para otro turno**: entonces sigue vivo y estas líneas se
+      // acaban igual.
+      final lines = proceso.abrirTurno();
       await for (final line in lines) {
         if (line.trim().isEmpty) continue;
         final decoded = ClaudeCliDataSource.comoJson(line);
@@ -287,8 +340,13 @@ class ClaudeCliDataSource {
         // Va al mismo sitio que stderr porque acaba en el mismo mensaje: es lo
         // que el proceso tenía que decir antes de morir.
         if (decoded == null) {
-          stderrBuffer.writeln(line);
+          noJson.writeln(line);
           continue;
+        }
+        if (decoded['type'] == 'system' && decoded['subtype'] == 'init') {
+          if (decoded['session_id'] case final String sesion) {
+            sesionDelTurno = sesion;
+          }
         }
         // El turno dejó un subagente trabajando aparte: a partir de aquí no se
         // le puede cerrar la entrada al terminar, porque ese subagente vive
@@ -321,10 +379,12 @@ class ClaudeCliDataSource {
         }
         yield decoded;
 
-        // 🔴 **El turno acabó: se le cierra el stdin y sale solo.** Sin esto se
-        // queda leyendo una entrada que nadie va a volver a usar —los permisos
-        // eran de este turno— y el proceso vive hasta que cierres la app. Uno
-        // por encargo: 49 vivos y 3,92 GB medidos en un día.
+        // 🔴 **El turno acabó: se le cierra el stdin y sale solo**, o se queda
+        // esperando el siguiente turno si acabó limpio —ver
+        // [ElProcesoDelTurno.alQuedarLibre]—, con plazo y cupo. Lo que no puede
+        // es quedarse leyendo una entrada que nadie va a volver a usar hasta
+        // que cierres la app: uno por encargo fueron 49 vivos y 3,92 GB
+        // medidos en un día.
         //
         // Se cierra **después** de emitir la línea, no antes: el `result` es lo
         // último que hay que entregar, y el bucle de aquí arriba termina solo
@@ -347,9 +407,11 @@ class ClaudeCliDataSource {
       // llega siempre —lo resuelve el sistema al morir el hijo, no la pipa—,
       // mientras que el stderr lo puede estar sujetando un nieto. Esperarlo
       // sin tope era el mismo cuelgue por la otra salida.
+      // Se quedó esperando otro turno: no es de este, y no va a salir.
+      if (vivo.quedoLibre) return;
       final exitCode = await process.exitCode;
       await Future.any([
-        stderrDone,
+        proceso.stderrTerminado,
         Future<void>.delayed(ElFinalDeLaSalida.gracia),
       ]);
       // 🔴 **Lo que matamos nosotros no es un fallo del encargo.** El `result`
@@ -364,7 +426,10 @@ class ClaudeCliDataSource {
       if (vivo.loMatamosNosotros) {
         debugPrint('claude · salió con $exitCode porque lo rematamos nosotros');
       } else if (exitCode != 0) {
-        throw ClaudeProcessException(exitCode, stderrBuffer.toString().trim());
+        throw ClaudeProcessException(
+          exitCode,
+          '${proceso.stderr}$noJson'.trim(),
+        );
       }
     } finally {
       // Si quien escuchaba se fue antes de que el proceso terminara —la
@@ -376,8 +441,13 @@ class ClaudeCliDataSource {
       //
       // Y el stdin que dejamos abierto se cierra aquí: es nuestro, y un
       // descriptor suelto por encargo se acumula.
-      if (preguntando) unawaited(process.stdin.close().catchError((_) {}));
-      process.kill();
+      //
+      // Salvo que se haya quedado libre: ese ya no es de este turno, sino de
+      // los que esperan.
+      if (!vivo.quedoLibre) {
+        if (preguntando) unawaited(process.stdin.close().catchError((_) {}));
+        process.kill();
+      }
       // Y se desarma el remate: el proceso ya salió, así que el temporizador
       // solo serviría para mantener viva una referencia diez segundos más.
       vivo.olvida();
@@ -655,7 +725,34 @@ class ElProcesoDelTurno {
       _cierre = null;
       return;
     }
-    _cierre = Timer(_plazo, () => _cerrarLaEntrada(proceso));
+    _cierre = Timer(_plazo, () => _alVencerLaGracia(proceso));
+  }
+
+  /// A quién darle el proceso cuando el turno acabó limpio, en vez de cerrarle
+  /// la entrada. `null` es lo de siempre: se cierra y sale.
+  ///
+  /// Ver [LosProcesosEnEspera]: un proceso que termina su turno sin nada detrás
+  /// puede servir el siguiente y ahorrarle el arranque.
+  void Function()? alQuedarLibre;
+
+  /// Si el proceso se quedó vivo para otro turno en vez de salir. Entonces no
+  /// es de este turno: ni se le espera ni se le mata.
+  bool get quedoLibre => _quedoLibre;
+
+  var _quedoLibre = false;
+
+  void _alVencerLaGracia(Process proceso) {
+    final libre = alQuedarLibre;
+    // **Solo limpio.** Un subagente aparte o un turno que el CLI empezó por su
+    // cuenta siguen trabajando dentro de este proceso: dárselo a otro turno
+    // mezclaría su salida con la de un encargo que no es suyo.
+    if (libre != null && !_agenteAparte && !_otroTurnoEnMarcha) {
+      _quedoLibre = true;
+      olvida();
+      libre();
+      return;
+    }
+    _cerrarLaEntrada(proceso);
   }
 
   /// Siguió llegando algo por su salida después del resultado.

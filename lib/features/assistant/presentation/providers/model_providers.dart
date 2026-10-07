@@ -108,6 +108,11 @@ String _elDelPerfil(String? configDir) =>
 const versionesAnteriores = [
   'claude-opus-5',
   'claude-fable-5',
+  // 🔴 **Se quedó fuera al salir Sonnet 5.5**, y con dos efectos: no se podía
+  // elegir, y el alias `sonnet` —que ya era el 5.5— se rotulaba «Sonnet 5»,
+  // porque la etiqueta sale del último nombre visto de la familia y este era
+  // el único. Reportado con las dos capturas: el menú de Nexus y el `/model`.
+  'claude-sonnet-5',
   'claude-opus-4-8',
   'claude-opus-4-7',
   'claude-opus-4-6',

@@ -24,6 +24,12 @@ mixin AjustesStrings {
   String get apagado;
   String get encendido;
 
+  // Leer todo el Mac: el título, qué hace y lo que cuesta cada opción.
+  String get leeTodoElMacTitulo;
+  String get leeTodoElMacExplica;
+  String get leeTodoElMacCosteApagado;
+  String get leeTodoElMacCosteEncendido;
+
   // Lo que cuesta cada opción, al lado de su nombre.
   String get oidoCosteApagado;
   String get oidoCosteEncendido;
@@ -112,6 +118,20 @@ mixin AjustesStringsEs implements AjustesStrings {
   String get apagado => 'Apagado';
   @override
   String get encendido => 'Encendido';
+  @override
+  String get leeTodoElMacTitulo => 'Leer todo el Mac';
+  @override
+  String get leeTodoElMacExplica =>
+      'Claude puede leer cualquier archivo de tu carpeta personal sin '
+      'preguntar, sin importar en qué carpeta esté la conversación. Escribir '
+      'fuera de la carpeta sigue dependiendo de su permiso. Las carpetas en '
+      'solo texto no se leen desde una conversación con voz. Y puedes abrir '
+      'una conversación en cualquier carpeta diciendo dónde: «abre una '
+      'conversación en ~/notas».';
+  @override
+  String get leeTodoElMacCosteApagado => 'cada conversación ve solo su carpeta';
+  @override
+  String get leeTodoElMacCosteEncendido => 'lee todo tu home';
   @override
   String get oidoCosteApagado => 'no se abre con la voz';
   @override
@@ -249,6 +269,20 @@ mixin AjustesStringsEn implements AjustesStrings {
   String get apagado => 'Off';
   @override
   String get encendido => 'On';
+  @override
+  String get leeTodoElMacTitulo => 'Read the whole Mac';
+  @override
+  String get leeTodoElMacExplica =>
+      'Claude can read any file in your home folder without asking, whatever '
+      'folder the conversation is in. Writing outside the folder still '
+      'depends on its permission. Text-only folders are not read from a voice '
+      'conversation. And you can open a conversation in any folder by saying '
+      'where: "open a conversation in ~/notes".';
+  @override
+  String get leeTodoElMacCosteApagado =>
+      'each conversation sees only its folder';
+  @override
+  String get leeTodoElMacCosteEncendido => 'reads your whole home';
   @override
   String get oidoCosteApagado => 'voice does not open by name';
   @override

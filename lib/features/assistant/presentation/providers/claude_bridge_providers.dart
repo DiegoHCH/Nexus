@@ -74,6 +74,10 @@ final askClaudeProvider = Provider.family<AskClaude, String>((
       // Tu personalidad, ya leída del disco: sin esperar, el primer encargo
       // tras abrir la app se iba con la de la casa. Ver [LaPersonalidadEscrita.leida].
       await ref.read(laPersonalidadProvider.notifier).leida;
+      // Lo que puede leer fuera de la carpeta, si encendiste que lea todo el
+      // Mac. Ver [Workspace.lecturasPara].
+      final home = Platform.environment['HOME'] ?? '';
+      final lecturas = workspace.lecturasPara(folder, home: home);
       final activo =
           ref
               .read(workspaceControllerProvider)
@@ -110,6 +114,9 @@ final askClaudeProvider = Provider.family<AskClaude, String>((
           // Y lo que convierte una lectura en ejecutar o escribir:
           // `rg --pre`, `git diff --output`… Ver [AllowedCommands.loQueNoEsLeer].
           ...AllowedCommands.loQueNoEsLeer,
+          // Y las carpetas de solo texto, si esta conversación tiene voz y
+          // puede leer todo el Mac: la negación gana al permiso de leer.
+          ...lecturas.negar,
         ],
         // 🔴 **`curl` ya no se concede por patrón.** Con él concedido el CLI
         // no preguntaba, y ningún patrón lee `curl -sd@secreto`: los flags
@@ -125,10 +132,18 @@ final askClaudeProvider = Provider.family<AskClaude, String>((
           ...AllowedCommands.paraLeer,
           AllowedCommands.paraConvertirImagenes,
           ...AllowedCommands.patterns(paired?.allowedCommands ?? const []),
+          // Leer todo el Mac, si está encendido. **Viaja también en solo
+          // lectura**: es una regla de `Read`, que ni ejecuta ni escribe. Ver
+          // el AND de [AskClaude], que deja pasar estas y nada más.
+          ...lecturas.permitir,
         ],
-        constraintsNotice: AllowedCommands.loQuePuedeCorrer(
-          BlockedCommands.notice(paired?.blockedCommands ?? const []),
-        ),
+        constraintsNotice: [
+          AllowedCommands.loQuePuedeCorrer(
+            BlockedCommands.notice(paired?.blockedCommands ?? const []),
+          ),
+          if (lecturas.permitir.isNotEmpty)
+            AllowedCommands.loQueSeLeeFuera(home, lecturas.cerradas),
+        ].nonNulls.join('\n\n'),
         // Cómo se llama quien contesta y cómo llamarte a ti. Global y no por
         // carpeta: tu nombre no cambia según el repo. Ver [LosNombres].
         nombres: ref.read(losNombresProvider).paraElPrompt(),

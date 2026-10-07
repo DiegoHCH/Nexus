@@ -16,7 +16,10 @@ import 'package:nexus/features/history/domain/entities/conversation_summary.dart
 import 'package:nexus/features/history/presentation/providers/archive_providers.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/domain/entities/workspace.dart';
+import 'package:nexus/features/workspace/domain/usecases/la_modalidad_al_emparejar.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
+import 'package:nexus/features/assistant/domain/repositories/las_carpetas_del_disco.dart';
+import 'package:nexus/features/assistant/presentation/providers/el_despacho_de_carpeta_impl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Nombrar la carpeta hablando y que el encargo caiga donde toca.
@@ -104,6 +107,10 @@ class _SinAlmacen implements LocalConversationStore {
 }
 
 class _Espacio extends WorkspaceController {
+  _Espacio([this.leeTodo = false]);
+
+  final bool leeTodo;
+
   @override
   Workspace build() => Workspace(
     folders: [
@@ -111,7 +118,24 @@ class _Espacio extends WorkspaceController {
       PairedFolder(path: _alla, modality: FolderModality.voice),
     ],
     activePath: _aqui,
+    leeTodoElMac: leeTodo,
   );
+}
+
+/// El disco de mentira: lo que existe y lo que se llama de cada forma.
+class _Disco implements LasCarpetasDelDisco {
+  const _Disco({this.existen = const {}});
+
+  final Set<String> existen;
+
+  @override
+  Future<bool> existe(String ruta) async => existen.contains(ruta);
+
+  @override
+  Future<List<String>> lasQueSeLlaman(String nombre) async => const [];
+
+  @override
+  Future<bool> esUnRepo(String ruta) async => false;
 }
 
 class _Abiertas extends ConversationsController {
@@ -134,11 +158,20 @@ void main() {
     conPermiso = {};
   });
 
-  ProviderContainer montar(List<Conversation> abiertas) {
+  ProviderContainer montar(
+    List<Conversation> abiertas, {
+    bool leeTodo = false,
+    _Disco disco = const _Disco(),
+  }) {
     final container = ProviderContainer(
       overrides: [
         conversationMemoryProvider.overrideWithValue(const _SinMemoria()),
-        workspaceControllerProvider.overrideWith(_Espacio.new),
+        workspaceControllerProvider.overrideWith(() => _Espacio(leeTodo)),
+        lasCarpetasDelDiscoProvider.overrideWithValue(disco),
+        // Emparejar mira el micrófono y el llavero: aquí no hay ni uno ni otro.
+        loQueTieneLaVozProvider.overrideWithValue(
+          () async => const LoQueTieneLaVoz.nada(),
+        ),
         localConversationStoreProvider.overrideWithValue(const _SinAlmacen()),
         geminiImageKeyStoreProvider.overrideWithValue(const _SinLlave()),
         conversationsProvider.overrideWith(() => _Abiertas(abiertas)),
@@ -444,5 +477,108 @@ void main() {
         );
       },
     );
+  });
+
+  // «Solo con que yo le diga en dónde quiero que inicie la conversación debería
+  // hacerlo y ya.» Para las carpetas sin emparejar, y solo con la lectura de
+  // todo el Mac encendida. Ver `DondeAbrirLaConversacion`.
+  group('abrir donde digas, sin emparejar', () {
+    const rutaDeNotas = '/w/notas';
+    const conLasNotas = [
+      Conversation(id: 'aqui', folderPath: _aqui),
+      // Abierta sobre una ruta suelta, que se puede: así se ve a dónde llega.
+      Conversation(id: 'notas', folderPath: rutaDeNotas),
+    ];
+
+    test('la empareja y el encargo cae allí', () async {
+      final container = montar(
+        conLasNotas,
+        leeTodo: true,
+        disco: const _Disco(existen: {rutaDeNotas}),
+      );
+
+      await container
+          .read(assistantControllerProvider('aqui').notifier)
+          .submit('abre una conversación en /w/notas, cuenta mis tareas');
+      await asentar();
+
+      expect(dondeCayo['notas'], ['cuenta mis tareas']);
+      expect(dondeCayo['aqui'], isNull);
+      expect(
+        container.read(workspaceControllerProvider).folders.map((f) => f.path),
+        contains(rutaDeNotas),
+        reason: 'emparejada sola, con las reglas de siempre',
+      );
+    });
+
+    test('nace como al emparejar a mano: sin escritura', () async {
+      final container = montar(
+        conLasNotas,
+        leeTodo: true,
+        disco: const _Disco(existen: {rutaDeNotas}),
+      );
+
+      await container
+          .read(assistantControllerProvider('aqui').notifier)
+          .submit('abre una conversación en /w/notas');
+      await asentar();
+
+      final notas = container
+          .read(workspaceControllerProvider)
+          .folders
+          .firstWhere((f) => f.path == rutaDeNotas);
+      expect(notas.puedeEditar, isFalse);
+      expect(notas.modality, FolderModality.textOnly, reason: 'sin voz lista');
+    });
+
+    // Quien no lo encendió conserva la regla de siempre: solo las emparejadas.
+    test('con la lectura de todo el Mac apagada, no se mueve nada', () async {
+      final container = montar(
+        conLasNotas,
+        disco: const _Disco(existen: {rutaDeNotas}),
+      );
+
+      await container
+          .read(assistantControllerProvider('aqui').notifier)
+          .submit('abre una conversación en /w/notas, cuenta mis tareas');
+      await asentar();
+
+      expect(dondeCayo['notas'], isNull);
+      expect(dondeCayo['aqui'], hasLength(1));
+    });
+
+    test(
+      'una ruta que no existe se dice y no se trabaja en ningún sitio',
+      () async {
+        final container = montar(conLasNotas, leeTodo: true);
+
+        await container
+            .read(assistantControllerProvider('aqui').notifier)
+            .submit('abre una conversación en /w/fantasma');
+        await asentar();
+
+        expect(dondeCayo, isEmpty);
+        expect(
+          container
+              .read(assistantControllerProvider('aqui'))
+              .messages
+              .last
+              .text,
+          contains('/w/fantasma'),
+        );
+      },
+    );
+
+    // 🔴 Una tarea con pinta de sitio no se come el encargo.
+    test('«trabajemos en el bug del login» se atiende aquí', () async {
+      final container = montar(conLasNotas, leeTodo: true);
+
+      await container
+          .read(assistantControllerProvider('aqui').notifier)
+          .submit('trabajemos en el bug del login');
+      await asentar();
+
+      expect(dondeCayo['aqui'], ['trabajemos en el bug del login']);
+    });
   });
 }

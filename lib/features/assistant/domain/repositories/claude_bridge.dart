@@ -2,8 +2,11 @@ import 'package:nexus/features/assistant/domain/entities/claude_event.dart';
 import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart';
 
 /// El puente hacia `claude -p` headless. Cada llamada a [ask] es un turno
-/// independiente: no mantiene una sesión abierta entre instrucciones (eso es
-/// trabajo de la Fase 3, con `--resume`).
+/// independiente: la memoria entre instrucciones la da `--resume`.
+///
+/// Que el turno siguiente lo conteste **el mismo proceso** cuando pide lo mismo
+/// sobre la misma sesión es cosa de la implementación —se ahorra el arranque,
+/// nada más—, y no cambia lo que se ve desde aquí.
 abstract class ClaudeBridge {
   /// [workingDirectory] es obligatorio a propósito: sin él el proceso hereda
   /// el directorio de la app —`/` para un bundle lanzado por launchd— y

@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/design_system/orbe_preference.dart';
+import 'package:nexus/features/personaje/presentation/el_personaje.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
 import 'package:nexus/features/remote/domain/el_compas_de_la_respuesta.dart';
@@ -352,18 +354,35 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       _ => null,
     };
 
+    // 🔴 **El personaje, si en la sala del Mac va el personaje**: lo cuenta el
+    // Mac al saludar (ver `personajeFromMacProvider`). Con el mismo estado, la
+    // misma voz y los mismos pasos que el orbe, que son los que ya llegaban.
+    final estilo = ref.watch(orbeEstiloProvider);
     final elOrbe = IgnorePointer(
-      child: NexusOrb(
-        // Con la regla puesta: sin enlace no gira, diga lo que diga el último
-        // estado que llegó del Mac.
-        state: orbe,
-        showHorizon: false,
-        nivelVivo: nivelVivo,
-        pasos: paso?.total,
-        hechos: paso?.hechos,
-        // El anillo del oído, si es la conversación que el Mac escucha.
-        oido: conv.focused,
-      ),
+      child: estilo.personaje
+          ? OrbeEstiloScope(
+              estilo: estilo,
+              child: ElPersonaje(
+                state: orbe,
+                nivelVivo: nivelVivo,
+                pasos: paso?.total,
+                hechos: paso?.hechos,
+                // Dormido sin ser la que el Mac escucha: las luces apagadas,
+                // como el orbe sin su anillo del oído.
+                oido: conv.focused,
+              ),
+            )
+          : NexusOrb(
+              // Con la regla puesta: sin enlace no gira, diga lo que diga el
+              // último estado que llegó del Mac.
+              state: orbe,
+              showHorizon: false,
+              nivelVivo: nivelVivo,
+              pasos: paso?.total,
+              hechos: paso?.hechos,
+              // El anillo del oído, si es la conversación que el Mac escucha.
+              oido: conv.focused,
+            ),
     );
     final alto = MediaQuery.of(context).size.height;
 

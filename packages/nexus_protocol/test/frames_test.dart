@@ -191,6 +191,42 @@ void main() {
     }
   });
 
+  // El personaje: si en la sala del Mac va el personaje en vez del orbe, con su
+  // luz y sus ojos. Opcional en los dos sentidos, como el acento.
+  group('el personaje', () {
+    test('la bienvenida lo lleva, y vuelve', () {
+      final vuelta = ida<Welcome>(
+        const Welcome(
+          protocol: ProtocolRange.mine,
+          seq: 3,
+          character: {'shown': true, 'light': 'aura', 'eyes': 'asDrawn'},
+        ),
+      );
+      expect(vuelta.character, {
+        'shown': true,
+        'light': 'aura',
+        'eyes': 'asDrawn',
+      });
+    });
+
+    test('un Mac viejo no lo manda: sin la clave, y el teléfono no se cae', () {
+      final f = Frame.decode(
+        '{"t":"welcome","protocol":{"min":1,"current":1},"seq":0}',
+      );
+      expect((f as Welcome).character, isNull);
+      final json = const Welcome(protocol: ProtocolRange.mine, seq: 0).toJson();
+      expect(json.containsKey('character'), isFalse);
+    });
+
+    test('un personaje que no es un objeto se descarta, no revienta', () {
+      final f = Frame.decode(
+        '{"t":"welcome","protocol":{"min":1,"current":1},"seq":0,'
+        '"character":"sí"}',
+      );
+      expect((f as Welcome).character, isNull);
+    });
+  });
+
   // Actualizar el Mac desde el teléfono: el saludo gana la versión del Mac y la
   // actualización que ofrece, y el contrato gana los dos métodos para contestarla.
   // Todo opcional, porque los dos extremos se actualizan por su cuenta —y este es

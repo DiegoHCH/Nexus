@@ -107,7 +107,7 @@ class _AccentButton extends ConsumerWidget {
     // puede.
     return Semantics(
       button: true,
-      label: '${strings.accentPick}: ${_nombre(acento.name, strings)}',
+      label: '${strings.accentPick}: ${nombreDelAcento(acento.name, strings)}',
       child: InkWell(
         key: const ValueKey('abrir-rueda-de-color'),
         onTap: () => AccentDialog.open(context),
@@ -122,7 +122,7 @@ class _AccentButton extends ConsumerWidget {
             ),
             const SizedBox(width: 10),
             Text(
-              _nombre(acento.name, strings),
+              nombreDelAcento(acento.name, strings),
               style: NexusTypography.control.copyWith(
                 fontSize: 14,
                 color: colors.ink,
@@ -154,22 +154,24 @@ class _AccentButton extends ConsumerWidget {
   }
 }
 
-/// El nombre del acento, del diccionario.
-String _nombre(AccentName nombre, NexusStrings strings) => switch (nombre) {
-  AccentName.red => strings.accentNameRed,
-  AccentName.orange => strings.accentNameOrange,
-  AccentName.amber => strings.accentNameAmber,
-  AccentName.lime => strings.accentNameLime,
-  AccentName.green => strings.accentNameGreen,
-  AccentName.emerald => strings.accentNameEmerald,
-  AccentName.cyan => strings.accentNameCyan,
-  AccentName.blue => strings.accentNameBlue,
-  AccentName.indigo => strings.accentNameIndigo,
-  AccentName.violet => strings.accentNameViolet,
-  AccentName.magenta => strings.accentNameMagenta,
-  AccentName.rose => strings.accentNameRose,
-  AccentName.grey => strings.accentNameGrey,
-};
+/// El nombre del acento, del diccionario. Público porque los ojos del
+/// personaje se eligen con la misma rueda y se nombran igual.
+String nombreDelAcento(AccentName nombre, NexusStrings strings) =>
+    switch (nombre) {
+      AccentName.red => strings.accentNameRed,
+      AccentName.orange => strings.accentNameOrange,
+      AccentName.amber => strings.accentNameAmber,
+      AccentName.lime => strings.accentNameLime,
+      AccentName.green => strings.accentNameGreen,
+      AccentName.emerald => strings.accentNameEmerald,
+      AccentName.cyan => strings.accentNameCyan,
+      AccentName.blue => strings.accentNameBlue,
+      AccentName.indigo => strings.accentNameIndigo,
+      AccentName.violet => strings.accentNameViolet,
+      AccentName.magenta => strings.accentNameMagenta,
+      AccentName.rose => strings.accentNameRose,
+      AccentName.grey => strings.accentNameGrey,
+    };
 
 /// La rueda, en una modal.
 ///
@@ -229,7 +231,7 @@ class _AccentDialogState extends ConsumerState<AccentDialog> {
             Row(
               children: [
                 Text(
-                  _nombre(acento.name, strings),
+                  nombreDelAcento(acento.name, strings),
                   style: NexusTypography.control.copyWith(color: colors.ink),
                 ),
                 const SizedBox(width: NexusSpacing.s3),

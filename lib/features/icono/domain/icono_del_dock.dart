@@ -44,14 +44,21 @@ class LoQueSePinta {
   /// foto; con puntos, ninguno de los siete ajustes del plasma mueve nada.
   /// Quitarlos aquí es lo que hace que arrastrar esos deslizadores **no
   /// repinte** un icono que iba a salir igual.
+  ///
+  /// 🔴 **Y sin nada del personaje**: el Dock pinta el orbe aunque en la sala
+  /// vaya el personaje —ver [OrbeEstilo.personaje]—, así que elegirlo, o
+  /// cambiarle la luz o los ojos, no tiene por qué repintar el icono.
   factory LoQueSePinta({required Color acento, required OrbeEstilo estilo}) =>
       LoQueSePinta._(
         acento: acento,
         estilo: estilo.forma == FormaDelOrbe.puntos
             ? const OrbeEstilo(forma: FormaDelOrbe.puntos)
-            : estilo.copyWith(
-                tamano: OrbeEstilo.fabrica.tamano,
-                velocidad: OrbeEstilo.fabrica.velocidad,
+            : OrbeEstilo(
+                filamentos: estilo.filamentos,
+                turbulencia: estilo.turbulencia,
+                finura: estilo.finura,
+                nucleo: estilo.nucleo,
+                intensidad: estilo.intensidad,
               ),
       );
 

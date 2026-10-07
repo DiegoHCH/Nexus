@@ -241,6 +241,10 @@ La superficie de Nexus es mucho menor que la de La Oficina —allí el triaje co
   la siguiente reconexión — y lo prometido era heredarlo sin volver a emparejar, no
   reconectar. Va numerado como todo lo demás para que un teléfono que se reincorpora lo
   reciba en su resync, sin un camino aparte que mantener.
+- Y **el personaje**, por lo mismo que el acento: si en la sala del Mac va el
+  personaje en vez del orbe, con su luz y sus ojos, el teléfono lo pinta en la
+  conversación. Es del Mac entero, así que va en el saludo y en su propio evento,
+  `character`, sin `conversation`. Ver 4.9.
 - **Y el teléfono lo apaga si no hay enlace.** El espejo se queda con lo último que
   supo, así que un Mac que estaba trabajando cuando se perdió la cobertura dejaría el
   orbe girando sobre una pantalla que dice «se perdió el enlace». Un orbe girando
@@ -545,6 +549,33 @@ segundos en vez de esperar la escalera de reintentos, y al volver compara `app` 
 versión esperada. Si en dos minutos no ha vuelto, lo dice y ofrece volver a intentar.
 
 ---
+
+### 4.9 · El personaje
+
+Si en Apariencia del Mac está elegido **el personaje** —un dibujo que respira,
+parpadea y habla en vez del orbe—, el teléfono lo pinta también donde pinta el orbe
+de la conversación, con su luz y sus ojos. El estado, el nivel de la voz y los pasos
+son los que ya viajan para el orbe: aquí solo va **qué se pinta**.
+
+Todo **opcional y aditivo**, sin subir la versión del protocolo: un teléfono viejo
+ignora el campo y el evento —como cualquier clase que no conoce— y sigue pintando el
+orbe; un Mac viejo no los manda, y el teléfono nuevo pinta el orbe.
+
+**En el saludo** (`welcome`), el campo `character`, y **el evento `character`**, sin
+`conversation` —es del Mac entero— y numerado como todo, para que el resync lo
+traiga. Los dos con la misma forma, y es **una foto, no un cambio**:
+
+| clave | qué es |
+|---|---|
+| `shown` | `true` si en la sala va el personaje; `false`, el orbe |
+| `light` | dónde se ve su estado: `suit` (las luces del traje), `aura` (un resplandor detrás) u `horizon` (una línea bajo el busto) |
+| `eyes` | `asDrawn` (como están), `accent` (del acento) o `color` (el de `eyeColor`) |
+| `eyeColor` | con `eyes: color`, el color de los ojos en ARGB |
+
+Un saludo sin `character` es «el orbe». Una `light` o unos `eyes` que el teléfono no
+conozca se leen como los de fábrica (`suit`, `asDrawn`): un ajuste que no se entiende
+se pinta con el de siempre antes que no pintar nada. El teléfono lo guarda, como el
+acento, para pintarlo bien antes del primer saludo de la siguiente sesión.
 
 ## 5 · Los estados de la conexión, dichos en pantalla
 

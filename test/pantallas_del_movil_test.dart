@@ -30,6 +30,8 @@ import 'package:nexus/features/remote/presentation/pages/connecting_page.dart';
 import 'package:nexus/features/remote/presentation/pages/sin_mac_page.dart';
 import 'package:nexus/features/remote/presentation/providers/reproduccion_providers.dart';
 import 'package:nexus/main_movil.dart';
+import 'package:nexus/core/design_system/orbe_preference.dart';
+import 'package:nexus/features/personaje/presentation/el_personaje.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 
 // Las pantallas del teléfono, contra un socket falso.
@@ -914,6 +916,87 @@ void main() {
       // sin nada que contar, va en la línea de lo que hace.
       expect(find.text('…/personal/nexus'), findsOne);
       expect(find.text('CRED-310 · desenlaces'), findsOne);
+    });
+  });
+
+  group('el personaje del Mac', () {
+    Future<ProviderContainer> conElPersonaje(
+      WidgetTester tester,
+      Map<String, Object?> personaje,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final c = await conectado(
+        tester,
+        extra: [altavozProvider.overrideWithValue(_AltavozCallado())],
+      );
+      // Escuchando antes de que llegue, como en `main_movil`.
+      c.read(personajeFromMacProvider);
+      socket.recibe(Event(seq: 1, kind: 'character', data: personaje));
+      await tester.pump(Duration.zero);
+      await tester.pump(Duration.zero);
+      return c;
+    }
+
+    Future<void> laConversacion(
+      WidgetTester tester,
+      ProviderContainer c,
+    ) async {
+      await tester.pumpWidget(
+        app(c, const ConversationPage(conversationId: 'a')),
+      );
+      socket.recibe(
+        const Snapshot(
+          seq: 5,
+          data: {
+            'conversations': [
+              {
+                'id': 'a',
+                'folder': '/tmp/repo',
+                'reply': 'ya está',
+                'orb': 'speak',
+              },
+            ],
+          },
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+    }
+
+    Finder enElOrbe(Type tipo) => find.descendant(
+      of: find.byKey(const ValueKey('orbe-de-la-conversacion')),
+      matching: find.byType(tipo),
+    );
+
+    testWidgets('si el Mac lo tiene, la conversación lo pinta donde el orbe', (
+      tester,
+    ) async {
+      final c = await conElPersonaje(tester, {
+        'shown': true,
+        'light': 'aura',
+        'eyes': 'accent',
+      });
+      final estilo = c.read(orbeEstiloProvider);
+      expect(estilo.personaje, isTrue);
+      expect(estilo.luz, LuzDelPersonaje.aura);
+      expect(estilo.ojos, OjosDelPersonaje.delAcento);
+
+      await laConversacion(tester, c);
+      expect(enElOrbe(ElPersonaje), findsOneWidget);
+      expect(enElOrbe(NexusOrb), findsNothing);
+      final personaje = tester.widget<ElPersonaje>(enElOrbe(ElPersonaje));
+      // Con el estado que llega del Mac, como el orbe.
+      expect(personaje.state, NexusOrbState.speak);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('si no, el orbe de siempre', (tester) async {
+      final c = await conElPersonaje(tester, {'shown': false});
+      await laConversacion(tester, c);
+      expect(enElOrbe(NexusOrb), findsOneWidget);
+      expect(enElOrbe(ElPersonaje), findsNothing);
     });
   });
 

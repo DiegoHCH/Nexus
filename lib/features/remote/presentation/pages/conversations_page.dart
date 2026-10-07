@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/design_system/orbe_preference.dart';
+import 'package:nexus/features/personaje/domain/el_personaje_por_capas.dart';
+import 'package:nexus/features/personaje/presentation/el_personaje.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/remote/domain/el_rato_pensando.dart';
@@ -211,12 +214,7 @@ class _Vacio extends StatelessWidget {
                         Flexible(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxHeight: 260),
-                            child: const AspectRatio(
-                              aspectRatio: 1,
-                              child: IgnorePointer(
-                                child: NexusOrb(state: NexusOrbState.sleep),
-                              ),
-                            ),
+                            child: const _ElOrbeDelVacio(),
                           ),
                         ),
                         TextoEquilibrado(
@@ -540,4 +538,29 @@ class _ElRatoState extends State<_ElRato> {
     overflow: TextOverflow.ellipsis,
     style: widget.style,
   );
+}
+
+/// El orbe de «Nada abierto», dormido; o el personaje, si en la sala del Mac va
+/// el personaje. Con su forma: el orbe en un cuadrado, el personaje de pie.
+class _ElOrbeDelVacio extends ConsumerWidget {
+  const _ElOrbeDelVacio();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final estilo = ref.watch(orbeEstiloProvider);
+    return estilo.personaje
+        ? AspectRatio(
+            aspectRatio: ElPersonajePorCapas.ancho / ElPersonajePorCapas.alto,
+            child: IgnorePointer(
+              child: OrbeEstiloScope(
+                estilo: estilo,
+                child: const ElPersonaje(state: NexusOrbState.sleep),
+              ),
+            ),
+          )
+        : const AspectRatio(
+            aspectRatio: 1,
+            child: IgnorePointer(child: NexusOrb(state: NexusOrbState.sleep)),
+          );
+  }
 }

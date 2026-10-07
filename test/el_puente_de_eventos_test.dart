@@ -507,6 +507,21 @@ void main() {
     });
   });
 
+  group('el personaje', () {
+    test('sale como `character`, sin conversación y numerado', () {
+      puente.observar(vista('a'));
+      pasarElTiempo();
+      final antes = publicados.last.seq;
+
+      puente.personaje(const {'shown': true, 'light': 'suit'});
+
+      final evento = deTipo('character').single;
+      expect(evento.data, {'shown': true, 'light': 'suit'});
+      expect(evento.data.containsKey('conversation'), isFalse);
+      expect(evento.seq, antes + 1);
+    });
+  });
+
   group('el orbe', () {
     test('sale cuando cambia, y solo cuando cambia', () {
       puente.observar(vista('a', orbe: NexusOrbState.sleep));

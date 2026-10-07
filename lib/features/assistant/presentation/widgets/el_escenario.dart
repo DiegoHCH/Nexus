@@ -13,6 +13,7 @@ import 'package:nexus/features/assistant/presentation/widgets/composer/composer_
 import 'package:nexus/core/design_system/campo_de_nombre.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/design_system/la_entrada_de_la_hoja.dart';
+import 'package:nexus/core/design_system/orbe_preference.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/agenda/domain/entities/reunion.dart';
 import 'package:nexus/features/agenda/presentation/providers/el_vigilante_de_la_agenda.dart';
@@ -28,6 +29,8 @@ import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:nexus/features/onboarding/presentation/state/tour_state.dart';
 import 'package:nexus/features/onboarding/presentation/widgets/tour_anchor.dart';
+import 'package:nexus/features/personaje/domain/el_personaje_por_capas.dart';
+import 'package:nexus/features/personaje/presentation/el_personaje.dart';
 
 /// **La conversación vista de lejos**: el orbe manda y la sala se reorganiza
 /// según lo que está pasando.
@@ -92,6 +95,9 @@ class ElEscenario extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final hud = ref.watch(assistantControllerProvider(conversationId));
     final estado = hud.orbState;
+    // Con el personaje, de pie en el sitio del orbe: su propio rectángulo
+    // —más alto que ancho— y todo lo demás igual. Ver [elSitioDelPersonaje].
+    final personaje = OrbeEstiloScope.of(context).personaje;
 
     return LayoutBuilder(
       builder: (context, caja) {
@@ -102,13 +108,14 @@ class ElEscenario extends ConsumerWidget {
         // es negativo.
         final trabajando =
             estado == NexusOrbState.think || estado == NexusOrbState.ponder;
-        final sitio = elSitioDelOrbe(
-          sala: w,
-          alto: h,
-          trabajando: trabajando,
-          debajo: _loQueVaDebajo,
-        );
-        final lado = sitio.width, izquierda = sitio.left, arriba = sitio.top;
+        Rect elSitio({required bool trabajando}) =>
+            (personaje ? elSitioDelPersonaje : elSitioDelOrbe)(
+              sala: w,
+              alto: h,
+              trabajando: trabajando,
+              debajo: _loQueVaDebajo,
+            );
+        final sitio = elSitio(trabajando: trabajando);
 
         // **Lo que le deja libre la hoja abierta**, si hay una. La sala empieza
         // en el borde izquierdo de la ventana, así que lo libre es la ventana
@@ -149,13 +156,24 @@ class ElEscenario extends ConsumerWidget {
                 GestureDetector(
                   onTap: onTapOrbe,
                   behavior: HitTestBehavior.opaque,
-                  child: NexusOrb(
-                    state: estado,
-                    nivelVivo: nivelVivo,
-                    pasos: pasos,
-                    hechos: hechos,
-                    oido: oido,
-                  ),
+                  child: personaje
+                      ? ElPersonaje(
+                          state: estado,
+                          nivelVivo: nivelVivo,
+                          pasos: pasos,
+                          hechos: hechos,
+                          oido: oido,
+                          // Sin la llave de Gemini no puede hablarte, y el
+                          // aviso de arriba lo dice: ella, en gris.
+                          sinLlave: hud.faltaLaLlaveDeGemini,
+                        )
+                      : NexusOrb(
+                          state: estado,
+                          nivelVivo: nivelVivo,
+                          pasos: pasos,
+                          hechos: hechos,
+                          oido: oido,
+                        ),
                 ),
               ),
               builder: (context, t, orbe) => ListenableBuilder(
@@ -164,18 +182,8 @@ class ElEscenario extends ConsumerWidget {
                   key: ElEscenario.laLlaveDelOrbe,
                   rect: elOrbeConLaHoja(
                     Rect.lerp(
-                      elSitioDelOrbe(
-                        sala: w,
-                        alto: h,
-                        trabajando: false,
-                        debajo: _loQueVaDebajo,
-                      ),
-                      elSitioDelOrbe(
-                        sala: w,
-                        alto: h,
-                        trabajando: true,
-                        debajo: _loQueVaDebajo,
-                      ),
+                      elSitio(trabajando: false),
+                      elSitio(trabajando: true),
                       t,
                     )!,
                     sala: w,
@@ -207,8 +215,8 @@ class ElEscenario extends ConsumerWidget {
                     _LaCapa(
                       hud: hud,
                       estado: estado,
-                      bajoElOrbe: arriba + lado,
-                      alLadoDelOrbe: izquierda + lado,
+                      bajoElOrbe: sitio.bottom,
+                      alLadoDelOrbe: sitio.right,
                     ),
                   ],
                 ),
@@ -282,17 +290,55 @@ Rect elSitioDelOrbe({
   return Rect.fromLTWH(izquierda, arriba, lado, lado);
 }
 
+/// Dónde va el personaje, de pie, en una sala de [sala] × [alto]: lo mismo que
+/// [elSitioDelOrbe], con su forma.
+///
+/// Como en el mockup (`nexus-ciel-2d.html`, «En la sala»): centrado y **de
+/// alto el 80 % de la sala**, con lo de debajo —la hora, «escuchando», el
+/// subtítulo— debajo del busto, que se funde con la sala por abajo. Si no cabe
+/// con eso debajo, se encoge; y nunca más ancho que el orbe en el mismo sitio
+/// —el 60 % de la sala, el 40 % trabajando—, que es lo que deja al registro su
+/// columna.
+///
+/// 🔴 **Su propio rectángulo y no el cuadrado del orbe**: el busto metido en
+/// ese cuadrado quedaba a dos tercios del alto, con aire a los lados que no
+/// era de nadie. El resto de la sala —la hoja, el chat, la animación entre
+/// sitios— usa este igual que el del orbe.
+Rect elSitioDelPersonaje({
+  required double sala,
+  required double alto,
+  required bool trabajando,
+  required double debajo,
+}) {
+  const aspecto = ElPersonajePorCapas.ancho / ElPersonajePorCapas.alto;
+  final bajo = trabajando ? 0.0 : debajo;
+  final altoDelBusto = math.max(
+    0.0,
+    math.min(
+      math.min(alto * 0.80, alto - bajo),
+      sala * (trabajando ? 0.40 : 0.60) / aspecto,
+    ),
+  );
+  final ancho = altoDelBusto * aspecto;
+  final izquierda = trabajando ? sala * 0.03 : (sala - ancho) / 2;
+  final arriba = ((alto - altoDelBusto - bajo) / 2).clamp(0.0, double.infinity);
+  return Rect.fromLTWH(izquierda, arriba, ancho, altoDelBusto);
+}
+
 Rect elOrbeConLaHoja(Rect orbe, {required double sala, required double libre}) {
   if (sala <= 0 || libre >= sala) return orbe;
   final visible = math.max(0.0, libre);
   final r = visible / sala;
   final escalado = orbe.center.dx * r;
   final centro = escalado + (visible / 2 - escalado) * (1 - r);
-  final lado = math.min(orbe.shortestSide, visible * 1.1);
+  // Se encoge el ancho y el alto le sigue en proporción: con el orbe es un
+  // cuadrado, como siempre; con el personaje, de pie, no se aplasta.
+  final ancho = math.min(orbe.width, visible * 1.1);
+  final escala = orbe.width <= 0 ? 1.0 : ancho / orbe.width;
   return Rect.fromCenter(
     center: Offset(centro, orbe.center.dy),
-    width: lado,
-    height: lado,
+    width: ancho,
+    height: orbe.height * escala,
   );
 }
 

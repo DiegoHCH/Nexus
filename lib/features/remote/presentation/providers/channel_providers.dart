@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:nexus/features/assistant/domain/entities/conversation.dart';
 import 'package:nexus/core/design_system/accent_preference.dart';
+import 'package:nexus/core/design_system/orbe_preference.dart';
+import 'package:nexus/features/remote/data/el_personaje_por_el_canal.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/features/remote/data/channel_server.dart';
 import 'package:nexus/features/remote/data/access_log_file.dart';
@@ -228,6 +230,10 @@ class ChannelController extends Notifier<ChannelState> {
       // conecta después de que se anunciara.
       version: () => version,
       actualizacion: () => ref.read(actualizacionDelMacProvider)?.toJson(),
+      // Y el personaje, también al saludar: el teléfono lo pinta en la
+      // conversación si en la sala del Mac va el personaje.
+      personaje: () =>
+          ElPersonajePorElCanal.deEstilo(ref.read(orbeEstiloProvider)),
       // El micrófono del teléfono entra por aquí. El base64 se deshace en este punto
       // y no en la fuente, para que la fuente no sepa de transporte: recibe bytes,
       // igual que el micrófono del Mac.

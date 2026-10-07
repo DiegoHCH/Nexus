@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
+import 'package:nexus/features/assistant/domain/entities/el_catalogo_de_modelos.dart';
 import 'package:nexus/features/assistant/domain/usecases/los_comandos_de_la_casa.dart';
 import 'package:nexus/features/assistant/presentation/providers/model_providers.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings_page.dart';
@@ -177,13 +178,9 @@ class ModelMenu extends ConsumerWidget {
   /// devuelve `null` lo toma por cerrado sin elegir.
   static const _porDefecto = '';
 
-  /// Los alias, en el orden del `/model` del CLI.
-  static const _alias = [
-    ClaudeModel.opus,
-    ClaudeModel.fable,
-    ClaudeModel.sonnet,
-    ClaudeModel.haiku,
-  ];
+  /// El valor de «Otro modelo…»: no es un modelo, abre el diálogo para
+  /// escribirlo. No puede chocar con uno de verdad porque ninguno empieza así.
+  static const _otro = '__otro__';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -194,6 +191,10 @@ class ModelMenu extends ConsumerWidget {
         .value;
     final enUso = _modeloEnUso(ref, folder, meter);
     final pedido = folder?.claudeModel ?? perfil?.model;
+    // Los modelos del menú: de `modelos.json` en `master`, o la última copia,
+    // o los de fábrica. Ver [ElCatalogoDeModelos].
+    final catalogo =
+        ref.watch(elCatalogoProvider).value ?? ElCatalogoDeModelos.deFabrica;
     // Con la versión que dio el CLI —«Opus 5.5»— cuando se sabe, y si no la
     // familia: el alias no dice versión y no hay que inventarla.
     final nombre = enUso == null
@@ -209,14 +210,20 @@ class ModelMenu extends ConsumerWidget {
       ...ref.watch(seenModelsProvider).values,
       ?enUso,
     }.map(PerfilDeClaude.nombreCanonico).where((m) => m.startsWith('claude-'));
-    String etiquetaDe(ClaudeModel alias) {
+    // La etiqueta de un alias: la versión que dice el catálogo, y si no la
+    // dice, la última que se le vio usar en este perfil.
+    String etiquetaDe(ModeloDelCatalogo alias) {
+      if (alias.modelo case final modelo?) return modelLabel(modelo);
+      final familia = ClaudeModel.fromCliName(alias.valor);
       final suyos = [
         for (final modelo in conocidos)
-          if (ClaudeModel.fromCliName(modelo) == alias &&
-              !versionesAnteriores.contains(modelo))
+          if (familia != null &&
+              ClaudeModel.fromCliName(modelo) == familia &&
+              !catalogo.anteriores.contains(modelo))
             modelo,
       ]..sort();
-      return suyos.isEmpty ? alias.label : modelLabel(suyos.last);
+      if (suyos.isNotEmpty) return modelLabel(suyos.last);
+      return familia?.label ?? modelLabel(alias.valor);
     }
 
     final elegido = pedido ?? _porDefecto;
@@ -229,16 +236,22 @@ class ModelMenu extends ConsumerWidget {
 
     return MenuDelCompositor<String>(
       ancho: 330,
-      onSelected: (valor) => unawaited(
-        elegirModelo(
+      onSelected: (valor) async {
+        // «Otro modelo…» no se elige: se escribe. Lo que se escriba sigue el
+        // mismo camino que cualquier opción.
+        final modelo = valor == _otro
+            ? await escribirOtroModelo(context)
+            : valor;
+        if (modelo == null) return;
+        await elegirModelo(
           ref,
           configDir: folder?.claudeProfile,
           carpeta: folder?.path,
-          modelo: valor == _porDefecto ? null : valor,
+          modelo: modelo == _porDefecto ? null : modelo,
         ).catchError(
           (Object error) => debugPrint('modelo · no se pudo guardar: $error'),
-        ),
-      ),
+        );
+      },
       // 🔴 **Las mismas tres partes que el `/model` del CLI**, y por el mismo
       // motivo: el de por defecto, el último de cada familia por su alias, y
       // las versiones anteriores por su nombre entero. Con solo los alias, lo
@@ -246,7 +259,15 @@ class ModelMenu extends ConsumerWidget {
       itemBuilder: (context) => [
         cabeceraDelMenu(context, strings.modeloDelPerfil(_perfil(folder))),
         opcion(_porDefecto, strings.modelPorDefecto),
-        for (final alias in _alias) opcion(alias.alias, etiquetaDe(alias)),
+        for (final alias in catalogo.alias)
+          opcion(alias.valor, etiquetaDe(alias)),
+        // El que escribiste a mano, si no está en la lista: que se vea elegido
+        // en vez de un menú sin ninguna marca.
+        if (pedido != null && pedido.isNotEmpty && !catalogo.loTiene(pedido))
+          opcion(
+            pedido,
+            pedido.startsWith('claude-') ? modelLabel(pedido) : pedido,
+          ),
         rayaDelMenu(),
         // Rotulado como un apartado y no como una opción apagada: es el
         // nombre de lo que viene debajo, con la misma voz que la cabecera.
@@ -254,11 +275,15 @@ class ModelMenu extends ConsumerWidget {
         // Las de la misma familia seguidas, en una fila —«Opus 4.8 · 4.7 ·
         // 4.6»—, como en el mockup: son la misma cosa en tres fechas, y en
         // tres filas alargaban el menú hasta salirse de la ventana.
-        for (final grupo in _porFamilia(versionesAnteriores))
+        for (final grupo in _porFamilia(catalogo.anteriores))
           if (grupo.length == 1)
             opcion(grupo.single, modelLabel(grupo.single))
           else
             _FilaDeVersiones(versiones: grupo, elegida: elegido),
+        rayaDelMenu(),
+        // Para lo que todavía no está en la lista: un modelo que salió hoy se
+        // puede usar hoy, sin esperar a nadie.
+        OpcionDelMenu<String>(value: _otro, titulo: strings.modelOtro),
         // Lo que implica elegir aquí, que no es obvio: cambia el perfil, no
         // esta conversación. Ver el 🔴 de arriba.
         pieDelMenu(context, strings.modeloComoEnLaConsola),
@@ -350,14 +375,16 @@ class EffortMenu extends ConsumerWidget {
 /// Las versiones anteriores, juntas cuando son de la misma familia y vienen
 /// seguidas: `opus-4-8, opus-4-7, opus-4-6` es un grupo; `opus-5` y `opus-4-8`
 /// no, porque entre ellas va Fable. Seguidas y no todas las de la familia para
-/// que el orden de [versionesAnteriores] —el del `/model` del CLI— se respete.
+/// que el orden del catálogo —el del `/model` del CLI— se respete.
+///
+/// La familia sale del nombre y no de [ClaudeModel]: así una familia que
+/// todavía no conoce el código —llegada por `modelos.json`— se agrupa igual.
 List<List<String>> _porFamilia(List<String> modelos) {
+  String familiaDe(String modelo) => modelLabel(modelo).split(' ').first;
   final grupos = <List<String>>[];
   for (final modelo in modelos) {
-    final familia = ClaudeModel.fromCliName(modelo);
     if (grupos.isNotEmpty &&
-        familia != null &&
-        ClaudeModel.fromCliName(grupos.last.first) == familia) {
+        familiaDe(grupos.last.first) == familiaDe(modelo)) {
       grupos.last.add(modelo);
     } else {
       grupos.add([modelo]);
@@ -445,6 +472,96 @@ class _FilaDeVersionesState extends State<_FilaDeVersiones> {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// El diálogo de «Otro modelo…». Devuelve lo escrito, o `null` si se canceló.
+///
+/// Solo deja pasar un nombre de modelo —ver [ElCatalogoDeModelos.nombreValido]—:
+/// lo que salga de aquí se escribe en el `settings.json` del perfil, y un
+/// espacio o unas comillas ahí romperían el perfil también para la consola.
+Future<String?> escribirOtroModelo(BuildContext context) async {
+  if (!context.mounted) return null;
+  return showDialog<String>(
+    context: context,
+    builder: (_) => const _OtroModelo(),
+  );
+}
+
+/// Un widget propio y no un `StatefulBuilder` para que el campo se libere
+/// cuando el diálogo **desaparece**, no cuando se cierra: entre una cosa y otra
+/// está la animación de salida, que lo sigue pintando. Liberarlo antes reventaba
+/// —lo encontró la prueba—.
+class _OtroModelo extends StatefulWidget {
+  const _OtroModelo();
+
+  @override
+  State<_OtroModelo> createState() => _OtroModeloState();
+}
+
+class _OtroModeloState extends State<_OtroModelo> {
+  final _campo = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _campo.dispose();
+    super.dispose();
+  }
+
+  void _usar() {
+    final escrito = _campo.text.trim().toLowerCase();
+    if (!ElCatalogoDeModelos.nombreValido.hasMatch(escrito)) {
+      setState(() => _error = context.strings.modelOtroNoVale);
+      return;
+    }
+    Navigator.of(context).pop(escrito);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    final colors = context.colors;
+    return AlertDialog(
+      backgroundColor: colors.deep,
+      title: Text(
+        strings.modelOtroTitulo,
+        style: NexusTypography.data.copyWith(color: colors.ink),
+      ),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              strings.modelOtroPista,
+              style: NexusTypography.label.copyWith(color: colors.mute),
+            ),
+            const SizedBox(height: NexusSpacing.s4),
+            TextField(
+              key: const ValueKey('otro-modelo'),
+              controller: _campo,
+              autofocus: true,
+              autocorrect: false,
+              style: NexusTypography.mono.copyWith(color: colors.ink),
+              decoration: InputDecoration(
+                hintText: 'claude-sonnet-5-5',
+                errorText: _error,
+              ),
+              onSubmitted: (_) => _usar(),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(strings.cancel),
+        ),
+        TextButton(onPressed: _usar, child: Text(strings.modelOtroUsar)),
+      ],
     );
   }
 }

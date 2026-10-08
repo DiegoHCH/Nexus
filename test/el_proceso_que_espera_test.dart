@@ -46,8 +46,21 @@ turno() {
   echo "{\"type\":\"result\",\"subtype\":\"success\",\"session_id\":\"$sesion\",\"result\":\"pid $$ turno $n\"}"
 }
 if [ $flujo = 0 ]; then turno; exit 0; fi
+fondo() {
+  n=$((n+1))
+  echo "{\"turno\":$n}" >> "$dir/$sesion.jsonl"
+  echo "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"$sesion\"}"
+  echo "{\"type\":\"system\",\"subtype\":\"background_tasks_changed\",\"tasks\":[{\"task_id\":\"t1\"}]}"
+  echo "{\"type\":\"result\",\"subtype\":\"success\",\"session_id\":\"$sesion\",\"result\":\"pid $$ turno $n\"}"
+  # Lo de detrás termina solo, como un subagente, y el CLI abre un turno con él.
+  ( sleep 1.5
+    echo "{\"type\":\"system\",\"subtype\":\"background_tasks_changed\",\"tasks\":[]}"
+    echo "{\"type\":\"result\",\"subtype\":\"success\",\"session_id\":\"$sesion\",\"result\":\"pid $$ fondo listo\"}"
+  ) &
+}
 while IFS= read -r linea; do
   case "$linea" in
+    *FONDO*) fondo;;
     *'"type":"user"'*) turno;;
   esac
 done
@@ -194,6 +207,87 @@ void main() {
 
     await hastaQueMuera(primero.pid);
     expect(enEspera.cuantos, 0);
+  });
+
+  // 🔴 «Si lo hace otro, ¿no debería quedar libre el agente principal para
+  // poder seguir escribiéndole?». Medido contra el CLI: con un subagente en
+  // segundo plano, el turno termina y un mensaje nuevo se contesta enseguida.
+  // Pero Nexus lanzaba para ese mensaje **otro** proceso sobre la misma sesión.
+  group('con trabajo por detrás', () {
+    int pidDe(Map<String, dynamic> e) =>
+        int.parse((e['result'] as String).split(' ')[1]);
+
+    test(
+      'lo que escribes va al mismo proceso, y lo de detrás llega después',
+      () async {
+        final primero = <Map<String, dynamic>>[];
+        var primeroCerrado = false;
+        cli
+            .run(
+              'FONDO',
+              workingDirectory: tmp.path,
+              permissionMode: 'default',
+              configDir: config,
+              alPedirPermiso: (_) async => const PermisoDenegado('no'),
+            )
+            .listen(primero.add, onDone: () => primeroCerrado = true);
+        await hastaQue(
+          () => primero.any((e) => e['type'] == 'result'),
+          esperando: 'que el primero termine su turno',
+        );
+
+        final segundo = <Map<String, dynamic>>[];
+        cli
+            .run(
+              'hola',
+              workingDirectory: tmp.path,
+              permissionMode: 'default',
+              resumeSessionId: 's1',
+              configDir: config,
+              alPedirPermiso: (_) async => const PermisoDenegado('no'),
+            )
+            .listen(segundo.add);
+        await hastaQue(
+          () => segundo.where((e) => e['type'] == 'result').length >= 2,
+          esperando: 'su respuesta y luego lo de detrás',
+          loQueSeVe: () => '$segundo',
+        );
+
+        final resultados = [
+          for (final e in segundo)
+            if (e['type'] == 'result') e['result'] as String,
+        ];
+        final pid = pidDe(primero.firstWhere((e) => e['type'] == 'result'));
+        expect(
+          resultados.first,
+          'pid $pid turno 2',
+          reason: 'el mismo proceso',
+        );
+        expect(resultados.last, 'pid $pid fondo listo');
+        expect(primeroCerrado, isTrue, reason: 'el primero cedió su proceso');
+      },
+    );
+
+    test('mientras sigue el trabajo, el primer turno no lo mata', () async {
+      final primero = <Map<String, dynamic>>[];
+      cli
+          .run(
+            'FONDO',
+            workingDirectory: tmp.path,
+            permissionMode: 'default',
+            configDir: config,
+            alPedirPermiso: (_) async => const PermisoDenegado('no'),
+          )
+          .listen(primero.add);
+      await hastaQue(
+        () => primero.where((e) => e['type'] == 'result').length >= 2,
+        esperando: 'que llegue lo de detrás por el mismo turno',
+        loQueSeVe: () => '$primero',
+      );
+
+      // Y con todo hecho, queda libre para el siguiente como cualquier otro.
+      await hastaQueEspere(1);
+    });
   });
 
   group('esperando', () {

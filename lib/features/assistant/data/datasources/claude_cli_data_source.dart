@@ -205,13 +205,23 @@ class ClaudeCliDataSource {
     // sin bifurcar.** Bifurcar es pedir un hilo nuevo, y eso solo lo da un
     // `--fork-session` al arrancar. Y sin nadie a quien preguntar no hay stdin
     // por el que mandarle el encargo.
-    final reutilizado = preguntando && resumeSessionId != null && !forkSession
-        ? await esperando.tomar(
-            sesion: resumeSessionId,
-            llave: llave,
-            configDir: configDir,
-          )
+    final puedeReutilizar =
+        preguntando && resumeSessionId != null && !forkSession;
+    // Primero el que sigue trabajando por detrás en esta sesión: si existe, es
+    // **el** proceso de la sesión, y lanzar otro sería tener dos escribiendo en
+    // ella. Ver [LosProcesosEnEspera.heredar].
+    final heredado = puedeReutilizar
+        ? esperando.heredar(sesion: resumeSessionId, llave: llave)
         : null;
+    final reutilizado =
+        heredado ??
+        (puedeReutilizar
+            ? await esperando.tomar(
+                sesion: resumeSessionId,
+                llave: llave,
+                configDir: configDir,
+              )
+            : null);
     final proceso =
         reutilizado ??
         ElProcesoVivo(
@@ -276,6 +286,9 @@ class ClaudeCliDataSource {
     // Desde aquí ya se le puede rematar desde fuera, que es lo que hace falta
     // si alguien cancela mientras arranca.
     vivo.tomar(process, preguntando: preguntando);
+    // Heredado con trabajo detrás: este turno no puede cerrarle la entrada en
+    // tres segundos, que es lo que mataría al subagente que sigue.
+    if (proceso.tareasDeFondo > 0) vivo.quedaUnAgenteTrabajando();
 
     if (preguntando) {
       // La instrucción, ahora como mensaje del protocolo. **Y el stdin se queda
@@ -302,8 +315,21 @@ class ClaudeCliDataSource {
     // La sesión en la que trabaja este proceso, la que dice su `init`. Es en la
     // que espera si se queda libre: con `--fork-session` no es la que se pidió.
     String? sesionDelTurno;
+    // Si este turno ofreció su proceso a la sesión por tener trabajo detrás.
+    // Ver [LosProcesosEnEspera.ofrecerEnUso].
+    Object? ofrecido;
+    void retirar() {
+      final ficha = ofrecido;
+      final sesion = sesionDelTurno;
+      ofrecido = null;
+      if (ficha != null && sesion != null) {
+        esperando.retirarEnUso(sesion, ficha);
+      }
+    }
+
     if (preguntando) {
       vivo.alQuedarLibre = () {
+        retirar();
         final sesion = sesionDelTurno;
         proceso.soltarElTurno();
         if (sesion == null) {
@@ -352,6 +378,19 @@ class ClaudeCliDataSource {
         // le puede cerrar la entrada al terminar, porque ese subagente vive
         // dentro de este proceso. Ver [dejaUnAgenteTrabajando].
         if (dejaUnAgenteTrabajando(decoded)) vivo.quedaUnAgenteTrabajando();
+        // **La señal del propio CLI**, más fiable que leer frases: cuántas
+        // tareas tiene en segundo plano. Medido: al lanzar un subagente con
+        // `run_in_background` llega la lista con él, y vacía al terminar.
+        if (decoded['type'] == 'system' &&
+            decoded['subtype'] == 'background_tasks_changed') {
+          final tareas = decoded['tasks'];
+          proceso.tareasDeFondo = tareas is List ? tareas.length : 0;
+          if (proceso.tareasDeFondo > 0) {
+            vivo.quedaUnAgenteTrabajando();
+          } else {
+            vivo.yaNoQuedaTrabajo();
+          }
+        }
 
         // Las preguntas de permiso no son eventos del encargo: no las ve el
         // dominio, se contestan aquí y el turno sigue como si nada.
@@ -391,6 +430,24 @@ class ClaudeCliDataSource {
         // en cuanto el proceso suelte su stdout.
         if (decoded['type'] == 'result') {
           vivo.elTurnoAcabo();
+          // Termina con trabajo detrás: el proceso queda ofrecido a su sesión,
+          // para que lo que escribas ahora vaya a él y no a uno nuevo.
+          final sesion = sesionDelTurno;
+          if (preguntando &&
+              ofrecido == null &&
+              sesion != null &&
+              vivo.tieneTrabajoDetras) {
+            ofrecido = esperando.ofrecerEnUso(
+              sesion,
+              vivo: proceso,
+              llave: llave,
+              ceder: () {
+                ofrecido = null;
+                vivo.ceder();
+                proceso.soltarElTurno();
+              },
+            );
+          }
         } else {
           // Que el modelo vuelva a producir es que hay **otro turno en
           // marcha**, no la cola del anterior: el CLI inyecta los avisos de las
@@ -407,7 +464,8 @@ class ClaudeCliDataSource {
       // llega siempre —lo resuelve el sistema al morir el hijo, no la pipa—,
       // mientras que el stderr lo puede estar sujetando un nieto. Esperarlo
       // sin tope era el mismo cuelgue por la otra salida.
-      // Se quedó esperando otro turno: no es de este, y no va a salir.
+      // Se quedó esperando otro turno, o se lo heredó otro: no es de este, y
+      // no va a salir.
       if (vivo.quedoLibre) return;
       final exitCode = await process.exitCode;
       await Future.any([
@@ -445,6 +503,7 @@ class ClaudeCliDataSource {
       // Salvo que se haya quedado libre: ese ya no es de este turno, sino de
       // los que esperan.
       if (!vivo.quedoLibre) {
+        retirar();
         if (preguntando) unawaited(process.stdin.close().catchError((_) {}));
         process.kill();
       }
@@ -822,6 +881,26 @@ class ElProcesoDelTurno {
     if (!_turnoAcabo || _otroTurnoEnMarcha) return;
     _otroTurnoEnMarcha = true;
     _programarCierre();
+  }
+
+  /// Si el proceso sigue trabajando por detrás de este turno: un subagente o
+  /// un turno que el CLI abrió por su cuenta.
+  bool get tieneTrabajoDetras => _agenteAparte || _otroTurnoEnMarcha;
+
+  /// Ya no queda nada en segundo plano: el CLI lo dice con un
+  /// `background_tasks_changed` vacío. Vuelve la gracia corta, y con ella la
+  /// posibilidad de quedarse libre para el turno siguiente.
+  void yaNoQuedaTrabajo() {
+    if (!_agenteAparte) return;
+    _agenteAparte = false;
+    _programarCierre();
+  }
+
+  /// Otro turno se queda con el proceso —ver [LosProcesosEnEspera.heredar]—:
+  /// este deja de ser su dueño, sin cerrarle la entrada ni matarlo.
+  void ceder() {
+    _quedoLibre = true;
+    olvida();
   }
 
   /// El turno dejó un subagente asíncrono en marcha.

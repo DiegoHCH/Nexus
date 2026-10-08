@@ -121,10 +121,40 @@ void main() {
     test('un paso llega con su detalle y con de quién cuelga', () {
       final conPaso = conElEventoDe(const AssistantHudState(), leyendo);
 
-      expect(conPaso.orbState, NexusOrbState.think);
       expect(conPaso.activity.single.detail, 'Read(lib/main.dart)');
       expect(conPaso.activity.single.parentId, 'sub-1');
       expect(conPaso.activity.single.hasDetail, isTrue);
+    });
+
+    test('un paso del principal pone el orbe a trabajar', () {
+      final conPaso = conElEventoDe(
+        const AssistantHudState(),
+        const ClaudeToolUsed(id: 'p1', description: 'Leyendo', writes: false),
+      );
+
+      expect(conPaso.orbState, NexusOrbState.think);
+    });
+
+    // 🔴 «Lancé el flow review y dice delegando pero se queda el principal
+    // bloqueado». Su turno había terminado; lo que lo hacía parecer ocupado eran
+    // los pasos del subagente en segundo plano, que despertaban el orbe.
+    test('el de un subagente, con el principal libre, no lo ocupa', () {
+      const libre = AssistantHudState(orbState: NexusOrbState.sleep);
+
+      final conPaso = conElEventoDe(libre, leyendo);
+
+      expect(conPaso.orbState, NexusOrbState.sleep);
+      expect(
+        conPaso.activity.single.parentId,
+        'sub-1',
+        reason: 'se apunta igual',
+      );
+    });
+
+    test('y con el principal trabajando, sigue trabajando', () {
+      const ocupado = AssistantHudState(orbState: NexusOrbState.think);
+
+      expect(conElEventoDe(ocupado, leyendo).orbState, NexusOrbState.think);
     });
 
     test('y al terminar se marca solo ese, con lo que devolvió', () {

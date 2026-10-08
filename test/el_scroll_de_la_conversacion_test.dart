@@ -105,4 +105,60 @@ void main() {
     final posicion = donde(tester);
     expect(posicion.pixels, posicion.maxScrollExtent);
   });
+
+  // 🔴 Reportado así: «el scroll sigue lanzándose hacia arriba y no se mantiene
+  // al final de la conversación». Al empezar un encargo aparece la franja de
+  // pasos encima de la caja y el registro se encoge: el final quedaba más lejos
+  // que el margen sin que nadie tocara nada, y el siguiente trozo de la
+  // respuesta ya no se seguía.
+  group('cuando la vista cambia de tamaño', () {
+    Widget conAlto(double alto, List<ChatMessage> mensajes) => MaterialApp(
+      theme: NexusTheme.dark(),
+      builder: (context, child) =>
+          StringsScope(strings: const NexusStringsEs(), child: child!),
+      home: Scaffold(
+        body: Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            height: alto,
+            child: ChatPanel(messages: mensajes),
+          ),
+        ),
+      ),
+    );
+
+    testWidgets('mirando el final, encogerse no te despega', (tester) async {
+      final mensajes = _unaLarga(60);
+      await tester.pumpWidget(conAlto(500, mensajes));
+      await tester.pumpAndSettle();
+
+      // Aparece la franja de pasos: 300 px menos de registro.
+      await tester.pumpWidget(conAlto(200, mensajes));
+      await tester.pumpAndSettle();
+      // Y llega un trozo de la respuesta.
+      await tester.pumpWidget(
+        conAlto(200, [
+          ...mensajes,
+          const ChatMessage(author: ChatAuthor.nexus, text: 'lo nuevo'),
+        ]),
+      );
+      await tester.pumpAndSettle();
+
+      final posicion = donde(tester);
+      expect(posicion.pixels, posicion.maxScrollExtent);
+    });
+
+    testWidgets('habiendo subido, encogerse tampoco te baja', (tester) async {
+      final mensajes = _unaLarga(60);
+      await tester.pumpWidget(conAlto(500, mensajes));
+      await tester.pumpAndSettle();
+      donde(tester).jumpTo(120);
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(conAlto(200, mensajes));
+      await tester.pumpAndSettle();
+
+      expect(donde(tester).pixels, 120, reason: 'para eso subiste');
+    });
+  });
 }

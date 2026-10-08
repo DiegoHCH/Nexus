@@ -253,6 +253,9 @@ class ClaudeBridgeImpl implements ClaudeBridge {
           artifactsAccount: ClaudeProfile.nameFromPath(claudeProfile),
           language: language,
           constraintsNotice: constraintsNotice,
+          // El mismo criterio que el canal de permisos: quien puede contestar
+          // un permiso puede seguir escribiendo mientras se delega.
+          conAlguienDelante: alPedirPermiso != null,
         ),
       )) {
         // Cada mensaje del asistente es una petición: su `usage` dice cuánto

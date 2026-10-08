@@ -9,6 +9,7 @@ import 'package:nexus/features/run/presentation/widgets/correr_menu.dart';
 import 'package:nexus/features/assistant/presentation/widgets/composer/usage_menu.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/features/assistant/presentation/providers/los_borradores.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/assistant/domain/usecases/attached_files.dart';
@@ -47,6 +48,7 @@ class ComposerBar extends ConsumerStatefulWidget {
     this.voiceActive = false,
     this.onToggleVoice,
     this.conLoDeLaSala = true,
+    this.conversacion,
     this.margen = const EdgeInsets.fromLTRB(
       NexusSpacing.s8,
       NexusSpacing.s3,
@@ -94,6 +96,12 @@ class ComposerBar extends ConsumerStatefulWidget {
   /// con esquinas.
   final bool conLoDeLaSala;
 
+  /// De qué conversación es lo que se escribe aquí. Con ella, lo escrito y sin
+  /// mandar se queda **en esa conversación** al cambiar a otra, y vuelve al
+  /// volver. `null` —la puerta, que todavía no tiene conversación— no guarda
+  /// nada. Ver [LosBorradores].
+  final String? conversacion;
+
   /// La caja de escribir, para quien la busca desde fuera: el recorrido del Mac
   /// (`integration_test/`) escribe aquí como lo haría una persona. Por llave y no
   /// por tipo porque en pantalla puede haber más de un `TextField`.
@@ -119,6 +127,47 @@ class _ComposerBarState extends ConsumerState<ComposerBar> {
   void initState() {
     super.initState();
     _focusNode.addListener(_handleFocusChange);
+    _recuperar(widget.conversacion);
+    _controller.addListener(_guardar);
+  }
+
+  @override
+  void didUpdateWidget(covariant ComposerBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Otra conversación: lo de la anterior ya quedó guardado al escribirlo, y
+    // aquí se pone lo de esta.
+    if (widget.conversacion != oldWidget.conversacion) {
+      _recuperar(widget.conversacion);
+    }
+  }
+
+  /// Pone en la caja el borrador de [conversacion], o la deja vacía.
+  void _recuperar(String? conversacion) {
+    final borrador = conversacion == null
+        ? null
+        : ref.read(losBorradoresProvider.notifier).de(conversacion);
+    final texto = borrador?.texto ?? '';
+    // Sin guardar mientras se pone: es lo que ya estaba guardado, y esto corre
+    // dentro de `didUpdateWidget`, donde tocar un provider no se puede.
+    _recuperando = true;
+    _controller.value = TextEditingValue(
+      text: texto,
+      selection: TextSelection.collapsed(offset: texto.length),
+    );
+    _recuperando = false;
+    _attachments = [...?borrador?.adjuntos];
+  }
+
+  var _recuperando = false;
+
+  /// Guarda lo que hay ahora como borrador de esta conversación.
+  void _guardar() {
+    final conversacion = widget.conversacion;
+    if (conversacion == null || _recuperando) return;
+    ref.read(losBorradoresProvider.notifier).guardar(conversacion, (
+      texto: _controller.text,
+      adjuntos: _attachments,
+    ));
   }
 
   void _handleFocusChange() => widget.onFocusChanged(_focusNode.hasFocus);
@@ -126,27 +175,32 @@ class _ComposerBarState extends ConsumerState<ComposerBar> {
   void _handleSubmit(String value) {
     if (value.trim().isEmpty && _attachments.isEmpty) return;
     widget.onSubmit(value, _attachments);
-    _controller.clear();
     setState(() => _attachments = const []);
+    _controller.clear();
   }
 
-  void _attach(Iterable<String> paths) =>
-      setState(() => _attachments = AttachedFiles.add(_attachments, paths));
+  void _attach(Iterable<String> paths) {
+    setState(() => _attachments = AttachedFiles.add(_attachments, paths));
+    _guardar();
+  }
 
-  void _detach(String path) =>
-      setState(() => _attachments = [..._attachments]..remove(path));
+  void _detach(String path) {
+    setState(() => _attachments = [..._attachments]..remove(path));
+    _guardar();
+  }
 
   void _handleClear() {
-    _controller.clear();
     // Borrar la caja se lleva también los adjuntos: son parte del mensaje que
     // se está descartando, y dejarlos pegados a un texto que ya no existe los
     // colaría en la siguiente petición.
     setState(() => _attachments = const []);
+    _controller.clear();
     _focusNode.requestFocus();
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_guardar);
     _focusNode
       ..removeListener(_handleFocusChange)
       ..dispose();

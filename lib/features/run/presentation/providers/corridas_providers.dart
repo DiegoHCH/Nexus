@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -182,9 +183,16 @@ class CorridasController extends Notifier<Map<String, Corrida>> {
     final decision = QueHacerConElCambio.decide(rutas: rutas, diff: diff);
     final registros = ref.read(registrosProvider.notifier);
     final porque = decision.motivo == null ? '' : ' — ${decision.motivo}';
+    // También al registro de Nexus y no solo a la ventana de la corrida: «¿por
+    // qué se reinició?» se pregunta después, con la ventana ya cerrada.
+    debugPrint('recarga automática · ${decision.que.name}$porque');
 
     for (final corrida in mias) {
       switch (decision.que) {
+        // Nada que la app use: ni se recarga ni se apunta en su ventana, que
+        // se llenaría de líneas por encargos que no iban con ella.
+        case QueHacer.nada:
+          break;
         case QueHacer.recompilar:
           registros.anota(
             corrida.deviceId,

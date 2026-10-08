@@ -62,6 +62,10 @@ class ElProcesoVivo {
   void Function()? _alMorir;
   Timer? _remate;
 
+  /// Cuántas tareas en segundo plano tiene ahora, según el último
+  /// `background_tasks_changed` del CLI. Lo apunta quien lee sus líneas.
+  int tareasDeFondo = 0;
+
   /// Si todavía se le puede escribir y va a contestar.
   bool get sigueVivo => !_salio && !_cerrado && !_despedido;
 
@@ -204,6 +208,49 @@ class LosProcesosEnEspera {
   /// Cuántos hay esperando ahora.
   int get cuantos => _porSesion.length;
 
+  /// Los que terminaron su turno **con trabajo en segundo plano**: un
+  /// subagente o un comando que sigue. No esperan libres —su turno sigue
+  /// abierto para entregar lo que salga—, pero un turno nuevo de la misma
+  /// sesión **se lo hereda** en vez de lanzar otro proceso.
+  ///
+  /// 🔴 **Sin esto, escribirle mientras delegaba lanzaba un segundo `claude`
+  /// sobre la misma sesión**, con el primero vivo esperando a su subagente: dos
+  /// procesos escribiendo en la misma sesión, que es el fallo de «solo consta
+  /// uno», y el resultado del subagente llegando a un proceso que ya nadie
+  /// miraba.
+  final _enUso = <String, _EnUso>{};
+
+  /// Ofrece [vivo] a su sesión mientras tenga trabajo detrás. Devuelve con qué
+  /// retirarlo: ver [retirarEnUso].
+  Object ofrecerEnUso(
+    String sesion, {
+    required ElProcesoVivo vivo,
+    required String llave,
+    required void Function() ceder,
+  }) {
+    final enUso = _EnUso(vivo, llave, ceder);
+    _enUso[sesion] = enUso;
+    return enUso;
+  }
+
+  /// Deja de ofrecerlo. [ficha] es lo que devolvió [ofrecerEnUso]: si otro
+  /// turno ya se lo heredó y lo volvió a ofrecer, esto no lo toca.
+  void retirarEnUso(String sesion, Object ficha) {
+    if (identical(_enUso[sesion], ficha)) _enUso.remove(sesion);
+  }
+
+  /// El proceso con trabajo detrás de [sesion], si sirve para un turno lanzado
+  /// con [llave]. Quien lo tenía **lo cede**: su turno se cierra sin matarlo.
+  ElProcesoVivo? heredar({required String sesion, required String llave}) {
+    final enUso = _enUso[sesion];
+    if (enUso == null || enUso.llave != llave || !enUso.vivo.sigueVivo) {
+      return null;
+    }
+    _enUso.remove(sesion);
+    enUso.ceder();
+    return enUso.vivo;
+  }
+
   /// Deja [vivo] esperando el siguiente turno de [sesion]. Si no se puede —no
   /// se encuentra el transcript, ya dijo algo, ya no está— se despide.
   Future<void> aparcar(
@@ -308,6 +355,14 @@ class LosProcesosEnEspera {
     }
     return null;
   }
+}
+
+class _EnUso {
+  _EnUso(this.vivo, this.llave, this.ceder);
+
+  final ElProcesoVivo vivo;
+  final String llave;
+  final void Function() ceder;
 }
 
 class _EnEspera {

@@ -129,11 +129,90 @@ void main() {
       );
     });
 
-    test('sin nada que mirar, lo barato y reversible', () {
+    test('tocó la app y nada pide más: lo barato y reversible', () {
       expect(
-        QueHacerConElCambio.decide(rutas: const [], diff: '').que,
+        QueHacerConElCambio.decide(rutas: const ['lib/a.dart'], diff: '').que,
         QueHacer.recargar,
       );
+    });
+  });
+
+  // 🔴 Reportado así: «el recargar solo al terminar hace reinicio así no se
+  // haya tocado código». Contaba cualquier archivo que dejara el encargo, y leía
+  // las líneas de todos: una nota que empezara por «final» forzaba un reinicio.
+  group('lo que no toca la app no la toca', () {
+    test('sin cambios, nada', () {
+      expect(
+        QueHacerConElCambio.decide(rutas: const [], diff: '').que,
+        QueHacer.nada,
+      );
+    });
+
+    test('documentos, pruebas y carpetas de herramientas, nada', () {
+      for (final ruta in [
+        'README.md',
+        'docs/plan.html',
+        'test/login_test.dart',
+        'integration_test/app_test.dart',
+        '.maestro/login.yaml',
+        '.flow/estado.json',
+        '.claude/settings.local.json',
+        'notas.txt',
+      ]) {
+        expect(
+          QueHacerConElCambio.decide(rutas: [ruta], diff: '').que,
+          QueHacer.nada,
+          reason: ruta,
+        );
+      }
+    });
+
+    test('una nota que empieza por «final» no reinicia', () {
+      final diff = [
+        _diff('NOTAS.md', ['+final del día: quedó el login']),
+        _diff('lib/pantalla.dart', ['+      Text(saludo),']),
+      ].join('\n');
+
+      expect(
+        QueHacerConElCambio.decide(
+          rutas: const ['NOTAS.md', 'lib/pantalla.dart'],
+          diff: diff,
+        ).que,
+        QueHacer.recargar,
+        reason: 'el .dart pide recargar; el .md no tiene voto',
+      );
+    });
+
+    test('una prueba con un enum nuevo no reinicia la app', () {
+      final diff = _diff('test/a_test.dart', ['+enum Caso { uno, dos }']);
+
+      expect(
+        QueHacerConElCambio.decide(
+          rutas: const ['test/a_test.dart'],
+          diff: diff,
+        ).que,
+        QueHacer.nada,
+      );
+    });
+
+    test('lo que sí es de la app: lib, un paquete local y los assets', () {
+      for (final ruta in [
+        'lib/main.dart',
+        'packages/pagos/lib/pago.dart',
+        'assets/images/logo.png',
+        'lib/l10n/app_es.arb',
+      ]) {
+        expect(QueHacerConElCambio.afectaALaApp(ruta), isTrue, reason: ruta);
+      }
+    });
+
+    test('y el motivo dice por qué no se hizo nada', () {
+      final d = QueHacerConElCambio.decide(
+        rutas: const ['README.md', 'test/a_test.dart'],
+        diff: '',
+      );
+
+      expect(d.motivo, contains('2 archivos'));
     });
   });
 
@@ -148,6 +227,25 @@ void main() {
         'lib/uno.dart',
         'android/build.gradle',
       ]);
+    });
+
+    test('un archivo borrado también se cuenta', () {
+      const diff =
+          'diff --git a/lib/viejo.dart b/lib/viejo.dart\n'
+          'deleted file mode 100644\n'
+          '--- a/lib/viejo.dart\n'
+          '+++ /dev/null\n'
+          '@@ -1 +0,0 @@\n'
+          '-enum Viejo { a }';
+
+      expect(QueHacerConElCambio.rutasDelDiff(diff), ['lib/viejo.dart']);
+      expect(
+        QueHacerConElCambio.decide(
+          rutas: QueHacerConElCambio.rutasDelDiff(diff),
+          diff: diff,
+        ).que,
+        QueHacer.reiniciar,
+      );
     });
 
     test('**la cabecera del diff no es una línea de código**', () {

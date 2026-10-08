@@ -395,4 +395,23 @@ void main() {
       expect(leido.sharedContext, isNull);
     });
   });
+
+  // «Si lo hace otro, ¿no debería quedar libre el agente principal para poder
+  // seguir escribiéndole?». Con alguien delante se le pide delegar lo largo en
+  // segundo plano; sin nadie —la agenda, la cola— no hay a quién dejarle libre
+  // la conversación.
+  group('delegar lo largo en segundo plano', () {
+    test('con alguien delante, se le pide', () {
+      final texto = ProjectContextPrompt.compose(
+        rules: const [],
+        conAlguienDelante: true,
+      )!;
+
+      expect(texto, contains('run_in_background'));
+    });
+
+    test('sin nadie, no', () {
+      expect(ProjectContextPrompt.compose(rules: const []), isNull);
+    });
+  });
 }

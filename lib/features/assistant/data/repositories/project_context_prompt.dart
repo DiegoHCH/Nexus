@@ -62,6 +62,10 @@ abstract final class ProjectContextPrompt {
     String? language,
     String? constraintsNotice,
 
+    /// Si hay alguien delante que pueda seguir escribiendo mientras se trabaja.
+    /// Sin nadie —la agenda, la cola— no se le pide delegar en segundo plano.
+    bool conAlguienDelante = false,
+
     /// Bajo qué perfil de Claude Code corre esto y qué plugins tiene puestos.
     /// Ver [ElPerfilDelEncargo.describir].
     String? perfil,
@@ -116,6 +120,28 @@ abstract final class ProjectContextPrompt {
     // ese aviso venía a evitar.
     if (constraintsNotice != null && constraintsNotice.isNotEmpty) {
       sections.add(constraintsNotice);
+    }
+
+    // **Lo largo, en segundo plano.** Un subagente en primer plano deja la
+    // conversación esperando: la herramienta no vuelve hasta que él termina, y
+    // mientras tanto no se le puede escribir. Medido contra el CLI: lanzado con
+    // `run_in_background`, el turno termina enseguida, un mensaje nuevo se
+    // contesta en un par de segundos aunque el subagente siga, y al acabar él
+    // el CLI abre solo un turno con el resultado. Pedido así: «si lo hace
+    // otro, ¿no debería quedar libre el agente principal para poder seguir
+    // escribiéndole?».
+    //
+    // **Solo con alguien delante**: la agenda o la cola no tienen a quién
+    // dejarle la conversación libre, y ahí esperar al subagente es lo correcto.
+    if (conAlguienDelante) {
+      sections.add(
+        'Cuando delegues en un subagente algo que va a tardar —una revisión, una '
+        'búsqueda amplia, una investigación—, lánzalo en segundo plano '
+        '(run_in_background) y termina tu turno diciendo qué dejaste en marcha: '
+        'así la persona puede seguir hablándote, y el resultado te llega cuando '
+        'acabe. Lo corto o lo que necesitas para la respuesta que estás dando, '
+        'en primer plano.',
+      );
     }
 
     // **Con qué perfil corre y qué plugins tiene puestos.** Va pegado al aviso

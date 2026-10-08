@@ -353,6 +353,10 @@ class _HomePageState extends ConsumerState<HomePage> {
           : null,
       avisos: laFranja,
       registro: ChatPanel(
+        // **Uno por conversación.** Sin clave se reutilizaba el mismo al cambiar
+        // de pestaña, con la posición de la anterior: llegabas a otra
+        // conversación a media altura —o arriba— en vez de en su final.
+        key: ValueKey('registro-${focused.id}'),
         messages: hud.messages,
         // Sigue en ello aunque no aparezca nada. Ver [NexusOrbState.ponder]: el
         // orbe lo dice en la sala y esto lo dice donde se está leyendo.
@@ -411,6 +415,9 @@ class _HomePageState extends ConsumerState<HomePage> {
               if (mensaje.author == ChatAuthor.user) mensaje.text,
           ],
           folderPath: focused.folderPath,
+          // Lo escrito sin mandar se queda en su conversación. Ver
+          // [LosBorradores].
+          conversacion: focused.id,
           meter: hud.meter,
           voiceActive: hud.voiceActive,
           onToggleVoice: controller.toggleVoice,

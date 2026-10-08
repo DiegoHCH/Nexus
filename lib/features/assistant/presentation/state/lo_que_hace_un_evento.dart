@@ -106,11 +106,22 @@ AssistantHudState conElEvento(
         isStreaming: true,
       );
 
-    case ClaudeToolUsed():
+    case ClaudeToolUsed(:final parentId):
       // La actividad se acumula en el turno y se vacía al empezar el siguiente:
       // la columna se llama «Ahora mismo», no «historial».
       return actual.copyWith(
-        orbState: NexusOrbState.think,
+        // 🔴 **El paso de un subagente no ocupa al principal.** Reportado así:
+        // «lancé el flow review y dice delegando pero se queda el principal
+        // bloqueado». No lo estaba —su turno había terminado y lo siguiente
+        // que se escribió entró al instante—, pero cada paso del subagente
+        // ponía el orbe en «trabajando», y con él volvían la franja de pasos y
+        // el botón de detener: se veía ocupado un agente que estaba libre.
+        //
+        // Se apunta igual, colgado de su delegación; lo que no hace es cambiar
+        // el estado. Con el principal en primer plano el orbe ya está
+        // trabajando —lo puso la propia delegación—, y con el principal libre
+        // tiene que seguir libre.
+        orbState: parentId == null ? NexusOrbState.think : actual.orbState,
         activity: [
           ...actual.activity,
           ActivityItem(

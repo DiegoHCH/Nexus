@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/features/artifacts/domain/entities/artifact.dart';
@@ -121,10 +122,43 @@ class _ChatPanelState extends State<ChatPanel> {
   /// seguirla.
   static const _margenDePegado = 80.0;
 
-  bool get _pegadoAlFinal {
-    if (!_controller.hasClients) return true;
-    final donde = _controller.position;
-    return donde.maxScrollExtent - donde.pixels <= _margenDePegado;
+  /// Si se sigue el final. **Lo cambias tú, al desplazarte**, y nada más.
+  ///
+  /// 🔴 **Antes se deducía de la posición en el momento de llegar un mensaje,
+  /// y eso se rompía sin que nadie tocara nada.** Reportado así: «el scroll
+  /// sigue lanzándose hacia arriba y no se mantiene al final». Al empezar un
+  /// encargo aparece la franja de pasos encima de la caja, la vista se encoge,
+  /// y el final queda más lejos que el margen: el siguiente trozo de la
+  /// respuesta te encontraba «despegado» y dejaba de seguirla. Lo mismo con una
+  /// lista perezosa que corrige lo que mide.
+  ///
+  /// Ahora un cambio de tamaño o de contenido **vuelve a pegarte** si venías
+  /// siguiendo, y solo desplazarte decide si dejas de hacerlo: al soltar, cerca
+  /// del final sigue y lejos no.
+  var _seguir = true;
+
+  /// Lo que dicen los desplazamientos de la lista —no los de un bloque de
+  /// código por dentro, que es otro desplazable—.
+  bool _alDesplazarse(ScrollNotification aviso) {
+    if (aviso.depth != 0) return false;
+    switch (aviso) {
+      // Lo mueves tú: mientras lo mueves no se te lleva a ningún sitio.
+      case UserScrollNotification(:final direction)
+          when direction != ScrollDirection.idle:
+        _seguir = false;
+      // Al soltar —o al terminar un salto—, se decide por dónde quedó.
+      case ScrollEndNotification(:final metrics):
+        _seguir = metrics.maxScrollExtent - metrics.pixels <= _margenDePegado;
+      default:
+        break;
+    }
+    return false;
+  }
+
+  /// Cambió lo que mide la lista o la vista: si venías siguiendo, al final.
+  bool _alCambiarLaMedida(ScrollMetricsNotification aviso) {
+    if (aviso.depth == 0 && _seguir) _alFinal(intentos: 2);
+    return false;
   }
 
   @override
@@ -145,11 +179,8 @@ class _ChatPanelState extends State<ChatPanel> {
     // final en **cada** trozo de la respuesta, así que subir a releer algo
     // mientras Claude escribía era imposible: te devolvía abajo diez veces por
     // segundo. Reportado igual: «cuando está respondiendo no puedo hacer scroll
-    // para ver los mensajes anteriores».
-    //
-    // Se mira **antes** de pintar lo nuevo: después, el final ya se movió y
-    // todo el mundo parecería despegado.
-    if (!_pegadoAlFinal) return;
+    // para ver los mensajes anteriores». Ver [_seguir].
+    if (!_seguir) return;
     _alFinal();
   }
 
@@ -198,33 +229,39 @@ class _ChatPanelState extends State<ChatPanel> {
     // Con el área envolviendo la lista, la selección cruza párrafos, código,
     // tablas y mensajes, y ⌘C copia lo que se ve.
     return SelectionArea(
-      child: ListView.builder(
-        controller: _controller,
-        padding: const EdgeInsets.only(bottom: NexusSpacing.s5),
-        // Uno más cuando está pensando: va al final de la lista, que es donde
-        // está mirando quien espera.
-        itemCount:
-            widget.messages.length + (widget.pensandoDesde == null ? 0 : 1),
-        itemBuilder: (context, index) {
-          if (index == widget.messages.length) {
-            return _Pensando(desde: widget.pensandoDesde!);
-          }
-          return _Turn(
-            message: widget.messages[index],
-            sigue: _sigueElTurno(
-              index == 0 ? null : widget.messages[index - 1],
-              widget.messages[index],
-            ),
-            etiqueta: widget.etiquetaDelAgente,
-            onRetry: widget.onRetry,
-            onPasarElTrabajo: widget.onPasarElTrabajo,
-            onPermiso: widget.onPermiso,
-            onPregunta: widget.onPregunta,
-            onNoContestar: widget.onNoContestar,
-            onPropuesta: widget.onPropuesta,
-            onCorrer: widget.onCorrer,
-          );
-        },
+      child: NotificationListener<ScrollMetricsNotification>(
+        onNotification: _alCambiarLaMedida,
+        child: NotificationListener<ScrollNotification>(
+          onNotification: _alDesplazarse,
+          child: ListView.builder(
+            controller: _controller,
+            padding: const EdgeInsets.only(bottom: NexusSpacing.s5),
+            // Uno más cuando está pensando: va al final de la lista, que es donde
+            // está mirando quien espera.
+            itemCount:
+                widget.messages.length + (widget.pensandoDesde == null ? 0 : 1),
+            itemBuilder: (context, index) {
+              if (index == widget.messages.length) {
+                return _Pensando(desde: widget.pensandoDesde!);
+              }
+              return _Turn(
+                message: widget.messages[index],
+                sigue: _sigueElTurno(
+                  index == 0 ? null : widget.messages[index - 1],
+                  widget.messages[index],
+                ),
+                etiqueta: widget.etiquetaDelAgente,
+                onRetry: widget.onRetry,
+                onPasarElTrabajo: widget.onPasarElTrabajo,
+                onPermiso: widget.onPermiso,
+                onPregunta: widget.onPregunta,
+                onNoContestar: widget.onNoContestar,
+                onPropuesta: widget.onPropuesta,
+                onCorrer: widget.onCorrer,
+              );
+            },
+          ),
+        ),
       ),
     );
   }

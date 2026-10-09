@@ -1643,13 +1643,13 @@ final class PorQueNoEscuchaTests: XCTestCase {
   func testLosMotivosViajanPorSuNombre() {
     let nombres: [PorQueNoEscucha] = [
       .sinPalabras, .sinPermisoDeVoz, .sinPermisoDelMicrofono, .microfonoOcupado,
-      .sinReconocedorLocal, .sinMicrofono, .fallaElMotor,
+      .sinReconocedorLocal, .sinMicrofono, .fallaElMotor, .elAudioNoResponde,
     ]
     XCTAssertEqual(
       nombres.map(\.rawValue),
       [
         "sinPalabras", "sinPermisoDeVoz", "sinPermisoDelMicrofono", "microfonoOcupado",
-        "sinReconocedorLocal", "sinMicrofono", "fallaElMotor",
+        "sinReconocedorLocal", "sinMicrofono", "fallaElMotor", "elAudioNoResponde",
       ])
   }
 }
@@ -1685,5 +1685,28 @@ final class ElColchonQueCreceTests: XCTestCase {
     XCTAssertEqual(colchon.segundos, 1.4 * 0.7, accuracy: 0.001)
     for _ in 0..<10 { colchon.otraRespuesta() }
     XCTAssertEqual(colchon.segundos, ElColchonQueCrece.minimo, "con buena conexión vuelve")
+  }
+}
+
+/// Cuánto espera la escucha antes de volver a empezar cuando se le corta
+/// seguido.
+///
+/// 🔴 Visto el 9 oct: con `coreaudiod` en bucle tras un cambio de auriculares,
+/// volver a empezar al momento era volver a pedirle el micrófono a un audio que
+/// no contestaba, una y otra vez.
+final class LaEsperaDeLaEscuchaTests: XCTestCase {
+  func testLaPrimeraVezVuelveAlMomento() {
+    XCTAssertEqual(NexusEscucha.esperaAntesDeVolver(seguidos: 0), 0)
+  }
+
+  func testSeDoblaConCadaCorteSeguido() {
+    XCTAssertEqual(NexusEscucha.esperaAntesDeVolver(seguidos: 1), 0.5)
+    XCTAssertEqual(NexusEscucha.esperaAntesDeVolver(seguidos: 2), 1)
+    XCTAssertEqual(NexusEscucha.esperaAntesDeVolver(seguidos: 4), 4)
+  }
+
+  func testNuncaPasaDeMedioMinuto() {
+    XCTAssertEqual(NexusEscucha.esperaAntesDeVolver(seguidos: 7), 30)
+    XCTAssertEqual(NexusEscucha.esperaAntesDeVolver(seguidos: 1000), 30)
   }
 }

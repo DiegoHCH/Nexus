@@ -66,6 +66,7 @@ void main() {
           'sinReconocedorLocal',
           'sinMicrofono',
           'fallaElMotor',
+          'elAudioNoResponde',
           'desconocido',
         ],
       );

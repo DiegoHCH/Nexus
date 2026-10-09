@@ -160,5 +160,6 @@ String porQueNoTeOye(PorQueNoEscucha motivo, NexusStrings strings) =>
         strings.oidoPorqueSinReconocedorLocal,
       PorQueNoEscucha.sinMicrofono => strings.oidoPorqueSinMicrofono,
       PorQueNoEscucha.fallaElMotor => strings.oidoPorqueFallaElMotor,
+      PorQueNoEscucha.elAudioNoResponde => strings.oidoPorqueElAudioNoResponde,
       PorQueNoEscucha.desconocido => strings.oidoPorqueDesconocido,
     };

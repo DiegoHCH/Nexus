@@ -12,6 +12,9 @@ enum PorQueNoEscucha {
   sinMicrofono,
   fallaElMotor,
 
+  /// El audio de macOS no contestó al abrir la entrada: se quedó colgado.
+  elAudioNoResponde,
+
   /// Uno que el lado nativo mandó y aquí no se conoce, o ninguno: el canal no
   /// contestó o contestó a la antigua, con un `false` a secas.
   desconocido;

@@ -6,6 +6,12 @@ mixin EscenarioStrings {
   String escenarioPasoDe(int paso, int de);
   String get escenarioTrabajando;
   String escenarioPensando(String cuanto);
+
+  /// Las etiquetas del orbe mientras trabaja. Ver `LasEtiquetasDelOrbe`.
+  String get etiquetaAhora;
+  String get etiquetaSubagente;
+  String get etiquetaEncargo;
+  String etiquetaYMas(int cuantos);
   String get escenarioCarpeta;
   String get escenarioSinCarpeta;
   String escenarioCuenta(String cuenta);
@@ -33,6 +39,14 @@ mixin EscenarioStringsEs implements EscenarioStrings {
   String get escenarioTrabajando => 'trabajando';
   @override
   String escenarioPensando(String cuanto) => 'pensando · $cuanto';
+  @override
+  String get etiquetaAhora => 'ahora';
+  @override
+  String get etiquetaSubagente => 'subagente';
+  @override
+  String get etiquetaEncargo => 'encargo';
+  @override
+  String etiquetaYMas(int cuantos) => '+$cuantos subagentes';
   @override
   String get escenarioCarpeta => 'carpeta';
   @override
@@ -73,6 +87,14 @@ mixin EscenarioStringsEn implements EscenarioStrings {
   String get escenarioTrabajando => 'working';
   @override
   String escenarioPensando(String cuanto) => 'thinking · $cuanto';
+  @override
+  String get etiquetaAhora => 'now';
+  @override
+  String get etiquetaSubagente => 'subagent';
+  @override
+  String get etiquetaEncargo => 'errand';
+  @override
+  String etiquetaYMas(int cuantos) => '+$cuantos subagents';
   @override
   String get escenarioCarpeta => 'folder';
   @override

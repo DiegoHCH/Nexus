@@ -221,6 +221,19 @@ class ElVigilanteDeLaAgenda extends Notifier<Avisos> {
     );
   }
 
+  /// Las reuniones de hoy como lista, para quien las cuente junto a otras
+  /// cosas —lo que te espera hoy—.
+  ///
+  /// Espera a la lectura en vuelo igual que [loDeHoy], y por lo mismo. `null`
+  /// si no se sabe —avisos apagados, sin carpeta, nunca leída—, que no es lo
+  /// mismo que una lista vacía.
+  Future<List<Reunion>?> lasDeHoy() async {
+    if (!state.listos) return null;
+    await _leerSiHaceFalta(_ahora());
+    if (!ref.mounted || state.ultimaLectura == null) return null;
+    return _agenda;
+  }
+
   /// Suelta un aviso de mentira, ahora mismo.
   ///
   /// 🔴 **Existe porque esto no se puede probar de otra forma.** Un aviso

@@ -97,8 +97,8 @@ void main() {
   ///
   /// Se mira el archivo y no una constante porque las declaraciones viven en un
   /// mapa privado del gateway. Es la misma comprobación que si se leyera el
-  /// mapa: que los cuatro nombres estén ahí.
-  test('las cuatro herramientas están declaradas hacia el modelo', () {
+  /// mapa: que los seis nombres estén ahí.
+  test('las seis herramientas están declaradas hacia el modelo', () {
     final gateway = File(
       'lib/features/assistant/data/repositories/gemini_voice_gateway.dart',
     ).readAsStringSync();
@@ -108,6 +108,8 @@ void main() {
       ClaudeErrand.skillTool,
       ClaudeErrand.testTool,
       ClaudeErrand.parteTool,
+      ClaudeErrand.agendaTool,
+      ClaudeErrand.loQueTeEsperaTool,
     ]) {
       expect(
         gateway,

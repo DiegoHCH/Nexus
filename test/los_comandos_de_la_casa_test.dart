@@ -98,6 +98,7 @@ void main() {
         ElComandoDeLaCasa.git => textos.ayudaGit,
         ElComandoDeLaCasa.parte => textos.ayudaParte,
         ElComandoDeLaCasa.agenda => textos.ayudaAgenda,
+        ElComandoDeLaCasa.hoy => textos.ayudaHoy,
         ElComandoDeLaCasa.mcp => textos.ayudaMcp,
         ElComandoDeLaCasa.programadas => textos.ayudaProgramadas,
         ElComandoDeLaCasa.recuerda => textos.ayudaRecuerda,

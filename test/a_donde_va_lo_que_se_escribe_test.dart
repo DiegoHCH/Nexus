@@ -46,6 +46,16 @@ void main() {
       expect(donde('qué reuniones tengo hoy'), isA<ALaAgenda>());
     });
 
+    test('lo que te espera hoy, con frase o con barra', () {
+      expect(donde('¿qué me espera hoy?'), isA<ALoQueTeEspera>());
+      expect(donde('/hoy'), isA<ALoQueTeEspera>());
+      expect(
+        donde('qué tengo hoy'),
+        isA<ALaAgenda>(),
+        reason: 'esa ya era de la agenda, y lo sigue siendo',
+      );
+    });
+
     test('el parte', () {
       expect(donde('dame el daily'), isA<AlParte>());
     });

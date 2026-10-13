@@ -23,7 +23,7 @@ void main() {
   String descripcion(String nombre) =>
       herramienta(nombre)['description'] as String;
 
-  test('se declaran las cinco herramientas, con su nombre exacto', () {
+  test('se declaran las seis herramientas, con su nombre exacto', () {
     expect(
       GeminiVoiceGateway.lasHerramientas.map((h) => h['name']),
       containsAll(<String>[
@@ -32,6 +32,7 @@ void main() {
         GeminiVoiceGateway.testToolName,
         GeminiVoiceGateway.parteToolName,
         GeminiVoiceGateway.agendaToolName,
+        GeminiVoiceGateway.loQueTeEsperaToolName,
       ]),
       reason:
           'el caso de uso reconoce las llamadas por estas constantes: un '

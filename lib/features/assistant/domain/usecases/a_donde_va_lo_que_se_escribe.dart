@@ -5,6 +5,7 @@ import 'package:nexus/features/assistant/domain/usecases/los_comandos_de_la_casa
 import 'package:nexus/features/assistant/domain/usecases/voice_routing.dart';
 import 'package:nexus/features/memoria/domain/usecases/lo_que_se_pide_recordar.dart';
 import 'package:nexus/features/history/domain/usecases/el_parte_de_ayer.dart';
+import 'package:nexus/features/lo_que_te_espera/domain/usecases/lo_que_te_espera_hoy.dart';
 import 'package:nexus/features/programadas/domain/usecases/lo_que_se_pide_programar.dart';
 import 'package:nexus/features/workspace/domain/usecases/el_comando_directo.dart';
 
@@ -42,6 +43,11 @@ final class AEditarLaImagen extends ADondeVa {
 /// puede salir a preguntarlo. Lo mismo con [AlParte] y su día sin trabajo.
 final class ALaAgenda extends ADondeVa {
   const ALaAgenda();
+}
+
+/// A lo que te espera hoy, que se junta en la app y no va a Claude.
+final class ALoQueTeEspera extends ADondeVa {
+  const ALoQueTeEspera();
 }
 
 /// Al parte del día ya reunido.
@@ -157,6 +163,8 @@ abstract final class ADondeVaLoQueSeEscribe {
         return const AlParte();
       case ElComandoDeLaCasa.agenda:
         return const ALaAgenda();
+      case ElComandoDeLaCasa.hoy:
+        return const ALoQueTeEspera();
       case ElComandoDeLaCasa.mcp:
         return const ALosMcp();
       case ElComandoDeLaCasa.programadas:
@@ -200,6 +208,9 @@ abstract final class ADondeVaLoQueSeEscribe {
 
     if (LoQueSePreguntaDeLaAgenda.loEstanPidiendo(limpia)) {
       return const ALaAgenda();
+    }
+    if (LoQueTeEsperaHoy.loEstanPidiendo(limpia)) {
+      return const ALoQueTeEspera();
     }
     if (ElParteDeAyer.loEstanPidiendo(limpia)) return const AlParte();
 

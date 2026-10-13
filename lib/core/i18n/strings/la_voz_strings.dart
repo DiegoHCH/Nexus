@@ -84,6 +84,7 @@ mixin LaVozStrings {
   String get oidoPorqueSinReconocedorLocal;
   String get oidoPorqueSinMicrofono;
   String get oidoPorqueFallaElMotor;
+  String get oidoPorqueElAudioNoResponde;
   String get oidoPorqueDesconocido;
 }
 
@@ -237,6 +238,10 @@ mixin LaVozStringsEs implements LaVozStrings {
   @override
   String get oidoPorqueFallaElMotor =>
       'macOS no dejó abrir la entrada de audio. Vuelve a probar sola en un rato';
+  @override
+  String get oidoPorqueElAudioNoResponde =>
+      'el audio de macOS no contesta —pasa a veces al cambiar de auriculares—. '
+      'Vuelve a probar sola en un rato';
   @override
   String get oidoPorqueDesconocido =>
       'no se pudo poner, y macOS no dijo por qué';
@@ -394,6 +399,10 @@ mixin LaVozStringsEn implements LaVozStrings {
   String get oidoPorqueFallaElMotor =>
       'macOS did not let it open the audio input. It will try again on its own '
       'in a while';
+  @override
+  String get oidoPorqueElAudioNoResponde =>
+      'macOS audio is not responding —it sometimes happens after switching '
+      'headphones—. It will try again on its own in a while';
   @override
   String get oidoPorqueDesconocido =>
       'it could not start, and macOS did not say why';

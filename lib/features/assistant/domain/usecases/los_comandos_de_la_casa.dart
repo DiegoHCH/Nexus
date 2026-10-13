@@ -33,6 +33,10 @@ enum ElComandoDeLaCasa {
   /// La agenda de hoy, por lo mismo.
   agenda(['/agenda', '/reuniones'], conTexto: false),
 
+  /// Lo que te espera hoy: la agenda que queda, los PR por revisar, las
+  /// programadas y el cupo. Lo mismo que cuenta al llamarla por la mañana.
+  hoy(['/hoy', '/today'], conTexto: false),
+
   /// Los servidores MCP de la cuenta de esta carpeta, con su estado.
   ///
   /// 🔴 **Pedido con la referencia delante:** «quisiera escribir el `/mcp` y
@@ -118,6 +122,7 @@ enum ElComandoDeLaCasa {
     olvida,
     parte,
     agenda,
+    hoy,
     programadas,
     imagen,
     edita,

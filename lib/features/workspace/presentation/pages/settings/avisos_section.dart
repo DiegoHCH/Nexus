@@ -4,6 +4,7 @@ import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/agenda/presentation/providers/el_vigilante_de_la_agenda.dart';
 import 'package:nexus/features/avisos/presentation/providers/el_que_habla_primero.dart';
+import 'package:nexus/features/lo_que_te_espera/presentation/providers/lo_que_te_espera_provider.dart';
 import 'package:nexus/features/prs/presentation/providers/el_vigilante_de_los_pr.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/apagado_o_encendido.dart';
@@ -123,6 +124,24 @@ class AvisosSection extends ConsumerWidget {
                   : ruta.split('/').last,
               onElegir: (ruta) =>
                   vigilante.cambiar(carpeta: ruta.isEmpty ? null : ruta),
+            ),
+          ],
+        ),
+        // Lo que te espera hoy. Aquí y no en Oído porque es de qué te enteras:
+        // al llamarla, la primera vez del día, contesta con lo que viene.
+        BloqueDeAjustes(
+          rotulo: strings.elDiaAlLlamarlaOn,
+          hijos: [
+            TextoDeAjustes(strings.elDiaAlLlamarlaExplainer),
+            ApagadoOEncendido(
+              llave: 'lo-que-te-espera',
+              encendido:
+                  ref.watch(loQueTeEsperaAlLlamarlaProvider).value ?? true,
+              onCambiar: (on) async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setBool(ElDiaQueTeEspera.alLlamarla, on);
+                ref.invalidate(loQueTeEsperaAlLlamarlaProvider);
+              },
             ),
           ],
         ),

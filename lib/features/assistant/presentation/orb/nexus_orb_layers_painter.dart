@@ -490,6 +490,52 @@ class NexusOrbLayersPainter extends CustomPainter {
   /// Lo que se deja libre contra el borde: el grosor de los resplandores.
   static const _margen = 6.0;
 
+  /// Dónde se pinta el aro del reactor dentro de [size]: su centro y su radio,
+  /// sin la respiración. `null` si la caja es tan chica que no se pinta.
+  ///
+  /// Vive aquí por lo mismo que `NexusOrbPainter.radioEn`: el radio se decide
+  /// en este pintor, y las etiquetas del orbe se anclan sobre él. Con la
+  /// fórmula copiada fuera, cambiar el aro las dejaría apuntando al vacío sin
+  /// que nada se quejara.
+  static ({Offset centro, double radio})? elAroDelReactor(
+    Size size, {
+    required bool puntos,
+    required double tamano,
+    bool fillsBox = false,
+  }) {
+    final g = _laGeometria(
+      size,
+      puntos: puntos,
+      tamano: tamano,
+      fillsBox: fillsBox,
+    );
+    if (g == null) return null;
+    return (centro: Offset(g.cx, g.cy), radio: _radioDelAro(g.base, g.tope));
+  }
+
+  static ({double cx, double cy, double lado, double base, double tope})?
+  _laGeometria(
+    Size size, {
+    required bool puntos,
+    required double tamano,
+    required bool fillsBox,
+  }) {
+    final w = size.width, h = size.height;
+    if (w <= 0 || h <= 0) return null;
+    final cx = w / 2;
+    final cy = h * (fillsBox ? 0.5 : 0.46);
+    final lado = math.min(w, h);
+    final base = puntos
+        ? NexusOrbPainter.radioEn(size, fillsBox: fillsBox)
+        : tamano * lado;
+    final tope = math.min(math.min(cy, h - cy), math.min(cx, w - cx)) - _margen;
+    if (tope <= 4) return null;
+    return (cx: cx, cy: cy, lado: lado, base: base, tope: tope);
+  }
+
+  static double _radioDelAro(double r0, double tope) =>
+      math.min(r0 * 1.02, tope * 0.82);
+
   late final Color _tinta = onLight ? _oscurece(accent) : accent;
   late final Color _segundo = onLight ? _violetaClaro : _violetaOscuro;
 
@@ -518,19 +564,16 @@ class NexusOrbLayersPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final w = size.width, h = size.height;
-    if (w <= 0 || h <= 0) return;
-
-    final cx = w / 2;
-    final cy = h * (fillsBox ? 0.5 : 0.46);
-    final lado = math.min(w, h);
+    final g = _laGeometria(
+      size,
+      puntos: puntos,
+      tamano: tamano,
+      fillsBox: fillsBox,
+    );
+    if (g == null) return;
+    final (:cx, :cy, :lado, :base, :tope) = g;
     final env = vozDelOrbe(nivel, t * NexusOrbPainter.ritmoDeVoz(estado));
-    final base = puntos
-        ? NexusOrbPainter.radioEn(size, fillsBox: fillsBox)
-        : tamano * lado;
     final r0 = base * NexusOrbPainter.respiracion(estado, t, env);
-    final tope = math.min(math.min(cy, h - cy), math.min(cx, w - cx)) - _margen;
-    if (tope <= 4) return;
 
     canvas
       ..save()
@@ -828,7 +871,7 @@ class NexusOrbLayersPainter extends CustomPainter {
     double lado,
   ) {
     final centro = Offset(cx, cy);
-    final radio = math.min(r0 * 1.02, tope * 0.82);
+    final radio = _radioDelAro(r0, tope);
     final pasosReales = pasos;
     final ({int pasos, int hechos, double frac}) avance;
     if (pasosReales != null && pasosReales > 0) {

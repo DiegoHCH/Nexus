@@ -27,6 +27,7 @@ import 'package:nexus/features/assistant/presentation/providers/el_despacho_de_c
 import 'package:nexus/features/assistant/presentation/providers/voice_input_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/voice_preference_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/su_voz_aparte_impl.dart';
+import 'package:nexus/features/lo_que_te_espera/presentation/providers/lo_que_te_espera_provider.dart';
 import 'package:nexus/features/remote/domain/audio_output_compartido.dart';
 import 'package:nexus/features/onboarding/presentation/providers/onboarding_providers.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
@@ -164,6 +165,7 @@ final holdVoiceConversationProvider =
         () => ref.read(losNombresProvider).agente,
         // Lo que dice ella sin esperar al modelo: el acuse y por dónde va.
         suVozAparte: ref.watch(suVozAparteProvider),
+        loQueTeEspera: ref.watch(loQueTeEsperaProvider(conversationId)),
         laSesionCaliente: ref.watch(laSesionCalienteProvider),
         claveCaliente: () => '$conversationId|${_loQueSuena(ref)}',
         // Seguir sin su nombre justo después de que conteste: el ajuste de

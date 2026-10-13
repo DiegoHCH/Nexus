@@ -395,6 +395,14 @@ mixin NucleoStrings {
   String reunionEnMinutos(String titulo, int minutos);
   String reunionAhora(String titulo);
 
+  /// Lo que cambió en la agenda entre dos lecturas. Ver
+  /// `LoQueCambioEnLaAgenda`.
+  String get laAgendaCambio;
+  String reunionNueva(String titulo, String hora);
+  String reunionMovida(String titulo, String hora);
+  String reunionCancelada(String titulo, String hora);
+  String yMasCambiosEnLaAgenda(int cuantos);
+
   /// Lo que se dice cuando el `!` trae algo que no es git.
   String soloGit(String comando);
 
@@ -940,8 +948,9 @@ mixin NucleoStringsEs implements NucleoStrings {
       '${vocativo}tienes tres: la primera a las nueve.';
   @override
   String get avisosExplainer =>
-      'Te dice en voz alta que tienes una reunión, unos minutos antes. Solo de '
-      'lo que tiene invitados.';
+      'Te dice en voz alta que tienes una reunión, unos minutos antes, y te '
+      'cuenta las que te ponen, mueven o cancelan durante el día: mira el '
+      'calendario cada cuarto de hora. Solo de lo que tiene invitados.';
   @override
   String get avisosOn => 'Reuniones';
   @override
@@ -1005,6 +1014,21 @@ mixin NucleoStringsEs implements NucleoStrings {
       '$titulo, en $minutos minutos.';
   @override
   String reunionAhora(String titulo) => '$titulo, ahora.';
+  @override
+  String get laAgendaCambio => 'Cambió tu agenda';
+  @override
+  String reunionNueva(String titulo, String hora) =>
+      'Reunión nueva: $titulo, a las $hora.';
+  @override
+  String reunionMovida(String titulo, String hora) =>
+      '$titulo se movió a las $hora.';
+  @override
+  String reunionCancelada(String titulo, String hora) =>
+      'Se canceló $titulo, la de las $hora.';
+  @override
+  String yMasCambiosEnLaAgenda(int cuantos) => cuantos == 1
+      ? 'Y un cambio más en tu agenda.'
+      : 'Y $cuantos cambios más en tu agenda.';
   @override
   String get whichImageModel => 'CON QUÉ MODELO SE DIBUJA';
   @override
@@ -1582,8 +1606,10 @@ mixin NucleoStringsEn implements NucleoStrings {
       '${vocativo}you have three: the first at nine.';
   @override
   String get avisosExplainer =>
-      'She tells you out loud that you have a meeting, a few minutes before. '
-      'Only for events with guests.';
+      'She tells you out loud that you have a meeting, a few minutes before, '
+      'and tells you about the ones added, moved or cancelled during the day: '
+      'she checks the calendar every fifteen minutes. Only for events with '
+      'guests.';
   @override
   String get avisosOn => 'Meetings';
   @override
@@ -1648,6 +1674,20 @@ mixin NucleoStringsEn implements NucleoStrings {
       '$titulo, in $minutos minutes.';
   @override
   String reunionAhora(String titulo) => '$titulo, now.';
+  @override
+  String get laAgendaCambio => 'Your agenda changed';
+  @override
+  String reunionNueva(String titulo, String hora) =>
+      'New meeting: $titulo, at $hora.';
+  @override
+  String reunionMovida(String titulo, String hora) => '$titulo moved to $hora.';
+  @override
+  String reunionCancelada(String titulo, String hora) =>
+      '$titulo at $hora was cancelled.';
+  @override
+  String yMasCambiosEnLaAgenda(int cuantos) => cuantos == 1
+      ? 'And one more change in your agenda.'
+      : 'And $cuantos more changes in your agenda.';
   @override
   String get whichImageModel => 'WHICH MODEL DRAWS';
   @override

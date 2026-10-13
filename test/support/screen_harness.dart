@@ -15,6 +15,7 @@ import 'package:nexus/features/assistant/presentation/providers/voice_input_prov
 import 'package:nexus/features/emulators/data/datasources/emuladores_data_source.dart';
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
 import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
+import 'package:nexus/features/lo_que_te_espera/presentation/providers/lo_que_te_espera_provider.dart';
 import 'package:nexus/features/onboarding/domain/entities/pasos_del_arranque.dart';
 import 'package:nexus/features/onboarding/domain/repositories/lo_que_quedo_para_luego.dart';
 import 'package:nexus/features/onboarding/presentation/providers/onboarding_providers.dart';
@@ -85,6 +86,14 @@ class ParaLuegoEnMemoria implements LoQueQuedoParaLuego {
 
   @override
   Future<void> guardar(Set<QueSePide> pasos) async => guardado = {...pasos};
+}
+
+/// Lo que te espera hoy, que al llamarla no cuenta nada: ver `pumpScreen`.
+class SinLoQueTeEspera extends ElDiaQueTeEspera {
+  SinLoQueTeEspera(super.ref);
+
+  @override
+  Future<String?> alLlamarlaHoy({required String? configDir}) async => null;
 }
 
 class FixedWorkspace extends WorkspaceController {
@@ -212,6 +221,12 @@ Future<void> pumpScreen(
           conPuerta ? const MicrofonoConcedido() : const MicrofonoDenegado(),
         ),
         emuladoresDataSourceProvider.overrideWithValue(const SinDispositivos()),
+        // 🔴 **Sin contar el día al abrir la voz.** Con el reloj de verdad, de
+        // ocho a seis y entre semana, contarlo sale a `gh` y al cupo con un
+        // plazo de segundos — y en el reloj falso de una prueba de pantalla
+        // ese plazo no vence nunca. La prueba que abría la voz se colgaba diez
+        // minutos, y solo en horario de oficina.
+        elDiaQueTeEsperaProvider.overrideWith(SinLoQueTeEspera.new),
         laConfiguracionDeAhoraProvider.overrideWith(
           (ref) async => configuracion,
         ),

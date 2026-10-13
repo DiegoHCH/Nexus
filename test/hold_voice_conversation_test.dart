@@ -1,4 +1,5 @@
 import 'package:nexus/features/assistant/domain/repositories/la_agenda_de_hoy.dart';
+import 'package:nexus/features/assistant/domain/repositories/lo_que_te_espera.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -285,6 +286,7 @@ HoldVoiceConversation _conversation(
   _Lanzador? lanzador,
   _Parte? parte,
   _Agenda? agenda,
+  LoQueTeEspera? elDia,
   Duration? graciaDeLaRuta,
   ElDespachoDeCarpeta? despacho,
   String? carpeta,
@@ -315,6 +317,7 @@ HoldVoiceConversation _conversation(
   // los diez segundos; dejándolas esperar de verdad serían pruebas del reloj.
   // Quien mide el plazo lo dice pasándolo.
   graciaDeLaRuta: graciaDeLaRuta ?? Duration.zero,
+  loQueTeEspera: elDia,
 );
 
 /// Espera a que la corrección de un turno contestado de memoria **haya llegado
@@ -1596,6 +1599,60 @@ void main() {
       expect(session.toolResults.single, contains('front-mobile-b2c'));
     });
   });
+  group('lo que te espera hoy, hablando', () {
+    Future<_Session> pedirlo({LoQueTeEspera? elDia, _Bridge? bridge}) async {
+      final session = _Session();
+      final conversation = _conversation(
+        session,
+        bridge ?? _Bridge(),
+        elDia: elDia,
+      );
+      final events = conversation().listen((_) {});
+      addTearDown(events.cancel);
+      await Future<void>.delayed(Duration.zero);
+
+      session.emit(
+        const VoiceToolRequested(
+          callId: 'c1',
+          name: ClaudeErrand.loQueTeEsperaTool,
+          arguments: <String, Object?>{},
+        ),
+      );
+      await hastaQue(
+        () => session.toolResults.isNotEmpty,
+        esperando: 'que se le devuelva al modelo lo que te espera',
+        loQueSeVe: () => 'respuestas=${session.toolResults}',
+      );
+      return session;
+    }
+
+    test(
+      'se junta en la app y vuelve al modelo, sin pasar por Claude',
+      () async {
+        final bridge = _Bridge();
+        final elDia = _ElDia('Te queda una reunión: Growth, a las 14:00.');
+
+        final session = await pedirlo(elDia: elDia, bridge: bridge);
+
+        expect(elDia.seLoPidieron, 1);
+        expect(session.toolResults.single, contains('Growth, a las 14:00'));
+        expect(
+          bridge.asked,
+          isEmpty,
+          reason: 'Claude no tiene delante la agenda, los PR ni el cupo',
+        );
+      },
+    );
+
+    test(
+      'sin quien lo junte, se dice que no se puede y no se inventa',
+      () async {
+        final session = await pedirlo();
+
+        expect(session.toolResults.single, contains('no se puede'));
+      },
+    );
+  });
   // 🔴 **La frase de escritura también sujeta hablando.**
   //
   // El canal aplica su mitad del permiso en `sendErrand` —lo que se escribe
@@ -1664,6 +1721,20 @@ void main() {
 }
 
 /// La agenda ya leída: es lo que hace que preguntarla no vuelva a Claude.
+/// Lo que te espera hoy, ya contado.
+class _ElDia implements LoQueTeEspera {
+  _ElDia(this.contado);
+
+  final String contado;
+  var seLoPidieron = 0;
+
+  @override
+  Future<String> deHoy() async {
+    seLoPidieron++;
+    return contado;
+  }
+}
+
 class _Agenda implements LaAgendaDeHoy {
   _Agenda([this.respuesta, this.tarda = Duration.zero]);
 

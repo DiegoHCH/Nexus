@@ -62,6 +62,9 @@ enum PorQueNoEscucha: String {
   case sinMicrofono
   /// AVFAudio no quiso: el tap o el motor fallaron al arrancar.
   case fallaElMotor
+  /// El audio de macOS no contesta: abrir la entrada se quedó esperando. Ver
+  /// [NexusEscucha.colaDelAudio].
+  case elAudioNoResponde
 }
 
 final class NexusEscucha: NSObject {
@@ -71,7 +74,45 @@ final class NexusEscucha: NSObject {
   private static var canal: FlutterMethodChannel?
   private static let compartida = NexusEscucha()
 
+  /// Solo se toca desde [colaDelAudio].
   private let engine = AVAudioEngine()
+
+  /// 🔴 **Todo lo que habla con el audio de macOS va aquí, nunca en el hilo
+  /// principal.** Visto el 9 oct: tras un cambio de auriculares Bluetooth,
+  /// `coreaudiod` se quedó en bucle —«BTAudio RemoveDeviceClient: bad device
+  /// ID», al 66 % de CPU— y la escucha, al volver a empezar, pidió el formato
+  /// del micrófono. `outputFormat(forBus:)` hace un `dispatch_sync` a la cola
+  /// del IO unit, esa cola esperaba a `coreaudiod`, y el hilo principal se
+  /// quedó esperando con ellas: **la app entera congelada**, sin ventana que
+  /// mover, hasta matarla. Un fallo del audio no puede costar la app.
+  ///
+  /// Aquí lo que se atasca es esta cola. El hilo principal sigue, y si el
+  /// arranque no vuelve en [loQueSeLeEspera] se dice —`elAudioNoResponde`— y
+  /// la app vuelve a probar en un rato, como con el micrófono ocupado.
+  private let colaDelAudio = DispatchQueue(
+    label: "com.katanalabs.nexus.escucha.audio", qos: .userInitiated)
+
+  /// Cuánto se espera a que el audio conteste al arrancar. Arrancar de verdad
+  /// tarda décimas; esto solo salta si algo está colgado.
+  private static let loQueSeLeEspera: TimeInterval = 4
+
+  /// Cuántos trabajos mandados a [colaDelAudio] no han vuelto todavía.
+  private var enVuelo = 0
+
+  /// Si un arranque no volvió a tiempo y la cola sigue sin vaciarse. Mientras
+  /// lo esté, no se manda nada más: se apilaría detrás del que está colgado.
+  private var atascada = false
+
+  /// Si hay un arranque en curso, y a quién se le contesta cuando acabe.
+  private var arrancando = false
+  private var alArrancar: [(PorQueNoEscucha?) -> Void] = []
+
+  /// El reinicio que espera su turno, si se está esperando. Ver
+  /// [esperaAntesDeVolver].
+  private var elReinicio: DispatchWorkItem?
+  private var seguidos = 0
+  private var arrancoEn = Date.distantPast
+
   private var reconocedor: SFSpeechRecognizer?
   private var peticion: SFSpeechAudioBufferRecognitionRequest?
   private var tarea: SFSpeechRecognitionTask?
@@ -136,11 +177,11 @@ final class NexusEscucha: NSObject {
       // en el de antes hasta que algo lo reiniciara.
       case "idioma":
         let args = call.arguments as? [String: Any]
-        compartida.cambiarIdioma(args?["idioma"] as? String)
-        result(compartida.comoQuedo())
+        compartida.cambiarIdioma(args?["idioma"] as? String) {
+          result(compartida.comoQuedo())
+        }
       case "parar":
-        compartida.parar()
-        result(nil)
+        compartida.parar { result(nil) }
       case "escuchando":
         result(compartida.escuchando)
       default:
@@ -158,6 +199,9 @@ final class NexusEscucha: NSObject {
       return result(comoQuedo())
     }
     if escuchando { return result(comoQuedo()) }
+    // Lo pide la app: un reinicio que esperaba su turno sobra.
+    elReinicio?.cancel()
+    elReinicio = nil
 
     SFSpeechRecognizer.requestAuthorization { estado in
       DispatchQueue.main.async {
@@ -166,20 +210,28 @@ final class NexusEscucha: NSObject {
           self.motivo = .sinPermisoDeVoz
           return result(self.comoQuedo())
         }
-        self.motivo = self.arrancar()
-        result(self.comoQuedo())
+        self.arrancar { motivo in
+          self.motivo = motivo
+          result(self.comoQuedo())
+        }
       }
     }
   }
 
   /// Cambia el idioma con el que se reconoce y, si estaba escuchando, vuelve a
-  /// empezar con él.
-  private func cambiarIdioma(_ idioma: String?) {
-    guard idioma != idiomaDeLaApp else { return }
+  /// empezar con él. `luego` cuando ya se sabe cómo quedó.
+  private func cambiarIdioma(_ idioma: String?, luego: @escaping () -> Void) {
+    guard idioma != idiomaDeLaApp else { return luego() }
     idiomaDeLaApp = idioma
-    guard escuchando else { return }
+    guard escuchando else { return luego() }
     Self.log.notice("cambió el idioma de la app · se vuelve a empezar en \(idioma ?? "el del sistema", privacy: .public)")
-    reiniciar()
+    let palabras = self.palabras
+    parar()
+    self.palabras = palabras
+    arrancar { motivo in
+      self.motivo = motivo
+      luego()
+    }
   }
 
   /// Si el micrófono ya lo está usando otra app.
@@ -219,8 +271,19 @@ final class NexusEscucha: NSObject {
     return enUso != 0
   }
 
-  /// Pone la escucha. `nil` si quedó escuchando; si no, [PorQueNoEscucha].
-  private func arrancar() -> PorQueNoEscucha? {
+  /// Pone la escucha y contesta a `luego` —en el hilo principal— con `nil` si
+  /// quedó escuchando o con [PorQueNoEscucha] si no.
+  ///
+  /// Lo que habla con el audio va en [colaDelAudio], en dos tiempos: mirar si
+  /// la entrada está ocupada y montar el motor. Entre uno y otro se vuelve al
+  /// principal, porque soltar la ventana caliente de la voz es cosa suya.
+  private func arrancar(luego: @escaping (PorQueNoEscucha?) -> Void) {
+    if escuchando { return luego(nil) }
+    // Dos arranques a la vez serían dos taps sobre la misma entrada: el segundo
+    // espera la respuesta del primero.
+    alArrancar.append(luego)
+    if arrancando { return }
+
     // El permiso del micrófono se mira antes de tocar el motor: sin él, lo que
     // falla después es el tap o el arranque, con un error que no dice que la
     // solución está en Ajustes del sistema. «Sin decidir» sigue adelante: ahí
@@ -228,25 +291,53 @@ final class NexusEscucha: NSObject {
     switch AVCaptureDevice.authorizationStatus(for: .audio) {
     case .denied, .restricted:
       Self.log.notice("sin permiso para el micrófono · no se escucha")
-      return .sinPermisoDelMicrofono
+      return contestar(.sinPermisoDelMicrofono)
     default:
       break
     }
 
-    // Si quien tiene la entrada somos nosotros —el motor de voz, caliente tras
-    // colgar—, se le pide que la suelte en vez de rendirse. Ver
-    // `NexusAudioEngine.soltarElMicroSiSoloEstaCaliente`.
-    if Self.laEntradaEstaOcupada(),
-      NexusAudioEngine.principal?.soltarElMicroSiSoloEstaCaliente() != true
-    {
-      Self.log.notice("el micrófono ya lo usa otra app · no se escucha")
-      return .microfonoOcupado
+    // Con un arranque anterior todavía colgado, uno nuevo se quedaría en la
+    // cola detrás de él. La app vuelve a probar en un rato.
+    if atascada {
+      Self.log.notice("el audio sigue sin contestar · no se escucha")
+      return contestar(.elAudioNoResponde)
     }
 
+    arrancando = true
+    generacion += 1
+    let esta = generacion
+    // 🔴 **El que vigila.** Si el arranque no vuelve a tiempo, se contesta sin
+    // él y se le deja colgado en su cola: lo que no puede pasar es que espere
+    // el hilo principal. Cuando por fin vuelva, ya no es el vigente —ver
+    // [montado]— y desmonta lo que haya montado.
+    DispatchQueue.main.asyncAfter(deadline: .now() + Self.loQueSeLeEspera) { [weak self] in
+      guard let self, self.arrancando, self.generacion == esta else { return }
+      Self.log.error("el audio no contesta tras \(Self.loQueSeLeEspera, privacy: .public) s · no se escucha")
+      self.atascada = true
+      self.generacion += 1
+      self.limpiarLoNuestro()
+      self.contestar(.elAudioNoResponde)
+    }
+
+    enLaColaDelAudio({ Self.laEntradaEstaOcupada() }) { [weak self] ocupada in
+      guard let self, self.arrancando, self.generacion == esta else { return }
+      // Si quien tiene la entrada somos nosotros —el motor de voz, caliente
+      // tras colgar—, se le pide que la suelte en vez de rendirse. Ver
+      // `NexusAudioEngine.soltarElMicroSiSoloEstaCaliente`.
+      if ocupada, NexusAudioEngine.principal?.soltarElMicroSiSoloEstaCaliente() != true {
+        Self.log.notice("el micrófono ya lo usa otra app · no se escucha")
+        return self.contestar(.microfonoOcupado)
+      }
+      self.montar(esta)
+    }
+  }
+
+  /// Lo que pasa en el principal una vez se sabe que la entrada está libre.
+  private func montar(_ esta: Int) {
     guard let reconocedor = Self.elReconocedor(idioma: idiomaDeLaApp) else {
       // Ver arriba: sin reconocimiento local esto no se enciende.
       Self.log.notice("no hay reconocedor que trabaje en el dispositivo · no se escucha")
-      return .sinReconocedorLocal
+      return contestar(.sinReconocedorLocal)
     }
     self.reconocedor = reconocedor
 
@@ -261,6 +352,18 @@ final class NexusEscucha: NSObject {
     peticion.contextualStrings = palabras
     self.peticion = peticion
 
+    enLaColaDelAudio({ [engine] in Self.montarElMotor(engine, para: peticion) }) {
+      [weak self] montado in
+      guard let self else { return }
+      self.montado(montado, esta, reconocedor, peticion)
+    }
+  }
+
+  /// Lo que se monta en [colaDelAudio]: el tap y el motor. Contesta el formato
+  /// del micrófono si quedó en marcha, o por qué no.
+  private static func montarElMotor(
+    _ engine: AVAudioEngine, para peticion: SFSpeechAudioBufferRecognitionRequest
+  ) -> Result<AVAudioFormat, MotivoDelAudio> {
     let entrada = engine.inputNode
     let formato = entrada.outputFormat(forBus: 0)
     // 🔴 **Sin micrófono el formato sale a 0 Hz**, y `installTap` con eso no
@@ -270,9 +373,9 @@ final class NexusEscucha: NSObject {
     // tiene más precondiciones que esta y adivinar la siguiente es el error
     // que ya costó tres cierres en el motor de audio.
     guard formato.sampleRate > 0, formato.channelCount > 0 else {
-      Self.log.notice("no hay micrófono de entrada · no se escucha")
-      limpiar()
-      return .sinMicrofono
+      log.notice("no hay micrófono de entrada · no se escucha")
+      pararElMotor(engine)
+      return .failure(MotivoDelAudio(.sinMicrofono))
     }
     do {
       try NexusSinReventar.correr {
@@ -282,22 +385,44 @@ final class NexusEscucha: NSObject {
         }
       }
     } catch {
-      Self.log.error("AVFAudio rechazó el tap de escucha · \(error.localizedDescription, privacy: .public)")
-      limpiar()
-      return .fallaElMotor
+      log.error("AVFAudio rechazó el tap de escucha · \(error.localizedDescription, privacy: .public)")
+      pararElMotor(engine)
+      return .failure(MotivoDelAudio(.fallaElMotor))
     }
 
     do {
       engine.prepare()
       try engine.start()
     } catch {
-      Self.log.error("no arrancó el motor de escucha · \(error.localizedDescription, privacy: .public)")
-      limpiar()
-      return .fallaElMotor
+      log.error("no arrancó el motor de escucha · \(error.localizedDescription, privacy: .public)")
+      pararElMotor(engine)
+      return .failure(MotivoDelAudio(.fallaElMotor))
+    }
+    return .success(formato)
+  }
+
+  /// Vuelve del montaje al principal: si sigue siendo el vigente, empieza a
+  /// reconocer; si no —lo pararon o el vigilante ya contestó—, se desmonta.
+  private func montado(
+    _ montado: Result<AVAudioFormat, MotivoDelAudio>, _ esta: Int,
+    _ reconocedor: SFSpeechRecognizer, _ peticion: SFSpeechAudioBufferRecognitionRequest
+  ) {
+    guard arrancando, generacion == esta else {
+      if case .success = montado {
+        Self.log.notice("el audio contestó tarde · se desmonta lo que montó")
+        desmontar()
+      }
+      return
+    }
+    let formato: AVAudioFormat
+    switch montado {
+    case .failure(let fallo):
+      limpiarLoNuestro()
+      return contestar(fallo.motivo)
+    case .success(let elDelMicro):
+      formato = elDelMicro
     }
 
-    generacion += 1
-    let esta = generacion
     tarea = reconocedor.recognitionTask(with: peticion) { [weak self] resultado, error in
       // 🔴 **Solo la tarea vigente decide.** Cancelar una tarea no la calla al
       // momento: su último aviso —un error de «cancelada»— llega después, cuando
@@ -331,10 +456,43 @@ final class NexusEscucha: NSObject {
     }
 
     escuchando = true
-    motivo = nil
+    arrancoEn = Date()
     Self.log.notice(
       "escuchando · \(self.palabras.joined(separator: ", "), privacy: .public) · \(reconocedor.locale.identifier, privacy: .public) · \(formato.sampleRate, privacy: .public) Hz \(formato.channelCount, privacy: .public) ch")
-    return nil
+    contestar(nil)
+  }
+
+  /// Acaba el arranque en curso y contesta a todos los que lo esperaban.
+  private func contestar(_ motivo: PorQueNoEscucha?) {
+    arrancando = false
+    let esperan = alArrancar
+    alArrancar = []
+    for luego in esperan { luego(motivo) }
+  }
+
+  /// Corre `trabajo` en [colaDelAudio] y vuelve con lo que dé al principal.
+  private func enLaColaDelAudio<T>(
+    _ trabajo: @escaping () -> T, luego: @escaping (T) -> Void
+  ) {
+    enVuelo += 1
+    colaDelAudio.async {
+      let hecho = trabajo()
+      DispatchQueue.main.async {
+        self.enVuelo -= 1
+        // Se vació: lo que estaba colgado ya volvió.
+        if self.enVuelo == 0, self.atascada {
+          Self.log.notice("el audio vuelve a contestar")
+          self.atascada = false
+        }
+        luego(hecho)
+      }
+    }
+  }
+
+  /// [PorQueNoEscucha] envuelto para poder viajar como fallo de un `Result`.
+  private struct MotivoDelAudio: Error {
+    let motivo: PorQueNoEscucha
+    init(_ motivo: PorQueNoEscucha) { self.motivo = motivo }
   }
 
   /// El reconocedor con el que se escucha: **el del idioma de la app**, y si
@@ -411,15 +569,41 @@ final class NexusEscucha: NSObject {
     let palabras = self.palabras
     parar()
     self.palabras = palabras
-    motivo = arrancar()
-    if motivo != nil {
-      // 🔴 **Y si no vuelve, se dice** —y por qué—. Antes se apagaba aquí sin
-      // avisar, y la app seguía creyendo que escuchaba: el ajuste encendido y
-      // nadie oyendo.
-      Self.log.notice("la escucha no pudo volver a empezar · se avisa a la app")
-      Self.canal?.invokeMethod("seCallo", arguments: comoQuedo())
-      return
+    // Si la tarea anterior apenas duró, algo la está tumbando —un micrófono que
+    // va y viene, el audio del sistema a medias—, y volver al momento solo
+    // alimenta el bucle. Ver [esperaAntesDeVolver].
+    seguidos = Date().timeIntervalSince(arrancoEn) < Self.loQuePocoDura ? seguidos + 1 : 0
+    let espera = Self.esperaAntesDeVolver(seguidos: seguidos)
+    if espera > 0 {
+      Self.log.notice("la escucha se cortó \(self.seguidos, privacy: .public) veces seguidas · vuelve en \(espera, privacy: .public) s")
     }
+    let vuelve = DispatchWorkItem { [weak self] in
+      guard let self else { return }
+      self.elReinicio = nil
+      self.palabras = palabras
+      self.arrancar { motivo in
+        self.motivo = motivo
+        guard motivo != nil else { return }
+        // 🔴 **Y si no vuelve, se dice** —y por qué—. Antes se apagaba aquí sin
+        // avisar, y la app seguía creyendo que escuchaba: el ajuste encendido y
+        // nadie oyendo.
+        Self.log.notice("la escucha no pudo volver a empezar · se avisa a la app")
+        Self.canal?.invokeMethod("seCallo", arguments: self.comoQuedo())
+      }
+    }
+    elReinicio = vuelve
+    DispatchQueue.main.asyncAfter(deadline: .now() + espera, execute: vuelve)
+  }
+
+  /// Una tarea que se acaba antes de esto cuenta como corte seguido. Las
+  /// normales duran del orden del minuto.
+  private static let loQuePocoDura: TimeInterval = 10
+
+  /// Cuánto esperar antes de volver a empezar tras `seguidos` cortes rápidos:
+  /// nada la primera vez, y desde ahí medio segundo que se dobla hasta 30 s.
+  static func esperaAntesDeVolver(seguidos: Int) -> TimeInterval {
+    guard seguidos > 0 else { return 0 }
+    return min(0.5 * pow(2, Double(min(seguidos - 1, 10))), 30)
   }
 
   /// 🔴 **Lo que dices justo después del nombre se perdía.** Esto paraba en el
@@ -478,8 +662,10 @@ final class NexusEscucha: NSObject {
     ultimoAviso = Date()
     // Se para al acabar la frase: quien llamó va a abrir una conversación de
     // voz, y el motor de verdad necesita el micrófono entero.
-    parar()
-    Self.canal?.invokeMethod("teLlamaron", arguments: ["resto": resto])
+    // Y se avisa cuando ya lo soltó: si no, los dos motores lo tendrían a la vez.
+    parar {
+      Self.canal?.invokeMethod("teLlamaron", arguments: ["resto": resto])
+    }
   }
 
   /// Lo que se dijo **después** del nombre, con sus acentos y tal como llegó:
@@ -499,14 +685,32 @@ final class NexusEscucha: NSObject {
       .trimmingCharacters(in: CharacterSet(charactersIn: ",.;:").union(.whitespaces))
   }
 
-  private func parar() {
-    guard escuchando else { return }
+  /// Para de escuchar. `luego`, cuando el micrófono ya se soltó —o al segundo,
+  /// si el audio no contesta: quien espera no puede quedarse colgado con él—.
+  private func parar(luego: (() -> Void)? = nil) {
+    elReinicio?.cancel()
+    elReinicio = nil
+    if arrancando {
+      // El arranque en curso deja de ser el vigente: al volver, desmonta.
+      generacion += 1
+      limpiarLoNuestro()
+      contestar(nil)
+      Self.log.info("se paró a medio arrancar")
+      luego?()
+      return
+    }
+    guard escuchando else {
+      luego?()
+      return
+    }
     escuchando = false
-    limpiar()
+    limpiarLoNuestro()
+    desmontar(luego: luego)
     Self.log.info("ya no escucha")
   }
 
-  private func limpiar() {
+  /// Lo que es de la escucha y no del audio: la frase, la tarea, la petición.
+  private func limpiarLoNuestro() {
     recogiendo = false
     laPausa?.cancel()
     laPausa = nil
@@ -514,9 +718,26 @@ final class NexusEscucha: NSObject {
     tarea = nil
     peticion?.endAudio()
     peticion = nil
+    palabras = []
+  }
+
+  /// Para el motor en [colaDelAudio], sin esperarlo aquí.
+  private func desmontar(luego: (() -> Void)? = nil) {
+    var avisado = false
+    let avisar = {
+      guard !avisado else { return }
+      avisado = true
+      luego?()
+    }
+    enLaColaDelAudio({ [engine] in Self.pararElMotor(engine) }) { avisar() }
+    guard luego != nil else { return }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1) { avisar() }
+  }
+
+  /// Solo en [colaDelAudio].
+  private static func pararElMotor(_ engine: AVAudioEngine) {
     if engine.isRunning { engine.stop() }
     engine.inputNode.removeTap(onBus: 0)
-    palabras = []
   }
 
   /// Si en lo que se oyó está su nombre.

@@ -1710,3 +1710,102 @@ final class LaEsperaDeLaEscuchaTests: XCTestCase {
     XCTAssertEqual(NexusEscucha.esperaAntesDeVolver(seguidos: 1000), 30)
   }
 }
+
+/// La ventana se abre donde la dejaste: con su tamaño y en su pantalla.
+///
+/// Cada actualización cierra la app y la vuelve a abrir, y se abría al mínimo
+/// y centrada en la pantalla que tocara. Lo que se protege es que vuelva a
+/// **la misma pantalla** si sigue conectada —no a la principal, que es lo que
+/// hace el autoguardado de AppKit— y que un marco guardado en un monitor que
+/// ya no está no la deje perdida fuera de la pantalla.
+final class VentanaPrincipalTests: XCTestCase {
+  /// Tres pantallas como las de quien lo pidió, en marcos visibles: la
+  /// principal, el portátil a la izquierda y otro monitor debajo.
+  private let principal = NSRect(x: 0, y: 0, width: 1920, height: 1050)
+  private let portatil = NSRect(x: -1512, y: 63, width: 1512, height: 886)
+  private let abajo = NSRect(x: 0, y: -1080, width: 1920, height: 1050)
+  private let minimo = NSSize(width: 1024, height: 768)
+
+  private var tres: [NSRect] { [principal, portatil, abajo] }
+
+  private func entera(_ marco: NSRect, en pantalla: NSRect) -> Bool {
+    marco.minX >= pantalla.minX && marco.maxX <= pantalla.maxX
+      && marco.minY >= pantalla.minY && marco.maxY <= pantalla.maxY
+  }
+
+  func testSinNadaGuardadoNoDecideNada() {
+    XCTAssertNil(MainFlutterWindow.dondeSeAbre(nil, minimo: minimo, pantallas: tres))
+  }
+
+  /// 🔴 El caso que se quejó: dejada en otra pantalla, se abría en la
+  /// principal.
+  func testEnOtraPantallaQueSigueSeQuedaEnElla() {
+    let enElPortatil = NSRect(x: -1400, y: 100, width: 1300, height: 800)
+    XCTAssertEqual(
+      MainFlutterWindow.dondeSeAbre(enElPortatil, minimo: minimo, pantallas: tres), enElPortatil)
+
+    let enElDeAbajo = NSRect(x: 100, y: -1000, width: 1600, height: 900)
+    XCTAssertEqual(
+      MainFlutterWindow.dondeSeAbre(enElDeAbajo, minimo: minimo, pantallas: tres), enElDeAbajo)
+  }
+
+  /// Se guardó con el monitor de abajo y se abre sin él.
+  func testDeUnMonitorQueYaNoEstaVuelveEnteraALaPrincipal() throws {
+    let enElDeAbajo = NSRect(x: 100, y: -1000, width: 1600, height: 900)
+    let ahora = try XCTUnwrap(
+      MainFlutterWindow.dondeSeAbre(enElDeAbajo, minimo: minimo, pantallas: [principal, portatil]))
+    XCTAssertEqual(ahora.size, enElDeAbajo.size, "se mueve, no se encoge")
+    XCTAssertTrue(entera(ahora, en: principal), "fuera de la pantalla no hay por dónde agarrarla: \(ahora)")
+  }
+
+  /// Rozar el borde no la cambia de pantalla: va a la que más la tiene.
+  func testMedioFueraSeTraeEnteraASuPantalla() throws {
+    let asomando = NSRect(x: 1000, y: 200, width: 1200, height: 800)
+    let ahora = try XCTUnwrap(
+      MainFlutterWindow.dondeSeAbre(asomando, minimo: minimo, pantallas: tres))
+    XCTAssertTrue(entera(ahora, en: principal))
+    XCTAssertEqual(ahora.size, asomando.size)
+  }
+
+  /// Del monitor grande al portátil: cabe en lo que deja la pantalla, y nunca
+  /// por debajo del mínimo.
+  func testMasGrandeQueSuPantallaSeEncogeHastaCaber() {
+    let grande = NSRect(x: -1500, y: 70, width: 1900, height: 1000)
+    let ahora = MainFlutterWindow.dondeSeAbre(grande, minimo: minimo, pantallas: [portatil])
+    XCTAssertEqual(ahora, portatil)
+  }
+
+  /// Si ni el mínimo cabe de alto, manda la barra de título: arriba y a la
+  /// vista, que es por donde se agarra.
+  func testSiNiElMinimoCabeSeVeLaBarraDeTitulo() {
+    let bajita = NSRect(x: 0, y: 0, width: 1280, height: 700)
+    let ahora = MainFlutterWindow.dondeSeAbre(
+      NSRect(x: 0, y: 0, width: 1100, height: 800), minimo: minimo, pantallas: [bajita])
+    XCTAssertEqual(ahora?.height, minimo.height)
+    XCTAssertEqual(ahora?.maxY, bajita.maxY)
+  }
+
+  func testLoGuardadoSeRecupera() throws {
+    let nombre = "nexus-ventana-\(UUID().uuidString)"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: nombre))
+    defer { defaults.removePersistentDomain(forName: nombre) }
+
+    XCTAssertNil(MainFlutterWindow.marcoGuardado(en: defaults))
+    let marco = NSRect(x: -1400, y: 100.5, width: 1300, height: 800)
+    MainFlutterWindow.guardar(marco, en: defaults)
+    XCTAssertEqual(MainFlutterWindow.marcoGuardado(en: defaults), marco)
+  }
+
+  /// Algo roto en las preferencias no es un marco: se abre como la primera
+  /// vez.
+  func testLoQueNoEsUnMarcoSeIgnora() throws {
+    let nombre = "nexus-ventana-\(UUID().uuidString)"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: nombre))
+    defer { defaults.removePersistentDomain(forName: nombre) }
+
+    defaults.set([1.0, 2.0], forKey: MainFlutterWindow.claveDelMarco)
+    XCTAssertNil(MainFlutterWindow.marcoGuardado(en: defaults))
+    defaults.set([1.0, 2.0, 0.0, 600.0], forKey: MainFlutterWindow.claveDelMarco)
+    XCTAssertNil(MainFlutterWindow.marcoGuardado(en: defaults))
+  }
+}

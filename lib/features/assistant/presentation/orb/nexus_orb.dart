@@ -39,6 +39,11 @@ class NexusOrb extends StatefulWidget {
     this.apagado = false,
   });
 
+  /// Si [estilo] se pinta con puntos o con plasma. El plasma necesita su
+  /// programa de sombreado cargado; sin él, puntos.
+  static bool esDePuntos(OrbeEstilo estilo) =>
+      estilo.forma != FormaDelOrbe.plasma || PlasmaDelOrbe.programa == null;
+
   final NexusOrbState state;
   final bool showHorizon;
 
@@ -172,8 +177,7 @@ class _NexusOrbState extends State<NexusOrb>
     }
   }
 
-  bool get _dePuntos =>
-      _estilo.forma != FormaDelOrbe.plasma || PlasmaDelOrbe.programa == null;
+  bool get _dePuntos => NexusOrb.esDePuntos(_estilo);
 
   /// Apagado va a un tercio del ritmo: la cifra del mockup, que gira a 0,02
   /// donde el reposo gira a 0,055. Ver [NexusOrb.apagado].

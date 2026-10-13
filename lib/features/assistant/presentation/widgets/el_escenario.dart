@@ -24,7 +24,9 @@ import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.
 import 'package:nexus/features/assistant/presentation/state/chat_message.dart';
 import 'package:nexus/features/assistant/presentation/state/el_titulo_de_la_conversacion.dart';
 import 'package:nexus/features/assistant/domain/entities/conversation.dart';
+import 'package:nexus/features/assistant/presentation/state/lo_que_dicen_las_etiquetas.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
+import 'package:nexus/features/assistant/presentation/widgets/las_etiquetas_del_orbe.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:nexus/features/onboarding/presentation/state/tour_state.dart';
 import 'package:nexus/features/onboarding/presentation/widgets/tour_anchor.dart';
@@ -122,6 +124,29 @@ class ElEscenario extends ConsumerWidget {
               sinMovimiento: sinMovimiento,
             );
 
+        // La caja del orbe a una altura `t` del camino entre sus dos sitios, y
+        // apartada por la hoja si hay una. La comparten el orbe y sus
+        // etiquetas, que tienen que ir pegadas a él fotograma a fotograma.
+        Rect elOrbeEn(double t) => elOrbeConLaHoja(
+          Rect.lerp(
+            elSitioDelOrbe(
+              sala: w,
+              alto: h,
+              trabajando: false,
+              debajo: _loQueVaDebajo,
+            ),
+            elSitioDelOrbe(
+              sala: w,
+              alto: h,
+              trabajando: true,
+              debajo: _loQueVaDebajo,
+            ),
+            t,
+          )!,
+          sala: w,
+          libre: libre(),
+        );
+
         return Stack(
           children: [
             // El sitio del estado se anima como siempre —700 ms al cambiar de
@@ -162,28 +187,36 @@ class ElEscenario extends ConsumerWidget {
                 listenable: LoQueTapaLaHoja.instancia,
                 builder: (context, _) => Positioned.fromRect(
                   key: ElEscenario.laLlaveDelOrbe,
-                  rect: elOrbeConLaHoja(
-                    Rect.lerp(
-                      elSitioDelOrbe(
-                        sala: w,
-                        alto: h,
-                        trabajando: false,
-                        debajo: _loQueVaDebajo,
-                      ),
-                      elSitioDelOrbe(
-                        sala: w,
-                        alto: h,
-                        trabajando: true,
-                        debajo: _loQueVaDebajo,
-                      ),
-                      t,
-                    )!,
-                    sala: w,
-                    libre: libre(),
-                  ),
+                  rect: elOrbeEn(t),
                   child: orbe!,
                 ),
               ),
+            ),
+            // Las etiquetas del orbe trabajando. Su propio tween, con la misma
+            // duración y curva que el del orbe: entran y salen con él, y
+            // llegan cuando él ya está a un lado. Encima no se toca nada: los
+            // toques siguen siendo del orbe.
+            TweenAnimationBuilder<double>(
+              tween: Tween(end: trabajando ? 1 : 0),
+              duration: const Duration(milliseconds: 700),
+              curve: Curves.easeInOutCubic,
+              builder: (context, t, _) => t <= 0
+                  ? const SizedBox.shrink()
+                  : ListenableBuilder(
+                      listenable: LoQueTapaLaHoja.instancia,
+                      builder: (context, _) => Positioned.fill(
+                        child: IgnorePointer(
+                          child: Opacity(
+                            opacity:
+                                t * laCapaConLaHoja(sala: w, libre: libre()),
+                            child: LasEtiquetasDelOrbe(
+                              etiquetas: loQueDicenLasEtiquetas(hud.activity),
+                              orbe: elOrbeEn(t),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
             ),
             // Lo de debajo del orbe se apaga mientras entra la hoja: está
             // centrado en la sala entera, así que con la hoja delante quedaría

@@ -7,9 +7,11 @@ import 'package:nexus/features/agenda/data/datasources/agenda_data_source.dart';
 import 'package:nexus/features/agenda/data/datasources/avisos_preferencias_data_source.dart';
 import 'package:nexus/features/agenda/domain/usecases/la_voz_del_aviso.dart';
 import 'package:nexus/features/assistant/presentation/providers/voice_session_providers.dart';
+import 'package:nexus/features/avisos/presentation/providers/el_que_habla_primero.dart';
 import 'package:nexus/features/avisos/presentation/providers/la_voz_que_avisa.dart';
 import 'package:nexus/features/agenda/domain/entities/reunion.dart';
 import 'package:nexus/features/agenda/domain/usecases/la_lectura_que_toca.dart';
+import 'package:nexus/features/agenda/domain/usecases/lo_que_cambio_en_la_agenda.dart';
 import 'package:nexus/features/agenda/domain/usecases/lo_que_se_contesta_de_la_agenda.dart';
 import 'package:nexus/features/agenda/domain/usecases/lo_que_toca_avisar.dart';
 import 'package:nexus/features/assistant/domain/repositories/la_agenda_de_hoy.dart';
@@ -71,24 +73,25 @@ class Avisos {
 /// trabajo lo disparas tú; una que empieza a hablarte sola el día que se
 /// actualiza asusta, aunque lo que diga sea útil.
 ///
-/// El reloj es local y la agenda se lee **una vez al día**: preguntar cada
-/// pocos minutos serían casi trescientos `claude -p` diarios gastando tokens de
-/// tu suscripción para releer lo mismo.
+/// El reloj de los avisos es local; el calendario se relee cada cuarto de hora
+/// de la jornada —ver `LaJornada.cadaCuanto`—, y lo que cambie entre dos
+/// lecturas se cuenta: la reunión que te ponen a media mañana, la que se mueve
+/// y la que se cancela.
 class ElVigilanteDeLaAgenda extends Notifier<Avisos> {
   Timer? _reloj;
 
-  /// El ancla de la última lectura, no la hora en que ocurrió.
-  ///
-  /// 🔴 **Se lee al arrancar y otra vez al pasar por las ocho**, y no solo una
-  /// vez al día. Anclarlo únicamente a las ocho dejaría sin avisos a quien abre
-  /// la app a las siete; leer solo al arrancar deja fuera todo lo que se
-  /// programe después. Con las dos, son como mucho dos consultas diarias y la
-  /// mañana entra completa.
-  ///
-  /// Lo que ninguna de las dos arregla es lo que se programa a media mañana:
-  /// para eso está [releer], que se pide a mano.
+  /// El ancla de la última lectura, no la hora en que ocurrió: al arrancar y
+  /// luego cada cuarto de hora desde las ocho. Ver `LaJornada.anclaPara`.
   DateTime? _leidoDesde;
   List<Reunion> _agenda = const [];
+
+  /// El día de la última lectura **que salió bien**, o `null` si no hay.
+  ///
+  /// Es lo que dice si [_agenda] sirve para comparar. 🔴 Sin esto, la primera
+  /// lectura de la mañana se compararía con la lista vacía del arranque —o con
+  /// la de ayer, si la app pasó la noche abierta— y cada reunión del día se
+  /// anunciaría como nueva.
+  DateTime? _leidaEl;
 
   /// Las reuniones leídas de hoy, para quien las quiera enseñar —el escenario
   /// dormido dice la próxima—. Se lee junto a este provider: el estado cambia
@@ -183,14 +186,14 @@ class ElVigilanteDeLaAgenda extends Notifier<Avisos> {
     await _avisar(reunion, ahora);
   }
 
-  /// Vuelve a preguntarle al calendario ahora mismo.
+  /// Vuelve a preguntarle al calendario ahora mismo, sin esperar al siguiente
+  /// cuarto de hora.
   ///
-  /// Existe porque la agenda en memoria **no se entera de lo que se programe
-  /// después**: una reunión puesta a media mañana no está en lo que se leyó al
-  /// arrancar. Se pide a mano en vez de sondear cada pocos minutos, que serían
-  /// casi trescientas consultas diarias para releer lo mismo.
+  /// **No olvida lo que había**: es con lo que se compara, así que si algo
+  /// cambió, releer a mano también lo cuenta. Y si la lectura falla, la agenda
+  /// de antes sigue sirviendo para avisar.
   Future<void> releer() async {
-    _olvidarLaAgenda();
+    _leidoDesde = null;
     await _leerSiHaceFalta(_ahora());
   }
 
@@ -248,6 +251,7 @@ class ElVigilanteDeLaAgenda extends Notifier<Avisos> {
 
   void _olvidarLaAgenda() {
     _leidoDesde = null;
+    _leidaEl = null;
     _agenda = const [];
     _yaAvisadas.clear();
   }
@@ -287,7 +291,7 @@ class ElVigilanteDeLaAgenda extends Notifier<Avisos> {
       // Fuera de jornada no se lee y **no se conserva**: lo que quedara en
       // memoria sería la lista de un día que terminó.
       case QueHacerConLaAgenda.olvidarla:
-        if (_agenda.isNotEmpty) _olvidarLaAgenda();
+        if (_agenda.isNotEmpty || _leidaEl != null) _olvidarLaAgenda();
         return;
       case QueHacerConLaAgenda.dejarlaComoEsta:
       // El workspace se carga solo y en paralelo, y el vigilante le gana la
@@ -308,8 +312,20 @@ class ElVigilanteDeLaAgenda extends Notifier<Avisos> {
           configDir: emparejada!.claudeProfile,
         );
     if (!ref.mounted) return;
-    _agenda = leida;
+    // 🔴 **El ancla se marca aunque falle.** Sin marcarla, el tic siguiente
+    // —treinta segundos— volvería a intentarlo, y con la cuenta sin sesión eso
+    // es un `claude -p` cada medio minuto todo el día. Se reintenta en el
+    // siguiente cuarto de hora.
     _leidoDesde = toca.ancla;
+    // Y lo que había **se queda**: sigue siendo la mejor agenda que se tiene.
+    if (leida == null) return;
+
+    final hoy = DateTime(ahora.year, ahora.month, ahora.day);
+    final cambios = _leidaEl == hoy
+        ? LoQueCambioEnLaAgenda.entre(_agenda, leida, cuando: ahora)
+        : const <CambioEnLaAgenda>[];
+    _agenda = leida;
+    _leidaEl = hoy;
     state = state.copyWith(ultimaLectura: _ahora());
     // El local **antes** del `clear`: en un cascade el argumento se evalúa
     // después, así que `..clear()..addAll(loQueSigueVivo(_yaAvisadas, …))`
@@ -317,7 +333,41 @@ class ElVigilanteDeLaAgenda extends Notifier<Avisos> {
     final siguenVivos = LoQueTocaAvisar.loQueSigueVivo(_yaAvisadas, leida);
     _yaAvisadas
       ..clear()
-      ..addAll(siguenVivos);
+      ..addAll(siguenVivos)
+      // 🔴 Una reunión movida **vuelve a merecer su aviso**. Se recuerda por
+      // id, así que sin esto la de las diez, avisada a las 9:55 y movida a las
+      // tres, llegaría a las tres sin que nada sonara.
+      ..removeAll([
+        for (final cambio in cambios)
+          if (cambio is ReunionMovida) cambio.reunion.id,
+      ]);
+
+    // Sin esperarlo: [loDeHoy] espera a esta lectura, y quien pregunta por la
+    // agenda no tiene por qué esperar además a que termine de decirse otra
+    // cosa.
+    if (cambios.isNotEmpty) unawaited(_contarLosCambios(cambios));
+  }
+
+  /// Cuenta lo que cambió, por quien habla primero: con sus reglas de cuándo
+  /// callarse, y por escrito siempre.
+  Future<void> _contarLosCambios(List<CambioEnLaAgenda> cambios) {
+    final s = ref.read(stringsProvider);
+    final frase = LoQueCambioEnLaAgenda.comoSeDice(
+      cambios,
+      laHora: LoQueSeContestaDeLaAgenda.laHora,
+      nueva: s.reunionNueva,
+      movida: s.reunionMovida,
+      cancelada: s.reunionCancelada,
+      yMas: s.yMasCambiosEnLaAgenda,
+    );
+    return ref
+        .read(elQueHablaPrimeroProvider)
+        .avisa(
+          titulo: s.laAgendaCambio,
+          frase: frase,
+          llave: LoQueCambioEnLaAgenda.laLlave(cambios),
+          escrito: frase,
+        );
   }
 
   /// Lo dice en voz alta, o lo deja escrito si no se puede.

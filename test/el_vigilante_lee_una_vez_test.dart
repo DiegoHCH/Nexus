@@ -1,8 +1,11 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/features/agenda/data/datasources/agenda_data_source.dart';
 import 'package:nexus/features/agenda/domain/entities/reunion.dart';
 import 'package:nexus/features/agenda/presentation/providers/el_vigilante_de_la_agenda.dart';
+import 'package:nexus/features/avisos/presentation/providers/el_que_habla_primero.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/domain/entities/workspace.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
@@ -32,15 +35,31 @@ class _Workspace extends WorkspaceController {
   );
 }
 
-/// Un calendario que cuenta cuántas veces le preguntan.
+/// Quien habla primero, sin altavoz ni notificación: apunta lo que diría.
+class _QuienHabla extends ElQueHablaPrimero {
+  _QuienHabla(super.ref);
+
+  final dicho = <String>[];
+
+  @override
+  Future<void> avisa({
+    required String titulo,
+    required String frase,
+    required String llave,
+    required String escrito,
+  }) async => dicho.add(frase);
+}
+
+/// Un calendario que cuenta cuántas veces le preguntan. [devuelve] se puede
+/// cambiar entre lecturas, y `null` es una lectura que falla.
 class _Calendario extends AgendaDataSource {
   _Calendario([this.devuelve = const []]);
 
-  final List<Reunion> devuelve;
+  List<Reunion>? devuelve;
   var veces = 0;
 
   @override
-  Future<List<Reunion>> delDia(
+  Future<List<Reunion>?> delDia(
     DateTime dia, {
     required String carpeta,
     String? configDir,
@@ -76,6 +95,10 @@ void main() {
         relojProvider.overrideWithValue(() => cuando ?? jueves),
         agendaDataSourceProvider.overrideWithValue(calendario),
         workspaceControllerProvider.overrideWith(() => _Workspace(emparejada)),
+        elQueHablaPrimeroProvider.overrideWith(_QuienHabla.new),
+        // Lo que se dice se comprueba palabra por palabra, y el idioma de la
+        // máquina de pruebas no tiene por qué ser el de la app.
+        localeProvider.overrideWithValue(const Locale('es')),
       ],
     );
     addTearDown(container.dispose);
@@ -218,5 +241,89 @@ void main() {
           'sin agenda que mirar, quien pregunta sigue por el camino largo en '
           'vez de recibir un «no tengo» que sería mentira',
     );
+  });
+
+  group('lo que cambia entre dos lecturas', () {
+    Reunion growth(int hora) => Reunion(
+      id: 'growth',
+      titulo: 'Growth',
+      comienza: DateTime(2026, 9, 3, hora),
+      invitados: 2,
+    );
+    final daily = Reunion(
+      id: 'daily',
+      titulo: 'Daily',
+      comienza: DateTime(2026, 9, 3, 11, 30),
+      invitados: 4,
+    );
+
+    Future<List<String>> loDicho(
+      ProviderContainer container,
+      _Calendario calendario,
+      List<Reunion>? despues,
+    ) async {
+      final vigilante = container.read(elVigilanteDeLaAgendaProvider.notifier);
+      await asentar(container);
+      await vigilante.loDeHoy();
+      calendario.devuelve = despues;
+      await vigilante.releer();
+      // El aviso sale sin esperarlo, para no hacer esperar a quien pregunta.
+      await Future<void>.delayed(Duration.zero);
+      return (container.read(elQueHablaPrimeroProvider) as _QuienHabla).dicho;
+    }
+
+    test('la reunión que te ponen a media mañana se cuenta', () async {
+      final calendario = _Calendario([daily]);
+      final container = montar(calendario);
+
+      final dicho = await loDicho(container, calendario, [daily, growth(14)]);
+
+      expect(dicho, ['Reunión nueva: Growth, a las 14:00.']);
+    });
+
+    test('la que se mueve y la que se cancela, también', () async {
+      final calendario = _Calendario([daily, growth(14)]);
+      final container = montar(calendario);
+
+      expect(await loDicho(container, calendario, [growth(16)]), [
+        'Se canceló Daily, la de las 11:30. Growth se movió a las 16:00.',
+      ]);
+    });
+
+    // 🔴 El fallo que más caro saldría: antes una lectura fallida era `[]`, y
+    // comparada con la anterior diría en voz alta que te cancelaron todo.
+    test('una lectura que falla no cancela nada ni borra la agenda', () async {
+      final calendario = _Calendario([daily]);
+      final container = montar(calendario);
+
+      final dicho = await loDicho(container, calendario, null);
+      final hoy = await container
+          .read(elVigilanteDeLaAgendaProvider.notifier)
+          .loDeHoy();
+
+      expect(dicho, isEmpty);
+      expect(
+        hoy,
+        contains('11:30 · Daily'),
+        reason: 'lo que había sigue siendo la mejor agenda que se tiene',
+      );
+    });
+
+    test('la primera lectura del día no anuncia nada como nuevo', () async {
+      final calendario = _Calendario([daily, growth(14)]);
+      final container = montar(calendario);
+
+      await asentar(container);
+      await container.read(elVigilanteDeLaAgendaProvider.notifier).loDeHoy();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        (container.read(elQueHablaPrimeroProvider) as _QuienHabla).dicho,
+        isEmpty,
+        reason:
+            'sin una lectura anterior no hay con qué comparar: todo sería '
+            '«nuevo»',
+      );
+    });
   });
 }

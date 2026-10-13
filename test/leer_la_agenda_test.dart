@@ -1,5 +1,37 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/features/agenda/data/datasources/agenda_data_source.dart';
+import 'package:nexus/features/assistant/data/datasources/claude_cli_data_source.dart';
+import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart';
+
+/// Un `claude -p` que contesta lo que se le diga y apunta con qué modelo se le
+/// llamó.
+class _Cli extends ClaudeCliDataSource {
+  _Cli(this.resultado, {this.esError = false});
+
+  final String resultado;
+  final bool esError;
+  String? modelo;
+
+  @override
+  Stream<Map<String, dynamic>> run(
+    String instruction, {
+    required String workingDirectory,
+    required String permissionMode,
+    List<String> extraDirectories = const [],
+    String? resumeSessionId,
+    bool forkSession = false,
+    String? appendSystemPrompt,
+    String? configDir,
+    String? model,
+    String? effort,
+    List<String> disallowedTools = const [],
+    List<String> herramientasMcp = const [],
+    Future<RespuestaDePermiso> Function(PeticionDePermiso)? alPedirPermiso,
+  }) async* {
+    modelo = model;
+    yield {'type': 'result', 'is_error': esError, 'result': resultado};
+  }
+}
 
 /// Lo que contesta Claude cuando se le pide el calendario.
 ///
@@ -89,4 +121,51 @@ void main() {
     expect(instruccion, contains('invitados'));
     expect(instruccion.toLowerCase(), isNot(contains('descripci')));
   });
+
+  // 🔴 Desde que la agenda se relee y se compara, «no se pudo leer» y «no hay
+  // nada» no pueden ser lo mismo: el primero, tomado por el segundo, se diría
+  // en voz alta como «te cancelaron todas las reuniones».
+  group('un fallo no es un día vacío', () {
+    test('lo que no trae array no es una agenda', () {
+      expect(AgendaDataSource.leerONada('[]'), isEmpty);
+      expect(AgendaDataSource.leerONada('No tienes eventos hoy.'), isNull);
+      expect(AgendaDataSource.leerONada('[{roto'), isNull);
+    });
+
+    test('una cuenta sin sesión devuelve null, no []', () async {
+      final fuente = AgendaDataSource(
+        cli: _Cli('Not logged in · Please run /login', esError: true),
+      );
+
+      expect(
+        await fuente.delDia(DateTime(2026, 9, 3), carpeta: '/repo'),
+        isNull,
+      );
+    });
+
+    test('un día sin reuniones sí es []', () async {
+      final fuente = AgendaDataSource(cli: _Cli('[]'));
+
+      expect(
+        await fuente.delDia(DateTime(2026, 9, 3), carpeta: '/repo'),
+        isEmpty,
+      );
+    });
+  });
+
+  // Se relee cada cuarto de hora; con el modelo de la cuenta, medido, eran
+  // ~$0,21 por lectura, y con Haiku ~$0,008.
+  test(
+    'el calendario se lee con Haiku, no con el modelo de la cuenta',
+    () async {
+      final cli = _Cli(json);
+
+      final leidas = await AgendaDataSource(
+        cli: cli,
+      ).delDia(DateTime(2026, 8, 31), carpeta: '/repo');
+
+      expect(leidas, hasLength(1));
+      expect(cli.modelo, 'haiku');
+    },
+  );
 }

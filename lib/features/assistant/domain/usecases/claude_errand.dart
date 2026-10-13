@@ -29,6 +29,10 @@ abstract final class ClaudeErrand {
   /// —hizo falta para poder avisar— así que contestarla es mirar, no preguntar.
   static const agendaTool = 'consultar_agenda';
 
+  /// Lo que te espera hoy: las reuniones que quedan, los PR por revisar, las
+  /// programadas y el cupo. No acaba en Claude: se junta en la app.
+  static const loQueTeEsperaTool = 'lo_que_me_espera_hoy';
+
   /// Normaliza el nombre a lo que es una carpeta de skill: minúsculas y
   /// guiones medios.
   ///

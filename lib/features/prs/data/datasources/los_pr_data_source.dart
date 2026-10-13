@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:nexus/core/platform/claude_environment.dart';
 import 'package:nexus/core/platform/herramienta_externa.dart';
 import 'package:nexus/features/prs/domain/entities/pr_mezclado.dart';
+import 'package:nexus/features/prs/domain/entities/pr_por_revisar.dart';
 
 /// Tus PR ya mezclados, preguntándoselo a `gh`.
 ///
@@ -55,6 +56,71 @@ class LosPrDataSource {
       // Sin sesión, `gh` escribe texto plano donde debería ir el JSON.
       return null;
     }
+  }
+
+  /// Los PR abiertos que esperan tu revisión, o `null` si no se pudo preguntar.
+  ///
+  /// Para contarlos en lo que te espera hoy. La misma búsqueda global que
+  /// [mezclados] —una sola llamada para todos los repos— y el mismo `null`
+  /// para «no pude mirar», que no es «no tienes ninguno».
+  Future<List<PrPorRevisar>?> porRevisar() async {
+    final gh = await HerramientaExterna.donde(
+      'gh',
+      candidatos: HerramientaExterna.candidatosDeGh(),
+    );
+    if (gh == null) return null;
+
+    try {
+      final salida = await Process.run(gh, [
+        'search',
+        'prs',
+        '--review-requested=@me',
+        '--state=open',
+        '--limit',
+        '$cuantos',
+        '--json',
+        'number,title,repository,author,updatedAt',
+      ], environment: ClaudeEnvironment.forTools());
+      if (salida.exitCode != 0) return null;
+
+      final crudo = salida.stdout;
+      if (crudo is! String || crudo.trim().isEmpty) return null;
+      return porRevisarDeJson(crudo);
+    } on ProcessException {
+      return null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  /// Como [deJson], para los que esperan revisión. El que más tiempo lleva
+  /// sin moverse va primero: es el que más está esperando.
+  @visibleForTesting
+  static List<PrPorRevisar> porRevisarDeJson(String crudo) {
+    final leidos = [
+      for (final item in jsonDecode(crudo) as List<dynamic>)
+        if (item is Map<String, dynamic>) ?_leerPorRevisar(item),
+    ];
+    final lejos = DateTime.utc(9999);
+    return leidos..sort(
+      (a, b) => (a.actualizado ?? lejos).compareTo(b.actualizado ?? lejos),
+    );
+  }
+
+  static PrPorRevisar? _leerPorRevisar(Map<String, dynamic> item) {
+    final numero = (item['number'] as num?)?.toInt();
+    final repo =
+        (item['repository'] as Map<String, dynamic>?)?['nameWithOwner']
+            as String?;
+    if (numero == null || repo == null || repo.isEmpty) return null;
+    return PrPorRevisar(
+      repo: repo,
+      numero: numero,
+      titulo: (item['title'] as String? ?? '').trim(),
+      autor:
+          (item['author'] as Map<String, dynamic>?)?['login'] as String? ?? '',
+      actualizado: DateTime.tryParse(item['updatedAt'] as String? ?? ''),
+    );
   }
 
   /// Aparte y visible para poder comprobar la lectura sin llamar a `gh`: lo que

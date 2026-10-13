@@ -667,6 +667,17 @@ class GeminiVoiceGateway implements VoiceGateway {
           'es hoy.',
       'parameters': {'type': 'OBJECT', 'properties': <String, Object?>{}},
     },
+    {
+      'name': loQueTeEsperaToolName,
+      'description':
+          'Cuenta lo que le espera hoy: las reuniones que le quedan, los PR '
+          'que esperan su revisión, las programadas y cuánto cupo lleva de '
+          'la semana. Úsala cuando pregunten «qué me espera hoy», «cómo viene '
+          'el día» o «cómo pinta hoy». Si solo preguntan por las reuniones, '
+          'es la de la agenda. Lo que devuelve ya está en frases cortas para '
+          'decir: dilo tal cual. No lleva parámetros.',
+      'parameters': {'type': 'OBJECT', 'properties': <String, Object?>{}},
+    },
   ];
 
   /// Los nombres viven aquí y no sueltos en el JSON porque el caso de uso
@@ -676,6 +687,7 @@ class GeminiVoiceGateway implements VoiceGateway {
   static const testToolName = 'correr_prueba';
   static const parteToolName = 'pedir_el_parte';
   static const agendaToolName = 'consultar_agenda';
+  static const loQueTeEsperaToolName = 'lo_que_me_espera_hoy';
 
   /// Qué significa un marco del servicio.
   ///

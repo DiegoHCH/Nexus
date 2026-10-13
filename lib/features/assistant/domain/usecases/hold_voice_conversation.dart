@@ -9,6 +9,7 @@ import 'package:nexus/features/assistant/domain/repositories/audio_output.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_audio_ajeno.dart';
 import 'package:nexus/features/assistant/domain/repositories/el_despacho_de_carpeta.dart';
 import 'package:nexus/features/assistant/domain/repositories/la_agenda_de_hoy.dart';
+import 'package:nexus/features/assistant/domain/repositories/lo_que_te_espera.dart';
 import 'package:nexus/features/assistant/domain/repositories/voice_gateway.dart';
 import 'package:nexus/features/assistant/domain/repositories/voice_input.dart';
 import 'package:nexus/features/assistant/domain/repositories/su_voz_aparte.dart';
@@ -50,6 +51,7 @@ class HoldVoiceConversation {
     this._comoSeLlama, {
     this.graciaDeLaRuta = _graciaDeLaRuta,
     this._suVozAparte,
+    this._loQueTeEspera,
     this.ritmoDelProgreso = const ElRitmoDelProgreso(),
     this._laSesionCaliente,
     this._claveCaliente,
@@ -150,6 +152,14 @@ class HoldVoiceConversation {
   /// un reloj falso para llegar a lo que afirman las convierte en pruebas de
   /// otra cosa.
   final Duration graciaDeLaRuta;
+
+  /// Quien junta lo que te espera hoy. Opcional y con nombre, como los puertos
+  /// más nuevos: sin él la herramienta contesta que no puede.
+  final LoQueTeEspera? _loQueTeEspera;
+
+  static const _sinElDia =
+      'Desde aquí no se puede juntar lo que le espera hoy. Dilo así, sin '
+      'inventarlo.';
 
   static const _sinAgenda =
       'Los avisos de agenda están apagados o no tienen carpeta, así que no hay '
@@ -1367,6 +1377,21 @@ class HoldVoiceConversation {
           // Sin agenda que mirar —avisos apagados, sin carpeta— se dice tal
           // cual en vez de contestar «no tienes nada», que sería mentira.
           result: agenda ?? _sinAgenda,
+        );
+        return;
+      }
+
+      // Lo que te espera hoy, igual que la agenda: no toca el repositorio ni
+      // gasta un encargo, así que se anuncia como consulta y se sostiene la
+      // sesión mientras se junta —la agenda puede ir en vuelo, y `gh` tarda lo
+      // suyo—.
+      if (request.name == ClaudeErrand.loQueTeEsperaTool) {
+        controller.add(const VoiceLookupStarted('Lo que te espera hoy'));
+        final elDia = await _loQueTeEspera?.deHoy();
+        responder(
+          callId: request.callId,
+          name: request.name,
+          result: elDia ?? _sinElDia,
         );
         return;
       }

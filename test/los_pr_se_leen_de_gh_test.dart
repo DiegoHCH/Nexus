@@ -40,4 +40,30 @@ void main() {
 
     expect(prs.map((p) => p.sena), ['a/b#2']);
   });
+
+  // Forma de `gh search prs --review-requested=@me --json
+  // number,title,repository,author,updatedAt`.
+  group('los que esperan tu revisión', () {
+    const porRevisar = '''
+[{"author":{"id":"U1","is_bot":false,"login":"ana","type":"User","url":""},
+  "number":12,"repository":{"name":"app","nameWithOwner":"org/app"},
+  "title":"  Fix login  ","updatedAt":"2026-10-09T15:00:00Z"},
+ {"author":{"login":"luis"},"number":7,
+  "repository":{"name":"web","nameWithOwner":"org/web"},
+  "title":"Bump deps","updatedAt":"2026-10-01T09:00:00Z"},
+ {"number":3,"title":"sin repo"}]
+''';
+
+    test('se leen con su autor, y el que más espera va primero', () {
+      final prs = LosPrDataSource.porRevisarDeJson(porRevisar);
+
+      expect(prs.map((p) => p.titulo), ['Bump deps', 'Fix login']);
+      expect(prs.first.autor, 'luis');
+      expect(prs.last.repo, 'org/app');
+    });
+
+    test('lo que no trae repo se salta, el resto se queda', () {
+      expect(LosPrDataSource.porRevisarDeJson(porRevisar), hasLength(2));
+    });
+  });
 }

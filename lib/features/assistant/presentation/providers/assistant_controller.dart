@@ -69,6 +69,7 @@ import 'package:nexus/features/workspace/data/datasources/claude_profiles_data_s
 import 'package:nexus/features/workspace/domain/usecases/el_comando_directo.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_hilo_que_viaja.dart';
+import 'package:nexus/features/lo_que_te_espera/presentation/providers/lo_que_te_espera_provider.dart';
 
 /// El pegamento entre los dos modelos y la pantalla: traduce cada
 /// [ClaudeEvent] y cada [VoiceEvent] al mismo [AssistantHudState] que el orbe,
@@ -1299,6 +1300,20 @@ class AssistantController extends Notifier<AssistantHudState> {
         }
       // Sin agenda que mirar se sigue de largo: Claude sí puede salir a
       // preguntarlo.
+
+      // «¿Qué me espera hoy?» se junta aquí —agenda, PR, programadas, cupo—
+      // y no va a Claude, que no tiene delante nada de eso. Siempre contesta:
+      // lo que no se sabe, lo calla en vez de inventarlo.
+      case ALoQueTeEspera():
+        _say(ChatAuthor.user, loQueSeVe ?? trimmed);
+        _sealLast();
+        final elDia = await ref
+            .read(loQueTeEsperaProvider(conversationId))
+            .deHoy();
+        if (!_vive) return;
+        _say(ChatAuthor.nexus, elDia);
+        _sealLast();
+        return;
 
       // Escribir «dame el daily» es pedir el parte, no encargarle esa frase a
       // Claude: él no tiene delante lo de ayer, así que contestaba algo con
@@ -3120,11 +3135,28 @@ class AssistantController extends Notifier<AssistantHudState> {
       errorMessage: null,
     );
 
+    // **Lo que te espera hoy, la primera vez del día que la llamas**, en vez
+    // de «¿Sí?» —o del silencio, abriéndola con el atajo o el orbe—. Va aquí
+    // porque es por donde pasan todas las formas de llamarla. Si dijiste algo
+    // detrás de su nombre, eso manda: venías a otra cosa.
+    //
+    // Se espera con el orbe ya pensando —lo de arriba— y con un tope corto:
+    // ver `ElDiaQueTeEspera.esperaAlLlamarla`.
+    var alAbrir = saludo;
+    if (primeraFrase == null) {
+      final elDia = await ref
+          .read(elDiaQueTeEsperaProvider)
+          .alLlamarlaHoy(configDir: _perfilDeLaCarpeta());
+      // La cerraste mientras se juntaba: no se abre detrás de ti.
+      if (!_vive || !state.voiceActive) return;
+      alAbrir = elDia ?? saludo;
+    }
+
     final conversation = ref.read(
       holdVoiceConversationProvider(conversationId),
     );
     _voiceSubscription =
-        conversation(saludo: saludo, primeraFrase: primeraFrase).listen(
+        conversation(saludo: alAbrir, primeraFrase: primeraFrase).listen(
           (event) => switch (event) {
             VoiceSessionReady() => _onVoiceReady(),
             VoiceUserTranscript() => _onHeard(event.text),

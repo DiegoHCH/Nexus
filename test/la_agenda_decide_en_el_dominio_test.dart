@@ -112,7 +112,28 @@ void main() {
     });
 
     test('con el ancla ya leída no se vuelve a consultar', () {
-      final r = toca(ahora: alas(11), leidoDesde: DateTime(2026, 9, 3, 8));
+      final r = toca(ahora: alas(8, 10), leidoDesde: DateTime(2026, 9, 3, 8));
+
+      expect(r.que, QueHacerConLaAgenda.dejarlaComoEsta);
+    });
+
+    // 🔴 Antes eran dos lecturas al día —el arranque y las ocho—, y una
+    // reunión puesta a las diez para las dos no llegaba nunca.
+    test('desde las ocho, cada cuarto de hora hay un ancla nueva', () {
+      final r = toca(ahora: alas(11, 7), leidoDesde: DateTime(2026, 9, 3, 8));
+
+      expect(
+        r.que,
+        QueHacerConLaAgenda.leerla,
+        reason: 'lo leído a las ocho no sabe lo que se programó después',
+      );
+      expect(r.ancla, DateTime(2026, 9, 3, 11));
+      expect(toca(ahora: alas(11, 15)).ancla, DateTime(2026, 9, 3, 11, 15));
+      expect(toca(ahora: alas(17, 59)).ancla, DateTime(2026, 9, 3, 17, 45));
+    });
+
+    test('antes de las ocho no se relee: basta con la del arranque', () {
+      final r = toca(ahora: alas(7, 50), leidoDesde: DateTime(2026, 9, 3));
 
       expect(r.que, QueHacerConLaAgenda.dejarlaComoEsta);
     });

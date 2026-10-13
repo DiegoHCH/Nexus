@@ -13,16 +13,21 @@ import 'package:nexus/features/assistant/domain/usecases/mcp_permissions.dart';
 /// que hace esto es pedirle la respuesta en JSON en vez de en prosa, porque
 /// aquí no la lee una persona.
 ///
-/// 🔴 **Se pregunta una vez y se cachea el día.** Preguntar cada pocos minutos
-/// serían casi trescientos `claude -p` diarios, y eso son tokens de tu
-/// suscripción para releer la misma agenda. El reloj que dispara los avisos es
-/// local; a la cuenta solo se vuelve cuando el día cambia o se pide a mano.
+/// 🔴 **Se pregunta con Haiku, no con el modelo de la cuenta.** Se relee cada
+/// cuarto de hora —ver `LaJornada.cadaCuanto`— y con Opus cada lectura costaba
+/// ~$0,21; con Haiku, ~$0,008, y contesta lo mismo: es sacar una lista de un
+/// conector y escribirla en JSON, no hay nada que razonar. Medido el 10 oct
+/// 2026 sobre un día real con dos reuniones: las dos lecturas devolvieron las
+/// mismas.
 class AgendaDataSource {
   const AgendaDataSource({this.cli = const ClaudeCliDataSource()});
 
   final ClaudeCliDataSource cli;
 
   static const conector = 'mcp__claude_ai_Google_Calendar';
+
+  /// El modelo con el que se lee. Ver la cabecera de la clase.
+  static const modelo = 'haiku';
 
   /// Las herramientas del conector que **escriben**, para negarlas.
   ///
@@ -51,7 +56,14 @@ class AgendaDataSource {
         'Si no hay eventos, responde [].';
   }
 
-  Future<List<Reunion>> delDia(
+  /// Las reuniones del día, o `null` si **no se pudo leer**.
+  ///
+  /// 🔴 **Que falle no es que no haya nada.** Antes un fallo devolvía `[]`, y
+  /// con una sola lectura al día daba igual: no había con qué compararlo. Ahora
+  /// se relee y se compara, y un `[]` por un fallo se leería como «te
+  /// cancelaron todas las reuniones» —dicho en voz alta—. Un fallo es una cuenta
+  /// sin sesión, un `claude -p` que no arranca, o una respuesta sin array.
+  Future<List<Reunion>?> delDia(
     DateTime dia, {
     required String carpeta,
     String? configDir,
@@ -67,38 +79,49 @@ class AgendaDataSource {
         // accidente.
         permissionMode: 'manual',
         configDir: configDir,
+        model: modelo,
         herramientasMcp: const [conector],
         disallowedTools: _loQueEscribe,
       )) {
-        if (evento['type'] == 'result' && evento['result'] is String) {
+        if (evento['type'] != 'result') continue;
+        // «Not logged in · Please run /login» llega como un resultado con
+        // texto, y marcado como error: no es una agenda.
+        if (evento['is_error'] == true) return null;
+        if (evento['result'] is String) {
           buffer.write(evento['result'] as String);
         }
       }
     } on Object catch (e) {
-      // Que falle mirar la agenda no puede tumbar nada: se queda sin avisos
-      // hasta la próxima consulta, que es infinitamente mejor que arrastrar el
-      // fallo a la app entera por una lectura de fondo que nadie pidió.
+      // Que falle mirar la agenda no puede tumbar nada: se queda con lo que
+      // tenía hasta la próxima consulta, que es infinitamente mejor que
+      // arrastrar el fallo a la app entera por una lectura de fondo que nadie
+      // pidió.
       debugPrint('agenda · no se pudo leer el calendario: $e');
-      return const [];
+      return null;
     }
-    return leer(buffer.toString());
+    return leerONada(buffer.toString());
   }
 
-  /// Saca las reuniones de lo que contestó.
+  /// Saca las reuniones de lo que contestó, y `[]` si no hay ninguna que sacar.
   ///
   /// **Tolerante con el envoltorio a propósito.** Se le pide JSON pelado y aun
   /// así a veces llega dentro de un bloque de código o con una frase delante:
   /// negarse por eso dejaría sin avisos un día entero por una coletilla.
-  static List<Reunion> leer(String respuesta) {
+  static List<Reunion> leer(String respuesta) =>
+      leerONada(respuesta) ?? const [];
+
+  /// Como [leer], pero distingue «no hay reuniones» —un `[]`— de «esto no es
+  /// una agenda» —una frase sin array, JSON roto—, que es `null`.
+  static List<Reunion>? leerONada(String respuesta) {
     final crudo = _elArray(respuesta);
-    if (crudo == null) return const [];
+    if (crudo == null) return null;
     final Object? leido;
     try {
       leido = jsonDecode(crudo);
     } on FormatException {
-      return const [];
+      return null;
     }
-    if (leido is! List) return const [];
+    if (leido is! List) return null;
     return [for (final evento in leido) ?Reunion.deJson(evento)];
   }
 

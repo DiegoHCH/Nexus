@@ -135,24 +135,33 @@ void main() {
       );
     });
 
-    test('a partir de las ocho, el ancla son las ocho', () {
+    test('a partir de las ocho, el ancla es el cuarto de hora en curso', () {
       expect(
         LaJornada.anclaPara(DateTime(2026, 8, 31, 8)),
         DateTime(2026, 8, 31, 8),
       );
       expect(
-        LaJornada.anclaPara(DateTime(2026, 8, 31, 17, 45)),
-        DateTime(2026, 8, 31, 8),
+        LaJornada.anclaPara(DateTime(2026, 8, 31, 17, 52)),
+        DateTime(2026, 8, 31, 17, 45),
       );
     });
 
-    // Que sea el mismo valor toda la tarde es lo que evita releer.
-    test('toda la tarde comparte ancla, así que no se relee', () {
-      expect(
-        LaJornada.anclaPara(DateTime(2026, 8, 31, 9)),
-        LaJornada.anclaPara(DateTime(2026, 8, 31, 17)),
-      );
-    });
+    // Que sea el mismo valor dentro del cuarto de hora es lo que evita releer
+    // en cada tic de medio minuto; que cambie al siguiente es lo que trae lo
+    // programado a media mañana.
+    test(
+      'dentro del mismo cuarto de hora no se relee; en el siguiente, sí',
+      () {
+        expect(
+          LaJornada.anclaPara(DateTime(2026, 8, 31, 9, 1)),
+          LaJornada.anclaPara(DateTime(2026, 8, 31, 9, 14)),
+        );
+        expect(
+          LaJornada.anclaPara(DateTime(2026, 8, 31, 9, 14)),
+          isNot(LaJornada.anclaPara(DateTime(2026, 8, 31, 9, 15))),
+        );
+      },
+    );
 
     // 🔴 A las seis se acaba. Lo que quedara en memoria sería la lista de un
     // día que terminó: sirve para contestar «hoy no tienes reuniones» cuando

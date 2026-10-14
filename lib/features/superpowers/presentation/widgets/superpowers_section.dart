@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
+import 'package:nexus/features/superpowers/domain/usecases/la_carpeta_de_la_cuenta.dart';
 import 'package:nexus/features/superpowers/domain/usecases/la_lista_de_mcp.dart';
 import 'package:nexus/features/superpowers/presentation/providers/superpowers_providers.dart';
 import 'package:nexus/features/superpowers/presentation/widgets/mcp_panel.dart';
@@ -87,8 +90,16 @@ class _SuperpowersSectionState extends ConsumerState<SuperpowersSection> {
           const [],
     ).length;
     final skills = ref.watch(installedSkillsProvider(current)).value?.length;
+    // La carpeta activa, si es de esta cuenta: desde ella se ve —y se pone— lo
+    // que va solo en una carpeta. Ver [LaCarpetaDeLaCuenta].
+    final carpeta = LaCarpetaDeLaCuenta.de(
+      ref.watch(workspaceControllerProvider),
+      configDir: current,
+      home: Platform.environment['HOME'] ?? '',
+    );
+    final dondePlugins = (configDir: current, carpeta: carpeta?.path);
     final plugins = ref
-        .watch(pluginsProvider(current))
+        .watch(pluginsProvider(dondePlugins))
         .value
         ?.where((plugin) => plugin.installed)
         .length;
@@ -189,8 +200,9 @@ class _SuperpowersSectionState extends ConsumerState<SuperpowersSection> {
               configDir: current,
             ),
             _Kind.plugins => PluginsPanel(
-              key: ValueKey('plugins-$current'),
+              key: ValueKey('plugins-$current-${carpeta?.path}'),
               configDir: current,
+              carpeta: carpeta,
             ),
           },
         ),

@@ -1,0 +1,4 @@
+{
+  "description": "Las reglas de commits y PRs de quien lo instala",
+  "modules": ["./register.js"]
+}

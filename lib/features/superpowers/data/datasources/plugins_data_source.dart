@@ -21,7 +21,9 @@ class PluginsDataSource {
   /// solo se puede comprobar teniendo delante la instalación que lo provoca.
   final Future<String> Function() claude;
 
-  Future<List<ClaudePlugin>> list(String configDir) async {
+  /// [carpeta] es desde dónde se pregunta: lo puesto **solo en esa carpeta**
+  /// solo lo ve el CLI lanzado desde ella.
+  Future<List<ClaudePlugin>> list(String configDir, {String? carpeta}) async {
     // `--available` además de `--json`: sin él, el CLI devuelve solo los
     // instalados y en otra forma. Comprobado contra el binario.
     final output = await _run(configDir, [
@@ -29,8 +31,25 @@ class PluginsDataSource {
       'list',
       '--available',
       '--json',
-    ]);
-    return output == null ? const [] : PluginCommand.parseList(output);
+    ], carpeta: carpeta);
+    if (output == null) return const [];
+    return [
+      for (final plugin in PluginCommand.parseList(output))
+        plugin.installed ? plugin.conMod(_esUnMod(plugin.installPath)) : plugin,
+    ];
+  }
+
+  /// Si un plugin puesto trae código que corre dentro de Claude Code. Lo dice
+  /// su `hooks/hooks.json`, que el CLI no resume en ninguna lista.
+  static bool _esUnMod(String? installPath) {
+    if (installPath == null) return false;
+    try {
+      final hooks = File('$installPath/hooks/hooks.json');
+      return hooks.existsSync() &&
+          PluginCommand.declaraModulos(hooks.readAsStringSync());
+    } on FileSystemException {
+      return false;
+    }
   }
 
   Future<List<Marketplace>> marketplaces(String configDir) async {
@@ -52,34 +71,63 @@ class PluginsDataSource {
   Future<String?> details(String configDir, String name) =>
       _run(configDir, ['plugin', 'details', name]);
 
-  Future<String?> install(String configDir, String id) =>
-      _act(configDir, PluginCommand.install(id));
+  /// En la cuenta entera, o solo en [carpeta] si se da.
+  Future<String?> install(String configDir, String id, {String? carpeta}) =>
+      _act(
+        configDir,
+        PluginCommand.install(id, soloEnLaCarpeta: carpeta != null),
+        carpeta: carpeta,
+      );
 
-  Future<String?> uninstall(String configDir, String id) =>
-      _act(configDir, PluginCommand.uninstall(id));
+  /// Lo que actúa sobre uno puesto va **con su alcance y desde su carpeta**:
+  /// quitar uno puesto solo en una carpeta con alcance de cuenta contestaría
+  /// que no está instalado.
+  Future<String?> uninstall(String configDir, ClaudePlugin plugin) => _act(
+    configDir,
+    PluginCommand.uninstall(plugin.id, scope: plugin.scope),
+    carpeta: plugin.projectPath,
+  );
 
   Future<String?> setEnabled(
     String configDir,
-    String id, {
+    ClaudePlugin plugin, {
     required bool enabled,
-  }) => _act(configDir, PluginCommand.setEnabled(id, enabled: enabled));
+  }) => _act(
+    configDir,
+    PluginCommand.setEnabled(plugin.id, enabled: enabled, scope: plugin.scope),
+    carpeta: plugin.projectPath,
+  );
 
-  Future<String?> update(String configDir, String id) =>
-      _act(configDir, PluginCommand.update(id));
+  Future<String?> update(String configDir, ClaudePlugin plugin) => _act(
+    configDir,
+    PluginCommand.update(plugin.id, scope: plugin.scope),
+    carpeta: plugin.projectPath,
+  );
 
-  Future<String?> addMarketplace(String configDir, String source) =>
-      _act(configDir, PluginCommand.addMarketplace(source));
+  Future<String?> addMarketplace(
+    String configDir,
+    String source, {
+    List<String> soloLasCarpetas = const [],
+  }) => _act(
+    configDir,
+    PluginCommand.addMarketplace(source, soloLasCarpetas: soloLasCarpetas),
+  );
 
   Future<String?> removeMarketplace(String configDir, String name) =>
       _act(configDir, PluginCommand.removeMarketplace(name));
 
   /// `null` si salió bien, el error del CLI si no.
-  Future<String?> _act(String configDir, List<String>? args) async {
+  Future<String?> _act(
+    String configDir,
+    List<String>? args, {
+    String? carpeta,
+  }) async {
     if (args == null) return 'Datos inválidos';
     try {
       final result = await Process.run(
         await claude(),
         args,
+        workingDirectory: _laQueExiste(carpeta),
         environment: ClaudeEnvironment.forProfile(configDir),
         includeParentEnvironment: false,
       );
@@ -91,11 +139,16 @@ class PluginsDataSource {
     }
   }
 
-  Future<String?> _run(String configDir, List<String> args) async {
+  Future<String?> _run(
+    String configDir,
+    List<String> args, {
+    String? carpeta,
+  }) async {
     try {
       final result = await Process.run(
         await claude(),
         args,
+        workingDirectory: _laQueExiste(carpeta),
         environment: ClaudeEnvironment.forProfile(configDir),
         includeParentEnvironment: false,
       );
@@ -104,4 +157,10 @@ class PluginsDataSource {
       return null;
     }
   }
+
+  /// Una carpeta que ya no está no puede ser desde dónde se lanza: el proceso
+  /// no arrancaría. Se lanza entonces desde donde sea, y el CLI contesta lo
+  /// que sepa.
+  static String? _laQueExiste(String? carpeta) =>
+      carpeta != null && Directory(carpeta).existsSync() ? carpeta : null;
 }

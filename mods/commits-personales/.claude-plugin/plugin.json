@@ -1,0 +1,6 @@
+{
+  "name": "commits-personales",
+  "version": "0.1.0",
+  "description": "Commits en inglés y con Conventional Commits, sin Co-Authored-By, y PRs sin la firma de la herramienta",
+  "author": { "name": "Diego Hoyos" }
+}

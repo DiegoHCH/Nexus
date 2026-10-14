@@ -91,10 +91,16 @@ final pluginsDataSourceProvider = Provider<PluginsDataSource>(
   (ref) => const PluginsDataSource(),
 );
 
+/// Desde dónde se miran los plugins: una cuenta y, si la carpeta activa es de
+/// esa cuenta, la carpeta. Sin ella no se ve lo puesto solo en una carpeta.
+typedef DondeSeMiran = ({String configDir, String? carpeta});
+
 /// Instalados y disponibles, en una sola lista: el CLI los da juntos y
 /// separarlos en dos llamadas sería pedir dos veces lo mismo.
-final pluginsProvider = FutureProvider.family<List<ClaudePlugin>, String>(
-  (ref, configDir) => ref.watch(pluginsDataSourceProvider).list(configDir),
+final pluginsProvider = FutureProvider.family<List<ClaudePlugin>, DondeSeMiran>(
+  (ref, donde) => ref
+      .watch(pluginsDataSourceProvider)
+      .list(donde.configDir, carpeta: donde.carpeta),
 );
 
 final marketplacesProvider = FutureProvider.family<List<Marketplace>, String>(

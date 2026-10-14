@@ -17,7 +17,13 @@ void main() {
 
   test('la activa, si trabaja con esa cuenta', () {
     final donde = LaCarpetaDeLaCuenta.de(
-      con([const PairedFolder(path: '/r/nexus', modality: FolderModality.voice, claudeProfile: trabajo)], '/r/nexus'),
+      con([
+        const PairedFolder(
+          path: '/r/nexus',
+          modality: FolderModality.voice,
+          claudeProfile: trabajo,
+        ),
+      ], '/r/nexus'),
       configDir: trabajo,
       home: home,
     );
@@ -26,22 +32,49 @@ void main() {
   });
 
   test('una carpeta sin cuenta elegida es de la de siempre', () {
-    final ws = con([const PairedFolder(path: '/r/app', modality: FolderModality.voice)], '/r/app');
+    final ws = con([
+      const PairedFolder(path: '/r/app', modality: FolderModality.voice),
+    ], '/r/app');
 
-    expect(LaCarpetaDeLaCuenta.de(ws, configDir: '$home/.claude', home: home), isNotNull);
+    expect(
+      LaCarpetaDeLaCuenta.de(ws, configDir: '$home/.claude', home: home),
+      isNotNull,
+    );
     expect(LaCarpetaDeLaCuenta.de(ws, configDir: trabajo, home: home), isNull);
   });
 
   test('con otra cuenta, o sin carpeta activa, no hay «solo aquí»', () {
-    final ws = [const PairedFolder(path: '/r/nexus', modality: FolderModality.voice, claudeProfile: trabajo)];
+    final ws = [
+      const PairedFolder(
+        path: '/r/nexus',
+        modality: FolderModality.voice,
+        claudeProfile: trabajo,
+      ),
+    ];
 
-    expect(LaCarpetaDeLaCuenta.de(con(ws, '/r/nexus'), configDir: '$home/.claude', home: home), isNull);
-    expect(LaCarpetaDeLaCuenta.de(con(ws, null), configDir: trabajo, home: home), isNull);
+    expect(
+      LaCarpetaDeLaCuenta.de(
+        con(ws, '/r/nexus'),
+        configDir: '$home/.claude',
+        home: home,
+      ),
+      isNull,
+    );
+    expect(
+      LaCarpetaDeLaCuenta.de(con(ws, null), configDir: trabajo, home: home),
+      isNull,
+    );
   });
 
   test('una barra de más al final no la cambia de cuenta', () {
     final donde = LaCarpetaDeLaCuenta.de(
-      con([const PairedFolder(path: '/r/nexus', modality: FolderModality.voice, claudeProfile: '$trabajo/')], '/r/nexus'),
+      con([
+        const PairedFolder(
+          path: '/r/nexus',
+          modality: FolderModality.voice,
+          claudeProfile: '$trabajo/',
+        ),
+      ], '/r/nexus'),
       configDir: trabajo,
       home: home,
     );

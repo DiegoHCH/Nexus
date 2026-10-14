@@ -196,14 +196,20 @@ void main() {
     });
 
     test('lo que se hace con uno puesto va con su alcance', () {
-      expect(
-        PluginCommand.uninstall('algo', scope: 'local'),
-        ['plugin', 'uninstall', 'algo', '-s', 'local'],
-      );
-      expect(
-        PluginCommand.setEnabled('algo', enabled: false, scope: 'local'),
-        ['plugin', 'disable', 'algo', '-s', 'local'],
-      );
+      expect(PluginCommand.uninstall('algo', scope: 'local'), [
+        'plugin',
+        'uninstall',
+        'algo',
+        '-s',
+        'local',
+      ]);
+      expect(PluginCommand.setEnabled('algo', enabled: false, scope: 'local'), [
+        'plugin',
+        'disable',
+        'algo',
+        '-s',
+        'local',
+      ]);
     });
 
     // 🔴 Lo que el repo declara para todo el equipo se cambia en el repo.
@@ -216,8 +222,19 @@ void main() {
     test('el catálogo de Nexus se da de alta solo con sus carpetas', () {
       final nexus = PluginCommand.catalogoDeNexus;
       expect(
-        PluginCommand.addMarketplace(nexus.fuente, soloLasCarpetas: nexus.carpetas),
-        ['plugin', 'marketplace', 'add', 'DiegoHCH/Nexus', '--sparse', '.claude-plugin', 'mods'],
+        PluginCommand.addMarketplace(
+          nexus.fuente,
+          soloLasCarpetas: nexus.carpetas,
+        ),
+        [
+          'plugin',
+          'marketplace',
+          'add',
+          'DiegoHCH/Nexus',
+          '--sparse',
+          '.claude-plugin',
+          'mods',
+        ],
       );
       expect(
         PluginCommand.addMarketplace('a/b', soloLasCarpetas: ['x; rm']),
@@ -239,10 +256,16 @@ void main() {
 
       final local = plugins.firstWhere((p) => p.soloEnUnaCarpeta);
       expect(local.projectPath, '/Users/a/nexus');
-      expect(local.description, 'Reglas', reason: 'se funde con el del catálogo');
+      expect(
+        local.description,
+        'Reglas',
+        reason: 'se funde con el del catálogo',
+      );
       expect(local.installPath, '/c/commits');
       expect(
-        plugins.where((p) => p.id == 'commits-personales@nexus' && !p.installed),
+        plugins.where(
+          (p) => p.id == 'commits-personales@nexus' && !p.installed,
+        ),
         hasLength(1),
         reason: 'puesto en una carpeta, se sigue pudiendo poner en otra',
       );
@@ -250,7 +273,10 @@ void main() {
     });
 
     test('un mod es el que declara módulos en su hooks.json', () {
-      expect(PluginCommand.declaraModulos('{"modules": ["./register.js"]}'), isTrue);
+      expect(
+        PluginCommand.declaraModulos('{"modules": ["./register.js"]}'),
+        isTrue,
+      );
       expect(PluginCommand.declaraModulos('{"hooks": {"Stop": []}}'), isFalse);
       expect(PluginCommand.declaraModulos('{"modules": []}'), isFalse);
       expect(PluginCommand.declaraModulos('no es json'), isFalse);

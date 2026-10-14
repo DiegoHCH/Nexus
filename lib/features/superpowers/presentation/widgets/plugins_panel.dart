@@ -315,9 +315,8 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
                 _DondeInstalar(
                   busy: _busy,
                   carpeta: carpeta.nombre,
-                  enLaCuenta: () => _act(
-                    () => datos.install(widget.configDir, plugin.id),
-                  ),
+                  enLaCuenta: () =>
+                      _act(() => datos.install(widget.configDir, plugin.id)),
                   soloAqui: () => _act(
                     () => datos.install(
                       widget.configDir,

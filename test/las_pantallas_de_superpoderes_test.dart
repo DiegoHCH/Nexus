@@ -98,7 +98,11 @@ class _QueApunta extends _Plugins {
   final altas = <({String fuente, List<String> carpetas})>[];
 
   @override
-  Future<String?> install(String configDir, String id, {String? carpeta}) async {
+  Future<String?> install(
+    String configDir,
+    String id, {
+    String? carpeta,
+  }) async {
     instalados.add((id: id, carpeta: carpeta));
     return null;
   }
@@ -466,31 +470,34 @@ void main() {
 
     // 🔴 Lo que motivó el «dónde»: unas reglas de commits valen en tus
     // carpetas y no en las del trabajo.
-    testWidgets('con una carpeta, instalar pregunta dónde; «solo ahí» va a ella', (
-      tester,
-    ) async {
-      final fuente = _QueApunta(puestos: [plugin('reglas', instalado: false)]);
-      await pumpScreen(
-        tester,
-        const Scaffold(
-          body: PluginsPanel(
-            configDir: _cuenta,
-            carpeta: (path: '/Users/alguien/nexus', nombre: 'nexus'),
+    testWidgets(
+      'con una carpeta, instalar pregunta dónde; «solo ahí» va a ella',
+      (tester) async {
+        final fuente = _QueApunta(
+          puestos: [plugin('reglas', instalado: false)],
+        );
+        await pumpScreen(
+          tester,
+          const Scaffold(
+            body: PluginsPanel(
+              configDir: _cuenta,
+              carpeta: (path: '/Users/alguien/nexus', nombre: 'nexus'),
+            ),
           ),
-        ),
-        overrides: [pluginsDataSourceProvider.overrideWithValue(fuente)],
-      );
+          overrides: [pluginsDataSourceProvider.overrideWithValue(fuente)],
+        );
 
-      await tester.tap(find.byIcon(Icons.add));
-      await tester.pumpAndSettle();
-      expect(find.text(textos.pluginsInstallEverywhere), findsOneWidget);
-      await tester.tap(find.text(textos.pluginsInstallHere('nexus')));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.add));
+        await tester.pumpAndSettle();
+        expect(find.text(textos.pluginsInstallEverywhere), findsOneWidget);
+        await tester.tap(find.text(textos.pluginsInstallHere('nexus')));
+        await tester.pumpAndSettle();
 
-      expect(fuente.instalados, [
-        (id: 'reglas@tienda', carpeta: '/Users/alguien/nexus'),
-      ]);
-    });
+        expect(fuente.instalados, [
+          (id: 'reglas@tienda', carpeta: '/Users/alguien/nexus'),
+        ]);
+      },
+    );
 
     testWidgets('sin carpeta, instalar va a la cuenta sin preguntar', (
       tester,
@@ -518,15 +525,16 @@ void main() {
       await tester.pumpAndSettle();
       expect(fuente.altas, hasLength(1));
       expect(fuente.altas.single.fuente, 'DiegoHCH/Nexus');
-      expect(
-        fuente.altas.single.carpetas,
-        ['.claude-plugin', 'mods'],
-        reason: 'sin --sparse se clonaría la app entera para leer dos mods',
-      );
+      expect(fuente.altas.single.carpetas, [
+        '.claude-plugin',
+        'mods',
+      ], reason: 'sin --sparse se clonaría la app entera para leer dos mods');
       sinDesbordar(tester);
     });
 
-    testWidgets('con el de Nexus ya dado de alta, no se sugiere', (tester) async {
+    testWidgets('con el de Nexus ya dado de alta, no se sugiere', (
+      tester,
+    ) async {
       await abrir(
         tester,
         const _Plugins(

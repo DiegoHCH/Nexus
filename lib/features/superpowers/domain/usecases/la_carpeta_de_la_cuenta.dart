@@ -21,7 +21,10 @@ abstract final class LaCarpetaDeLaCuenta {
       if (carpeta.path != activa) continue;
       final suya = carpeta.claudeProfile ?? '$home/.claude';
       if (_sinBarra(suya) != _sinBarra(configDir)) return null;
-      return (path: carpeta.path, nombre: _sinBarra(carpeta.path).split('/').last);
+      return (
+        path: carpeta.path,
+        nombre: _sinBarra(carpeta.path).split('/').last,
+      );
     }
     return null;
   }

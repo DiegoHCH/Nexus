@@ -97,12 +97,11 @@ typedef DondeSeMiran = ({String configDir, String? carpeta});
 
 /// Instalados y disponibles, en una sola lista: el CLI los da juntos y
 /// separarlos en dos llamadas sería pedir dos veces lo mismo.
-final pluginsProvider =
-    FutureProvider.family<List<ClaudePlugin>, DondeSeMiran>(
-      (ref, donde) => ref
-          .watch(pluginsDataSourceProvider)
-          .list(donde.configDir, carpeta: donde.carpeta),
-    );
+final pluginsProvider = FutureProvider.family<List<ClaudePlugin>, DondeSeMiran>(
+  (ref, donde) => ref
+      .watch(pluginsDataSourceProvider)
+      .list(donde.configDir, carpeta: donde.carpeta),
+);
 
 final marketplacesProvider = FutureProvider.family<List<Marketplace>, String>(
   (ref, configDir) =>

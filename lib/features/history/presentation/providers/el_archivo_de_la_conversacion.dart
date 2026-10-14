@@ -95,10 +95,17 @@ class ElArchivoDeLaConversacion {
     var falloLocal = false;
     try {
       await almacen.save(registro);
-      // La lista de esa carpeta sí se refresca solo si sigue habiendo a quién
-      // enseñársela.
+      // Las dos listas, solo si sigue habiendo a quién enseñárselas.
+      //
+      // 🔴 **La de todas también.** Es la que lee el historial de ⌘Y desde que
+      // tiene filtros por carpeta y por cuenta, y aquí solo se refrescaba la de
+      // la carpeta: abierto una vez, el historial se quedaba en ese momento.
+      // Reportado el 14 oct: la conversación de CRED-299, trabajada hasta las
+      // 15:23, no salía en un historial leído a las 13:12.
       if (_ref.mounted) {
-        _ref.invalidate(savedConversationsProvider(registro.folderPath));
+        _ref
+          ..invalidate(savedConversationsProvider(registro.folderPath))
+          ..invalidate(allSavedConversationsProvider);
       }
     } on Object catch (error) {
       falloLocal = true;

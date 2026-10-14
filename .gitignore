@@ -48,3 +48,8 @@ app.*.map.json
 
 # Pizarra local del squad (no se versiona)
 SQUAD.md
+
+# Lo que Claude Code escribe junto a un mod al cargarlo con --plugin-dir en una
+# sesión interactiva: los tipos de esa versión del CLI. Ver mods/nexus-casa.
+mods/*/.claude-plugin/types/
+mods/*/tsconfig.json

@@ -153,6 +153,16 @@ mixin SuperpoderesStrings {
   String get close;
   String pluginsCatalog(int total);
   String pluginsMore(int rest);
+
+  // Superpoderes: mods, por carpeta, y el catálogo de Nexus.
+  String get pluginsMod;
+  String pluginsSoloEn(String carpeta);
+  String get pluginsDelRepo;
+  String get pluginsInstallEverywhere;
+  String pluginsInstallHere(String carpeta);
+  String get pluginsNexusCatalog;
+  String get pluginsNexusCatalogExplainer;
+  String get pluginsAddNexusCatalog;
 }
 
 mixin SuperpoderesStringsEs implements SuperpoderesStrings {
@@ -371,8 +381,10 @@ mixin SuperpoderesStringsEs implements SuperpoderesStrings {
   String get superpowersPlugins => 'Plugins';
   @override
   String get pluginsExplainer =>
-      'Un plugin reparte skills, agentes y comandos juntos. Salen de los '
-      'marketplaces que tengas dados de alta.';
+      'Un plugin reparte skills, agentes y comandos juntos; un mod, además, '
+      'trae código que corre dentro de Claude Code. Salen de los marketplaces '
+      'que tengas dados de alta, y se ponen en toda la cuenta o solo en la '
+      'carpeta en la que estás.';
   @override
   String get pluginsInstalled => 'Instalados en esta cuenta';
   @override
@@ -409,6 +421,25 @@ mixin SuperpoderesStringsEs implements SuperpoderesStrings {
   String pluginsCatalog(int total) => 'Disponibles ($total)';
   @override
   String pluginsMore(int rest) => 'Y $rest más. Busca para verlos.';
+  @override
+  String get pluginsMod => 'mod';
+  @override
+  String pluginsSoloEn(String carpeta) => 'solo en $carpeta';
+  @override
+  String get pluginsDelRepo => 'del repo';
+  @override
+  String get pluginsInstallEverywhere => 'En toda la cuenta';
+  @override
+  String pluginsInstallHere(String carpeta) => 'Solo en $carpeta';
+  @override
+  String get pluginsNexusCatalog => 'Catálogo de Nexus';
+  @override
+  String get pluginsNexusCatalogExplainer =>
+      'Mods opcionales pensados para los encargos de Nexus. Ninguno viene '
+      'puesto: instalas los que quieras, en toda la cuenta o solo en algunas '
+      'carpetas.';
+  @override
+  String get pluginsAddNexusCatalog => 'Añadir';
 }
 
 mixin SuperpoderesStringsEn implements SuperpoderesStrings {
@@ -625,8 +656,10 @@ mixin SuperpoderesStringsEn implements SuperpoderesStrings {
   String get superpowersPlugins => 'Plugins';
   @override
   String get pluginsExplainer =>
-      'A plugin ships skills, agents and commands together. They come from the '
-      'marketplaces you have registered.';
+      'A plugin ships skills, agents and commands together; a mod also brings '
+      'code that runs inside Claude Code. They come from the marketplaces you '
+      'have registered, and go on the whole account or only on the folder '
+      'you are in.';
   @override
   String get pluginsInstalled => 'Installed on this account';
   @override
@@ -663,4 +696,22 @@ mixin SuperpoderesStringsEn implements SuperpoderesStrings {
   String pluginsCatalog(int total) => 'Available ($total)';
   @override
   String pluginsMore(int rest) => 'And $rest more. Search to see them.';
+  @override
+  String get pluginsMod => 'mod';
+  @override
+  String pluginsSoloEn(String carpeta) => 'only in $carpeta';
+  @override
+  String get pluginsDelRepo => 'from the repo';
+  @override
+  String get pluginsInstallEverywhere => 'On the whole account';
+  @override
+  String pluginsInstallHere(String carpeta) => 'Only in $carpeta';
+  @override
+  String get pluginsNexusCatalog => 'Nexus catalog';
+  @override
+  String get pluginsNexusCatalogExplainer =>
+      'Optional mods made for Nexus errands. None comes preinstalled: install '
+      'the ones you want, on the whole account or only in some folders.';
+  @override
+  String get pluginsAddNexusCatalog => 'Add';
 }

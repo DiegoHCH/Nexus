@@ -1,0 +1,19 @@
+{
+  "name": "nexus",
+  "owner": { "name": "Diego Hoyos" },
+  "metadata": {
+    "description": "Mods opcionales de Claude Code pensados para los encargos de Nexus. Ninguno viene puesto: cada quien instala los que quiera, en todas sus carpetas o solo en algunas."
+  },
+  "plugins": [
+    {
+      "name": "nexus-casa",
+      "source": "./mods/nexus-casa",
+      "description": "Recorta las salidas ruidosas que salieron bien (pruebas, compilaciones, logs de CI) y pregunta antes de los comandos que no tienen vuelta atrás."
+    },
+    {
+      "name": "commits-personales",
+      "source": "./mods/commits-personales",
+      "description": "Commits en inglés y con Conventional Commits, sin Co-Authored-By, y PRs sin la firma de la herramienta. Para instalar solo en las carpetas donde valgan esas reglas."
+    }
+  ]
+}

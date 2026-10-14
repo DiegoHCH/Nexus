@@ -8,29 +8,68 @@ abstract final class PluginCommand {
   static bool validId(String id) =>
       RegExp(r'^[\w.-]{1,64}(@[\w.-]{1,64})?$').hasMatch(id);
 
-  /// Siempre alcance **user**: aquí se configura la cuenta. El alcance de
-  /// proyecto lo decide el repo con su propio archivo, no esta pantalla.
-  static List<String>? install(String id) =>
-      validId(id) ? ['plugin', 'install', id, '-s', 'user'] : null;
+  /// El catálogo de Nexus: mods opcionales pensados para sus encargos.
+  ///
+  /// Vive en el propio repo de Nexus, y por eso se da de alta **solo con sus
+  /// dos carpetas** (`--sparse`): sin eso el CLI clonaría la app entera para
+  /// leer un catálogo de dos mods.
+  static const catalogoDeNexus = (
+    nombre: 'nexus',
+    fuente: 'DiegoHCH/Nexus',
+    carpetas: ['.claude-plugin', 'mods'],
+  );
 
-  static List<String>? uninstall(String id) =>
-      validId(id) ? ['plugin', 'uninstall', id, '-s', 'user'] : null;
+  /// Los alcances que se tocan desde aquí: la cuenta entera (`user`) o una
+  /// carpeta para ti solo (`local`). El de **proyecto** se queda fuera a
+  /// propósito: es lo que el repo declara para todo el equipo, y se cambia en
+  /// el repo, no desde la pantalla de una persona.
+  static bool validScope(String scope) => scope == 'user' || scope == 'local';
 
-  static List<String>? setEnabled(String id, {required bool enabled}) =>
+  /// En la cuenta entera, o solo en la carpeta desde donde se lance —
+  /// `local`, que el CLI apunta en el `.claude/settings.local.json` de esa
+  /// carpeta y que git no sigue—.
+  static List<String>? install(String id, {bool soloEnLaCarpeta = false}) =>
       validId(id)
-      ? ['plugin', enabled ? 'enable' : 'disable', id, '-s', 'user']
+      ? ['plugin', 'install', id, '-s', soloEnLaCarpeta ? 'local' : 'user']
+      : null;
+
+  static List<String>? uninstall(String id, {String scope = 'user'}) =>
+      validId(id) && validScope(scope)
+      ? ['plugin', 'uninstall', id, '-s', scope]
+      : null;
+
+  static List<String>? setEnabled(
+    String id, {
+    required bool enabled,
+    String scope = 'user',
+  }) => validId(id) && validScope(scope)
+      ? ['plugin', enabled ? 'enable' : 'disable', id, '-s', scope]
       : null;
 
   /// `-y` porque no hay terminal al otro lado: si el marketplace cambió el
   /// comando de instalación, el CLI se quedaría esperando una confirmación que
   /// nadie puede darle y el botón parecería colgado.
-  static List<String>? update(String id) =>
-      validId(id) ? ['plugin', 'update', id, '-s', 'user', '-y'] : null;
+  static List<String>? update(String id, {String scope = 'user'}) =>
+      validId(id) && validScope(scope)
+      ? ['plugin', 'update', id, '-s', scope, '-y']
+      : null;
 
-  static List<String>? addMarketplace(String source) {
+  static List<String>? addMarketplace(
+    String source, {
+    List<String> soloLasCarpetas = const [],
+  }) {
     final clean = source.trim();
     if (clean.isEmpty || RegExp(r'\s').hasMatch(clean)) return null;
-    return ['plugin', 'marketplace', 'add', clean];
+    if (soloLasCarpetas.any((c) => !RegExp(r'^[\w.-]+$').hasMatch(c))) {
+      return null;
+    }
+    return [
+      'plugin',
+      'marketplace',
+      'add',
+      clean,
+      if (soloLasCarpetas.isNotEmpty) ...['--sparse', ...soloLasCarpetas],
+    ];
   }
 
   static List<String>? removeMarketplace(String name) =>
@@ -71,7 +110,13 @@ abstract final class PluginCommand {
     for (final item in installed is List ? installed : const []) {
       for (final plugin in _one(item, installed: true)) {
         final delCatalogo = byId[plugin.id];
-        byId[plugin.id] = delCatalogo == null
+        // Uno puesto **solo en una carpeta** es una fila suya, y el del
+        // catálogo se queda: el mismo plugin puede ponerse en otra carpeta o
+        // en la cuenta entera. Puesto en la cuenta, en cambio, ocupa su sitio.
+        final llave = plugin.soloEnUnaCarpeta
+            ? '${plugin.id} · ${plugin.projectPath}'
+            : plugin.id;
+        byId[llave] = delCatalogo == null
             ? plugin
             : _fundidos(plugin, delCatalogo);
       }
@@ -127,6 +172,9 @@ abstract final class PluginCommand {
         installs: (item['installCount'] as num?)?.toInt() ?? 0,
         enabled: item['enabled'] != false,
         installed: installed,
+        scope: '${item['scope'] ?? 'user'}',
+        projectPath: item['projectPath'] as String?,
+        installPath: item['installPath'] as String?,
       ),
     ];
   }
@@ -152,7 +200,24 @@ abstract final class PluginCommand {
         installs: puesto.installs == 0 ? catalogo.installs : puesto.installs,
         enabled: puesto.enabled,
         installed: true,
+        scope: puesto.scope,
+        projectPath: puesto.projectPath,
+        installPath: puesto.installPath,
       );
+
+  /// Si un `hooks/hooks.json` declara un módulo de código: lo que hace de un
+  /// plugin un **mod**. Un `hooks.json` con solo `hooks` son ganchos de los de
+  /// siempre, que lanzan un comando.
+  static bool declaraModulos(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Map &&
+          decoded['modules'] is List &&
+          (decoded['modules'] as List).isNotEmpty;
+    } on FormatException {
+      return false;
+    }
+  }
 
   static List<Marketplace> parseMarketplaces(String raw) {
     final Object? decoded;

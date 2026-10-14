@@ -1,0 +1,4 @@
+{
+  "description": "Las reglas de la casa de Nexus",
+  "modules": ["./register.js"]
+}

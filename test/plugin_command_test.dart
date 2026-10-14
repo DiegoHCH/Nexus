@@ -183,4 +183,77 @@ void main() {
       expect(PluginCommand.search(plugins, '  ').length, 2);
     });
   });
+
+  group('por carpeta, y los mods', () {
+    test('instalar solo en una carpeta es alcance local', () {
+      expect(PluginCommand.install('algo@oficial', soloEnLaCarpeta: true), [
+        'plugin',
+        'install',
+        'algo@oficial',
+        '-s',
+        'local',
+      ]);
+    });
+
+    test('lo que se hace con uno puesto va con su alcance', () {
+      expect(
+        PluginCommand.uninstall('algo', scope: 'local'),
+        ['plugin', 'uninstall', 'algo', '-s', 'local'],
+      );
+      expect(
+        PluginCommand.setEnabled('algo', enabled: false, scope: 'local'),
+        ['plugin', 'disable', 'algo', '-s', 'local'],
+      );
+    });
+
+    // 🔴 Lo que el repo declara para todo el equipo se cambia en el repo.
+    test('el alcance de proyecto no se toca desde aquí', () {
+      expect(PluginCommand.uninstall('algo', scope: 'project'), isNull);
+      expect(PluginCommand.update('algo', scope: 'project'), isNull);
+      expect(PluginCommand.validScope('project'), isFalse);
+    });
+
+    test('el catálogo de Nexus se da de alta solo con sus carpetas', () {
+      final nexus = PluginCommand.catalogoDeNexus;
+      expect(
+        PluginCommand.addMarketplace(nexus.fuente, soloLasCarpetas: nexus.carpetas),
+        ['plugin', 'marketplace', 'add', 'DiegoHCH/Nexus', '--sparse', '.claude-plugin', 'mods'],
+      );
+      expect(
+        PluginCommand.addMarketplace('a/b', soloLasCarpetas: ['x; rm']),
+        isNull,
+      );
+    });
+
+    test('lo puesto en una carpeta llega con su alcance y su carpeta', () {
+      final plugins = PluginCommand.parseList('''
+        {"installed": [
+          {"id": "commits-personales@nexus", "version": "0.1.0", "scope": "local",
+           "enabled": true, "installPath": "/c/commits", "projectPath": "/Users/a/nexus"},
+          {"id": "figma@oficial", "version": "2", "scope": "user", "enabled": true}
+        ], "available": [
+          {"pluginId": "commits-personales@nexus", "name": "commits-personales",
+           "description": "Reglas", "marketplaceName": "nexus"}
+        ]}
+      ''');
+
+      final local = plugins.firstWhere((p) => p.soloEnUnaCarpeta);
+      expect(local.projectPath, '/Users/a/nexus');
+      expect(local.description, 'Reglas', reason: 'se funde con el del catálogo');
+      expect(local.installPath, '/c/commits');
+      expect(
+        plugins.where((p) => p.id == 'commits-personales@nexus' && !p.installed),
+        hasLength(1),
+        reason: 'puesto en una carpeta, se sigue pudiendo poner en otra',
+      );
+      expect(plugins.firstWhere((p) => p.id == 'figma@oficial').scope, 'user');
+    });
+
+    test('un mod es el que declara módulos en su hooks.json', () {
+      expect(PluginCommand.declaraModulos('{"modules": ["./register.js"]}'), isTrue);
+      expect(PluginCommand.declaraModulos('{"hooks": {"Stop": []}}'), isFalse);
+      expect(PluginCommand.declaraModulos('{"modules": []}'), isFalse);
+      expect(PluginCommand.declaraModulos('no es json'), isFalse);
+    });
+  });
 }

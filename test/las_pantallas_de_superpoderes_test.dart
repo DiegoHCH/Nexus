@@ -83,10 +83,35 @@ class _Plugins extends PluginsDataSource {
   final List<Marketplace> tiendas;
 
   @override
-  Future<List<ClaudePlugin>> list(String configDir) async => puestos;
+  Future<List<ClaudePlugin>> list(String configDir, {String? carpeta}) async =>
+      puestos;
 
   @override
   Future<List<Marketplace>> marketplaces(String configDir) async => tiendas;
+}
+
+/// El mismo, apuntando lo que se le pide.
+class _QueApunta extends _Plugins {
+  _QueApunta({super.puestos});
+
+  final instalados = <({String id, String? carpeta})>[];
+  final altas = <({String fuente, List<String> carpetas})>[];
+
+  @override
+  Future<String?> install(String configDir, String id, {String? carpeta}) async {
+    instalados.add((id: id, carpeta: carpeta));
+    return null;
+  }
+
+  @override
+  Future<String?> addMarketplace(
+    String configDir,
+    String source, {
+    List<String> soloLasCarpetas = const [],
+  }) async {
+    altas.add((fuente: source, carpetas: soloLasCarpetas));
+    return null;
+  }
 }
 
 ClaudePlugin plugin(String nombre, {bool instalado = true}) => ClaudePlugin(
@@ -405,6 +430,111 @@ void main() {
         reason: 'sin la versión no se sabe si hay que actualizarlo',
       );
       sinDesbordar(tester);
+    });
+
+    testWidgets('un mod se distingue, y lo puesto en una carpeta dice cuál', (
+      tester,
+    ) async {
+      await abrir(
+        tester,
+        _Plugins(
+          puestos: [
+            plugin('nexus-casa').conMod(true),
+            const ClaudePlugin(
+              id: 'commits-personales@nexus',
+              name: 'commits-personales',
+              description: 'Reglas de commits.',
+              marketplace: 'nexus',
+              version: '0.1.0',
+              installs: 0,
+              enabled: true,
+              installed: true,
+              scope: 'local',
+              projectPath: '/Users/alguien/nexus',
+            ),
+          ],
+        ),
+      );
+
+      expect(find.text(textos.pluginsMod.toUpperCase()), findsOneWidget);
+      expect(
+        find.text(textos.pluginsSoloEn('nexus').toUpperCase()),
+        findsOneWidget,
+      );
+      sinDesbordar(tester);
+    });
+
+    // 🔴 Lo que motivó el «dónde»: unas reglas de commits valen en tus
+    // carpetas y no en las del trabajo.
+    testWidgets('con una carpeta, instalar pregunta dónde; «solo ahí» va a ella', (
+      tester,
+    ) async {
+      final fuente = _QueApunta(puestos: [plugin('reglas', instalado: false)]);
+      await pumpScreen(
+        tester,
+        const Scaffold(
+          body: PluginsPanel(
+            configDir: _cuenta,
+            carpeta: (path: '/Users/alguien/nexus', nombre: 'nexus'),
+          ),
+        ),
+        overrides: [pluginsDataSourceProvider.overrideWithValue(fuente)],
+      );
+
+      await tester.tap(find.byIcon(Icons.add));
+      await tester.pumpAndSettle();
+      expect(find.text(textos.pluginsInstallEverywhere), findsOneWidget);
+      await tester.tap(find.text(textos.pluginsInstallHere('nexus')));
+      await tester.pumpAndSettle();
+
+      expect(fuente.instalados, [
+        (id: 'reglas@tienda', carpeta: '/Users/alguien/nexus'),
+      ]);
+    });
+
+    testWidgets('sin carpeta, instalar va a la cuenta sin preguntar', (
+      tester,
+    ) async {
+      final fuente = _QueApunta(puestos: [plugin('reglas', instalado: false)]);
+      await abrir(tester, fuente);
+
+      await tester.tap(find.byIcon(Icons.add));
+      await tester.pumpAndSettle();
+
+      expect(fuente.instalados, [(id: 'reglas@tienda', carpeta: null)]);
+    });
+
+    testWidgets('el catálogo de Nexus se sugiere hasta que se añade', (
+      tester,
+    ) async {
+      final fuente = _QueApunta();
+      await abrir(tester, fuente);
+
+      final sugerencia = find.byKey(const ValueKey('catalogo-de-nexus'));
+      expect(sugerencia, findsOneWidget);
+      await tester.tap(
+        find.descendant(of: sugerencia, matching: find.byType(BotonDeAjustes)),
+      );
+      await tester.pumpAndSettle();
+      expect(fuente.altas, hasLength(1));
+      expect(fuente.altas.single.fuente, 'DiegoHCH/Nexus');
+      expect(
+        fuente.altas.single.carpetas,
+        ['.claude-plugin', 'mods'],
+        reason: 'sin --sparse se clonaría la app entera para leer dos mods',
+      );
+      sinDesbordar(tester);
+    });
+
+    testWidgets('con el de Nexus ya dado de alta, no se sugiere', (tester) async {
+      await abrir(
+        tester,
+        const _Plugins(
+          tiendas: [Marketplace(name: 'nexus', repo: 'DiegoHCH/Nexus')],
+        ),
+      );
+
+      expect(find.byKey(const ValueKey('catalogo-de-nexus')), findsNothing);
     });
 
     // El marketplace del proyecto tiene 287.

@@ -12,6 +12,8 @@ import 'package:nexus/features/assistant/presentation/state/assistant_hud_state.
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/assistant/presentation/widgets/el_escenario.dart';
 import 'package:nexus/features/assistant/presentation/widgets/las_etiquetas_del_orbe.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_verbo_de_un_paso.dart';
+import 'package:nexus/features/assistant/presentation/state/lo_que_dicen_las_etiquetas.dart';
 import 'package:nexus/features/history/data/datasources/local_conversation_store.dart';
 import 'package:nexus/features/history/domain/entities/conversation_summary.dart';
 import 'package:nexus/features/history/presentation/providers/archive_providers.dart';
@@ -117,16 +119,25 @@ void main() {
     final paso = find.byKey(LasEtiquetasDelOrbe.llaveDelPaso);
     expect(paso, findsOneWidget);
     expect(
-      find.descendant(of: paso, matching: find.textContaining('AHORA · ')),
+      find.descendant(of: paso, matching: find.text('AHORA')),
       findsOneWidget,
+    );
+    expect(
+      find.descendant(of: paso, matching: find.textContaining(' s')),
+      findsOneWidget,
+      reason: 'cuánto lleva el paso, aparte y en grande',
     );
     expect(
       find.descendant(of: paso, matching: find.text('Edita el_escenario.dart')),
       findsOneWidget,
       reason: 'el verbo traducido y el archivo sin su ruta',
     );
-    expect(find.byKey(LasEtiquetasDelOrbe.llaveDelEncargo), findsOneWidget);
-    expect(find.textContaining('ENCARGO · '), findsOneWidget);
+    final encargo = find.byKey(LasEtiquetasDelOrbe.llaveDelEncargo);
+    expect(encargo, findsOneWidget);
+    expect(
+      find.descendant(of: encargo, matching: find.text('ENCARGO')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('no pisan la esquina de la carpeta ni el registro de pasos', (
@@ -170,6 +181,96 @@ void main() {
       find.byKey(LasEtiquetasDelOrbe.llaveDelPaso),
       findsNothing,
       reason: 'el orbe se queda en unos doscientos píxeles: taparían el aro',
+    );
+  });
+
+  // Con el widget suelto: lo que se mueve no depende de la pantalla.
+  group('lo que se mueve', () {
+    LasEtiquetas conPaso(String objeto, DateTime desde) => LasEtiquetas(
+      paso: (
+        verbo: VerboDelPaso.lee,
+        objeto: objeto,
+        escribe: false,
+        deUnSubagente: false,
+        desde: desde,
+      ),
+      desde: desde,
+    );
+
+    Future<void Function(LasEtiquetas)> montar(
+      WidgetTester tester,
+      LasEtiquetas primeras,
+    ) async {
+      late StateSetter cambiar;
+      var etiquetas = primeras;
+      await pumpScreen(
+        tester,
+        Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              cambiar = setState;
+              return Stack(
+                children: [
+                  Positioned.fill(
+                    child: LasEtiquetasDelOrbe(
+                      etiquetas: etiquetas,
+                      orbe: const Rect.fromLTWH(100, 150, 400, 400),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      );
+      return (LasEtiquetas nuevas) => cambiar(() => etiquetas = nuevas);
+    }
+
+    // 🔴 Un cambio de paso se tiene que ver sin leer: el texto nuevo llega
+    // descifrándose, y acaba entero.
+    testWidgets('al cambiar de paso el texto se descifra y acaba entero', (
+      tester,
+    ) async {
+      final hace = DateTime.now().subtract(const Duration(seconds: 5));
+      final cambiar = await montar(tester, conPaso('a.dart', hace));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.text('Lee a.dart'), findsOneWidget);
+
+      cambiar(conPaso('b.dart', DateTime.now()));
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(
+        find.text('Lee b.dart'),
+        findsNothing,
+        reason: 'a medio descifrar',
+      );
+
+      await tester.pump(LasEtiquetasDelOrbe.aparicion);
+      expect(find.text('Lee b.dart'), findsOneWidget);
+    });
+
+    testWidgets(
+      'con «reducir movimiento» salen quietas y no piden fotogramas',
+      (tester) async {
+        tester.platformDispatcher.accessibilityFeaturesTestValue =
+            const FakeAccessibilityFeatures(disableAnimations: true);
+        addTearDown(
+          tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+        );
+
+        await montar(tester, conPaso('a.dart', DateTime.now()));
+        await tester.pump();
+
+        expect(
+          find.text('Lee a.dart'),
+          findsOneWidget,
+          reason: 'sin descifrar',
+        );
+        expect(
+          tester.binding.hasScheduledFrame,
+          isFalse,
+          reason: 'sin reloj de animación: nada pide el fotograma siguiente',
+        );
+      },
     );
   });
 }

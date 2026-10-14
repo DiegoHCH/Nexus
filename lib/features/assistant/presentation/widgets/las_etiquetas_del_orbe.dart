@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show FontFeature, PathMetric;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:nexus/core/design_system/nexus_colors.dart';
-import 'package:nexus/core/design_system/nexus_radius.dart';
 import 'package:nexus/core/design_system/nexus_spacing.dart';
 import 'package:nexus/core/design_system/nexus_typography.dart';
 import 'package:nexus/core/design_system/orbe_preference.dart';
@@ -15,17 +17,25 @@ import 'package:nexus/features/assistant/presentation/orb/nexus_orb_layers_paint
 import 'package:nexus/features/assistant/presentation/providers/la_ventana_de_actividad.dart';
 import 'package:nexus/features/assistant/presentation/state/lo_que_dicen_las_etiquetas.dart';
 
-/// Las etiquetas del orbe mientras trabaja: cartelas pegadas al aro del
-/// reactor con una línea guía, a la manera de un HUD.
+/// Las etiquetas del orbe mientras trabaja, como un instrumento: **se mueven
+/// mientras el orbe trabaja**.
 ///
-/// Arriba, el paso de ahora y cuánto lleva; abajo, cuánto lleva el encargo y
-/// los subagentes que siguen en marcha. Todo en la mitad derecha de la columna
-/// del orbe: a la izquierda están la carpeta —arriba— y las conversaciones
-/// —abajo—, y a la derecha empieza el registro.
+/// Arriba, el paso de ahora: el tramo del aro del que sale se enciende y
+/// respira, un segundero lo rodea por fuera —una vuelta por minuto del paso—,
+/// y por la línea guía corre un destello del orbe hacia la ficha. Abajo, cuánto
+/// lleva el encargo y los subagentes que siguen en marcha. Todo en la mitad
+/// derecha de la columna del orbe: a la izquierda están la carpeta —arriba— y
+/// las conversaciones —abajo—, y a la derecha empieza el registro.
+///
+/// 🔴 **Antes eran una caja y una línea quietas, y no se leían como parte del
+/// orbe.** Elegido el 14 oct entre dos prototipos animados sobre una captura
+/// de la app: el de «telemetría», el que ata la etiqueta al aro.
 ///
 /// **Con el orbe chico no se pintan.** Con la conversación abierta en una
 /// ventana estrecha el orbe se queda en unos doscientos píxeles, y ahí una
-/// cartela taparía el aro entero: se pierde un extra, no el orbe.
+/// ficha taparía el aro entero: se pierde un extra, no el orbe.
+///
+/// Y con «reducir movimiento» del sistema se quedan quietas, como el orbe.
 class LasEtiquetasDelOrbe extends StatefulWidget {
   const LasEtiquetasDelOrbe({
     super.key,
@@ -49,41 +59,95 @@ class LasEtiquetasDelOrbe extends StatefulWidget {
   static const anguloDeArriba = -60.0;
   static const anguloDeAbajo = 60.0;
 
+  /// Cuánto tarda la línea en dibujarse y el texto en descifrarse al cambiar
+  /// de paso.
+  static const aparicion = Duration(milliseconds: 480);
+
   @override
   State<LasEtiquetasDelOrbe> createState() => _LasEtiquetasDelOrbeState();
 }
 
-class _LasEtiquetasDelOrbeState extends State<LasEtiquetasDelOrbe> {
-  /// Un tic por segundo para los tiempos. Solo mientras hay algo que contar:
-  /// un reloj vivo con el orbe dormido es trabajo para nadie.
-  Timer? _reloj;
+class _LasEtiquetasDelOrbeState extends State<LasEtiquetasDelOrbe>
+    with TickerProviderStateMixin {
+  /// El tiempo de las animaciones que no paran: la respiración del tramo, el
+  /// destello, el ecualizador y el segundero. **Un solo reloj** para todo, y
+  /// solo mientras hay algo a la vista.
+  late final Ticker _ticker = createTicker(_alPasar);
+  final _reloj = ValueNotifier<Duration>(Duration.zero);
+
+  /// La línea que se dibuja y el texto que se descifra al cambiar de paso.
+  late final AnimationController _aparicion = AnimationController(
+    vsync: this,
+    duration: LasEtiquetasDelOrbe.aparicion,
+  );
+
+  /// Con el movimiento reducido no hay reloj de animación, pero los tiempos
+  /// tienen que seguir contando.
+  Timer? _cadaSegundo;
+  int _segundo = -1;
+  String? _pasoVisto;
+  var _quieto = false;
 
   @override
-  void initState() {
-    super.initState();
-    _ajustarElReloj();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _quieto = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    _ajustar();
   }
 
   @override
   void didUpdateWidget(LasEtiquetasDelOrbe anterior) {
     super.didUpdateWidget(anterior);
-    _ajustarElReloj();
+    _ajustar();
   }
 
-  void _ajustarElReloj() {
-    if (widget.etiquetas.vacias) {
-      _reloj?.cancel();
-      _reloj = null;
-      return;
+  bool get _aLaVista =>
+      !widget.etiquetas.vacias &&
+      widget.orbe.shortestSide >= LasEtiquetasDelOrbe.ladoMinimo;
+
+  void _ajustar() {
+    final paso = widget.etiquetas.paso;
+    final llave = paso == null
+        ? null
+        : '${paso.desde.microsecondsSinceEpoch}|${paso.verbo}|${paso.objeto}';
+    if (llave != _pasoVisto) {
+      _pasoVisto = llave;
+      if (llave != null && !_quieto) _aparicion.forward(from: 0);
     }
-    _reloj ??= Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
+    if (_quieto) _aparicion.value = 1;
+
+    final animando = _aLaVista && !_quieto;
+    if (animando && !_ticker.isActive) _ticker.start();
+    if (!animando && _ticker.isActive) _ticker.stop();
+
+    final contando = _aLaVista && _quieto;
+    if (contando) {
+      _cadaSegundo ??= Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      _cadaSegundo?.cancel();
+      _cadaSegundo = null;
+    }
+  }
+
+  /// Cada fotograma mueve lo que se pinta; el árbol se reconstruye **una vez
+  /// por segundo**, que es lo que cambian los tiempos.
+  void _alPasar(Duration pasado) {
+    _reloj.value = pasado;
+    final segundo = DateTime.now().second;
+    if (segundo != _segundo) {
+      _segundo = segundo;
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
-    _reloj?.cancel();
+    _ticker.dispose();
+    _aparicion.dispose();
+    _reloj.dispose();
+    _cadaSegundo?.cancel();
     super.dispose();
   }
 
@@ -91,10 +155,7 @@ class _LasEtiquetasDelOrbeState extends State<LasEtiquetasDelOrbe> {
   Widget build(BuildContext context) {
     final etiquetas = widget.etiquetas;
     final orbe = widget.orbe;
-    if (etiquetas.vacias ||
-        orbe.shortestSide < LasEtiquetasDelOrbe.ladoMinimo) {
-      return const SizedBox.shrink();
-    }
+    if (!_aLaVista) return const SizedBox.shrink();
     final estilo = OrbeEstiloScope.of(context);
     final aro = NexusOrbLayersPainter.elAroDelReactor(
       orbe.size,
@@ -109,44 +170,64 @@ class _LasEtiquetasDelOrbeState extends State<LasEtiquetasDelOrbe> {
     final centro = orbe.topLeft + aro.centro;
     final r = aro.radio;
 
-    Offset enElAro(double grados) {
+    Offset enElAro(double grados, [double f = 1]) {
       final a = grados * math.pi / 180;
-      return centro + Offset(math.cos(a), math.sin(a)) * r;
+      return centro + Offset(math.cos(a), math.sin(a)) * r * f;
     }
 
-    // Por encima de la corona de marcas del reactor —a 1,16 del radio— para
-    // no taparla, y sin pasar del borde derecho de la columna: el registro
-    // empieza a 32 px del orbe.
+    // Sin pasar del borde derecho de la columna: el registro empieza a 32 px
+    // del orbe.
     final izquierda = centro.dx + r * 0.15;
     final ancho = orbe.right + NexusSpacing.s4 - izquierda;
-    final arriba = centro.dy - r * 1.28;
-    final abajo = centro.dy + r * 1.28;
 
     final paso = etiquetas.paso;
     final hayMarcas =
         etiquetas.desde != null || etiquetas.subagentes.isNotEmpty;
+    final tono = paso?.escribe ?? false ? colors.warn : colors.accent;
+
+    // Cada línea sale del aro hacia fuera, se dobla en un codo y corre en
+    // horizontal bajo su ficha —o sobre ella, la de abajo—: el estante.
+    final codoArriba = enElAro(LasEtiquetasDelOrbe.anguloDeArriba, 1.30);
+    final codoAbajo = enElAro(LasEtiquetasDelOrbe.anguloDeAbajo, 1.30);
 
     return LayoutBuilder(
       builder: (context, caja) => Stack(
         clipBehavior: Clip.none,
         children: [
           Positioned.fill(
-            child: CustomPaint(
-              painter: _LasLineas(
-                lineas: [
-                  if (paso != null)
-                    (
-                      enElAro(LasEtiquetasDelOrbe.anguloDeArriba),
-                      Offset(izquierda, arriba),
-                    ),
-                  if (hayMarcas)
-                    (
-                      enElAro(LasEtiquetasDelOrbe.anguloDeAbajo),
-                      Offset(izquierda, abajo),
-                    ),
-                ],
-                linea: colors.rule2,
-                punto: paso?.escribe ?? false ? colors.warn : colors.accent,
+            child: RepaintBoundary(
+              child: CustomPaint(
+                painter: _ElInstrumento(
+                  reloj: _reloj,
+                  aparicion: _aparicion,
+                  quieto: _quieto,
+                  centro: centro,
+                  radio: r,
+                  arriba: paso == null
+                      ? null
+                      : (
+                          desde: enElAro(
+                            LasEtiquetasDelOrbe.anguloDeArriba,
+                            1.06,
+                          ),
+                          codo: codoArriba,
+                          hasta: Offset(izquierda, codoArriba.dy),
+                          tono: tono,
+                          pasoDesde: paso.desde,
+                        ),
+                  abajo: !hayMarcas
+                      ? null
+                      : (
+                          desde: enElAro(
+                            LasEtiquetasDelOrbe.anguloDeAbajo,
+                            1.06,
+                          ),
+                          codo: codoAbajo,
+                          hasta: Offset(izquierda, codoAbajo.dy),
+                          tono: colors.accent,
+                          pasoDesde: null,
+                        ),
+                ),
               ),
             ),
           ),
@@ -154,20 +235,30 @@ class _LasEtiquetasDelOrbeState extends State<LasEtiquetasDelOrbe> {
             Positioned(
               key: LasEtiquetasDelOrbe.llaveDelPaso,
               left: izquierda,
-              bottom: caja.maxHeight - arriba,
+              bottom: caja.maxHeight - codoArriba.dy + 6,
               width: ancho,
-              child: _LaCartela(paso: paso, ahora: ahora, strings: strings),
+              child: _LaFicha(
+                paso: paso,
+                ahora: ahora,
+                tono: tono,
+                strings: strings,
+                reloj: _reloj,
+                aparicion: _aparicion,
+                quieto: _quieto,
+              ),
             ),
           if (hayMarcas)
             Positioned(
               key: LasEtiquetasDelOrbe.llaveDelEncargo,
               left: izquierda,
-              top: abajo,
+              top: codoAbajo.dy + 6,
               width: ancho,
-              child: _LasMarcas(
+              child: _ElPie(
                 etiquetas: etiquetas,
                 ahora: ahora,
                 strings: strings,
+                reloj: _reloj,
+                quieto: _quieto,
               ),
             ),
         ],
@@ -176,60 +267,127 @@ class _LasEtiquetasDelOrbeState extends State<LasEtiquetasDelOrbe> {
   }
 }
 
+/// Una línea guía: del aro al codo y del codo a su ficha.
+typedef _Guia = ({
+  Offset desde,
+  Offset codo,
+  Offset hasta,
+  Color tono,
+
+  /// Desde cuándo corre el paso, para el segundero. Solo la de arriba.
+  DateTime? pasoDesde,
+});
+
 /// El paso de ahora: qué hace, sobre qué, y desde cuándo.
 ///
 /// En el color de atención si escribe, igual que el «puede editar»: que esté
 /// tocando archivos es lo que más importa ver de lejos.
-class _LaCartela extends StatelessWidget {
-  const _LaCartela({
+class _LaFicha extends StatelessWidget {
+  const _LaFicha({
     required this.paso,
     required this.ahora,
+    required this.tono,
     required this.strings,
+    required this.reloj,
+    required this.aparicion,
+    required this.quieto,
   });
 
   final ElPasoDeAhora paso;
   final DateTime ahora;
+  final Color tono;
   final NexusStrings strings;
+  final ValueListenable<Duration> reloj;
+  final Animation<double> aparicion;
+  final bool quieto;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final tono = paso.escribe ? colors.warn : colors.accent;
     final quien = paso.deUnSubagente
         ? strings.etiquetaSubagente
         : strings.etiquetaAhora;
     final verbo = paso.verbo == VerboDelPaso.otro
         ? null
         : textosDeActividad(strings).verbo(paso.verbo, hecho: false);
+    final borde = BorderSide(color: tono.withValues(alpha: 0.16));
 
     return Align(
       alignment: Alignment.bottomLeft,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: colors.void_.withValues(alpha: 0.78),
-          border: Border.all(color: tono.withValues(alpha: 0.55)),
-          borderRadius: BorderRadius.circular(NexusRadius.sm),
+          color: colors.void_.withValues(alpha: 0.72),
+          border: Border(top: borde, right: borde, bottom: borde),
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: NexusSpacing.s2,
-            vertical: NexusSpacing.s1 + 2,
-          ),
-          child: Column(
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '${quien.toUpperCase()} · '
-                '${elTiempoDeUnaEtiqueta(ahora.difference(paso.desde))}',
-                style: NexusTypography.label.copyWith(color: tono),
+              // La franja de color: dice de lejos si lee o escribe.
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: tono,
+                  boxShadow: [
+                    BoxShadow(
+                      color: tono.withValues(alpha: 0.6),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+                child: const SizedBox(width: 2.5),
               ),
-              const SizedBox(height: 2),
-              Text(
-                verbo == null ? paso.objeto : '$verbo ${paso.objeto}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: NexusTypography.data.copyWith(color: colors.ink),
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    NexusSpacing.s3,
+                    NexusSpacing.s2 - 1,
+                    NexusSpacing.s3,
+                    NexusSpacing.s2,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          _ElEcualizador(
+                            reloj: reloj,
+                            color: tono,
+                            quieto: quieto,
+                          ),
+                          const SizedBox(width: NexusSpacing.s2),
+                          Text(
+                            quien.toUpperCase(),
+                            style: NexusTypography.label.copyWith(color: tono),
+                          ),
+                          const Spacer(),
+                          Text(
+                            elTiempoDeUnaEtiqueta(ahora.difference(paso.desde)),
+                            style: NexusTypography.data.copyWith(
+                              fontSize: 15,
+                              color: tono,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      _ElTextoQueSeDescifra(
+                        texto: verbo == null
+                            ? paso.objeto
+                            : '$verbo ${paso.objeto}',
+                        aparicion: aparicion,
+                        estilo: NexusTypography.data.copyWith(
+                          fontSize: 12,
+                          color: colors.ink,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -239,18 +397,22 @@ class _LaCartela extends StatelessWidget {
   }
 }
 
-/// Cuánto lleva el encargo y los subagentes que siguen, sin caja: marcas al
-/// pie del aro.
-class _LasMarcas extends StatelessWidget {
-  const _LasMarcas({
+/// Cuánto lleva el encargo y los subagentes que siguen, sin caja: datos al pie
+/// del aro.
+class _ElPie extends StatelessWidget {
+  const _ElPie({
     required this.etiquetas,
     required this.ahora,
     required this.strings,
+    required this.reloj,
+    required this.quieto,
   });
 
   final LasEtiquetas etiquetas;
   final DateTime ahora;
   final NexusStrings strings;
+  final ValueListenable<Duration> reloj;
+  final bool quieto;
 
   /// Cuántos subagentes se nombran; el resto, en una cuenta.
   static const cuantos = 3;
@@ -263,49 +425,56 @@ class _LasMarcas extends StatelessWidget {
     final rotulo = NexusTypography.label.copyWith(color: colors.mute);
     final dato = NexusTypography.data.copyWith(color: colors.mute);
 
-    Widget fila(Widget texto) => Padding(
-      padding: const EdgeInsets.only(bottom: NexusSpacing.s1),
-      child: Row(
-        children: [
-          Container(
-            width: 5,
-            height: 5,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: colors.accent,
-            ),
-          ),
-          const SizedBox(width: NexusSpacing.s2),
-          Expanded(child: texto),
-        ],
-      ),
-    );
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (desde != null)
-          fila(
-            Text(
-              '${strings.etiquetaEncargo.toUpperCase()} · '
-              '${elTiempoDeUnaEtiqueta(ahora.difference(desde))}',
-              style: rotulo,
-            ),
+          Row(
+            children: [
+              Text(strings.etiquetaEncargo.toUpperCase(), style: rotulo),
+              // Al lado de su rótulo y no al borde: con el orbe grande, el borde
+              // queda tan lejos que el tiempo parecía de otra cosa.
+              const SizedBox(width: NexusSpacing.s3),
+              Text(
+                elTiempoDeUnaEtiqueta(ahora.difference(desde)),
+                style: NexusTypography.data.copyWith(
+                  fontSize: 13,
+                  color: colors.ink,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
           ),
         for (final subagente in subagentes.take(cuantos))
-          fila(
-            Text(
-              '${subagente.que} · '
-              '${elTiempoDeUnaEtiqueta(ahora.difference(subagente.desde))}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: dato,
+          Padding(
+            padding: const EdgeInsets.only(top: NexusSpacing.s2 - 1),
+            child: Row(
+              children: [
+                _ElEcualizador(
+                  reloj: reloj,
+                  color: colors.accent,
+                  quieto: quieto,
+                ),
+                const SizedBox(width: NexusSpacing.s2),
+                Expanded(
+                  child: Text(
+                    '${subagente.que} · '
+                    '${elTiempoDeUnaEtiqueta(ahora.difference(subagente.desde))}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: dato,
+                  ),
+                ),
+              ],
             ),
           ),
         if (subagentes.length > cuantos)
           Padding(
-            padding: const EdgeInsets.only(left: NexusSpacing.s2 + 5),
+            padding: const EdgeInsets.only(
+              top: NexusSpacing.s1,
+              left: _ElEcualizador.ancho + NexusSpacing.s2,
+            ),
             child: Text(
               strings.etiquetaYMas(subagentes.length - cuantos),
               style: rotulo,
@@ -316,46 +485,236 @@ class _LasMarcas extends StatelessWidget {
   }
 }
 
-/// Las líneas guía, del punto del aro a la esquina de su etiqueta.
-///
-/// Un solo `Path` para todas y los `Paint` hechos una vez: se repinta con
-/// cada tic del reloj, y no hay motivo para rehacerlos ahí.
-class _LasLineas extends CustomPainter {
-  _LasLineas({required this.lineas, required this.linea, required this.punto})
-    : _trazo = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..isAntiAlias = true
-        ..color = linea,
-      _relleno = Paint()..color = punto;
+/// Tres barras que suben y bajan mientras algo trabaja.
+class _ElEcualizador extends StatelessWidget {
+  const _ElEcualizador({
+    required this.reloj,
+    required this.color,
+    required this.quieto,
+  });
 
-  final List<(Offset, Offset)> lineas;
-  final Color linea;
-  final Color punto;
-  final Paint _trazo;
-  final Paint _relleno;
+  final ValueListenable<Duration> reloj;
+  final Color color;
+  final bool quieto;
+
+  static const ancho = 10.0;
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+    size: const Size(ancho, 10),
+    painter: _LasBarras(reloj: reloj, color: color, quieto: quieto),
+  );
+}
+
+class _LasBarras extends CustomPainter {
+  _LasBarras({required this.reloj, required this.color, required this.quieto})
+    : _pintura = Paint()..color = color,
+      super(repaint: reloj);
+
+  final ValueListenable<Duration> reloj;
+  final Color color;
+  final bool quieto;
+  final Paint _pintura;
+
+  /// Quietas, una forma que se lee como ecualizador sin moverse.
+  static const _quietas = [5.0, 9.0, 6.0];
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (lineas.isEmpty) return;
-    final path = Path();
-    for (final (desde, hasta) in lineas) {
-      path
-        ..moveTo(desde.dx, desde.dy)
-        ..lineTo(hasta.dx, hasta.dy);
-    }
-    canvas.drawPath(path, _trazo);
-    for (final (desde, _) in lineas) {
-      canvas.drawCircle(desde, 2.5, _relleno);
+    final t = reloj.value.inMicroseconds / 1e6;
+    for (var i = 0; i < 3; i++) {
+      final alto = quieto
+          ? _quietas[i]
+          : 3 + 7 * (0.5 + 0.5 * math.sin(2 * math.pi * t / 0.8 + i * 2.1));
+      canvas.drawRect(
+        Rect.fromLTWH(i * 4.0, size.height - alto, 2, alto),
+        _pintura,
+      );
     }
   }
 
   @override
-  bool shouldRepaint(_LasLineas antes) =>
-      antes.linea != linea ||
-      antes.punto != punto ||
-      antes.lineas.length != lineas.length ||
-      [
-        for (var i = 0; i < lineas.length; i++) antes.lineas[i] != lineas[i],
-      ].any((distinta) => distinta);
+  bool shouldRepaint(_LasBarras antes) =>
+      antes.color != color || antes.quieto != quieto || antes.reloj != reloj;
+}
+
+/// El texto del paso, que al cambiar **se descifra**: letras al azar que se
+/// asientan de izquierda a derecha. Un cambio de paso se ve sin leer nada.
+class _ElTextoQueSeDescifra extends StatelessWidget {
+  const _ElTextoQueSeDescifra({
+    required this.texto,
+    required this.aparicion,
+    required this.estilo,
+  });
+
+  final String texto;
+  final Animation<double> aparicion;
+  final TextStyle estilo;
+
+  static const _signos = 'abcdefghijklmnopqrstuvwxyz0123456789_./▚▞░▒';
+  static final _azar = math.Random();
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: aparicion,
+    builder: (context, _) {
+      final p = aparicion.value;
+      final fijas = (texto.length * p).floor();
+      final visto = p >= 1
+          ? texto
+          : texto.substring(0, fijas) +
+                String.fromCharCodes(
+                  texto
+                      .substring(fijas)
+                      .runes
+                      .map(
+                        (c) => c == 32
+                            ? 32
+                            : _signos.codeUnitAt(_azar.nextInt(_signos.length)),
+                      ),
+                );
+      return Text(
+        visto,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: estilo,
+      );
+    },
+  );
+}
+
+/// Lo que se pinta alrededor del orbe: el tramo encendido del aro, el
+/// segundero, las líneas guía con su destello.
+///
+/// Repinta con el reloj, **no reconstruye**: cada fotograma solo pide trazos,
+/// y los `Paint` se hacen una vez.
+class _ElInstrumento extends CustomPainter {
+  _ElInstrumento({
+    required this.reloj,
+    required this.aparicion,
+    required this.quieto,
+    required this.centro,
+    required this.radio,
+    required this.arriba,
+    required this.abajo,
+  }) : super(repaint: Listenable.merge([reloj, aparicion]));
+
+  final ValueListenable<Duration> reloj;
+  final Animation<double> aparicion;
+  final bool quieto;
+  final Offset centro;
+  final double radio;
+  final _Guia? arriba;
+  final _Guia? abajo;
+
+  /// Cuánto mide el destello que corre por la línea, y cuánto tarda.
+  static const _destello = 14.0;
+  static const _vueltaDelDestello = 1.7;
+
+  /// El tramo del aro que se enciende, a cada lado del ancla.
+  static const _medioTramo = 18.0;
+
+  final _trazo = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1;
+  final _brillo = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeCap = StrokeCap.round
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+  final _nitido = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeCap = StrokeCap.round;
+  final _punto = Paint();
+  final _halo = Paint()
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final t = reloj.value.inMicroseconds / 1e6;
+    if (arriba case final guia?) {
+      _elTramo(canvas, guia.tono, t);
+      _laLinea(canvas, guia, t, dibujada: aparicion.value);
+      if (guia.pasoDesde case final desde?) {
+        _elSegundero(canvas, guia.tono, desde);
+      }
+    }
+    if (abajo case final guia?) _laLinea(canvas, guia, t, dibujada: 1);
+  }
+
+  /// El tramo del aro del que sale la ficha, encendido y respirando.
+  void _elTramo(Canvas canvas, Color tono, double t) {
+    // Nunca del todo apagado: sobre un aro del mismo color, a media luz ya no
+    // se distinguía.
+    final luz = quieto
+        ? 0.85
+        : 0.5 + 0.5 * (0.5 + 0.5 * math.sin(2 * math.pi * t / 1.8));
+    final rect = Rect.fromCircle(center: centro, radius: radio);
+    const inicio =
+        (LasEtiquetasDelOrbe.anguloDeArriba - _medioTramo) * math.pi / 180;
+    const barrido = 2 * _medioTramo * math.pi / 180;
+    _brillo
+      ..color = tono.withValues(alpha: luz * 0.7)
+      ..strokeWidth = 7;
+    canvas.drawArc(rect, inicio, barrido, false, _brillo);
+    // El núcleo, más claro que el aro: es lo que lo separa de él.
+    _nitido
+      ..color = Color.lerp(tono, Colors.white, 0.35)!.withValues(alpha: luz)
+      ..strokeWidth = 3;
+    canvas.drawArc(rect, inicio, barrido, false, _nitido);
+  }
+
+  /// La línea, dibujada hasta [dibujada] —se dibuja al cambiar de paso— y con
+  /// un destello que corre del orbe hacia la ficha.
+  void _laLinea(
+    Canvas canvas,
+    _Guia guia,
+    double t, {
+    required double dibujada,
+  }) {
+    final camino = Path()
+      ..moveTo(guia.desde.dx, guia.desde.dy)
+      ..lineTo(guia.codo.dx, guia.codo.dy)
+      ..lineTo(guia.hasta.dx, guia.hasta.dy);
+    final PathMetric medida = camino.computeMetrics().first;
+    final largo = medida.length;
+    _trazo.color = guia.tono.withValues(alpha: 0.45);
+    canvas.drawPath(medida.extractPath(0, largo * dibujada), _trazo);
+    if (quieto || dibujada < 1) return;
+
+    final donde =
+        (t % _vueltaDelDestello) / _vueltaDelDestello * (largo + _destello) -
+        _destello;
+    final tramo = medida.extractPath(
+      math.max(0, donde),
+      math.min(largo, donde + _destello),
+    );
+    _brillo
+      ..color = guia.tono.withValues(alpha: 0.7)
+      ..strokeWidth = 3;
+    canvas.drawPath(tramo, _brillo);
+    _nitido
+      ..color = guia.tono
+      ..strokeWidth = 1.6;
+    canvas.drawPath(tramo, _nitido);
+  }
+
+  /// Un punto que rodea el aro por fuera: una vuelta por minuto del paso.
+  void _elSegundero(Canvas canvas, Color tono, DateTime desde) {
+    final segundos =
+        DateTime.now().difference(desde).inMilliseconds / 1000 % 60;
+    final a = (-90 + segundos * 6) * math.pi / 180;
+    final donde = centro + Offset(math.cos(a), math.sin(a)) * radio * 1.17;
+    _halo.color = tono.withValues(alpha: 0.6);
+    canvas.drawCircle(donde, 4, _halo);
+    _punto.color = tono;
+    canvas.drawCircle(donde, 2.4, _punto);
+  }
+
+  @override
+  bool shouldRepaint(_ElInstrumento antes) =>
+      antes.quieto != quieto ||
+      antes.centro != centro ||
+      antes.radio != radio ||
+      antes.arriba != arriba ||
+      antes.abajo != abajo;
 }

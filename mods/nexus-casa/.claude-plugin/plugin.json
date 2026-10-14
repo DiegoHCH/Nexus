@@ -1,0 +1,6 @@
+{
+  "name": "nexus-casa",
+  "version": "0.1.0",
+  "description": "Recorta las salidas ruidosas que salieron bien y pide confirmación ante los comandos que no tienen vuelta atrás",
+  "author": { "name": "Diego Hoyos" }
+}

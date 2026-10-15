@@ -54,20 +54,30 @@ enum SeccionDeAjustes {
   avisos(PreguntaDeAjustes.queTeCuenta),
   history(PreguntaDeAjustes.queTeCuenta),
   mobile(PreguntaDeAjustes.tusAparatos),
-  emulators(PreguntaDeAjustes.tusAparatos),
-  pruebas(PreguntaDeAjustes.tusAparatos),
-  cuentas(PreguntaDeAjustes.tusAparatos),
+  // Las tres de programar: emuladores, pruebas y sus cuentas. Sin ninguna
+  // carpeta de código no se enseñan. Ver `LaCarpetaDeCodigo`.
+  emulators(PreguntaDeAjustes.tusAparatos, deCodigo: true),
+  pruebas(PreguntaDeAjustes.tusAparatos, deCodigo: true),
+  cuentas(PreguntaDeAjustes.tusAparatos, deCodigo: true),
   stats(PreguntaDeAjustes.comoVa),
   help(PreguntaDeAjustes.comoVa);
 
-  const SeccionDeAjustes(this.pregunta);
+  const SeccionDeAjustes(this.pregunta, {this.deCodigo = false});
 
   final PreguntaDeAjustes pregunta;
 
-  /// Las de una pregunta, en el orden en que se leen.
-  static List<SeccionDeAjustes> de(PreguntaDeAjustes pregunta) => [
+  /// Si solo sirve para programar.
+  final bool deCodigo;
+
+  /// Las de una pregunta, en el orden en que se leen. Sin [conLoDeCodigo], sin
+  /// las que solo sirven para programar.
+  static List<SeccionDeAjustes> de(
+    PreguntaDeAjustes pregunta, {
+    bool conLoDeCodigo = true,
+  }) => [
     for (final seccion in values)
-      if (seccion.pregunta == pregunta) seccion,
+      if (seccion.pregunta == pregunta && (conLoDeCodigo || !seccion.deCodigo))
+        seccion,
   ];
 
   String title(NexusStrings strings) => switch (this) {

@@ -77,12 +77,12 @@ void main() {
     testWidgets('en dos columnas: cada comando con lo que hace', (
       tester,
     ) async {
-      await _pump(tester, const [
-        ChatMessage(
-          author: ChatAuthor.nexus,
-          text: 'la lista',
-          esLaAyuda: true,
-        ),
+      final texto = ElComandoDeLaCasa.laLista(
+        _es.ayudaTitulo,
+        (comando) => loQueHaceElComando(_es, comando),
+      );
+      await _pump(tester, [
+        ChatMessage(author: ChatAuthor.nexus, text: texto, esLaAyuda: true),
       ]);
 
       expect(find.text(_es.ayudaTitulo), findsOne);
@@ -99,7 +99,7 @@ void main() {
       // Lo que se acaba de escribir no se repite en la tabla.
       expect(_conTexto('/ayuda  '), findsNothing);
       // Y el texto del mensaje —lo que queda al releerla— no se pinta encima.
-      expect(find.textContaining('la lista'), findsNothing);
+      expect(find.text(texto), findsNothing);
 
       // Dos columnas de verdad: la segunda celda empieza a la derecha de la
       // primera, a la misma altura.
@@ -108,6 +108,29 @@ void main() {
       expect(segunda.dx, greaterThan(primera.dx));
       expect(segunda.dy, primera.dy);
       expect(tester.takeException(), isNull);
+    });
+
+    // Del documento «Qué le sirve a Nexus»: lo de programar no se enseña
+    // donde no hay código. Ver [LaCarpetaDeCodigo].
+    testWidgets('en una carpeta sin código, sin lo de programar', (
+      tester,
+    ) async {
+      await _pump(tester, [
+        ChatMessage(
+          author: ChatAuthor.nexus,
+          text: ElComandoDeLaCasa.laLista(
+            _es.ayudaTitulo,
+            (comando) => loQueHaceElComando(_es, comando),
+            deCodigo: false,
+          ),
+          esLaAyuda: true,
+        ),
+      ]);
+
+      expect(_conTexto('/recuerda'), findsOne);
+      expect(_conTexto('/gate'), findsNothing);
+      expect(_conTexto('/aparte'), findsNothing);
+      expect(_conTexto('!git'), findsNothing);
     });
 
     testWidgets('releída del disco, sin marca, queda su texto', (tester) async {

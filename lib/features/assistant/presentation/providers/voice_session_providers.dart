@@ -167,7 +167,11 @@ final holdVoiceConversationProvider =
         suVozAparte: ref.watch(suVozAparteProvider),
         loQueTeEspera: ref.watch(loQueTeEsperaProvider(conversationId)),
         laSesionCaliente: ref.watch(laSesionCalienteProvider),
-        claveCaliente: () => '$conversationId|${_loQueSuena(ref)}',
+        // Con si hay código: una sesión caliente abierta con las herramientas
+        // de programar no vale para la misma conversación sin ellas.
+        claveCaliente: () =>
+            '$conversationId|${_loQueSuena(ref)}|${_esDeCodigo(ref, conversationId)}',
+        esDeCodigo: () => _esDeCodigo(ref, conversationId),
         // Seguir sin su nombre justo después de que conteste: el ajuste de
         // Ajustes › Oído, que nace encendido. Lo no leído todavía cuenta como
         // encendido, que es lo de fábrica.
@@ -190,3 +194,10 @@ final laSesionDePuertaProvider = Provider<LaSesionDePuerta>(
     debugPrint,
   ),
 );
+
+/// Si la carpeta de [conversationId] tiene código. Mientras no se sabe, sí.
+bool _esDeCodigo(Ref ref, String conversationId) {
+  final carpeta = ref.read(conversationFolderProvider(conversationId));
+  return carpeta == null ||
+      (ref.read(laCarpetaEsDeCodigoProvider(carpeta)).value ?? true);
+}

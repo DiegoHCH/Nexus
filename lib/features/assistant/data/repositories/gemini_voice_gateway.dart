@@ -429,7 +429,8 @@ class GeminiVoiceGateway implements VoiceGateway {
     'tools': [
       {
         'functionDeclarations': switch (perfil) {
-          ComoUnaConversacion() => lasHerramientas,
+          ComoUnaConversacion(:final deCodigo) =>
+            deCodigo ? lasHerramientas : lasHerramientasSinCodigo,
           ComoLaPuerta() => laHerramientaDeLaPuerta,
           // Un aviso no llama a nadie: dice su frase y se va.
           ComoUnAviso() => const <Map<String, dynamic>>[],
@@ -685,6 +686,14 @@ class GeminiVoiceGateway implements VoiceGateway {
   static const toolName = 'pedir_a_claude';
   static const skillToolName = 'crear_skill';
   static const testToolName = 'correr_prueba';
+
+  /// Las de [lasHerramientas] para una carpeta sin código: todas menos las de
+  /// programar. Se filtra encima y no se escribe otra lista, para que las dos
+  /// no puedan separarse. Ver [ComoUnaConversacion.deCodigo].
+  static List<Map<String, dynamic>> get lasHerramientasSinCodigo => [
+    for (final herramienta in lasHerramientas)
+      if (herramienta['name'] != testToolName) herramienta,
+  ];
   static const parteToolName = 'pedir_el_parte';
   static const agendaToolName = 'consultar_agenda';
   static const loQueTeEsperaToolName = 'lo_que_me_espera_hoy';

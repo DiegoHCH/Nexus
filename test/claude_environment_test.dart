@@ -72,4 +72,20 @@ void main() {
     );
     expect(profile['CLAUDE_CONFIG_DIR'], isNot(tools['CLAUDE_CONFIG_DIR']));
   });
+
+  // 🔴 El mod del observador cuenta a Nexus lo que pasa en la terminal y le
+  // pasa sus permisos. En un encargo del propio Nexus tiene que apartarse, y
+  // lo sabe por esta marca.
+  test('cada encargo de Nexus va marcado como suyo', () {
+    expect(
+      ClaudeEnvironment.forProfile(null)[ClaudeEnvironment.encargoDeNexus],
+      '1',
+    );
+    expect(
+      ClaudeEnvironment.forProfile(
+        '/tmp/perfil',
+      )[ClaudeEnvironment.encargoDeNexus],
+      '1',
+    );
+  });
 }

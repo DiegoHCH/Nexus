@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
+import 'package:nexus/features/observador/presentation/widgets/la_terminal_en_la_barra.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
 /// La barra superior del HUD: wordmark, carpeta activa y el interruptor de
@@ -94,6 +95,9 @@ class HudTopBar extends ConsumerWidget {
               letterSpacing: 2,
             ),
           ),
+          // Tus sesiones de la terminal, si el mod las cuenta. Sin ninguna no
+          // ocupa nada. Ver [LaTerminalEnLaBarra].
+          const LaTerminalEnLaBarra(),
           if (centrada)
             const SizedBox(width: NexusSpacing.s5)
           else

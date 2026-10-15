@@ -62,6 +62,7 @@ class _Claude implements AskClaude {
     String instruction, {
     bool remember = true,
     bool allowWrites = true,
+    bool porVoz = false,
     Future<RespuestaDePermiso> Function(PeticionDePermiso)? alPedirPermiso,
   }) async* {
     pedidos.add(instruction);

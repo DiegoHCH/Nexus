@@ -15,6 +15,7 @@ import 'package:nexus/features/assistant/presentation/providers/voice_input_prov
 import 'package:nexus/features/emulators/data/datasources/emuladores_data_source.dart';
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
 import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
+import 'package:nexus/features/observador/presentation/providers/la_terminal_provider.dart';
 import 'package:nexus/features/lo_que_te_espera/presentation/providers/lo_que_te_espera_provider.dart';
 import 'package:nexus/features/onboarding/domain/entities/pasos_del_arranque.dart';
 import 'package:nexus/features/onboarding/domain/repositories/lo_que_quedo_para_luego.dart';
@@ -221,6 +222,9 @@ Future<void> pumpScreen(
           conPuerta ? const MicrofonoConcedido() : const MicrofonoDenegado(),
         ),
         emuladoresDataSourceProvider.overrideWithValue(const SinDispositivos()),
+        // Sin canal de la terminal: una prueba de pantalla no levanta un
+        // servidor ni escribe el archivo que anuncia uno.
+        elCanalDeLaTerminalProvider.overrideWithValue(null),
         // 🔴 **Sin contar el día al abrir la voz.** Con el reloj de verdad, de
         // ocho a seis y entre semana, contarlo sale a `gh` y al cupo con un
         // plazo de segundos — y en el reloj falso de una prueba de pantalla

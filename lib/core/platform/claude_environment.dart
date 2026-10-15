@@ -93,6 +93,15 @@ abstract final class ClaudeEnvironment {
       env['CLAUDE_CONFIG_DIR'] = configDir;
     }
 
+    // **Que se sepa que es un encargo de Nexus.** Lo mira el mod del
+    // observador —`mods/nexus-observador`—, que en la terminal le cuenta a
+    // Nexus qué hace cada sesión: aquí Nexus ya lo está viendo, y sus permisos
+    // ya los pregunta él.
+    env[encargoDeNexus] = '1';
+
     return env;
   }
+
+  /// La variable que marca un proceso como encargo de Nexus.
+  static const encargoDeNexus = 'NEXUS_ENCARGO';
 }

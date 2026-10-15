@@ -1,0 +1,6 @@
+{
+  "name": "nexus-observador",
+  "version": "0.1.0",
+  "description": "Le cuenta a Nexus qué hacen tus sesiones de claude en la terminal, y te deja contestar sus permisos desde Nexus",
+  "author": { "name": "Diego Hoyos" }
+}

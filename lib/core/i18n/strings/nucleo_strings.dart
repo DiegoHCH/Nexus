@@ -574,7 +574,7 @@ mixin NucleoStringsEs implements NucleoStrings {
   String get permisoDichoCancelado => 'Se detuvo antes de que contestaras';
   @override
   String contextUsed(int percent) =>
-      'Contexto ocupado: $percent %. Al 85 % o a los 200k tokens, lo que llegue '
+      'Contexto ocupado: $percent %. Al 85 % o a los 500k tokens, lo que llegue '
       'antes, la conversación se comprime sola.';
   @override
   String get attachFile => 'Adjuntar un archivo';
@@ -1237,7 +1237,7 @@ mixin NucleoStringsEn implements NucleoStrings {
   String get permisoDichoCancelado => 'It stopped before you answered';
   @override
   String contextUsed(int percent) =>
-      'Context used: $percent%. At 85% or 200k tokens, whichever comes first, '
+      'Context used: $percent%. At 85% or 500k tokens, whichever comes first, '
       'the conversation compacts itself.';
   @override
   String get attachFile => 'Attach a file';

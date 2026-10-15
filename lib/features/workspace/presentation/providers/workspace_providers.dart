@@ -18,6 +18,7 @@ import 'package:nexus/features/workspace/data/datasources/repo_config_data_sourc
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/domain/entities/workspace.dart';
 import 'package:nexus/features/workspace/domain/repositories/workspace_store.dart';
+import 'package:nexus/features/workspace/domain/usecases/la_carpeta_de_codigo.dart';
 
 final workspaceStoreProvider = Provider<WorkspaceStore>(
   (ref) => const WorkspaceStoreImpl(WorkspacePreferencesDataSource()),
@@ -581,6 +582,49 @@ final gitInfoProvider = FutureProvider.family<GitInfo?, String>((
 final reposInsideProvider = FutureProvider.family<List<String>, String>(
   (ref, folderPath) => const GitDataSource().reposInside(folderPath),
 );
+
+/// Si en [folderPath] hay código. Ver [LaCarpetaDeCodigo].
+///
+/// Con la rama y los repos que ya se leen para la barra, así que se rehace con
+/// ellos: inicializar git en la carpeta la vuelve de código sin reabrir nada.
+final laCarpetaEsDeCodigoProvider = FutureProvider.family<bool, String>((
+  ref,
+  folderPath,
+) async {
+  final git = await ref.watch(gitInfoProvider(folderPath).future);
+  final repos = await ref.watch(reposInsideProvider(folderPath).future);
+  final enLaRaiz = <String>[];
+  try {
+    await for (final cosa in Directory(folderPath).list(followLinks: false)) {
+      enLaRaiz.add(cosa.path.split('/').last);
+    }
+  } on FileSystemException {
+    // Sin poder mirar dentro se decide con lo demás.
+  }
+  return LaCarpetaDeCodigo.es(
+    hayGit: git != null,
+    hayReposDentro: repos.isNotEmpty,
+    enLaRaiz: enLaRaiz,
+  );
+});
+
+/// Si se enseña lo de programar para [folderPath]: **sí mientras no se sabe**,
+/// para que en una carpeta de código los botones no parpadeen al abrirla. Sin
+/// carpeta, también: no hay de dónde decidir otra cosa.
+bool seEnsenaLoDeCodigo(WidgetRef ref, String? folderPath) =>
+    folderPath == null ||
+    (ref.watch(laCarpetaEsDeCodigoProvider(folderPath)).value ?? true);
+
+/// Si alguna carpeta emparejada es de código —o todavía no se sabe—, para las
+/// secciones de Ajustes que solo sirven para programar.
+final algunaCarpetaEsDeCodigoProvider = Provider<bool>((ref) {
+  final carpetas = ref.watch(workspaceControllerProvider).folders;
+  if (carpetas.isEmpty) return true;
+  return carpetas.any(
+    (carpeta) =>
+        ref.watch(laCarpetaEsDeCodigoProvider(carpeta.path)).value ?? true,
+  );
+});
 
 /// Los dos nombres: el de quien contesta y el tuyo.
 ///

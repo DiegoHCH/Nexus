@@ -111,6 +111,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    // Una sección de programar que se dejó abierta, o a la que se llegó por
+    // un enlace, con ninguna carpeta de código: se cae a Permisos, que es
+    // donde se abre Ajustes de fábrica.
+    final seccion =
+        _section.deCodigo && !ref.watch(algunaCarpetaEsDeCodigoProvider)
+        ? SeccionDeAjustes.permissions
+        : _section;
 
     return CallbackShortcuts(
       bindings: {const SingleActivator(LogicalKeyboardKey.escape): _cerrar},
@@ -175,7 +182,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                       ),
                                     ),
                                     child: _ElIndice(
-                                      actual: _section,
+                                      actual: seccion,
                                       onElegir: _ir,
                                     ),
                                   ),
@@ -187,7 +194,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                         44,
                                         0,
                                       ),
-                                      child: _LaSeccion(_section),
+                                      child: _LaSeccion(seccion),
                                     ),
                                   ),
                                 ],
@@ -272,16 +279,19 @@ class _LaSeccion extends StatelessWidget {
 }
 
 /// El índice: las cinco preguntas, y debajo de cada una sus secciones.
-class _ElIndice extends StatelessWidget {
+class _ElIndice extends ConsumerWidget {
   const _ElIndice({required this.actual, required this.onElegir});
 
   final SeccionDeAjustes actual;
   final ValueChanged<SeccionDeAjustes> onElegir;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final strings = context.strings;
+    // Lo de programar, solo si alguna carpeta es de código. Ver
+    // [LaCarpetaDeCodigo].
+    final conLoDeCodigo = ref.watch(algunaCarpetaEsDeCodigoProvider);
 
     // 🔴 **Rueda, porque la lista crece con cada sección.** Se pasó del alto al
     // llegar a la decimosexta —8 px medidos— y el fallo no es de esa sección:
@@ -307,7 +317,10 @@ class _ElIndice extends StatelessWidget {
                 ),
               ),
             ),
-            for (final section in SeccionDeAjustes.de(pregunta))
+            for (final section in SeccionDeAjustes.de(
+              pregunta,
+              conLoDeCodigo: conLoDeCodigo,
+            ))
               _SectionLink(
                 // Con nombre propio: «Voz» aparece dos veces en esta pantalla
                 // —el enlace de la izquierda y la modalidad de una carpeta— y

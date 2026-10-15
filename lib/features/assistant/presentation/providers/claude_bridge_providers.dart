@@ -187,15 +187,14 @@ final askClaudeProvider = Provider.family<AskClaude, String>((
           .folders
           .where((item) => item.path == folder)
           .firstOrNull;
-      final repos = folder == null
-          ? const <String>[]
-          : await ref.read(reposInsideProvider(folder).future);
+      // Con la misma regla que esconde lo de programar: si allí se ven los
+      // botones de correr, aquí va el modelo de la carpeta. Ver
+      // [LaCarpetaDeCodigo].
       return ElModeloAlAbrir.paraLaVoz(
         encendido: ref.read(lasRapidasPorVozProvider),
-        esCodigo:
-            repos.isNotEmpty ||
-            Directory('$directorio/.git').existsSync() ||
-            File('$directorio/.git').existsSync(),
+        esCodigo: await ref.read(
+          laCarpetaEsDeCodigoProvider(folder ?? directorio).future,
+        ),
         hayModeloElegido: paired?.claudeModel != null,
       );
     },

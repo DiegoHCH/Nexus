@@ -1171,6 +1171,13 @@ class AssistantController extends Notifier<AssistantHudState> {
           ElComandoDeLaCasa.laLista(
             s.ayudaTitulo,
             (comando) => loQueHaceElComando(s, comando),
+            // Lo de programar, solo donde hay código. Mientras no se sabe,
+            // todo: es lo que había.
+            deCodigo: switch (_folder) {
+              final carpeta? =>
+                ref.read(laCarpetaEsDeCodigoProvider(carpeta)).value ?? true,
+              null => true,
+            },
           ),
         );
         _sealLast();

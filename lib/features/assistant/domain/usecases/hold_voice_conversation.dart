@@ -56,8 +56,13 @@ class HoldVoiceConversation {
     this._laSesionCaliente,
     this._claveCaliente,
     this._seSigueSinNombre,
+    this._esDeCodigo,
     this.ventanaSinNombre = ElAudioAjeno.ventanaSinNombre,
   });
+
+  /// Si la carpeta de esta conversación tiene código, leído al abrir la
+  /// sesión. `null` es que sí: lo de siempre. Ver [ComoUnaConversacion.deCodigo].
+  final bool Function()? _esDeCodigo;
 
   /// Si justo después de que ella calle se le puede seguir hablando sin su
   /// nombre —el ajuste de Ajustes › Oído—, leído en el momento. `null` es que
@@ -1993,7 +1998,12 @@ class HoldVoiceConversation {
         if (!caliente) {
           final booted = await (
             _output.start(),
-            _gateway.connect(perfil: ComoUnaConversacion(saludo: saludo)),
+            _gateway.connect(
+              perfil: ComoUnaConversacion(
+                saludo: saludo,
+                deCodigo: _esDeCodigo?.call() ?? true,
+              ),
+            ),
           ).wait;
           attach(booted.$2);
           keepAlive();

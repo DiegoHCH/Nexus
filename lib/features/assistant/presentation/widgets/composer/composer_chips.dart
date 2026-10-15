@@ -108,7 +108,10 @@ class ComposerChips extends ConsumerWidget {
         // La rama, a secas. **Abría la hoja de la corrida y ya no**: eso era del marco
         // flow, que se fue entero al plugin.
         if (git?.branch case final branch?) _Chip(label: branch),
-        if (git == null && paired != null)
+        if (git == null &&
+            paired != null &&
+            // Solo donde hay código, y sabiéndolo: ver [LaCarpetaDeCodigo].
+            ref.watch(laCarpetaEsDeCodigoProvider(paired.path)).value == true)
           // Sin repositorio no hay nada que deshacer, y eso hay que decirlo
           // donde se ve el permiso: es la red de seguridad que falta.
           _Chip(label: strings.noGitRepo, warn: true),

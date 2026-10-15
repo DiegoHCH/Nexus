@@ -737,7 +737,14 @@ class _LasEsquinas extends ConsumerWidget {
               // Sin repositorio no hay nada que deshacer. **Solo leído**: con
               // la lectura en vuelo `git` también es `null`, y decir «sin git»
               // durante ese parpadeo sería afirmar algo que no se ha mirado.
-              if (leido != null && leido.hasValue && git == null)
+              // Y solo donde hay código: en una carpeta como `General` no hay
+              // nada que versionar, y el aviso sería ruido. Ver
+              // [LaCarpetaDeCodigo].
+              if (leido != null &&
+                  leido.hasValue &&
+                  git == null &&
+                  ref.watch(laCarpetaEsDeCodigoProvider(carpeta!.path)).value ==
+                      true)
                 Text(
                   strings.noGitRepo,
                   style: etiqueta.copyWith(color: colors.warn),

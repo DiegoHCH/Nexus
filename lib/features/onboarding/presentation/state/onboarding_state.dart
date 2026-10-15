@@ -47,6 +47,7 @@ class SetupState {
     this.tuNombre = '',
     this.personalidad,
     this.personalidadGuardada = false,
+    this.quienEres = 0,
     this.cuentaElegida = false,
     this.saltados = const {},
     this.carpetasDelArranque = const {},
@@ -73,6 +74,11 @@ class SetupState {
 
   /// Si ya se escribió `personalidad.md` desde el arranque.
   final bool personalidadGuardada;
+
+  /// Cuántas preguntas de «cuéntale quién eres» se contestaron aquí. Se
+  /// guardan al pulsar «Guardar» en las preguntas, no al terminar: son notas de
+  /// la memoria y se escriben por su camino.
+  final int quienEres;
 
   /// Si se eligió cuenta en este arranque, **incluida la de siempre**.
   ///
@@ -117,6 +123,7 @@ class SetupState {
     String? tuNombre,
     String? personalidad,
     bool? personalidadGuardada,
+    int? quienEres,
     bool? cuentaElegida,
     Set<QueSePide>? saltados,
     Set<String>? carpetasDelArranque,
@@ -132,6 +139,7 @@ class SetupState {
       tuNombre: tuNombre ?? this.tuNombre,
       personalidad: personalidad ?? this.personalidad,
       personalidadGuardada: personalidadGuardada ?? this.personalidadGuardada,
+      quienEres: quienEres ?? this.quienEres,
       cuentaElegida: cuentaElegida ?? this.cuentaElegida,
       saltados: saltados ?? this.saltados,
       carpetasDelArranque: carpetasDelArranque ?? this.carpetasDelArranque,

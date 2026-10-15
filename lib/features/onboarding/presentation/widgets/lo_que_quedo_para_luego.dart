@@ -19,6 +19,7 @@ String nombreDelPaso(NexusStrings strings, QueSePide que) => switch (que) {
   QueSePide.llave => strings.pasoLlave,
   QueSePide.suNombre => strings.comoSeLlamaElAgente,
   QueSePide.tuNombre => strings.comoTeLlamas,
+  QueSePide.quienEres => strings.quienEresTitulo,
   QueSePide.personalidad => strings.personalidad,
 };
 

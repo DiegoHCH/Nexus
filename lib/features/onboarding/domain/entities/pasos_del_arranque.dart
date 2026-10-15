@@ -45,6 +45,11 @@ enum QueSePide {
   /// Cómo te llama a ti.
   tuNombre(EtapaDelArranque.ella),
 
+  /// Quién eres, qué haces y qué te importa: unas preguntas cortas que se
+  /// apuntan en «lo que se sabe de ti». Después de tu nombre, que es lo
+  /// primero que se sabe de alguien, y antes de cómo habla ella.
+  quienEres(EtapaDelArranque.ella),
+
   /// Cómo habla: `personalidad.md`, con la de la casa como plantilla.
   personalidad(EtapaDelArranque.ella);
 
@@ -75,6 +80,7 @@ class ComoEstaLaConfiguracion {
     this.haySuNombre = false,
     this.hayTuNombre = false,
     this.hayPersonalidad = false,
+    this.hayQuienEres = false,
   });
 
   /// Solo se sabe en la sesión que lo pidió: preguntarlo al sistema **es**
@@ -95,6 +101,9 @@ class ComoEstaLaConfiguracion {
   /// Si hay un `personalidad.md` escrito. Sin él habla con la de la casa.
   final bool hayPersonalidad;
 
+  /// Si ya hay alguna respuesta de «cuéntale quién eres» en la memoria.
+  final bool hayQuienEres;
+
   /// Si ese paso tiene sentido en esta máquina.
   ///
   /// Hoy solo la cuenta puede no tenerlo: con una sola, elegir no es una
@@ -112,6 +121,7 @@ class ComoEstaLaConfiguracion {
     QueSePide.llave => hayLlave,
     QueSePide.suNombre => haySuNombre,
     QueSePide.tuNombre => hayTuNombre,
+    QueSePide.quienEres => hayQuienEres,
     QueSePide.personalidad => hayPersonalidad,
   };
 }

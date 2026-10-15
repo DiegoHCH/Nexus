@@ -10,6 +10,7 @@ import 'package:nexus/features/assistant/presentation/providers/voice_input_prov
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/oido/domain/usecases/como_se_le_llama.dart';
 import 'package:nexus/features/oido/presentation/providers/el_oido_que_espera.dart';
+import 'package:nexus/features/memoria/presentation/widgets/cuentale_quien_eres.dart';
 import 'package:nexus/features/onboarding/domain/entities/pasos_del_arranque.dart';
 import 'package:nexus/features/onboarding/presentation/providers/onboarding_providers.dart';
 import 'package:nexus/features/onboarding/presentation/state/onboarding_state.dart';
@@ -323,6 +324,18 @@ class _InitialSetupPageState extends ConsumerState<InitialSetupPage>
           llave: const ValueKey('tu-nombre'),
           controller: _tuNombreController,
           onChanged: notifier.updateTuNombre,
+          onSaltar: saltar,
+          onRetomar: retomar,
+        ),
+        QueSePide.quienEres => _PasoDeQuienEres(
+          paso: paso,
+          contestadas: setup.quienEres,
+          onContestar: () async {
+            final cuantas = await preguntarQuienEres(context);
+            if (cuantas != null && cuantas > 0) {
+              notifier.seContestoQuienEres(cuantas);
+            }
+          },
           onSaltar: saltar,
           onRetomar: retomar,
         ),
@@ -1155,6 +1168,64 @@ class _PasoDeUnNombre extends StatelessWidget {
               fontSize: 12,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Quién eres, con unas preguntas cortas.
+///
+/// Las preguntas se abren aparte —una cada vez— y se guardan al terminarlas,
+/// en la memoria: aquí solo se ofrecen y se dice cuántas quedaron apuntadas.
+class _PasoDeQuienEres extends StatelessWidget {
+  const _PasoDeQuienEres({
+    required this.paso,
+    required this.contestadas,
+    required this.onContestar,
+    required this.onSaltar,
+    required this.onRetomar,
+  });
+
+  static const elBoton = ValueKey('quien-eres-del-arranque');
+
+  final PasoDelArranque paso;
+  final int contestadas;
+  final VoidCallback onContestar;
+  final VoidCallback? onSaltar;
+  final VoidCallback onRetomar;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final strings = context.strings;
+    return _Paso(
+      paso: paso,
+      titulo: strings.quienEresTitulo,
+      onSaltar: onSaltar,
+      onRetomar: onRetomar,
+      lado: BotonDelArranque(
+        key: elBoton,
+        texto: contestadas > 0
+            ? strings.quienEresOtraVez
+            : strings.quienEresEmpezar,
+        principal: contestadas == 0,
+        onPulsar: onContestar,
+      ),
+      cuerpo: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(strings.quienEresExplica, style: _cuerpoDelPaso(colors)),
+          if (contestadas > 0) ...[
+            const SizedBox(height: 6),
+            Text(
+              strings.quienEresGuardadas(contestadas),
+              style: NexusTypography.nota.copyWith(
+                color: colors.ok,
+                fontSize: 12,
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -16,6 +16,8 @@ import 'package:nexus/features/onboarding/domain/repositories/readiness_probe.da
 import 'package:nexus/features/onboarding/data/repositories/readiness_probe_impl.dart';
 import 'package:nexus/features/onboarding/domain/usecases/check_readiness.dart';
 import 'package:nexus/features/onboarding/domain/usecases/save_gemini_key.dart';
+import 'package:nexus/features/memoria/domain/entities/las_preguntas_de_quien_eres.dart';
+import 'package:nexus/features/memoria/presentation/providers/lo_que_recuerda_de_ti.dart';
 import 'package:nexus/features/oido/presentation/providers/el_oido_que_espera.dart';
 import 'package:nexus/features/personalidad/presentation/providers/la_personalidad_provider.dart';
 import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
@@ -213,6 +215,13 @@ final laConfiguracionDeAhoraProvider =
         await ref.read(laPersonalidadProvider.notifier).leida;
         return ref.read(laPersonalidadProvider) != null;
       }, false);
+      final hayQuienEres = await sinLanzar(() async {
+        await ref.read(loQueRecuerdaDeTiProvider.notifier).leida;
+        return LasPreguntasDeQuienEres.contestadas(
+          ref.read(loQueRecuerdaDeTiProvider),
+          losTemasDeQuienEres(),
+        );
+      }, false);
       final workspace = ref.read(workspaceControllerProvider);
       final carpeta = workspace.active ?? workspace.folders.firstOrNull;
 
@@ -224,6 +233,7 @@ final laConfiguracionDeAhoraProvider =
         haySuNombre: nombres?.agente != null,
         hayTuNombre: nombres?.tuyo != null,
         hayPersonalidad: hayPersonalidad,
+        hayQuienEres: hayQuienEres,
       );
     });
 
@@ -384,6 +394,10 @@ class SetupController extends Notifier<SetupState> {
     state = state.copyWith(personalidadGuardada: true);
   }
 
+  /// Se contestaron [cuantas] preguntas de «cuéntale quién eres».
+  void seContestoQuienEres(int cuantas) =>
+      state = state.copyWith(quienEres: cuantas);
+
   /// Si [que] quedó hecho en este arranque. Lo que se pregunta es **lo que
   /// esta pantalla consiguió**: lo que ya estaba no se pidió.
   bool _hecho(QueSePide que) {
@@ -396,6 +410,7 @@ class SetupController extends Notifier<SetupState> {
       QueSePide.llave => state.keyText.trim().isNotEmpty,
       QueSePide.suNombre => state.suNombre.trim().isNotEmpty,
       QueSePide.tuNombre => state.tuNombre.trim().isNotEmpty,
+      QueSePide.quienEres => state.quienEres > 0,
       QueSePide.personalidad => state.personalidadGuardada,
     };
   }

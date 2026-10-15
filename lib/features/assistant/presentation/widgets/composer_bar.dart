@@ -570,13 +570,18 @@ class _Controls extends ConsumerWidget {
         // conversación. Va junto al micrófono porque son la misma clase de cosa:
         // herramientas de la sesión, no estado del proyecto —eso es la fila de
         // arriba.
-        const _Casilla(child: DispositivosMenu()),
-        // Correr la app va justo al lado de los dispositivos porque son los dos
-        // pasos del mismo gesto: encender dónde, y lanzar qué.
-        _Casilla(child: CorrerMenu(proyecto: proyecto)),
-        // Y las pruebas, el tercer paso del mismo gesto: enciendes dónde, lanzas
-        // qué, y compruebas que sigue funcionando.
-        _Casilla(child: _BotonDePruebas(proyecto: proyecto)),
+        //
+        // Los tres, **solo donde hay código**: en una carpeta como `General`
+        // no hay app que correr ni pruebas que pasar. Ver [LaCarpetaDeCodigo].
+        if (seEnsenaLoDeCodigo(ref, carpeta?.path)) ...[
+          const _Casilla(child: DispositivosMenu()),
+          // Correr la app va justo al lado de los dispositivos porque son los
+          // dos pasos del mismo gesto: encender dónde, y lanzar qué.
+          _Casilla(child: CorrerMenu(proyecto: proyecto)),
+          // Y las pruebas, el tercer paso del mismo gesto: enciendes dónde,
+          // lanzas qué, y compruebas que sigue funcionando.
+          _Casilla(child: _BotonDePruebas(proyecto: proyecto)),
+        ],
         const Spacer(),
         // 🔴 **El contexto, tampoco en el chat.** El círculo de aquí decía lo
         // que la esquina de arriba a la derecha de la sala ya decía, y ahora

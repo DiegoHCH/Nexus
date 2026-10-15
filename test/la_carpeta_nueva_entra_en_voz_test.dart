@@ -226,6 +226,7 @@ void main() {
           haySuNombre: true,
           hayTuNombre: true,
           hayPersonalidad: true,
+          hayQuienEres: true,
         ),
         overrides: [
           workspaceStoreProvider.overrideWithValue(

@@ -10,6 +10,8 @@ import 'package:nexus/features/assistant/presentation/state/como_se_dice_la_voz.
 import 'package:nexus/features/assistant/presentation/widgets/microphone_tester.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/salidas_section.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/secciones_de_ajustes.dart';
+import 'package:nexus/features/assistant/presentation/providers/las_rapidas_por_voz.dart';
+import 'package:nexus/features/workspace/presentation/pages/settings/apagado_o_encendido.dart';
 
 /// La sección de Voz de Ajustes.
 ///
@@ -108,6 +110,20 @@ class VoiceSection extends ConsumerWidget {
         BloqueDeAjustes(
           rotulo: strings.microphone,
           hijos: const [MicrophoneTester(), _LaLlaveDeVoz()],
+        ),
+        // Con qué modelo se abre lo que llega por voz. Ver [ElModeloAlAbrir].
+        BloqueDeAjustes(
+          rotulo: strings.rapidasRotulo,
+          hijos: [
+            TextoDeAjustes(strings.rapidasExplica),
+            ApagadoOEncendido(
+              llave: 'rapidas-por-voz',
+              encendido: ref.watch(lasRapidasPorVozProvider),
+              costeApagado: strings.rapidasApagado,
+              costeEncendido: strings.rapidasEncendido,
+              onCambiar: ref.read(lasRapidasPorVozProvider.notifier).cambiar,
+            ),
+          ],
         ),
       ],
     );

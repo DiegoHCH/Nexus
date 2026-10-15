@@ -1,6 +1,7 @@
 import 'package:nexus/features/assistant/presentation/state/chat_message.dart';
 import 'package:nexus/features/history/domain/entities/conversation_record.dart';
 import 'package:nexus/features/history/domain/entities/conversation_summary.dart';
+import 'package:nexus/features/history/domain/usecases/la_clase_de_la_nota.dart';
 
 /// El Markdown de una conversación y el de la nota que agrupa un proyecto.
 ///
@@ -31,6 +32,14 @@ abstract final class ConversationMarkdown {
     ConversationRecord record, {
     required bool wikilinks,
   }) {
+    final clase = ClaseDeNota.de(record.messages);
+    // Las de siempre primero, y estas al final: son las que colorean el grafo
+    // —ver `ElGrafoDeObsidian`—, y quien lea la cabecera busca antes el
+    // proyecto que la clase.
+    final etiquetas = [
+      clase.etiqueta,
+      if (seHabloPorVoz(record.messages)) etiquetaDeLaVoz,
+    ].join(', ');
     final buffer = StringBuffer()
       // Las mismas claves que ya escribe La Oficina en este vault, y por el
       // mismo motivo: si dos apps dejan notas en la misma carpeta y cada una
@@ -45,11 +54,14 @@ abstract final class ConversationMarkdown {
       // es la clave que ya escribe La Oficina, así que las dos apps se leen la
       // lista la una a la otra.
       ..writeln('mensajes: ${record.messages.length}')
+      // La clase, también como clave: Dataview y las búsquedas la leen sin
+      // tener que entender etiquetas anidadas. Ver [ClaseDeNota].
+      ..writeln('clase: ${clase.name}')
       ..writeln(
         record.profileName == null
-            ? 'tags: [nexus, ${_slug(record.projectName)}]'
+            ? 'tags: [nexus, ${_slug(record.projectName)}, $etiquetas]'
             : 'perfil: ${_quote(record.profileName!)}\n'
-                  'tags: [nexus, ${record.profileName}, ${_slug(record.projectName)}]',
+                  'tags: [nexus, ${record.profileName}, ${_slug(record.projectName)}, $etiquetas]',
       )
       ..writeln('---')
       ..writeln()
@@ -93,7 +105,10 @@ abstract final class ConversationMarkdown {
       ..writeln('---')
       ..writeln('proyecto: ${_quote(folderPath)}')
       ..writeln('nombre: $projectName')
-      ..writeln('tags: [nexus, proyecto]')
+      // `proyecto` suelta por La Oficina, que la escribe así; la anidada es
+      // la que colorea el grafo sin pintar las notas tuyas que digan
+      // #proyecto.
+      ..writeln('tags: [nexus, proyecto, $etiquetaDelProyecto]')
       ..writeln('---')
       ..writeln()
       ..writeln('# $projectName')

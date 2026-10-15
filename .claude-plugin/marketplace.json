@@ -1,6 +1,8 @@
 {
   "name": "nexus",
-  "owner": { "name": "Diego Hoyos" },
+  "owner": {
+    "name": "Diego Hoyos"
+  },
   "metadata": {
     "description": "Mods opcionales de Claude Code pensados para los encargos de Nexus. Ninguno viene puesto: cada quien instala los que quiera, en todas sus carpetas o solo en algunas."
   },
@@ -14,6 +16,11 @@
       "name": "commits-personales",
       "source": "./mods/commits-personales",
       "description": "Commits en inglés y con Conventional Commits, sin Co-Authored-By, y PRs sin la firma de la herramienta. Para instalar solo en las carpetas donde valgan esas reglas."
+    },
+    {
+      "name": "nexus-observador",
+      "source": "./mods/nexus-observador",
+      "description": "Le cuenta a Nexus qué hacen tus sesiones de claude en la terminal, y te deja contestar sus permisos desde Nexus. Para instalar en toda la cuenta."
     }
   ]
 }

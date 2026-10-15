@@ -530,9 +530,9 @@ class _Turn extends StatelessWidget {
             ),
           )
         else if (!isUser && message.esLaAyuda)
-          const Padding(
-            padding: EdgeInsets.only(top: NexusSpacing.s1),
-            child: _LaAyuda(),
+          Padding(
+            padding: const EdgeInsets.only(top: NexusSpacing.s1),
+            child: _LaAyuda(texto: message.text),
           )
         // La pregunta de permiso **es** el texto de su mensaje: se pinta como
         // título del bloque del permiso, no como un párrafo encima de él.
@@ -1921,10 +1921,15 @@ class _UnaProgramada extends ConsumerWidget {
 /// uno.
 ///
 /// Sale del catálogo y no del texto del mensaje: así no puede enseñar un
-/// comando que ya no existe. `/ayuda` no sale en la tabla: es lo que se acaba
-/// de escribir.
+/// comando que ya no existe. Del texto se mira solo **si están los de
+/// programar**: quien escribió la ayuda ya decidió si valían en esa carpeta
+/// —ver [ElComandoDeLaCasa.deCodigo]—, y la tabla no puede enseñar más que
+/// eso. `/ayuda` no sale en la tabla: es lo que se acaba de escribir.
 class _LaAyuda extends StatelessWidget {
-  const _LaAyuda();
+  const _LaAyuda({required this.texto});
+
+  /// La ayuda como se escribió, con una línea por comando.
+  final String texto;
 
   @override
   Widget build(BuildContext context) {
@@ -1932,7 +1937,9 @@ class _LaAyuda extends StatelessWidget {
     final strings = context.strings;
     final comandos = [
       for (final comando in ElComandoDeLaCasa.enLaAyuda)
-        if (comando != ElComandoDeLaCasa.ayuda) comando,
+        if (comando != ElComandoDeLaCasa.ayuda &&
+            (!comando.deCodigo || texto.contains('· ${comando.comoSeEscribe}')))
+          comando,
     ];
 
     return Column(

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
+import 'package:nexus/features/isla/presentation/providers/la_isla_provider.dart';
+import 'package:nexus/features/observador/presentation/widgets/la_terminal_en_la_barra.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
 /// La barra superior del HUD: wordmark, carpeta activa y el interruptor de
@@ -19,6 +21,8 @@ class HudTopBar extends ConsumerWidget {
     this.centrada = false,
     this.atajos,
   });
+
+  static const llaveDeLaIsla = ValueKey('a-la-isla');
 
   /// Los atajos que valen ahora, a la derecha y en tenue: «⌘. detiene ·
   /// ⌥Espacio habla».
@@ -92,6 +96,31 @@ class HudTopBar extends ConsumerWidget {
             style: NexusTypography.label.copyWith(
               color: colors.accent.withValues(alpha: live ? 1 : 0.75),
               letterSpacing: 2,
+            ),
+          ),
+          // Tus sesiones de la terminal, si el mod las cuenta. Sin ninguna no
+          // ocupa nada. Ver [LaTerminalEnLaBarra].
+          const LaTerminalEnLaBarra(),
+          // La vista compacta: la ventana se aparta y queda la isla, arriba en
+          // el centro, con el estado y los permisos. Ver [LaIslaController].
+          const SizedBox(width: NexusSpacing.s2),
+          // Del alto de una línea de rótulo y no de un `IconButton`: con sus
+          // 40 px la barra crecía, y el orbe de la sala se encogía para
+          // dejarle sitio.
+          Tooltip(
+            message: context.strings.islaSacarAyuda,
+            child: InkResponse(
+              key: llaveDeLaIsla,
+              onTap: () => ref.read(laIslaProvider.notifier).sacar(),
+              radius: 14,
+              child: Padding(
+                padding: const EdgeInsets.all(1),
+                child: Icon(
+                  Icons.close_fullscreen,
+                  size: 14,
+                  color: colors.mute,
+                ),
+              ),
             ),
           ),
           if (centrada)

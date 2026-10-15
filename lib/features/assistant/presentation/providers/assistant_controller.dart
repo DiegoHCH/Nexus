@@ -1171,6 +1171,13 @@ class AssistantController extends Notifier<AssistantHudState> {
           ElComandoDeLaCasa.laLista(
             s.ayudaTitulo,
             (comando) => loQueHaceElComando(s, comando),
+            // Lo de programar, solo donde hay código. Mientras no se sabe,
+            // todo: es lo que había.
+            deCodigo: switch (_folder) {
+              final carpeta? =>
+                ref.read(laCarpetaEsDeCodigoProvider(carpeta)).value ?? true,
+              null => true,
+            },
           ),
         );
         _sealLast();
@@ -1680,6 +1687,9 @@ class AssistantController extends Notifier<AssistantHudState> {
       perfil: carpeta == null ? null : _cuentaDe(carpeta),
       seguirDe: siguiendo ? _laUltimaImagen : null,
       referencias: referencias,
+      // Con la identidad visual de la carpeta, si tiene: la del repositorio
+      // activo primero, que es más concreta.
+      dondes: carpeta == null ? const [] : _dondeEstaLaIdentidad(carpeta),
     ));
     // La generación tarda, y en ese rato la pestaña se puede haber cerrado.
     if (!_vive) return;
@@ -2582,6 +2592,17 @@ class AssistantController extends Notifier<AssistantHudState> {
         .firstOrNull
         ?.claudeProfile,
   );
+
+  /// Dónde buscar `.nexus/identidad.md` para [folder]: el repositorio activo,
+  /// si lo hay, y la carpeta.
+  List<String> _dondeEstaLaIdentidad(String folder) {
+    final emparejada = ref
+        .read(workspaceControllerProvider)
+        .folders
+        .where((item) => item.path == folder)
+        .firstOrNull;
+    return {?emparejada?.activeRepo, folder}.toList();
+  }
 
   String? _profileName(String folder) {
     final paired = ref

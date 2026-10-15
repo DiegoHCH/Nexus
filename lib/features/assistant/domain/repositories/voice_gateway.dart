@@ -70,7 +70,12 @@ sealed class PerfilDeVoz {
 
 /// La de siempre: la conversación entera, con su persona y sus herramientas.
 final class ComoUnaConversacion extends PerfilDeVoz {
-  const ComoUnaConversacion({this.saludo});
+  const ComoUnaConversacion({this.saludo, this.deCodigo = true});
+
+  /// Si la carpeta tiene código. Sin él no se le ofrecen las herramientas de
+  /// programar —correr una prueba—: en `General` no hay pruebas que correr, y
+  /// una herramienta de más es una que puede elegir por error.
+  final bool deCodigo;
 
   /// Lo que dice al abrirse, **literal**, cuando se abrió llamándola por su
   /// nombre. `null` abre en silencio, que es lo de siempre con el atajo o el

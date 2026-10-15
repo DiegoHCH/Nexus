@@ -75,13 +75,21 @@ enum ElComandoDeLaCasa {
   /// segundo plano dentro de un encargo murió con `SIGTERM` a mitad, porque lo
   /// que se lanza ahí es hijo del proceso del turno y el turno se acaba. Ver
   /// [ElTrabajoAparte]: aquí el padre es la app, así que sobrevive.
-  aparte(['/aparte', '/gate'], conTexto: true),
+  aparte(['/aparte', '/gate'], conTexto: true, deCodigo: true),
 
   /// Correr git aquí mismo. El único con `!`, y también ajeno: lo reconoce
   /// [ElComandoDirecto].
-  git(['!git'], conTexto: true);
+  git(['!git'], conTexto: true, deCodigo: true);
 
-  const ElComandoDeLaCasa(this.formas, {required this.conTexto});
+  const ElComandoDeLaCasa(
+    this.formas, {
+    required this.conTexto,
+    this.deCodigo = false,
+  });
+
+  /// Si solo tiene sentido donde hay código. En una carpeta sin él no se
+  /// enseña en la ayuda —escrito, sigue funcionando—: ver `LaCarpetaDeCodigo`.
+  final bool deCodigo;
 
   /// Cómo se puede escribir. La primera es la que enseña la ayuda; las demás se
   /// aceptan igual — un atajo que solo entiende una forma de decirse obliga a
@@ -141,12 +149,19 @@ enum ElComandoDeLaCasa {
   ///
   /// Las formas alternativas van entre paréntesis: `/clear` es lo que escribe
   /// quien viene de la terminal, y no decirlo lo dejaría probando a ciegas.
+  /// Los de la ayuda para una carpeta que [deCodigo] o no.
+  static List<ElComandoDeLaCasa> enLaAyudaPara({required bool deCodigo}) => [
+    for (final comando in enLaAyuda)
+      if (deCodigo || !comando.deCodigo) comando,
+  ];
+
   static String laLista(
     String titulo,
-    String Function(ElComandoDeLaCasa comando) queHace,
-  ) {
+    String Function(ElComandoDeLaCasa comando) queHace, {
+    bool deCodigo = true,
+  }) {
     final lineas = [
-      for (final comando in enLaAyuda)
+      for (final comando in enLaAyudaPara(deCodigo: deCodigo))
         '· ${comando.comoSeEscribe}'
             '${comando.conTexto ? ' …' : ''}'
             '${comando.formas.length > 1 ? ' (${comando.formas.skip(1).join(', ')})' : ''}'

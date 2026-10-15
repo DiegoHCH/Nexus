@@ -25,6 +25,8 @@ import 'package:nexus/features/workspace/domain/usecases/el_permiso_que_vale.dar
 import 'package:nexus/features/memoria/domain/entities/lo_que_se_sabe_de_ti.dart';
 import 'package:nexus/features/memoria/presentation/providers/lo_que_recuerda_de_ti.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_modelo_al_abrir.dart';
+import 'package:nexus/features/assistant/presentation/providers/las_rapidas_por_voz.dart';
 
 final claudeCliDataSourceProvider = Provider<ClaudeCliDataSource>(
   (ref) => const ClaudeCliDataSource(),
@@ -177,6 +179,26 @@ final askClaudeProvider = Provider.family<AskClaude, String>((
     // otra conversación» —y entonces se trabaja en paralelo— de «te estás
     // comprimiendo tú», que solo se puede esperar.
     conversacion: conversationId,
+    // Con qué abrir una sesión que empieza por voz. Ver [ElModeloAlAbrir].
+    laRapida: (directorio) async {
+      final folder = ref.read(conversationFolderProvider(conversationId));
+      final paired = ref
+          .read(workspaceControllerProvider)
+          .folders
+          .where((item) => item.path == folder)
+          .firstOrNull;
+      // Con la misma regla que esconde lo de programar: si allí se ven los
+      // botones de correr, aquí va el modelo de la carpeta. Ver
+      // [LaCarpetaDeCodigo].
+      return ElModeloAlAbrir.paraLaVoz(
+        encendido: ref.read(lasRapidasPorVozProvider),
+        esCodigo: await ref.read(
+          laCarpetaEsDeCodigoProvider(folder ?? directorio).future,
+        ),
+        hayModeloElegido: paired?.claudeModel != null,
+      );
+    },
+    rapidas: ref.watch(lasSesionesRapidasProvider),
   );
 });
 

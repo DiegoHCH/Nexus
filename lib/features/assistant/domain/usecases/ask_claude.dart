@@ -5,7 +5,9 @@ import 'package:nexus/features/assistant/domain/entities/claude_event.dart';
 import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart';
 import 'package:nexus/features/assistant/domain/repositories/claude_bridge.dart';
 import 'package:nexus/features/assistant/domain/repositories/conversation_memory.dart';
+import 'package:nexus/features/assistant/domain/repositories/las_sesiones_rapidas.dart';
 import 'package:nexus/features/assistant/domain/repositories/stays_awake.dart';
+import 'package:nexus/features/assistant/domain/usecases/el_modelo_al_abrir.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_modo_que_se_concedio.dart';
 import 'package:nexus/features/assistant/domain/usecases/folder_errand_queue.dart';
 
@@ -56,7 +58,9 @@ class AskClaude {
     this._queue,
     this._awake, {
     this.conversacion,
-  });
+    this.laRapida,
+    LasSesionesRapidas? rapidas,
+  }) : _rapidas = rapidas ?? LasSesionesRapidasEnMemoria();
 
   /// Cuál de las conversaciones es esta.
   ///
@@ -136,6 +140,13 @@ class AskClaude {
   /// inactividad del sistema corre entero y se lo lleva por delante.
   final StaysAwake _awake;
 
+  /// Con qué abrir una sesión que **empieza por voz** en esta carpeta, o
+  /// `null` si va con el de la carpeta. Ver [ElModeloAlAbrir].
+  final Future<ModeloDeLaSesion?> Function(String workingDirectory)? laRapida;
+
+  /// Las sesiones que se abrieron así, para que **sigan** así.
+  final LasSesionesRapidas _rapidas;
+
   /// [remember] a `false` para lo que no es una petición del usuario —hoy,
   /// comprimir la conversación—: eso no debe aparecer en «lo que le has
   /// pedido», donde la lista sirve para repetir una petición anterior.
@@ -146,6 +157,8 @@ class AskClaude {
   /// Viaja con el encargo y no en un ajuste global porque si no, capar al teléfono
   /// caparía también los encargos que se lanzan desde el escritorio — y entonces
   /// tener el móvil conectado te quitaría permisos a ti.
+  /// [porVoz]: el encargo llega de la voz. Solo cuenta si abre sesión: ver
+  /// [ElModeloAlAbrir].
   /// [alPedirPermiso] es **quién está mirando**. Con alguien delante, lo que
   /// Claude no tenga concedido se pregunta en vez de concederse o negarse solo.
   /// Sin nadie —la agenda, el canal del teléfono, la cola de la carpeta— va
@@ -154,6 +167,7 @@ class AskClaude {
     String instruction, {
     bool remember = true,
     bool allowWrites = true,
+    bool porVoz = false,
     Future<RespuestaDePermiso> Function(PeticionDePermiso peticion)?
     alPedirPermiso,
   }) async* {
@@ -279,6 +293,21 @@ class AskClaude {
           claudeProfile: context.claudeProfile,
         );
         if (remember) await _memory.rememberPrompt(folder, instruction);
+        // El hilo propio si esta conversación ya se bifurcó; si no, el de la
+        // carpeta, que es la regla de siempre.
+        // **Yendo sola, la de la carpeta no se mira.** Si no, bastaría con que
+        // la otra conversación estrenara sesión antes de tu turno siguiente
+        // para que esta se enganchara a ella — y empezar de cero habría
+        // durado lo que tardó la otra en escribir.
+        final reanuda = _voySolo ? _miSesion : _miSesion ?? memory.sessionId;
+        // 🔴 **El modelo se decide al abrir la sesión y no se toca después.**
+        // Una sesión nueva que llega por voz puede abrirse con el rápido; una
+        // que se reanuda sigue con el que se abrió, venga por donde venga el
+        // turno. Cambiarlo a mitad tira el caché y sale más caro que no
+        // haberlo cambiado —medido, ver [ElModeloAlAbrir]—.
+        final laDeLaSesion = reanuda == null
+            ? (porVoz ? await laRapida?.call(folder) : null)
+            : await _rapidas.de(reanuda);
 
         await for (final event in _bridge.ask(
           // **El encargo va tal cual, sin una coma de Nexus encima.** Aquí se le pegaba
@@ -292,17 +321,11 @@ class AskClaude {
           // carpeta y lo que el origen del encargo permite. Gana el más estricto.
           canEdit: context.canEdit && allowWrites,
           extraDirectories: context.extraDirectories,
-          // El hilo propio si esta conversación ya se bifurcó; si no, el de la
-          // carpeta, que es la regla de siempre.
-          // **Yendo sola, la de la carpeta no se mira.** Si no, bastaría con que
-          // la otra conversación estrenara sesión antes de tu turno siguiente
-          // para que esta se enganchara a ella — y empezar de cero habría
-          // durado lo que tardó la otra en escribir.
-          resumeSessionId: _voySolo ? _miSesion : _miSesion ?? memory.sessionId,
+          resumeSessionId: reanuda,
           forkSession: bifurcando,
           claudeProfile: context.claudeProfile,
-          model: context.model,
-          effort: context.effort,
+          model: laDeLaSesion?.model ?? context.model,
+          effort: laDeLaSesion?.effort ?? context.effort,
           disallowedTools: context.disallowedTools,
           // **El AND otra vez**: lo que la carpeta autoriza solo vale si este
           // encargo puede escribir. Un parte del día, que se pide sin escritura,
@@ -347,6 +370,11 @@ class AskClaude {
           if (event case ClaudeSessionStarted(
             :final sessionId,
           ) when sessionId.isNotEmpty) {
+            // La que se abrió rápida, apuntada —también la bifurcada, que es
+            // la misma conversación con otro número—.
+            if (laDeLaSesion != null) {
+              await _rapidas.apunta(sessionId, laDeLaSesion);
+            }
             // **Lo bifurcado no se escribe en la memoria de la carpeta**: ese
             // hilo es de esta conversación, y guardarlo ahí le cambiaría la
             // sesión a la otra a mitad de su trabajo.

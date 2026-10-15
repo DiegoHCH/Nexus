@@ -1,7 +1,9 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:nexus/features/history/data/datasources/conversation_header.dart';
 import 'package:nexus/features/history/data/repositories/conversation_markdown.dart';
+import 'package:nexus/features/history/data/repositories/el_grafo_de_obsidian.dart';
 import 'package:nexus/features/history/domain/entities/conversation_record.dart';
 import 'package:nexus/features/history/domain/entities/conversation_summary.dart';
 import 'package:nexus/features/history/domain/repositories/conversation_archive.dart';
@@ -58,6 +60,26 @@ class MarkdownArchive implements ConversationArchive {
     );
 
     await _updateProjectNote(directory, record);
+    if (wikilinks) await _coloreaElGrafo();
+  }
+
+  /// Las bóvedas ya coloreadas en esta sesión: una vez basta, y así cada turno
+  /// no vuelve a leer la configuración de Obsidian.
+  static final _coloreadas = <String>{};
+
+  /// Los colores del grafo, la primera vez que se guarda en esta bóveda. Un
+  /// fallo aquí no tumba el guardado: la nota ya está escrita, y es lo que
+  /// importa.
+  Future<void> _coloreaElGrafo() async {
+    if (!_coloreadas.add(root)) return;
+    try {
+      await ElGrafoDeObsidian.ponerLosColores(
+        root,
+        casa: Platform.environment['HOME'],
+      );
+    } on Object catch (error) {
+      debugPrint('archivo · el grafo no se coloreó: $error');
+    }
   }
 
   /// Rehace la nota del proyecto leyendo lo que hay en su carpeta.

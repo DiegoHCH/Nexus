@@ -130,6 +130,7 @@ class _Claude implements AskClaude {
     String instruction, {
     bool remember = true,
     bool allowWrites = true,
+    bool porVoz = false,
     // Aquí no se pregunta nada: estas pruebas van del registro.
     Future<RespuestaDePermiso> Function(PeticionDePermiso peticion)?
     alPedirPermiso,

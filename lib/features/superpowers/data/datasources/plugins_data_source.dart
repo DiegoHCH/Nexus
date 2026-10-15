@@ -113,6 +113,12 @@ class PluginsDataSource {
     PluginCommand.addMarketplace(source, soloLasCarpetas: soloLasCarpetas),
   );
 
+  Future<String?> addLocalMarketplace(String configDir, String ruta) =>
+      _act(configDir, PluginCommand.addLocalMarketplace(ruta));
+
+  Future<String?> updateMarketplace(String configDir, String name) =>
+      _act(configDir, PluginCommand.updateMarketplace(name));
+
   Future<String?> removeMarketplace(String configDir, String name) =>
       _act(configDir, PluginCommand.removeMarketplace(name));
 

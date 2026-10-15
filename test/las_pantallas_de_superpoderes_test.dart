@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/features/superpowers/data/datasources/el_recuerdo_de_los_mcp.dart';
 import 'package:nexus/features/superpowers/data/datasources/mcp_data_source.dart';
+import 'package:nexus/features/superpowers/data/datasources/mis_mods_data_source.dart';
 import 'package:nexus/features/superpowers/data/datasources/plugins_data_source.dart';
 import 'package:nexus/features/superpowers/data/datasources/las_llamadas_guardadas.dart';
 import 'package:nexus/features/superpowers/data/datasources/skills_data_source.dart';
@@ -88,6 +89,16 @@ class _Plugins extends PluginsDataSource {
 
   @override
   Future<List<Marketplace>> marketplaces(String configDir) async => tiendas;
+
+  // 🔴 Nunca el CLI de verdad: dar de alta un catálogo en una prueba lo
+  // dejaría apuntado en la cuenta de quien la corre.
+  @override
+  Future<String?> addLocalMarketplace(String configDir, String ruta) async =>
+      null;
+
+  @override
+  Future<String?> updateMarketplace(String configDir, String name) async =>
+      null;
 }
 
 /// El mismo, apuntando lo que se le pide.
@@ -116,6 +127,16 @@ class _QueApunta extends _Plugins {
     altas.add((fuente: source, carpetas: soloLasCarpetas));
     return null;
   }
+}
+
+/// Tu catálogo, vacío y al momento: sin él, la lista espera a la carpeta de
+/// soporte por un canal que en estas pruebas no contesta a tiempo.
+class _SinMods extends MisModsDataSource {
+  const _SinMods();
+
+  @override
+  Future<({Directory carpeta, int cuantos})> ponerAlDia() async =>
+      (carpeta: Directory.systemTemp, cuantos: 0);
 }
 
 ClaudePlugin plugin(String nombre, {bool instalado = true}) => ClaudePlugin(
@@ -414,7 +435,10 @@ void main() {
         pumpScreen(
           tester,
           const Scaffold(body: PluginsPanel(configDir: _cuenta)),
-          overrides: [pluginsDataSourceProvider.overrideWithValue(fuente)],
+          overrides: [
+            pluginsDataSourceProvider.overrideWithValue(fuente),
+            misModsDataSourceProvider.overrideWithValue(const _SinMods()),
+          ],
         );
 
     testWidgets('sin ninguno lo dice', (tester) async {
@@ -484,7 +508,10 @@ void main() {
               carpeta: (path: '/Users/alguien/nexus', nombre: 'nexus'),
             ),
           ),
-          overrides: [pluginsDataSourceProvider.overrideWithValue(fuente)],
+          overrides: [
+            pluginsDataSourceProvider.overrideWithValue(fuente),
+            misModsDataSourceProvider.overrideWithValue(const _SinMods()),
+          ],
         );
 
         await tester.tap(find.byIcon(Icons.add));
@@ -545,6 +572,74 @@ void main() {
       expect(find.byKey(const ValueKey('catalogo-de-nexus')), findsNothing);
     });
 
+    testWidgets('«Tus mods»: lo que escribes se le pide a Claude', (
+      tester,
+    ) async {
+      final pedidos = <({String configDir, String queHace})>[];
+      await pumpScreen(
+        tester,
+        const Scaffold(body: PluginsPanel(configDir: _cuenta)),
+        overrides: [
+          pluginsDataSourceProvider.overrideWithValue(const _Plugins()),
+          misModsDataSourceProvider.overrideWithValue(const _SinMods()),
+          crearUnModProvider.overrideWithValue(({
+            required configDir,
+            required queHace,
+            required home,
+            required puedeSubirElPermiso,
+          }) async {
+            pedidos.add((configDir: configDir, queHace: queHace));
+            return ComoQuedoElMod.enMarcha;
+          }),
+        ],
+      );
+
+      final crear = find.byKey(const ValueKey('crear-un-mod'));
+      expect(crear, findsOneWidget);
+      await tester.enterText(
+        find.descendant(of: crear, matching: find.byType(TextField)),
+        'avísame cuando falle un test',
+      );
+      await tester.tap(
+        find.descendant(of: crear, matching: find.byType(BotonDeAjustes)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(pedidos, [
+        (configDir: _cuenta, queHace: 'avísame cuando falle un test'),
+      ]);
+      sinDesbordar(tester);
+    });
+
+    // 🔴 Llegan sin instalaciones: por el orden de la lista caerían al fondo,
+    // más allá de los veinte que se pintan.
+    testWidgets('los tuyos salen primero y marcados, aunque haya cientos', (
+      tester,
+    ) async {
+      await abrir(
+        tester,
+        _Plugins(
+          puestos: [
+            for (var i = 0; i < 60; i++)
+              plugin('plugin-numero-$i', instalado: false),
+            const ClaudePlugin(
+              id: 'aviso@mis-mods',
+              name: 'aviso',
+              description: 'Avisa cuando falla un test.',
+              marketplace: 'mis-mods',
+              version: '0.1.0',
+              installs: 0,
+              enabled: true,
+              installed: false,
+            ),
+          ],
+        ),
+      );
+
+      expect(find.text('aviso'), findsOneWidget);
+      expect(find.text(textos.pluginsTuyo.toUpperCase()), findsOneWidget);
+    });
+
     // El marketplace del proyecto tiene 287.
     testWidgets('un catálogo de cientos no desborda', (tester) async {
       await abrir(
@@ -579,6 +674,7 @@ void main() {
           skillsDataSourceProvider.overrideWithValue(const _Skills()),
           mcpDataSourceProvider.overrideWithValue(const _Mcp()),
           pluginsDataSourceProvider.overrideWithValue(const _Plugins()),
+          misModsDataSourceProvider.overrideWithValue(const _SinMods()),
         ],
       );
       sinDesbordar(tester);

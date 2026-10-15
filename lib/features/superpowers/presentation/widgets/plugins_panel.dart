@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/superpowers/domain/entities/claude_plugin.dart';
+import 'package:nexus/features/superpowers/domain/usecases/mis_mods.dart';
 import 'package:nexus/features/superpowers/domain/usecases/plugin_command.dart';
 import 'package:nexus/features/superpowers/presentation/providers/superpowers_providers.dart';
 
@@ -30,6 +33,7 @@ class PluginsPanel extends ConsumerStatefulWidget {
 class _PluginsPanelState extends ConsumerState<PluginsPanel> {
   final _search = TextEditingController();
   final _market = TextEditingController();
+  final _queHace = TextEditingController();
   var _query = '';
   var _busy = false;
   String? _error;
@@ -45,6 +49,7 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
   void dispose() {
     _search.dispose();
     _market.dispose();
+    _queHace.dispose();
     super.dispose();
   }
 
@@ -99,6 +104,71 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
     );
   }
 
+  /// Pedírselo a Claude: el encargo va a la conversación de tu catálogo, y
+  /// Ajustes se cierra para que veas cómo lo escribe. Ver [crearUnModProvider].
+  Future<void> _crearUnMod() async {
+    final queHace = _queHace.text.trim();
+    if (queHace.isEmpty) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final quedo = await ref.read(crearUnModProvider)(
+      configDir: widget.configDir,
+      queHace: queHace,
+      home: Platform.environment['HOME'] ?? '',
+      puedeSubirElPermiso: _preguntarPorElPermiso,
+    );
+    if (!mounted) return;
+    setState(() => _busy = false);
+    switch (quedo) {
+      case ComoQuedoElMod.enMarcha:
+        _queHace.clear();
+        await Navigator.of(context).maybePop();
+      case ComoQuedoElMod.sinPermiso:
+        break;
+      case ComoQuedoElMod.noCabe:
+        setState(
+          () => _error = context.strings.noCabeOtraConversacion(
+            MisMods.nombreDelCatalogo,
+          ),
+        );
+    }
+  }
+
+  Future<bool> _preguntarPorElPermiso() async {
+    final strings = context.strings;
+    final colors = context.colors;
+    final si = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: colors.deep,
+        title: Text(
+          strings.pluginsSubirPermisoTitulo,
+          style: NexusTypography.data.copyWith(color: colors.ink),
+        ),
+        content: SizedBox(
+          width: 420,
+          child: Text(
+            strings.pluginsSubirPermiso,
+            style: NexusTypography.nota.copyWith(color: colors.mute),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(strings.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(strings.pluginsSubirPermisoSi.toUpperCase()),
+          ),
+        ],
+      ),
+    );
+    return si ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -120,6 +190,13 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
       all.where((plugin) => !plugin.installed).toList(),
       _query,
     );
+    // **Los tuyos primero, y todos.** Llegan sin instalaciones, así que por el
+    // orden de la lista caerían al fondo de doscientos y pico, más allá de lo
+    // que se pinta.
+    bool esTuyo(ClaudePlugin plugin) =>
+        plugin.marketplace == MisMods.nombreDelCatalogo;
+    final tuyos = rest.where(esTuyo).toList();
+    final otros = rest.where((plugin) => !esTuyo(plugin)).toList();
 
     return ListView(
       children: [
@@ -143,6 +220,7 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
             busy: _busy,
             chips: [
               if (plugin.esMod) (texto: strings.pluginsMod, acento: true),
+              if (esTuyo(plugin)) (texto: strings.pluginsTuyo, acento: false),
               if (plugin.soloEnUnaCarpeta)
                 (
                   texto: strings.pluginsSoloEn(
@@ -195,6 +273,27 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
               ],
             ],
           ),
+
+        const SizedBox(height: NexusSpacing.s6),
+        _Heading(strings.pluginsTusMods),
+        TextoDeAjustes(strings.pluginsTusModsExplainer),
+        const SizedBox(height: NexusSpacing.s3),
+        Row(
+          key: const ValueKey('crear-un-mod'),
+          children: [
+            Expanded(
+              child: _Field(
+                controller: _queHace,
+                hint: strings.pluginsQueHaceHint,
+              ),
+            ),
+            const SizedBox(width: NexusSpacing.s3),
+            BotonDeAjustes(
+              texto: strings.pluginsPedirloAClaude,
+              onPulsar: _busy ? null : _crearUnMod,
+            ),
+          ],
+        ),
 
         const SizedBox(height: NexusSpacing.s6),
         _Heading(strings.pluginsMarketplaces),
@@ -304,10 +403,13 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
           onChanged: (value) => setState(() => _query = value),
         ),
         const SizedBox(height: NexusSpacing.s3),
-        for (final plugin in rest.take(_shown))
+        for (final plugin in [...tuyos, ...otros.take(_shown)])
           _PluginRow(
             plugin: plugin,
             busy: _busy,
+            chips: [
+              if (esTuyo(plugin)) (texto: strings.pluginsTuyo, acento: false),
+            ],
             actions: [
               if (widget.carpeta case final carpeta?)
                 // Con una carpeta a mano, **se pregunta dónde**: en toda la
@@ -336,11 +438,11 @@ class _PluginsPanelState extends ConsumerState<PluginsPanel> {
           ),
         // Decir cuántos se dejan fuera, en vez de cortar en silencio: sin esto,
         // veinte de doscientos ochenta y siete se leen como «esto es todo».
-        if (rest.length > _shown)
+        if (otros.length > _shown)
           Padding(
             padding: const EdgeInsets.only(top: NexusSpacing.s2),
             child: Text(
-              strings.pluginsMore(rest.length - _shown),
+              strings.pluginsMore(otros.length - _shown),
               style: NexusTypography.nota.copyWith(color: colors.faint),
             ),
           ),

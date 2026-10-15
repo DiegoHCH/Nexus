@@ -2,8 +2,10 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/features/artifacts/data/datasources/gemini_image_data_source.dart';
+import 'package:nexus/features/artifacts/data/datasources/la_identidad_de_la_carpeta.dart';
 import 'package:nexus/features/artifacts/domain/entities/artifact.dart';
 import 'package:nexus/features/artifacts/domain/entities/lo_que_salio_del_dibujo.dart';
+import 'package:nexus/features/artifacts/domain/usecases/la_identidad_visual.dart';
 import 'package:nexus/features/artifacts/domain/usecases/lo_que_se_pide_dibujar.dart';
 import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
 
@@ -14,7 +16,16 @@ typedef ElEncargo = ({
   String? perfil,
   String? seguirDe,
   List<String> referencias,
+
+  /// Dónde buscar la identidad visual —ver [LaIdentidadVisual]—, de la más
+  /// concreta a la más general. Vacío, sin identidad.
+  List<String> dondes,
 });
+
+/// La que lee `.nexus/identidad.md`. Aparte para que las pruebas pongan otra.
+final laIdentidadDeLaCarpetaProvider = Provider<LaIdentidadDeLaCarpeta>(
+  (ref) => const LaIdentidadDeLaCarpeta(),
+);
 
 /// Genera una imagen y la deja en la carpeta de documentos.
 ///
@@ -39,10 +50,21 @@ final generarUnaImagenProvider =
           return const FaltaLaCarpetaDeDocumentos();
         }
 
+        // La identidad solo en las nuevas: una edición sigue de la anterior,
+        // que ya la llevaba, y repetirla empuja al modelo a rehacer el estilo
+        // en vez del cambio que se pidió.
+        final identidad = encargo.seguirDe == null
+            ? await ref
+                  .read(laIdentidadDeLaCarpetaProvider)
+                  .leer(encargo.dondes)
+            : null;
         final hecha = await const GeminiImageDataSource().generar(
           llave: llave,
           modelo: ref.read(modeloDeImagenProvider).id,
-          descripcion: encargo.descripcion,
+          descripcion: LaIdentidadVisual.enElEncargo(
+            encargo.descripcion,
+            identidad,
+          ),
           seguirDe: encargo.seguirDe,
           referencias: await _leerLasReferencias(encargo.referencias),
         );

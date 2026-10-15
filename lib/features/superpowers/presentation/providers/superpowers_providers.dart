@@ -1,5 +1,12 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus/core/i18n/language_preference.dart';
+import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
+import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
+import 'package:nexus/features/superpowers/data/datasources/mis_mods_data_source.dart';
+import 'package:nexus/features/superpowers/domain/usecases/mis_mods.dart';
+import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:nexus/features/superpowers/data/datasources/mcp_data_source.dart';
 import 'package:nexus/features/superpowers/data/datasources/plugins_data_source.dart';
 import 'package:nexus/features/superpowers/data/datasources/skills_data_source.dart';
@@ -98,10 +105,134 @@ typedef DondeSeMiran = ({String configDir, String? carpeta});
 /// Instalados y disponibles, en una sola lista: el CLI los da juntos y
 /// separarlos en dos llamadas sería pedir dos veces lo mismo.
 final pluginsProvider = FutureProvider.family<List<ClaudePlugin>, DondeSeMiran>(
-  (ref, donde) => ref
-      .watch(pluginsDataSourceProvider)
-      .list(donde.configDir, carpeta: donde.carpeta),
+  (ref, donde) async {
+    final datos = ref.watch(pluginsDataSourceProvider);
+    await _tusModsAlDia(ref, donde.configDir);
+    return datos.list(donde.configDir, carpeta: donde.carpeta);
+  },
 );
+
+final misModsDataSourceProvider = Provider<MisModsDataSource>(
+  (ref) => const MisModsDataSource(),
+);
+
+/// Tu catálogo, al día y dado de alta en esa cuenta, **antes de listar**: lo
+/// que Claude acaba de escribir sale en la lista sin tener que pedirlo.
+///
+/// **Solo si tiene algún mod.** Sin ninguno no hay nada que enseñar, y así un
+/// Mac que nunca pidió uno —o una prueba— no toca la configuración del CLI.
+///
+/// Un fallo aquí no tumba la lista: es tu catálogo el que no sale, no los
+/// plugins de la cuenta.
+Future<void> _tusModsAlDia(Ref ref, String configDir) async {
+  try {
+    final (:carpeta, :cuantos) = await ref
+        .read(misModsDataSourceProvider)
+        .ponerAlDia();
+    if (cuantos == 0) return;
+    final catalogo = carpeta;
+    final datos = ref.read(pluginsDataSourceProvider);
+    final tiendas = await datos.marketplaces(configDir);
+    final error =
+        tiendas.any((tienda) => tienda.name == MisMods.nombreDelCatalogo)
+        ? await datos.updateMarketplace(configDir, MisMods.nombreDelCatalogo)
+        : await datos.addLocalMarketplace(configDir, catalogo.path);
+    if (error != null) debugPrint('tus mods · el CLI dijo: $error');
+  } on Object catch (error) {
+    debugPrint('tus mods · no se pudo poner al día: $error');
+  }
+}
+
+/// Cómo quedó un «crear un mod».
+enum ComoQuedoElMod {
+  /// El encargo va en su conversación.
+  enMarcha,
+
+  /// Nexus está en «solo leer» y no se quiso subir el permiso.
+  sinPermiso,
+
+  /// No cabe otra conversación.
+  noCabe,
+}
+
+/// Le pide a Claude un mod, **en la conversación del propio catálogo**.
+///
+/// Ahí Claude escribe en su carpeta de trabajo, sin permisos de más, y tus
+/// mods tienen una conversación suya para pedir cambios. El catálogo se
+/// empareja con la cuenta que se está mirando y con escritura **solo para él**.
+///
+/// 🔴 **Si Nexus está en «solo leer», se pregunta antes**
+/// ([puedeSubirElPermiso]): dar escritura a una carpeta sube también el
+/// permiso general —ver `setPermisoDeCarpeta`—, y eso no se hace sin decirlo.
+final crearUnModProvider =
+    Provider<
+      Future<ComoQuedoElMod> Function({
+        required String configDir,
+        required String queHace,
+        required String home,
+        required Future<bool> Function() puedeSubirElPermiso,
+      })
+    >(
+      (ref) =>
+          ({
+            required configDir,
+            required queHace,
+            required home,
+            required puedeSubirElPermiso,
+          }) async {
+            final mios = ref.read(misModsDataSourceProvider);
+            final ruta = (await mios.ponerAlDia()).carpeta.path;
+            final espacio = ref.read(workspaceControllerProvider.notifier);
+            await espacio.emparejar(ruta);
+            // Una carpeta sin cuenta elegida trabaja con la de siempre.
+            await espacio.setClaudeProfile(
+              ruta,
+              configDir == '$home/.claude' ? null : configDir,
+            );
+            final carpeta = ref
+                .read(workspaceControllerProvider)
+                .folders
+                .where((folder) => folder.path == ruta)
+                .firstOrNull;
+            if (carpeta == null) return ComoQuedoElMod.noCabe;
+            if (!carpeta.puedeEditar) {
+              final tope = ref.read(workspaceControllerProvider).permission;
+              if (!tope.canWrite && !await puedeSubirElPermiso()) {
+                return ComoQuedoElMod.sinPermiso;
+              }
+              await espacio.setPermisoDeCarpeta(ruta, true);
+            }
+
+            final pedido = await mios.apuntarElPedido(queHace);
+            // La que ya esté abierta sobre el catálogo gana a una nueva: los
+            // cambios a tus mods se piden en el mismo hilo.
+            final conversaciones = ref.read(conversationsProvider.notifier);
+            final abierta = ref
+                .read(conversationsProvider)
+                .items
+                .where((conversacion) => conversacion.folderPath == ruta)
+                .firstOrNull;
+            final String? id;
+            if (abierta != null) {
+              await conversaciones.focus(abierta.id);
+              id = abierta.id;
+            } else {
+              id = await conversaciones.open(ruta);
+            }
+            if (id == null) return ComoQuedoElMod.noCabe;
+            unawaited(
+              ref
+                  .read(assistantControllerProvider(id).notifier)
+                  .submit(
+                    MisMods.elEncargo(pedido: pedido),
+                    loQueSeVe: ref
+                        .read(stringsProvider)
+                        .pluginsCrearUnModDicho(queHace.trim()),
+                  ),
+            );
+            return ComoQuedoElMod.enMarcha;
+          },
+    );
 
 final marketplacesProvider = FutureProvider.family<List<Marketplace>, String>(
   (ref, configDir) =>

@@ -163,6 +163,17 @@ mixin SuperpoderesStrings {
   String get pluginsNexusCatalog;
   String get pluginsNexusCatalogExplainer;
   String get pluginsAddNexusCatalog;
+
+  // Superpoderes: tus mods, los que le pides a Claude.
+  String get pluginsTusMods;
+  String get pluginsTusModsExplainer;
+  String get pluginsQueHaceHint;
+  String get pluginsPedirloAClaude;
+  String get pluginsTuyo;
+  String get pluginsSubirPermisoTitulo;
+  String get pluginsSubirPermiso;
+  String get pluginsSubirPermisoSi;
+  String pluginsCrearUnModDicho(String queHace);
 }
 
 mixin SuperpoderesStringsEs implements SuperpoderesStrings {
@@ -440,6 +451,32 @@ mixin SuperpoderesStringsEs implements SuperpoderesStrings {
       'carpetas.';
   @override
   String get pluginsAddNexusCatalog => 'Añadir';
+  @override
+  String get pluginsTusMods => 'Tus mods';
+  @override
+  String get pluginsTusModsExplainer =>
+      'Describe lo que quieres y Claude lo escribe, con sus pruebas, en una '
+      'conversación propia. Queda en tu catálogo «mis-mods», listo para '
+      'instalarlo en toda la cuenta o solo en una carpeta.';
+  @override
+  String get pluginsQueHaceHint =>
+      'qué quieres que haga: «avísame por voz cuando falle un test»';
+  @override
+  String get pluginsPedirloAClaude => 'Pedírselo a Claude';
+  @override
+  String get pluginsTuyo => 'tuyo';
+  @override
+  String get pluginsSubirPermisoTitulo => 'Nexus está en «solo leer»';
+  @override
+  String get pluginsSubirPermiso =>
+      'Para escribir tu mod, Claude tiene que poder escribir en la carpeta '
+      'mis-mods, y darle permiso a una carpeta sube el permiso general a '
+      '«puede editar»: las carpetas que ya tenían escritura propia vuelven a '
+      'poder escribir.';
+  @override
+  String get pluginsSubirPermisoSi => 'Darle permiso';
+  @override
+  String pluginsCrearUnModDicho(String queHace) => 'Crea un mod: $queHace';
 }
 
 mixin SuperpoderesStringsEn implements SuperpoderesStrings {
@@ -714,4 +751,29 @@ mixin SuperpoderesStringsEn implements SuperpoderesStrings {
       'the ones you want, on the whole account or only in some folders.';
   @override
   String get pluginsAddNexusCatalog => 'Add';
+  @override
+  String get pluginsTusMods => 'Your mods';
+  @override
+  String get pluginsTusModsExplainer =>
+      'Describe what you want and Claude writes it, with its tests, in a '
+      'conversation of its own. It lands in your «mis-mods» catalog, ready to '
+      'install on the whole account or only in a folder.';
+  @override
+  String get pluginsQueHaceHint =>
+      'what it should do: «tell me out loud when a test fails»';
+  @override
+  String get pluginsPedirloAClaude => 'Ask Claude';
+  @override
+  String get pluginsTuyo => 'yours';
+  @override
+  String get pluginsSubirPermisoTitulo => 'Nexus is read-only';
+  @override
+  String get pluginsSubirPermiso =>
+      'To write your mod, Claude needs to write in the mis-mods folder. Giving '
+      'a folder write access raises the general permission to «can edit»: '
+      'folders that already had write access of their own can write again.';
+  @override
+  String get pluginsSubirPermisoSi => 'Allow it';
+  @override
+  String pluginsCrearUnModDicho(String queHace) => 'Make a mod: $queHace';
 }

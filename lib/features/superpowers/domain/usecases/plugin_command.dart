@@ -72,6 +72,23 @@ abstract final class PluginCommand {
     ];
   }
 
+  /// Un catálogo que está en el disco, por su ruta **absoluta**.
+  ///
+  /// Aparte de [addMarketplace] porque esa rechaza los espacios —un
+  /// `usuario/repo` o una URL no los llevan— y la carpeta de soporte de la app
+  /// está en `Application Support`. Aquí no hay shell de por medio: la ruta
+  /// viaja como un argumento entero.
+  static List<String>? addLocalMarketplace(String ruta) =>
+      ruta.startsWith('/') && !ruta.contains('\n')
+      ? ['plugin', 'marketplace', 'add', ruta]
+      : null;
+
+  /// Vuelve a leer un catálogo: lo que se añadió o cambió desde la última vez.
+  static List<String>? updateMarketplace(String name) =>
+      RegExp(r'^[\w.-]{1,64}$').hasMatch(name)
+      ? ['plugin', 'marketplace', 'update', name]
+      : null;
+
   static List<String>? removeMarketplace(String name) =>
       RegExp(r'^[\w.-]{1,64}$').hasMatch(name)
       ? ['plugin', 'marketplace', 'remove', name]

@@ -71,23 +71,30 @@ void main() {
 
     // 🔴 Con 1M de ventana, el 85 % son 850k: la sesión de `front-mobile-b2c`
     // iba por 770k sin haberse comprimido nunca, y volver a ella con el caché
-    // caducado eran ~$6 de cupo en el primer mensaje.
+    // caducado eran ~$6 de cupo en el primer mensaje. El tope estuvo en 200k y
+    // desde el 15 oct está en 500k.
     group('el tope en tokens, para las ventanas grandes', () {
       test('pasado el tope se comprime aunque el porcentaje no llegue', () {
-        expect(toca(20, tokens: 200000), isTrue);
+        expect(toca(50, tokens: 500000), isTrue);
         expect(toca(77, tokens: 770000), isTrue);
       });
 
       test('por debajo del tope manda el porcentaje, como siempre', () {
-        expect(toca(19, tokens: 199999), isFalse);
+        expect(toca(49, tokens: 499999), isFalse);
         expect(toca(90, tokens: 180000), isTrue, reason: 'ventana de 200k');
+      });
+
+      // Lo que cambió al subirlo: una conversación de 300k en una ventana de
+      // 1M ya no se comprime.
+      test('300k en una ventana de 1M ya no se comprime', () {
+        expect(toca(30, tokens: 300000), isFalse);
       });
 
       // El mismo freno del bucle: pasado el tope, una compresión que no baja
       // no se reintenta hasta que el contexto crezca.
       test('y no se reintenta donde la dejó la última', () {
-        expect(toca(25, tokens: 250000, dejoEn: 25), isFalse);
-        expect(toca(26, tokens: 260000, dejoEn: 25), isTrue);
+        expect(toca(55, tokens: 550000, dejoEn: 55), isFalse);
+        expect(toca(56, tokens: 560000, dejoEn: 55), isTrue);
       });
     });
 

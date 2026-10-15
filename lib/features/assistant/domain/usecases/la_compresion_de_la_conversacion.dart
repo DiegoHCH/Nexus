@@ -46,9 +46,12 @@ abstract final class LaCompresionDeLaConversacion {
   /// hora—, que con la memoria por carpeta es cada mañana. La sesión de
   /// `front-mobile-b2c` iba por 770k sin que el 85 % la hubiera tocado nunca.
   ///
-  /// 200k deja volver a una conversación por ~$1,5 y no depende del modelo
-  /// que tenga la carpeta: con una ventana de 200k ya manda el porcentaje.
-  static const topeDeTokens = 200000;
+  /// **500k desde el 15 oct, pedido así: «quiero que subas el límite de
+  /// compact a 500k».** Antes era 200k. El precio, con las mismas medidas de
+  /// arriba: volver a una conversación de 500k con el caché caducado son ~$3,9
+  /// de cupo —con 200k eran ~$1,5— y cada mensaje lee ~$0,10. No depende del
+  /// modelo que tenga la carpeta: con una ventana menor ya manda el porcentaje.
+  static const topeDeTokens = 500000;
 
   /// Si toca comprimir ahora.
   ///

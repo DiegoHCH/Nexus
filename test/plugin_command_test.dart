@@ -282,4 +282,33 @@ void main() {
       expect(PluginCommand.declaraModulos('no es json'), isFalse);
     });
   });
+
+  group('tu catálogo, en el disco', () {
+    // 🔴 La carpeta de soporte está en `Application Support`: con la regla de
+    // los `usuario/repo` —sin espacios— no se podía dar de alta.
+    test('se da de alta por su ruta, aunque lleve espacios', () {
+      expect(
+        PluginCommand.addLocalMarketplace(
+          '/Users/a/Library/Application Support/x/mis-mods',
+        ),
+        [
+          'plugin',
+          'marketplace',
+          'add',
+          '/Users/a/Library/Application Support/x/mis-mods',
+        ],
+      );
+      expect(PluginCommand.addLocalMarketplace('relativa/mis-mods'), isNull);
+    });
+
+    test('se vuelve a leer por su nombre', () {
+      expect(PluginCommand.updateMarketplace('mis-mods'), [
+        'plugin',
+        'marketplace',
+        'update',
+        'mis-mods',
+      ]);
+      expect(PluginCommand.updateMarketplace('con espacio'), isNull);
+    });
+  });
 }

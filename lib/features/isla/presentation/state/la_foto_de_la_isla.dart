@@ -65,7 +65,8 @@ class FilaDeLaIsla {
   }
 }
 
-/// Un permiso de la terminal esperando respuesta.
+/// Un permiso esperando respuesta: de una sesión de la terminal, o de una
+/// conversación de Nexus.
 @immutable
 class PermisoDeLaIsla {
   const PermisoDeLaIsla({
@@ -73,6 +74,7 @@ class PermisoDeLaIsla {
     required this.nombre,
     required this.herramienta,
     this.detalle = '',
+    this.conversacion,
   });
 
   factory PermisoDeLaIsla.de(PermisoDeLaTerminal permiso) => PermisoDeLaIsla(
@@ -84,16 +86,26 @@ class PermisoDeLaIsla {
 
   final String id;
 
-  /// La carpeta de la sesión que pregunta.
+  /// La carpeta de la sesión que pregunta, o el nombre de la conversación.
   final String nombre;
   final String herramienta;
   final String detalle;
+
+  /// La conversación de Nexus que pregunta, o `null` si es de la terminal.
+  ///
+  /// 🔴 **Con la ventana apartada, la isla es lo único que se ve.** Una
+  /// conversación que pide permiso a mitad de encargo se quedaba parada
+  /// esperando un botón que estaba en una ventana escondida.
+  final String? conversacion;
+
+  bool get deNexus => conversacion != null;
 
   Map<String, Object?> toMap() => {
     'id': id,
     'nombre': nombre,
     'herramienta': herramienta,
     'detalle': detalle,
+    'conversacion': ?conversacion,
   };
 
   static PermisoDeLaIsla? fromMap(Object? crudo) {
@@ -105,6 +117,7 @@ class PermisoDeLaIsla {
       nombre: crudo['nombre'] as String? ?? '',
       herramienta: crudo['herramienta'] as String? ?? '',
       detalle: crudo['detalle'] as String? ?? '',
+      conversacion: crudo['conversacion'] as String?,
     );
   }
 }
@@ -209,6 +222,11 @@ sealed class PedidoDeLaIsla {
         return como == null ? null : ContestarElPermiso(id, como);
       case 'conversacion':
         return AbrirLaConversacion(id);
+      case 'permisoDeNexus':
+        final conversacion = mapa['conversacion'];
+        final permitir = mapa['permitir'];
+        if (conversacion is! String || permitir is! bool) return null;
+        return ContestarElPermisoDeNexus(conversacion, id, permitir: permitir);
     }
     return null;
   }
@@ -226,6 +244,27 @@ final class ContestarElPermiso extends PedidoDeLaIsla {
     'que': 'permiso',
     'id': id,
     'como': como.flag,
+  };
+}
+
+/// Permitir o denegar lo que pide una conversación de Nexus.
+final class ContestarElPermisoDeNexus extends PedidoDeLaIsla {
+  const ContestarElPermisoDeNexus(
+    this.conversacion,
+    this.id, {
+    required this.permitir,
+  });
+
+  final String conversacion;
+  final String id;
+  final bool permitir;
+
+  @override
+  Map<String, Object?> toMap() => {
+    'que': 'permisoDeNexus',
+    'conversacion': conversacion,
+    'id': id,
+    'permitir': permitir,
   };
 }
 

@@ -285,8 +285,14 @@ class _ElPermiso extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final strings = context.strings;
-    void contestar(ContestacionDePermiso como) =>
-        onPedido(ContestarElPermiso(permiso.id, como));
+    void contestar(ContestacionDePermiso como) => onPedido(switch (permiso) {
+      PermisoDeLaIsla(:final conversacion?) => ContestarElPermisoDeNexus(
+        conversacion,
+        permiso.id,
+        permitir: como == ContestacionDePermiso.permitir,
+      ),
+      _ => ContestarElPermiso(permiso.id, como),
+    });
     return Container(
       key: ValueKey('isla-permiso-${permiso.id}'),
       margin: const EdgeInsets.only(top: NexusSpacing.s2),
@@ -324,10 +330,13 @@ class _ElPermiso extends StatelessWidget {
                 texto: strings.terminalDenegar,
                 onPulsar: () => contestar(ContestacionDePermiso.denegar),
               ),
-              BotonDeAjustes(
-                texto: strings.terminalEnLaTerminal,
-                onPulsar: () => contestar(ContestacionDePermiso.enLaTerminal),
-              ),
+              // Devolverle la pregunta solo tiene sentido a la terminal: una
+              // conversación de Nexus no tiene otro sitio donde preguntar.
+              if (!permiso.deNexus)
+                BotonDeAjustes(
+                  texto: strings.terminalEnLaTerminal,
+                  onPulsar: () => contestar(ContestacionDePermiso.enLaTerminal),
+                ),
             ],
           ),
         ],

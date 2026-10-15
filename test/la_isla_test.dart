@@ -114,6 +114,40 @@ void main() {
     expect(pedido.como, ContestacionDePermiso.denegar);
   });
 
+  // 🔴 Con la ventana apartada, la isla es lo único que se ve: una
+  // conversación que pide permiso se quedaba parada esperando un botón
+  // escondido.
+  testWidgets('un permiso de Nexus se contesta desde la isla, sin terminal', (
+    tester,
+  ) async {
+    final dicho = await pintar(
+      tester,
+      const LaFotoDeLaIsla(
+        permisos: [
+          PermisoDeLaIsla(
+            id: 'q1',
+            nombre: 'nexus',
+            herramienta: 'Bash',
+            detalle: 'flutter test',
+            conversacion: 'c1',
+          ),
+        ],
+      ),
+    );
+
+    final botones = find.descendant(
+      of: find.byKey(const ValueKey('isla-permiso-q1')),
+      matching: find.byType(BotonDeAjustes),
+    );
+    expect(botones, findsNWidgets(2), reason: 'sin «que pregunte la terminal»');
+
+    await tester.tap(botones.first);
+    final pedido = dicho.pedidos.single as ContestarElPermisoDeNexus;
+    expect(pedido.conversacion, 'c1');
+    expect(pedido.id, 'q1');
+    expect(pedido.permitir, isTrue);
+  });
+
   testWidgets('pulsar una conversación lleva a ella en la ventana', (
     tester,
   ) async {

@@ -35,6 +35,7 @@ abstract final class StatusItemChannel {
     required String quit,
     String? update,
     String? runBar,
+    String? island,
   }) => _llamar('setMenu', {
     'talk': talk,
     'show': show,
@@ -45,6 +46,8 @@ abstract final class StatusItemChannel {
     'update': ?update,
     // Y la botonera escondida, por lo mismo: solo mientras hay algo que traer.
     'runBar': ?runBar,
+    // La vista compacta, mientras no esté ya fuera.
+    'island': ?island,
   });
 
   /// Lo que el menú pide de vuelta: hablar y abrir ajustes son estado de la app,
@@ -54,6 +57,7 @@ abstract final class StatusItemChannel {
     required void Function() settings,
     required void Function() update,
     required void Function() runBar,
+    required void Function() island,
   }) {
     _channel.setMethodCallHandler((call) async {
       switch (call.method) {
@@ -70,6 +74,8 @@ abstract final class StatusItemChannel {
         // es la que tiene lo que enseña.
         case 'runBar':
           runBar();
+        case 'island':
+          island();
       }
       return null;
     });

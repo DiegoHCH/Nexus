@@ -8,6 +8,7 @@ import 'package:nexus/core/platform/status_item_channel.dart';
 import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
+import 'package:nexus/features/isla/presentation/providers/la_isla_provider.dart';
 import 'package:nexus/features/run/presentation/providers/la_botonera_de_fuera.dart';
 import 'package:nexus/features/updates/presentation/providers/updates_providers.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings_page.dart';
@@ -43,6 +44,7 @@ class _StatusPresenceState extends ConsumerState<StatusPresence> {
     final strings = context.strings;
     final aviso = ref.read(updatesControllerProvider).notice;
     final escondida = ref.read(laBotoneraDeFueraProvider).escondida;
+    final enLaIsla = ref.read(laIslaProvider);
     StatusItemChannel.setMenu(
       talk: strings.statusTalk,
       show: strings.statusShow,
@@ -55,6 +57,9 @@ class _StatusPresenceState extends ConsumerState<StatusPresence> {
       // Dock: escondida con la cruz, esta fila es el único camino de vuelta
       // mientras siga corriendo lo mismo. Sin nada escondido sobraría.
       runBar: escondida ? strings.runToolbarMostrar : null,
+      // La isla, desde aquí también: con la ventana grande apartada, este menú
+      // es lo que queda a mano. Fuera ya, sobra.
+      island: enLaIsla ? null : strings.islaSacar,
     );
     // Y los del visor de documentos, que es la otra ventana nativa con texto
     // propio. Va aquí porque este es el sitio que ya se rehace cuando cambia el
@@ -80,6 +85,7 @@ class _StatusPresenceState extends ConsumerState<StatusPresence> {
       // hacer por ti.
       update: ref.read(updatesControllerProvider.notifier).comprobarAhora,
       runBar: ref.read(laBotoneraDeFueraProvider.notifier).mostrarOtraVez,
+      island: () => ref.read(laIslaProvider.notifier).sacar(),
     );
   }
 
@@ -100,6 +106,9 @@ class _StatusPresenceState extends ConsumerState<StatusPresence> {
       laBotoneraDeFueraProvider.select((como) => como.escondida),
       (_, _) => _rehacerMenu(),
     );
+
+    // Y al sacar o recoger la isla.
+    ref.listen(laIslaProvider, (_, _) => _rehacerMenu());
 
     ref.listen<NexusOrbState>(
       assistantControllerProvider(

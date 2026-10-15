@@ -128,6 +128,9 @@ final class NexusStatusItem: NSObject {
     // Dock, y escondida con la cruz esta fila es el camino de vuelta. El
     // rótulo llega solo en ese caso; sin él, `add` no pone nada.
     add("runBar", { channel?.invokeMethod("runBar", arguments: nil) })
+    // La vista compacta, junto a las otras dos que traen algo de Nexus al
+    // frente. Llega solo mientras la isla no está fuera.
+    add("island", { channel?.invokeMethod("island", arguments: nil) })
     add("settings", { channel?.invokeMethod("settings", arguments: nil) }, ",")
 
     // El aviso de versión nueva **solo cuando lo hay**, en su propio grupo y

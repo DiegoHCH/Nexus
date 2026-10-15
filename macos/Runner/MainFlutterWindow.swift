@@ -59,6 +59,9 @@ class MainFlutterWindow: NSWindow {
     NexusBotonera.register(
       with: flutterViewController.registrar(forPlugin: "NexusBotonera")
     )
+    NexusIsla.register(
+      with: flutterViewController.registrar(forPlugin: "NexusIsla")
+    )
 
     // Marco fundido, no sin marco: la barra de título se funde con el --void
     // del tema en vez de llevar el cromo por defecto de macOS. Eso no cambia.

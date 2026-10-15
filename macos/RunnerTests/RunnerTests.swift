@@ -775,6 +775,57 @@ final class BotoneraDeFueraTests: XCTestCase {
   }
 }
 
+/// **La isla**, la vista compacta: arriba en el centro, bajo la barra de
+/// menús, y creciendo hacia abajo cuando llega un permiso.
+final class IslaTests: XCTestCase {
+  private let visible = NSRect(x: 0, y: 0, width: 1512, height: 944)
+
+  func testVaArribaEnElCentro() {
+    let marco = NexusIsla.dondeVa(en: visible, alto: 64)
+    XCTAssertEqual(marco.midX, visible.midX)
+    XCTAssertEqual(marco.maxY, visible.maxY - NexusIsla.margen)
+    XCTAssertEqual(marco.width, NexusIsla.ancho)
+  }
+
+  /// En un monitor a la derecha, en el centro de **ese** monitor.
+  func testEnOtraPantallaVaEnElCentroDeEsa() {
+    let monitor = NSRect(x: 1512, y: 0, width: 2560, height: 1415)
+    XCTAssertEqual(NexusIsla.dondeVa(en: monitor, alto: 64).midX, monitor.midX)
+  }
+
+  /// Con un permiso crece hacia abajo: el borde de arriba no se mueve, o la
+  /// isla se metería bajo la barra de menús.
+  func testCreceHaciaAbajo() {
+    let antes = NexusIsla.dondeVa(en: visible, alto: 64)
+    let despues = NexusIsla.conAlto(antes, alto: 180)
+    XCTAssertEqual(despues.maxY, antes.maxY)
+    XCTAssertEqual(despues.height, 180)
+    XCTAssertEqual(despues.minX, antes.minX)
+  }
+
+  func testEstaEnTodosLosEscritorios() {
+    XCTAssertTrue(NexusIsla.enLosEscritorios.contains(.canJoinAllSpaces))
+    XCTAssertTrue(NexusIsla.enLosEscritorios.contains(.fullScreenAuxiliary))
+  }
+
+  /// «Vista compacta» va tras «Abrir la ventana», y solo cuando llega su
+  /// rótulo: con la isla fuera, Dart no lo manda.
+  func testElMenuOfreceLaIsla() throws {
+    NexusStatusItem.setMenuForTesting([
+      "talk": "Hablar con Nexus",
+      "show": "Abrir la ventana",
+      "island": "Vista compacta",
+      "settings": "Ajustes…",
+      "quit": "Salir de Nexus",
+    ])
+    let menu = try XCTUnwrap(NexusStatusItem.currentMenu)
+    XCTAssertEqual(
+      menu.items.map { $0.isSeparatorItem ? "—" : $0.title },
+      ["Hablar con Nexus", "Abrir la ventana", "Vista compacta", "Ajustes…", "—", "Salir de Nexus"]
+    )
+  }
+}
+
 /// **El espejo pegado a la botonera.** Pedido: «que sean pegadas pero que al
 /// moverla se muevan juntas». Lo que se fija es la geometría —dónde va el
 /// espejo, cuándo se pone encima, cómo vuelve la barra si se mueve el espejo—

@@ -6,6 +6,7 @@ import 'package:nexus/core/design_system/accent_preference.dart';
 import 'package:nexus/core/design_system/theme_preference.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/features/assistant/domain/entities/conversation.dart';
+import 'package:nexus/features/assistant/domain/entities/peticion_de_permiso.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_verbo_de_un_paso.dart';
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
 import 'package:nexus/features/assistant/presentation/providers/conversations_providers.dart';
@@ -49,6 +50,13 @@ _LoQueCuenta _loQueCuenta(AssistantHudState hud) {
   );
 }
 
+/// Los ids de los permisos que esperan, en una cadena: comparable, que es lo
+/// que necesita `select` para no repintar en cada trozo de texto.
+String _losQueEsperan(AssistantHudState hud) => [
+  for (final mensaje in hud.messages)
+    if (mensaje.esperaPermiso) mensaje.permiso!.id,
+].join('\n');
+
 String _nombreDe(Conversation conversacion) =>
     conversacion.name ??
     conversacion.folderPath.replaceAll(RegExp(r'/+$'), '').split('/').last;
@@ -67,7 +75,30 @@ final laFotoDeLaIslaProvider = Provider<LaFotoDeLaIsla>((ref) {
   final terminal = ref.watch(laTerminalProvider);
 
   final filas = <FilaDeLaIsla>[];
+  final deNexus = <PermisoDeLaIsla>[];
   for (final conversacion in conversaciones.items) {
+    // Los permisos que esperan, por su id: lo que pide un permiso no cambia
+    // mientras espera, así que basta con saber **cuáles** para repintar, y el
+    // detalle se lee entero solo entonces.
+    final esperan = ref.watch(
+      assistantControllerProvider(conversacion.id).select(_losQueEsperan),
+    );
+    if (esperan.isNotEmpty) {
+      for (final mensaje
+          in ref.read(assistantControllerProvider(conversacion.id)).messages) {
+        if (!mensaje.esperaPermiso) continue;
+        final permiso = mensaje.permiso!;
+        deNexus.add(
+          PermisoDeLaIsla(
+            id: permiso.id,
+            nombre: _nombreDe(conversacion),
+            herramienta: permiso.nombreVisible,
+            detalle: permiso.resumen,
+            conversacion: conversacion.id,
+          ),
+        );
+      }
+    }
     final cuenta = ref.watch(
       assistantControllerProvider(conversacion.id).select(_loQueCuenta),
     );
@@ -86,7 +117,9 @@ final laFotoDeLaIslaProvider = Provider<LaFotoDeLaIsla>((ref) {
 
   return LaFotoDeLaIsla(
     conversaciones: filas,
+    // Los de Nexus primero: son los de la ventana que apartaste.
     permisos: [
+      ...deNexus,
       for (final permiso in terminal.permisos) PermisoDeLaIsla.de(permiso),
     ],
     enLaTerminal: terminal.sesiones.length,
@@ -172,6 +205,19 @@ class LaIslaController extends Notifier<bool> {
         ref.read(laTerminalProvider.notifier).contestar(id, como);
       // La isla dice además `abrirNexus`, que trae la ventana: aquí solo se
       // elige qué conversación se encuentra al llegar.
+      case ContestarElPermisoDeNexus(
+        :final conversacion,
+        :final id,
+        :final permitir,
+      ):
+        ref
+            .read(assistantControllerProvider(conversacion).notifier)
+            .responderPermiso(
+              id,
+              permitir
+                  ? DecisionDePermiso.concedido
+                  : DecisionDePermiso.denegado,
+            );
       case AbrirLaConversacion(:final id):
         unawaited(ref.read(conversationsProvider.notifier).focus(id));
       case null:

@@ -32,6 +32,12 @@ void main() {
           herramienta: 'Bash',
           detalle: 'rm -rf build',
         ),
+        PermisoDeLaIsla(
+          id: 'q1',
+          nombre: 'nexus',
+          herramienta: 'Write',
+          conversacion: 'c1',
+        ),
       ],
       enLaTerminal: 2,
       trabajandoEnLaTerminal: 1,
@@ -48,7 +54,9 @@ void main() {
     expect(una.verbo, VerboDelPaso.edita);
     expect(una.objeto, 'la_isla.dart');
     expect(una.desde, las9);
-    expect(vuelta.permisos.single.detalle, 'rm -rf build');
+    expect(vuelta.permisos.first.detalle, 'rm -rf build');
+    expect(vuelta.permisos.first.deNexus, isFalse);
+    expect(vuelta.permisos.last.conversacion, 'c1');
     expect(vuelta.enLaTerminal, 2);
     expect(vuelta.trabajandoEnLaTerminal, 1);
     expect(vuelta.claro, isTrue);
@@ -126,6 +134,17 @@ void main() {
       const AbrirLaConversacion('c1').toMap(),
     );
     expect((abrir! as AbrirLaConversacion).id, 'c1');
+
+    final deNexus = PedidoDeLaIsla.fromMap(
+      const ContestarElPermisoDeNexus('c1', 'q1', permitir: false).toMap(),
+    );
+    final contestado = deNexus! as ContestarElPermisoDeNexus;
+    expect(contestado.conversacion, 'c1');
+    expect(contestado.permitir, isFalse);
+    expect(
+      PedidoDeLaIsla.fromMap({'que': 'permisoDeNexus', 'id': 'q1'}),
+      isNull,
+    );
 
     expect(PedidoDeLaIsla.fromMap({'que': 'permiso', 'id': 'p1'}), isNull);
     expect(PedidoDeLaIsla.fromMap({'que': 'otra', 'id': 'p1'}), isNull);

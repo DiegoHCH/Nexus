@@ -1044,137 +1044,144 @@ class HoldVoiceConversation {
         if (!ended.isCompleted) ended.complete();
       }
 
-      final errand = _askClaude(instruction, allowWrites: _puedeEscribir()).listen(
-        (event) {
-          // Un encargo puede tardar minutos, y en ese rato no llega nada del
-          // servicio de voz: sin esto, la sesión se cerraría sola por
-          // inactividad justo mientras se trabaja para ella.
-          // Ya dijo algo sobre el resultado: a partir de aquí el silencio
-          // vuelve a ser silencio conversacional y manda el plazo corto.
-          if (event is! VoiceSessionReady) esperandoRespuesta = false;
-          keepAlive();
-          switch (event) {
-            // Otra conversación tiene la carpeta ocupada. Hablando esto hay
-            // que decirlo en voz alta: la pantalla puede estar detrás y el
-            // silencio se interpreta como que no oyó.
-            // Un servidor MCP que no arrancó **no se dice en voz alta**: el
-            // encargo sigue igual, y hablando, cada frase que no es la
-            // respuesta compite con la respuesta. Queda en el registro y en el
-            // aviso de la conversación, que es donde se mira al terminar.
-            case ClaudeMcpCaido():
-              break;
-            // Y una tarea de fondo tampoco: se enseña en la botonera, que es
-            // algo que se mira, no algo que se oye. Interrumpir una frase para
-            // leer en voz alta que un subagente arrancó sería pagar la
-            // respuesta que sí se pidió.
-            case ClaudeTareaDeFondo():
-              break;
+      final errand =
+          _askClaude(
+            instruction,
+            allowWrites: _puedeEscribir(),
+            // Lo que llega por voz puede abrir la sesión con el modelo rápido. Ver
+            // [ElModeloAlAbrir].
+            porVoz: true,
+          ).listen(
+            (event) {
+              // Un encargo puede tardar minutos, y en ese rato no llega nada del
+              // servicio de voz: sin esto, la sesión se cerraría sola por
+              // inactividad justo mientras se trabaja para ella.
+              // Ya dijo algo sobre el resultado: a partir de aquí el silencio
+              // vuelve a ser silencio conversacional y manda el plazo corto.
+              if (event is! VoiceSessionReady) esperandoRespuesta = false;
+              keepAlive();
+              switch (event) {
+                // Otra conversación tiene la carpeta ocupada. Hablando esto hay
+                // que decirlo en voz alta: la pantalla puede estar detrás y el
+                // silencio se interpreta como que no oyó.
+                // Un servidor MCP que no arrancó **no se dice en voz alta**: el
+                // encargo sigue igual, y hablando, cada frase que no es la
+                // respuesta compite con la respuesta. Queda en el registro y en el
+                // aviso de la conversación, que es donde se mira al terminar.
+                case ClaudeMcpCaido():
+                  break;
+                // Y una tarea de fondo tampoco: se enseña en la botonera, que es
+                // algo que se mira, no algo que se oye. Interrumpir una frase para
+                // leer en voz alta que un subagente arrancó sería pagar la
+                // respuesta que sí se pidió.
+                case ClaudeTareaDeFondo():
+                  break;
 
-            // Y que un trabajo de fondo haya vuelto tampoco: hablando, lo que
-            // importa es la respuesta, y «ha terminado el gate» dicha en alto
-            // compite con ella. La marca es de la pantalla, no de la voz.
-            case ClaudeAvisoDeFondo():
-              break;
+                // Y que un trabajo de fondo haya vuelto tampoco: hablando, lo que
+                // importa es la respuesta, y «ha terminado el gate» dicha en alto
+                // compite con ella. La marca es de la pantalla, no de la voz.
+                case ClaudeAvisoDeFondo():
+                  break;
 
-            // Cómo fue la compactación tampoco se dice en alto: hablando, cada
-            // frase que no es la respuesta compite con la respuesta. Queda en
-            // la conversación, que es donde se mira.
-            case ClaudeCompacto():
-              break;
+                // Cómo fue la compactación tampoco se dice en alto: hablando, cada
+                // frase que no es la respuesta compite con la respuesta. Queda en
+                // la conversación, que es donde se mira.
+                case ClaudeCompacto():
+                  break;
 
-            // 🔴 **Lo que se espera es lo tuyo, no lo de otra.** Esto decía
-            // «hay otra conversación trabajando en esa carpeta» y no podía ser
-            // verdad: con la carpeta tomada por otra se bifurca y se trabaja a
-            // la vez —`ClaudeEnParalelo`, aquí abajo—, así que a este caso solo
-            // se llega cuando el turno lo tiene esta misma conversación. Ver
-            // [ClaudeQueued].
-            case ClaudeQueued():
-              controller.add(
-                const VoiceToolProgress(
-                  'Espero turno: todavía estoy con lo anterior de esta '
-                  'conversación.',
-                ),
-              );
-            // Y esto sí que hay que decirlo en voz alta: van a tocar los
-            // mismos archivos, y quien habla no está mirando la pantalla donde
-            // sale el aviso.
-            case ClaudeEnParalelo():
-              controller.add(
-                const VoiceToolProgress(
-                  'Aviso: otra conversación está trabajando en esta carpeta. '
-                  'Voy en paralelo, así que podemos pisarnos los archivos.',
-                ),
-              );
-            // Hablando, la pantalla puede estar detrás: el mismo motivo por el
-            // que la cola se dice en voz alta. Que las reglas del repositorio
-            // hayan cambiado desde la última vez es justo lo que no puede
-            // quedarse en un chip que nadie está mirando.
-            case ClaudeRulesChanged(:final paths):
-              controller.add(
-                VoiceToolProgress(
-                  'Aviso: han cambiado las reglas del repositorio '
-                  '(${paths.length} archivo(s)). Sigo con el encargo.',
-                ),
-              );
-            case ClaudeTextDelta(:final text):
-              answer.write(text);
-              loQueCuentaClaude.write(text);
-              controller.add(VoiceToolProgress(text));
-            case ClaudeTurnCompleted(:final result):
-              if (result.isNotEmpty) {
-                answer
-                  ..clear()
-                  ..write(result);
+                // 🔴 **Lo que se espera es lo tuyo, no lo de otra.** Esto decía
+                // «hay otra conversación trabajando en esa carpeta» y no podía ser
+                // verdad: con la carpeta tomada por otra se bifurca y se trabaja a
+                // la vez —`ClaudeEnParalelo`, aquí abajo—, así que a este caso solo
+                // se llega cuando el turno lo tiene esta misma conversación. Ver
+                // [ClaudeQueued].
+                case ClaudeQueued():
+                  controller.add(
+                    const VoiceToolProgress(
+                      'Espero turno: todavía estoy con lo anterior de esta '
+                      'conversación.',
+                    ),
+                  );
+                // Y esto sí que hay que decirlo en voz alta: van a tocar los
+                // mismos archivos, y quien habla no está mirando la pantalla donde
+                // sale el aviso.
+                case ClaudeEnParalelo():
+                  controller.add(
+                    const VoiceToolProgress(
+                      'Aviso: otra conversación está trabajando en esta carpeta. '
+                      'Voy en paralelo, así que podemos pisarnos los archivos.',
+                    ),
+                  );
+                // Hablando, la pantalla puede estar detrás: el mismo motivo por el
+                // que la cola se dice en voz alta. Que las reglas del repositorio
+                // hayan cambiado desde la última vez es justo lo que no puede
+                // quedarse en un chip que nadie está mirando.
+                case ClaudeRulesChanged(:final paths):
+                  controller.add(
+                    VoiceToolProgress(
+                      'Aviso: han cambiado las reglas del repositorio '
+                      '(${paths.length} archivo(s)). Sigo con el encargo.',
+                    ),
+                  );
+                case ClaudeTextDelta(:final text):
+                  answer.write(text);
+                  loQueCuentaClaude.write(text);
+                  controller.add(VoiceToolProgress(text));
+                case ClaudeTurnCompleted(:final result):
+                  if (result.isNotEmpty) {
+                    answer
+                      ..clear()
+                      ..write(result);
+                  }
+                  // Las cifras del turno se guardan para sacarlas con el final del
+                  // encargo: son las que mueven el medidor de contexto, y hasta
+                  // ahora morían aquí dentro.
+                  turnTokens = event.turnTokens;
+                  contextTokens = event.contextTokens;
+                case ClaudeFailed(:final message):
+                  ok = false;
+                  answer
+                    ..clear()
+                    ..write('La tarea falló: $message');
+                case ClaudeToolUsed():
+                  pasosDelEncargo.add(event.description);
+                  controller.add(
+                    VoiceToolActivity(
+                      id: event.id,
+                      description: event.description,
+                      writes: event.writes,
+                      done: false,
+                      detail: event.detail,
+                    ),
+                  );
+                case ClaudeToolFinished():
+                  controller.add(
+                    VoiceToolActivity(
+                      id: event.id,
+                      description: '',
+                      writes: false,
+                      done: true,
+                      output: event.output,
+                    ),
+                  );
+                case ClaudeSessionStarted():
+                  // El modelo se guarda para sacarlo con el fin del encargo. Esto era
+                  // un `break`, y ese `break` era el defecto: sin modelo el medidor
+                  // asumía una ventana de 200k, así que hablando con un modelo de un
+                  // millón el porcentaje salía multiplicado por cinco.
+                  modelo = event.model;
               }
-              // Las cifras del turno se guardan para sacarlas con el final del
-              // encargo: son las que mueven el medidor de contexto, y hasta
-              // ahora morían aquí dentro.
-              turnTokens = event.turnTokens;
-              contextTokens = event.contextTokens;
-            case ClaudeFailed(:final message):
+            },
+            onError: (Object error) {
               ok = false;
               answer
                 ..clear()
-                ..write('La tarea falló: $message');
-            case ClaudeToolUsed():
-              pasosDelEncargo.add(event.description);
-              controller.add(
-                VoiceToolActivity(
-                  id: event.id,
-                  description: event.description,
-                  writes: event.writes,
-                  done: false,
-                  detail: event.detail,
-                ),
-              );
-            case ClaudeToolFinished():
-              controller.add(
-                VoiceToolActivity(
-                  id: event.id,
-                  description: '',
-                  writes: false,
-                  done: true,
-                  output: event.output,
-                ),
-              );
-            case ClaudeSessionStarted():
-              // El modelo se guarda para sacarlo con el fin del encargo. Esto era
-              // un `break`, y ese `break` era el defecto: sin modelo el medidor
-              // asumía una ventana de 200k, así que hablando con un modelo de un
-              // millón el porcentaje salía multiplicado por cinco.
-              modelo = event.model;
-          }
-        },
-        onError: (Object error) {
-          ok = false;
-          answer
-            ..clear()
-            ..write('No se pudo ejecutar la tarea: $error');
-          finish();
-        },
-        onDone: finish,
-        cancelOnError: true,
-      );
+                ..write('No se pudo ejecutar la tarea: $error');
+              finish();
+            },
+            onDone: finish,
+            cancelOnError: true,
+          );
 
       // Se escucha con `listen` y no con `await for` justamente por esto: un
       // `await for` no se puede cortar desde fuera, y cerrar la conversación

@@ -7,6 +7,7 @@ import 'package:nexus/core/i18n/strings/documentos_strings.dart';
 import 'package:nexus/core/i18n/strings/el_dia_strings.dart';
 import 'package:nexus/core/i18n/strings/identidad_strings.dart';
 import 'package:nexus/core/i18n/strings/isla_strings.dart';
+import 'package:nexus/core/i18n/strings/modelo_rapido_strings.dart';
 import 'package:nexus/core/i18n/strings/quien_eres_strings.dart';
 import 'package:nexus/core/i18n/strings/terminal_strings.dart';
 import 'package:nexus/core/i18n/strings/escenario_strings.dart';
@@ -78,7 +79,8 @@ abstract class NexusStrings
         TerminalStrings,
         IslaStrings,
         QuienEresStrings,
-        IdentidadStrings {
+        IdentidadStrings,
+        ModeloRapidoStrings {
   const NexusStrings();
 
   static const supported = [Locale('es'), Locale('en')];
@@ -122,7 +124,8 @@ class NexusStringsEs extends NexusStrings
         TerminalStringsEs,
         IslaStringsEs,
         QuienEresStringsEs,
-        IdentidadStringsEs {
+        IdentidadStringsEs,
+        ModeloRapidoStringsEs {
   const NexusStringsEs();
 
   @override
@@ -155,7 +158,8 @@ class NexusStringsEn extends NexusStrings
         TerminalStringsEn,
         IslaStringsEn,
         QuienEresStringsEn,
-        IdentidadStringsEn {
+        IdentidadStringsEn,
+        ModeloRapidoStringsEn {
   const NexusStringsEn();
 
   @override

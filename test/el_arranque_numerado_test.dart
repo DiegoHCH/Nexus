@@ -98,6 +98,7 @@ void main() {
             haySuNombre: true,
             hayTuNombre: true,
             hayPersonalidad: true,
+            hayQuienEres: true,
           ),
           overrides: [
             workspaceControllerProvider.overrideWith(

@@ -38,6 +38,7 @@ void main() {
           QueSePide.llave,
           QueSePide.suNombre,
           QueSePide.tuNombre,
+          QueSePide.quienEres,
           QueSePide.personalidad,
         },
         reason: 'con una sola cuenta de Claude no hay nada que elegir',
@@ -70,12 +71,42 @@ void main() {
           hayLlave: true,
           haySuNombre: true,
           hayPersonalidad: true,
+          hayQuienEres: true,
         ),
       );
       expect(falta, isNot(contains(QueSePide.llave)));
       expect(falta, isNot(contains(QueSePide.suNombre)));
       expect(falta, isNot(contains(QueSePide.personalidad)));
       expect(falta, containsAll([QueSePide.carpeta, QueSePide.tuNombre]));
+    });
+
+    // Del documento «Qué le sirve a Nexus»: quien no programa no va a
+    // descubrir `/recuerda`. Las preguntas se piden en la parte de «quién es
+    // ella», tras tu nombre, y no se vuelven a pedir si ya hay respuestas.
+    test('quién eres se pide tras tu nombre, y no si ya se contestó', () {
+      final pasos = LosPasosDelArranque.de(
+        const ComoEstaLaConfiguracion(),
+        etapa: EtapaDelArranque.ella,
+        solo: LoQueFaltaPorConfigurar.alArrancar(
+          const ComoEstaLaConfiguracion(),
+        ),
+      );
+      expect(
+        [for (final p in pasos) p.que],
+        [
+          QueSePide.suNombre,
+          QueSePide.tuNombre,
+          QueSePide.quienEres,
+          QueSePide.personalidad,
+        ],
+      );
+      expect(QueSePide.quienEres.opcional, isTrue);
+      expect(
+        LoQueFaltaPorConfigurar.alArrancar(
+          const ComoEstaLaConfiguracion(hayQuienEres: true),
+        ),
+        isNot(contains(QueSePide.quienEres)),
+      );
     });
 
     test('las dos partes, y solo las que tienen algo que pedir', () {
@@ -257,6 +288,7 @@ void main() {
         configuracion: const ComoEstaLaConfiguracion(
           haySuNombre: true,
           hayTuNombre: true,
+          hayQuienEres: true,
         ),
       );
       await pulsar(tester, boton(es.setupSiguiente));
@@ -275,6 +307,7 @@ void main() {
           haySuNombre: true,
           hayTuNombre: true,
           hayPersonalidad: true,
+          hayQuienEres: true,
         ),
       );
 

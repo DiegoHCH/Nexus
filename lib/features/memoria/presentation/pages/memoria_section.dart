@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/assistant/domain/usecases/como_se_lee_un_turno.dart';
+import 'package:nexus/features/memoria/domain/entities/las_preguntas_de_quien_eres.dart';
 import 'package:nexus/features/memoria/domain/entities/lo_que_se_sabe_de_ti.dart';
 import 'package:nexus/features/memoria/presentation/providers/lo_que_recuerda_de_ti.dart';
+import 'package:nexus/features/memoria/presentation/widgets/cuentale_quien_eres.dart';
 
 /// Lo que Nexus sabe de ti, entero y borrable.
 ///
@@ -16,10 +18,16 @@ import 'package:nexus/features/memoria/presentation/providers/lo_que_recuerda_de
 class MemoriaSection extends ConsumerWidget {
   const MemoriaSection({super.key});
 
+  static const llaveQuienEres = ValueKey('memoria-quien-eres');
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = context.strings;
     final cosas = ref.watch(loQueRecuerdaDeTiProvider);
+    final contestadas = LasPreguntasDeQuienEres.contestadas(
+      cosas,
+      losTemasDeQuienEres(),
+    );
 
     // Un solo bloque, como en el mockup: la explicación, las filas y la nota
     // de lo que cuesta van juntas porque son la misma pregunta —qué sabe de
@@ -29,6 +37,26 @@ class MemoriaSection extends ConsumerWidget {
         BloqueDeAjustes(
           hijos: [
             TextoDeAjustes(strings.memoriaExplainer),
+            // Las preguntas del arranque, también desde aquí: quien entró
+            // antes de que existieran, o quiere cambiar lo que contestó, no
+            // tiene otro camino que `/recuerda` nota a nota.
+            FilasDeAjustes(
+              filas: [
+                FilaDeAjustes(
+                  titulo: strings.quienEresTitulo,
+                  accion: BotonDeAjustes(
+                    key: llaveQuienEres,
+                    texto: contestadas
+                        ? strings.quienEresOtraVez
+                        : strings.quienEresEmpezar,
+                    tono: contestadas
+                        ? TonoDeBoton.neutro
+                        : TonoDeBoton.principal,
+                    onPulsar: () => preguntarQuienEres(context),
+                  ),
+                ),
+              ],
+            ),
             if (cosas.isEmpty)
               TextoDeAjustes(strings.laMemoriaVacia)
             else

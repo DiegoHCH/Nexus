@@ -375,6 +375,9 @@ class _HomePageState extends ConsumerState<HomePage> {
         onNoContestar: controller.noContestarPregunta,
         onPropuesta: (id, decision) =>
             unawaited(controller.responderPropuesta(id, decision)),
+        // Lo que se propone apuntar en la memoria del proyecto al comprimir.
+        onPropuestaDeMemoria: (lineas, apuntar) =>
+            unawaited(controller.responderPropuestaDeMemoria(lineas, apuntar)),
         // El comando se manda **tal cual se ve**: es lo que evita el error que
         // dio origen a esto, que fue teclearlo de memoria.
         onCorrer: controller.submit,

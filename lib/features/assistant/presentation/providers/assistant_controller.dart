@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:nexus/features/assistant/domain/entities/pregunta_de_claude.dart';
 import 'package:nexus/features/assistant/presentation/providers/lo_contesta_ella.dart';
@@ -72,6 +73,7 @@ import 'package:nexus/features/assistant/domain/usecases/el_hilo_que_viaja.dart'
 import 'package:nexus/features/lo_que_te_espera/presentation/providers/lo_que_te_espera_provider.dart';
 import 'package:nexus/features/history/domain/usecases/la_memoria_del_proyecto.dart';
 import 'package:nexus/features/history/presentation/providers/las_ideas_providers.dart';
+import 'package:nexus/features/history/domain/usecases/lo_que_se_propone_apuntar.dart';
 
 /// El pegamento entre los dos modelos y la pantalla: traduce cada
 /// [ClaudeEvent] y cada [VoiceEvent] al mismo [AssistantHudState] que el orbe,
@@ -438,6 +440,7 @@ class AssistantController extends Notifier<AssistantHudState> {
     List<String> attachments = const [],
     String? respondeA,
     PropuestaDeProgramar? propuesta,
+    List<String>? propuestaDeMemoria,
     bool esLaListaDeProgramadas = false,
     bool esLaAyuda = false,
   }) {
@@ -451,6 +454,7 @@ class AssistantController extends Notifier<AssistantHudState> {
         respondeA: respondeA,
         esElParte: _elParteEnCurso,
         propuesta: propuesta,
+        propuestaDeMemoria: propuestaDeMemoria,
         esLaListaDeProgramadas: esLaListaDeProgramadas,
         esLaAyuda: esLaAyuda,
       ),
@@ -1988,6 +1992,94 @@ class AssistantController extends Notifier<AssistantHudState> {
     }
   }
 
+  /// Dónde está la bóveda de esta conversación, si hay una que no sea Notion.
+  ({String raiz, String? cuenta, String proyecto})? _laBoveda() {
+    final carpeta = _folder;
+    final archivo = ref.read(archiveControllerProvider);
+    final raiz = archivo.folderPath;
+    if (carpeta == null ||
+        !archivo.isReady ||
+        archivo.destination == ArchiveDestination.notion ||
+        raiz == null) {
+      return null;
+    }
+    return (
+      raiz: raiz,
+      cuenta: _profileName(carpeta),
+      proyecto: ConversationSummary.projectNameOf(carpeta),
+    );
+  }
+
+  /// Lo que el resumen de la compresión propone apuntar en la memoria del
+  /// proyecto, preguntado en la conversación. Sin bóveda no se propone nada:
+  /// no habría dónde apuntarlo. Ver [LoQueSeProponeApuntar].
+  Future<void> _proponerLaMemoria(String sesion) async {
+    final boveda = _laBoveda();
+    final carpeta = _folder;
+    if (boveda == null || carpeta == null) return;
+    try {
+      final configDir =
+          ref
+              .read(workspaceControllerProvider)
+              .folders
+              .where((item) => item.path == carpeta)
+              .firstOrNull
+              ?.claudeProfile ??
+          '${Platform.environment['HOME']}/.claude';
+      final resumen = await ref
+          .read(elResumenDeLaCompresionProvider)
+          .leer(configDir: configDir, sesion: sesion);
+      if (resumen == null || !_vive) return;
+      final nota = await ref
+          .read(laMemoriaDelProyectoProvider)
+          .laDelProyecto(
+            raiz: boveda.raiz,
+            cuenta: boveda.cuenta,
+            proyecto: boveda.proyecto,
+          );
+      final lineas = LoQueSeProponeApuntar.sinLasQueYaEstan(
+        LoQueSeProponeApuntar.delResumen(resumen),
+        nota,
+      );
+      if (lineas.isEmpty || !_vive) return;
+      _say(ChatAuthor.nexus, '', propuestaDeMemoria: lineas);
+      _sealLast();
+    } on Object catch (error) {
+      // Proponer es un extra: si el archivo de la sesión no se puede leer, la
+      // compresión ya está hecha y se sigue sin propuesta.
+      debugPrint('memoria · no se pudo proponer: $error');
+    }
+  }
+
+  /// Contestar a lo que se propuso apuntar: con «apuntar», las líneas van a la
+  /// nota de memoria del proyecto; con «ahora no», no pasa nada más.
+  Future<void> responderPropuestaDeMemoria(
+    List<String> lineas,
+    bool apuntar,
+  ) async {
+    final mensajes = [...state.messages];
+    final donde = mensajes.lastIndexWhere(
+      (mensaje) =>
+          mensaje.memoriaDecidida == null &&
+          listEquals(mensaje.propuestaDeMemoria, lineas),
+    );
+    if (donde == -1) return;
+    // Se marca antes: contestar quita los botones en el acto.
+    mensajes[donde] = mensajes[donde].copyWith(memoriaDecidida: apuntar);
+    state = state.copyWith(messages: mensajes);
+    if (!apuntar) return;
+    final boveda = _laBoveda();
+    if (boveda == null) return;
+    await ref
+        .read(laMemoriaDelProyectoProvider)
+        .apuntar(
+          raiz: boveda.raiz,
+          cuenta: boveda.cuenta,
+          proyecto: boveda.proyecto,
+          lineas: lineas,
+        );
+  }
+
   /// Le llegó el turno: se cierra la espera y se apunta con qué modelo corrió.
   void _alArrancarLaSesion(ClaudeSessionStarted evento) {
     _aplicar(evento);
@@ -2821,11 +2913,18 @@ class AssistantController extends Notifier<AssistantHudState> {
     );
 
     ClaudeCompacto? comoFue;
+    String? laSesion;
     try {
+      // Con lo que se propone apuntar al final del resumen: la compresión ya
+      // es un turno de Claude, y pedirle esas líneas no cuesta otro. Ver
+      // [LoQueSeProponeApuntar].
       await for (final event in ref.read(askClaudeProvider(conversationId))(
-        '/compact',
+        '/compact ${LoQueSeProponeApuntar.instrucciones}',
         remember: false,
       )) {
+        if (event case ClaudeSessionStarted(:final sessionId)) {
+          laSesion = sessionId;
+        }
         // 🔴 **Cómo fue, que es lo único que dice si comprimió de verdad.**
         // Antes solo se miraba el turno completado, así que una compactación
         // fallida y una buena se contaban igual — y una carpeta se pasó nueve
@@ -2887,6 +2986,8 @@ class AssistantController extends Notifier<AssistantHudState> {
         antes: before,
         despues: medido == null ? null : state.meter.contextPercent,
       );
+      // Después del aviso de la compresión, para que se lea en su orden.
+      final sesionComprimida = laSesion;
       if (dejo case BajoDe(:final antes, :final despues)) {
         _say(ChatAuthor.nexus, strings.compacted(antes, despues));
         _sealLast();
@@ -2901,6 +3002,9 @@ class AssistantController extends Notifier<AssistantHudState> {
           antes: before,
           indice: state.messages.length - 1,
         );
+      }
+      if (sesionComprimida != null) {
+        await _proponerLaMemoria(sesionComprimida);
       }
     } catch (error) {
       // Que falle la compresión no puede tumbar la conversación: se sigue con

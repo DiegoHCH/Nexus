@@ -49,6 +49,8 @@ class ChatMessage {
     this.respuestas,
     this.propuesta,
     this.decidido,
+    this.propuestaDeMemoria,
+    this.memoriaDecidida,
     this.esLaListaDeProgramadas = false,
     this.esLaAyuda = false,
     this.trabajo,
@@ -164,6 +166,13 @@ class ChatMessage {
   /// Qué se contestó a la propuesta, o `null` si sigue en pie.
   final DecisionDeProgramar? decidido;
 
+  /// Lo que se propone apuntar en la memoria del proyecto al comprimir, con
+  /// sus botones. Ver `LoQueSeProponeApuntar`: se propone, y tú dices.
+  final List<String>? propuestaDeMemoria;
+
+  /// Qué se contestó: `true` apuntado, `false` ahora no, `null` en pie.
+  final bool? memoriaDecidida;
+
   /// Este mensaje **es** la lista de tareas que se repiten.
   ///
   /// 🔴 Se marca el mensaje y no se guarda la lista dentro, y la diferencia
@@ -232,6 +241,7 @@ class ChatMessage {
     DecisionDePermiso? decision,
     Map<String, String>? respuestas,
     DecisionDeProgramar? decidido,
+    bool? memoriaDecidida,
     LoQueCostoElTurno? loQueCosto,
     bool? porUnAvisoDeFondo,
   }) => ChatMessage(
@@ -251,6 +261,8 @@ class ChatMessage {
     respuestas: respuestas ?? this.respuestas,
     propuesta: propuesta,
     decidido: decidido ?? this.decidido,
+    propuestaDeMemoria: propuestaDeMemoria,
+    memoriaDecidida: memoriaDecidida ?? this.memoriaDecidida,
     esLaListaDeProgramadas: esLaListaDeProgramadas,
     esLaAyuda: esLaAyuda,
     trabajo: trabajo,
@@ -269,5 +281,6 @@ class ChatMessage {
       attachments.isEmpty &&
       permiso == null &&
       propuesta == null &&
+      propuestaDeMemoria == null &&
       !esLaListaDeProgramadas;
 }

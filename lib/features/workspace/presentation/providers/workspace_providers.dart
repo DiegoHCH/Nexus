@@ -19,6 +19,7 @@ import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
 import 'package:nexus/features/workspace/domain/entities/workspace.dart';
 import 'package:nexus/features/workspace/domain/repositories/workspace_store.dart';
 import 'package:nexus/features/workspace/domain/usecases/la_carpeta_de_codigo.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final workspaceStoreProvider = Provider<WorkspaceStore>(
   (ref) => const WorkspaceStoreImpl(WorkspacePreferencesDataSource()),
@@ -608,16 +609,55 @@ final laCarpetaEsDeCodigoProvider = FutureProvider.family<bool, String>((
   );
 });
 
+/// **Nexus solo como asistente**, sin nada de programar en ninguna carpeta.
+///
+/// Pedido así: «cómo lo vuelvo solo modo agente y no dev». Lo de programar ya
+/// se escondía solo donde no hay código —ver [LaCarpetaDeCodigo]—, pero quien
+/// usa Nexus como asistente tiene repos emparejados igual, y en esos seguía
+/// viendo correr, dispositivos y pruebas. Esto lo apaga en todas.
+///
+/// Solo esconde: no cambia qué modelo se usa ni qué puede hacer Claude, que
+/// siguen dependiendo de lo que hay de verdad en la carpeta.
+class SoloAsistente extends Notifier<bool> {
+  static const clave = 'nexus.soloAsistente';
+
+  @override
+  bool build() {
+    _cargar();
+    return false;
+  }
+
+  Future<void> _cargar() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!ref.mounted) return;
+    state = prefs.getBool(clave) ?? false;
+  }
+
+  Future<void> cambiar(bool solo) async {
+    state = solo;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(clave, solo);
+  }
+}
+
+final soloAsistenteProvider = NotifierProvider<SoloAsistente, bool>(
+  SoloAsistente.new,
+);
+
 /// Si se enseña lo de programar para [folderPath]: **sí mientras no se sabe**,
 /// para que en una carpeta de código los botones no parpadeen al abrirla. Sin
-/// carpeta, también: no hay de dónde decidir otra cosa.
+/// carpeta, también: no hay de dónde decidir otra cosa. En modo
+/// [SoloAsistente], nunca.
 bool seEnsenaLoDeCodigo(WidgetRef ref, String? folderPath) =>
-    folderPath == null ||
-    (ref.watch(laCarpetaEsDeCodigoProvider(folderPath)).value ?? true);
+    !ref.watch(soloAsistenteProvider) &&
+    (folderPath == null ||
+        (ref.watch(laCarpetaEsDeCodigoProvider(folderPath)).value ?? true));
 
 /// Si alguna carpeta emparejada es de código —o todavía no se sabe—, para las
-/// secciones de Ajustes que solo sirven para programar.
+/// secciones de Ajustes que solo sirven para programar. En modo
+/// [SoloAsistente], ninguna.
 final algunaCarpetaEsDeCodigoProvider = Provider<bool>((ref) {
+  if (ref.watch(soloAsistenteProvider)) return false;
   final carpetas = ref.watch(workspaceControllerProvider).folders;
   if (carpetas.isEmpty) return true;
   return carpetas.any(

@@ -743,6 +743,7 @@ class _LasEsquinas extends ConsumerWidget {
               if (leido != null &&
                   leido.hasValue &&
                   git == null &&
+                  !ref.watch(soloAsistenteProvider) &&
                   ref.watch(laCarpetaEsDeCodigoProvider(carpeta!.path)).value ==
                       true)
                 Text(

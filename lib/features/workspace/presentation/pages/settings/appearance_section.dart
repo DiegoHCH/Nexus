@@ -9,6 +9,7 @@ import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/icono/domain/icono_del_dock.dart';
 import 'package:nexus/features/icono/presentation/providers/icono_providers.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/orbe_ajustes.dart';
+import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
 /// Apariencia: claro u oscuro, el color de acento, el orbe y el icono del Dock.
 ///
@@ -61,6 +62,24 @@ class AppearanceSection extends ConsumerWidget {
         const OrbeAjustes(),
         // Después del orbe y del acento, que son de lo que se dibuja: se lee
         // como «y además, en el Dock».
+        // Lo de programar, en todas o en ninguna: quien usa Nexus como
+        // asistente no tiene por qué ver correr y pruebas en sus repos. Ver
+        // [SoloAsistente].
+        BloqueDeAjustes(
+          rotulo: strings.loDeProgramarTitulo,
+          hijos: [
+            TextoDeAjustes(strings.loDeProgramarExplica),
+            ElegirDeAjustes<bool>(
+              llave: 'lo-de-programar',
+              opciones: const [false, true],
+              elegida: ref.watch(soloAsistenteProvider),
+              nombre: (solo) => solo
+                  ? strings.loDeProgramarNunca
+                  : strings.loDeProgramarSegunLaCarpeta,
+              onElegir: ref.read(soloAsistenteProvider.notifier).cambiar,
+            ),
+          ],
+        ),
         BloqueDeAjustes(
           rotulo: strings.iconoDelDockTitulo,
           hijos: [

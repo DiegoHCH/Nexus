@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:nexus/features/history/domain/usecases/la_memoria_del_proyecto.dart';
+import 'package:nexus/features/history/domain/usecases/lo_que_se_propone_apuntar.dart';
 
 /// Lee y crea las notas de memoria de la bóveda. Ver [LaMemoriaDelProyecto].
 class LaMemoriaDelProyectoDataSource {
@@ -37,6 +38,35 @@ class LaMemoriaDelProyectoDataSource {
     await nota.writeAsString(LaMemoriaDelProyecto.plantilla(espacio: espacio));
     return true;
   }
+
+  /// La nota del proyecto tal cual, o `null` si no la hay.
+  Future<String?> laDelProyecto({
+    required String raiz,
+    required String? cuenta,
+    required String proyecto,
+  }) => _leer(_laRuta(raiz, cuenta, proyecto));
+
+  /// Apunta [lineas] en la nota del proyecto —la crea con la plantilla si no
+  /// la hay—. Ver [LoQueSeProponeApuntar.conLasApuntadas].
+  Future<void> apuntar({
+    required String raiz,
+    required String? cuenta,
+    required String proyecto,
+    required List<String> lineas,
+  }) async {
+    final nota = File(_laRuta(raiz, cuenta, proyecto));
+    final antes = nota.existsSync()
+        ? await nota.readAsString()
+        : LaMemoriaDelProyecto.plantilla();
+    await nota.parent.create(recursive: true);
+    await nota.writeAsString(
+      LoQueSeProponeApuntar.conLasApuntadas(antes, lineas),
+    );
+  }
+
+  static String _laRuta(String raiz, String? cuenta, String proyecto) =>
+      '${LaCarpetaEnLaBoveda.del(raiz: raiz, cuenta: cuenta, proyecto: proyecto)}'
+      '/${LaMemoriaDelProyecto.archivo}';
 
   Future<String?> _leer(String ruta) async {
     final nota = File(ruta);

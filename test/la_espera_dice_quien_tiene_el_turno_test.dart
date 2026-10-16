@@ -66,7 +66,7 @@ class _Claude implements AskClaude {
   }) async* {
     pedidos.add(instruction);
 
-    if (instruction == '/compact') {
+    if (instruction.startsWith('/compact')) {
       // Se queda dentro: el turno de la carpeta es suyo hasta que la prueba lo
       // suelte.
       await compresionEnCurso.future;
@@ -199,7 +199,7 @@ void main() {
       // queda: el turno de la carpeta es suyo.
       await controlador.submit('lo primero');
       await asentar();
-      expect(claude.pedidos, contains('/compact'));
+      expect(claude.pedidos, anyElement(startsWith('/compact')));
 
       // Y ahora se escribe con la compresión en marcha.
       claude.encolarElProximo = true;
@@ -275,7 +275,7 @@ void main() {
       );
       expect(
         claude.pedidos,
-        isNot(contains('/compact')),
+        isNot(anyElement(startsWith('/compact'))),
         reason: 'sin turno no hay turno completado, así que no hay compresión',
       );
     },

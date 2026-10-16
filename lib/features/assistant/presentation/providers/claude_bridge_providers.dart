@@ -32,6 +32,7 @@ import 'package:nexus/features/history/domain/entities/conversation_summary.dart
 import 'package:nexus/features/history/domain/repositories/conversation_archive.dart';
 import 'package:nexus/features/history/presentation/providers/archive_providers.dart';
 import 'package:nexus/features/history/data/datasources/la_memoria_del_proyecto_data_source.dart';
+import 'package:nexus/features/assistant/data/datasources/el_resumen_de_la_compresion.dart';
 
 final claudeCliDataSourceProvider = Provider<ClaudeCliDataSource>(
   (ref) => const ClaudeCliDataSource(),
@@ -44,6 +45,12 @@ final conversationMemoryProvider = Provider<ConversationMemory>(
 /// Las notas de memoria de la bóveda. Aparte para que las pruebas pongan otra.
 final laMemoriaDelProyectoProvider = Provider<LaMemoriaDelProyectoDataSource>(
   (ref) => const LaMemoriaDelProyectoDataSource(),
+);
+
+/// El resumen de la última compresión de una sesión, del archivo de la sesión.
+/// Ver [LoQueSeProponeApuntar].
+final elResumenDeLaCompresionProvider = Provider<ElResumenDeLaCompresion>(
+  (ref) => const ElResumenDeLaCompresion(),
 );
 
 final claudeBridgeProvider = Provider<ClaudeBridge>(

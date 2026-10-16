@@ -169,6 +169,10 @@ class LocalConversationStore {
                 'propuesta': propuesta.toJson(),
               if (message.decidido case final decidido?)
                 'decidido': decidido.name,
+              // Lo mismo la de la memoria: apuntarlo mañana vale igual que
+              // hoy. Ver [LoQueSeProponeApuntar].
+              'propuesta_memoria': ?message.propuestaDeMemoria,
+              'memoria_decidida': ?message.memoriaDecidida,
               // Solo la marca: las filas salen del estado vivo, así que releer
               // esto mañana enseña las tareas de mañana y no una foto vieja con
               // botones que ya no corresponden. Ver
@@ -527,6 +531,14 @@ class LocalConversationStore {
       propuesta: PropuestaDeProgramar.fromJson(message['propuesta']),
       esLaListaDeProgramadas: message['lista_programadas'] == true,
       decidido: DecisionDeProgramarJson.deJson(message['decidido']),
+      propuestaDeMemoria: switch (message['propuesta_memoria']) {
+        final List<dynamic> lineas => [
+          for (final linea in lineas)
+            if (linea is String && linea.trim().isNotEmpty) linea,
+        ],
+        _ => null,
+      },
+      memoriaDecidida: message['memoria_decidida'] as bool?,
       permiso: peticion,
       // 🔴 **Una pregunta releída nunca sigue esperando.** Si se guardó sin
       // decisión —la app se cerró de golpe, con la pregunta en pie— vuelve

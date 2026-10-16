@@ -71,6 +71,7 @@ import 'package:nexus/features/workspace/presentation/providers/workspace_provid
 import 'package:nexus/features/assistant/domain/usecases/el_hilo_que_viaja.dart';
 import 'package:nexus/features/lo_que_te_espera/presentation/providers/lo_que_te_espera_provider.dart';
 import 'package:nexus/features/history/domain/usecases/la_memoria_del_proyecto.dart';
+import 'package:nexus/features/history/presentation/providers/las_ideas_providers.dart';
 
 /// El pegamento entre los dos modelos y la pantalla: traduce cada
 /// [ClaudeEvent] y cada [VoiceEvent] al mismo [AssistantHudState] que el orbe,
@@ -1376,6 +1377,24 @@ class AssistantController extends Notifier<AssistantHudState> {
             .recuerda(queApuntar, ref.read(relojProvider)());
         if (!_vive) return;
         _decir(s.laMemoriaApuntada(queApuntar));
+        return;
+
+      // Una idea a la bóveda, sin Claude: es apuntar, no un encargo. Ver
+      // [UnaIdea].
+      case AApuntarLaIdea(:final texto):
+        _say(ChatAuthor.user, loQueSeVe ?? trimmed);
+        _sealLast();
+        final carpeta = _folder;
+        final s = ref.read(stringsProvider);
+        final salio = carpeta == null
+            ? const SinBoveda()
+            : await ref.read(apuntarUnaIdeaProvider)(
+                carpeta,
+                texto,
+                ref.read(relojProvider)(),
+              );
+        if (!_vive) return;
+        _decir(loQueSeDiceDeLaIdea(s, salio));
         return;
 
       // Lo suyo —quién es, qué sabe hacer— lo contesta ella, sin Claude. Si

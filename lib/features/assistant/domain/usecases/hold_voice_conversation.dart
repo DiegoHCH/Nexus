@@ -57,12 +57,17 @@ class HoldVoiceConversation {
     this._claveCaliente,
     this._seSigueSinNombre,
     this._esDeCodigo,
+    this._apuntarIdea,
     this.ventanaSinNombre = ElAudioAjeno.ventanaSinNombre,
   });
 
   /// Si la carpeta de esta conversación tiene código, leído al abrir la
   /// sesión. `null` es que sí: lo de siempre. Ver [ComoUnaConversacion.deCodigo].
   final bool Function()? _esDeCodigo;
+
+  /// Apunta una idea en la bóveda y devuelve la frase que se dice. `null` es
+  /// que no se puede: lo de antes. Ver `UnaIdea`.
+  final Future<String> Function(String idea)? _apuntarIdea;
 
   /// Si justo después de que ella calle se le puede seguir hablando sin su
   /// nombre —el ajuste de Ajustes › Oído—, leído en el momento. `null` es que
@@ -165,6 +170,9 @@ class HoldVoiceConversation {
   static const _sinElDia =
       'Desde aquí no se puede juntar lo que le espera hoy. Dilo así, sin '
       'inventarlo.';
+
+  static const _sinIdea =
+      'No se pudo apuntar: dilo así y que lo repita con la idea.';
 
   static const _sinAgenda =
       'Los avisos de agenda están apagados o no tienen carpeta, así que no hay '
@@ -1397,6 +1405,20 @@ class HoldVoiceConversation {
       // gasta un encargo, así que se anuncia como consulta y se sostiene la
       // sesión mientras se junta —la agenda puede ir en vuelo, y `gh` tarda lo
       // suyo—.
+      // Una idea a la bóveda: escribir una nota, sin Claude y sin encargo.
+      if (request.name == ClaudeErrand.ideaTool) {
+        final idea = '${request.arguments['idea'] ?? ''}'.trim();
+        final apuntar = _apuntarIdea;
+        responder(
+          callId: request.callId,
+          name: request.name,
+          result: idea.isEmpty || apuntar == null
+              ? _sinIdea
+              : await apuntar(idea),
+        );
+        return;
+      }
+
       if (request.name == ClaudeErrand.loQueTeEsperaTool) {
         controller.add(const VoiceLookupStarted('Lo que te espera hoy'));
         final elDia = await _loQueTeEspera?.deHoy();

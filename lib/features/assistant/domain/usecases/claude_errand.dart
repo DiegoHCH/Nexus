@@ -33,6 +33,10 @@ abstract final class ClaudeErrand {
   /// programadas y el cupo. No acaba en Claude: se junta en la app.
   static const loQueTeEsperaTool = 'lo_que_me_espera_hoy';
 
+  /// Apuntar una idea en la bóveda. No acaba en Claude: es escribir una nota.
+  /// Ver `UnaIdea`.
+  static const ideaTool = 'apuntar_idea';
+
   /// Normaliza el nombre a lo que es una carpeta de skill: minúsculas y
   /// guiones medios.
   ///

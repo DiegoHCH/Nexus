@@ -52,6 +52,7 @@ import 'package:nexus/features/workspace/presentation/providers/workspace_provid
 import 'package:nexus/features/run/presentation/providers/la_botonera_de_fuera.dart';
 import 'package:nexus/features/run/presentation/widgets/la_botonera_de_corridas.dart';
 import 'package:nexus/features/workspace/presentation/widgets/hud_top_bar.dart';
+import 'package:nexus/features/tablero/presentation/widgets/el_tablero_de_agentes.dart';
 
 /// El orbe fijo a la izquierda y la conversación a la derecha: lo que le
 /// pediste y lo que respondió, por voz o escrito, en el mismo sitio. Abajo, la
@@ -530,6 +531,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       onHistorial: abrirElHistorial,
                       onDocumentos: () => ArtifactsSheet.open(context),
                       onAjustes: () => SettingsPage.open(context),
+                      onAgentes: () => ElTableroDeAgentes.open(context),
                     ),
                   ],
                 ),

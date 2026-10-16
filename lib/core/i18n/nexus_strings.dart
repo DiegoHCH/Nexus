@@ -6,6 +6,7 @@ import 'package:nexus/core/i18n/strings/conversacion_fluida_strings.dart';
 import 'package:nexus/core/i18n/strings/documentos_strings.dart';
 import 'package:nexus/core/i18n/strings/el_dia_strings.dart';
 import 'package:nexus/core/i18n/strings/identidad_strings.dart';
+import 'package:nexus/core/i18n/strings/ideas_strings.dart';
 import 'package:nexus/core/i18n/strings/isla_strings.dart';
 import 'package:nexus/core/i18n/strings/modelo_rapido_strings.dart';
 import 'package:nexus/core/i18n/strings/modo_strings.dart';
@@ -82,7 +83,8 @@ abstract class NexusStrings
         QuienEresStrings,
         IdentidadStrings,
         ModeloRapidoStrings,
-        ModoStrings {
+        ModoStrings,
+        IdeasStrings {
   const NexusStrings();
 
   static const supported = [Locale('es'), Locale('en')];
@@ -128,7 +130,8 @@ class NexusStringsEs extends NexusStrings
         QuienEresStringsEs,
         IdentidadStringsEs,
         ModeloRapidoStringsEs,
-        ModoStringsEs {
+        ModoStringsEs,
+        IdeasStringsEs {
   const NexusStringsEs();
 
   @override
@@ -163,7 +166,8 @@ class NexusStringsEn extends NexusStrings
         QuienEresStringsEn,
         IdentidadStringsEn,
         ModeloRapidoStringsEn,
-        ModoStringsEn {
+        ModoStringsEn,
+        IdeasStringsEn {
   const NexusStringsEn();
 
   @override

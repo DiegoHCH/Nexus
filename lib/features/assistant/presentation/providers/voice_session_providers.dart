@@ -197,6 +197,7 @@ final laSesionDePuertaProvider = Provider<LaSesionDePuerta>(
 
 /// Si la carpeta de [conversationId] tiene código. Mientras no se sabe, sí.
 bool _esDeCodigo(Ref ref, String conversationId) {
+  if (ref.read(soloAsistenteProvider)) return false;
   final carpeta = ref.read(conversationFolderProvider(conversationId));
   return carpeta == null ||
       (ref.read(laCarpetaEsDeCodigoProvider(carpeta)).value ?? true);

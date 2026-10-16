@@ -8,6 +8,7 @@ import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/emulators/data/datasources/emuladores_data_source.dart';
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
+import 'package:nexus/features/emulators/domain/usecases/el_espejo_del_iphone.dart';
 import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
 import 'package:nexus/features/emulators/presentation/widgets/emuladores_section.dart';
 
@@ -52,6 +53,9 @@ class _Falsa extends EmuladoresDataSource {
 
   @override
   Future<List<DispositivoConectado>> listarDispositivos() async => dispositivos;
+
+  @override
+  List<ComoVerElIphone> comoVerElIphone() => ComoVerElIphone.values;
 
   /// Lo que devuelve la lista a partir del segundo intento, para simular que el
   /// emulador ya arrancó.
@@ -291,5 +295,39 @@ void main() {
     await _montar(tester, _Falsa(const []));
 
     expect(find.text(strings.emulatorsEmpty), findsOneWidget);
+  });
+
+  // 🔴 Reportado con la captura delante: «mira cómo se ve horrible». Los dos
+  // botones del iPhone llevaban la explicación entera como texto, ocupaban la
+  // fila y dejaban el nombre en una columna de una letra.
+  testWidgets('un iPhone enchufado: botones cortos y el nombre entero', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final falsa = _Falsa(
+      const [],
+      dispositivos: const [
+        DispositivoConectado(
+          id: '00008030-000C390C1AC0C02E',
+          nombre: 'iPhone 11',
+          plataforma: PlataformaEmulador.ios,
+        ),
+      ],
+    );
+    await _montar(tester, falsa);
+
+    expect(
+      find.text(strings.verElIphoneDuplicadoCorto.toUpperCase()),
+      findsOne,
+    );
+    expect(
+      find.text(strings.verElIphoneQuickTimeCorto.toUpperCase()),
+      findsOne,
+    );
+    expect(find.text(strings.verElIphoneDuplicado.toUpperCase()), findsNothing);
+    expect(tester.getSize(find.text('iPhone 11')).height, lessThan(30));
+    expect(tester.takeException(), isNull);
   });
 }

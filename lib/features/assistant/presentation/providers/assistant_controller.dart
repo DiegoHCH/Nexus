@@ -1173,11 +1173,14 @@ class AssistantController extends Notifier<AssistantHudState> {
             (comando) => loQueHaceElComando(s, comando),
             // Lo de programar, solo donde hay código. Mientras no se sabe,
             // todo: es lo que había.
-            deCodigo: switch (_folder) {
-              final carpeta? =>
-                ref.read(laCarpetaEsDeCodigoProvider(carpeta)).value ?? true,
-              null => true,
-            },
+            deCodigo:
+                !ref.read(soloAsistenteProvider) &&
+                switch (_folder) {
+                  final carpeta? =>
+                    ref.read(laCarpetaEsDeCodigoProvider(carpeta)).value ??
+                        true,
+                  null => true,
+                },
           ),
         );
         _sealLast();

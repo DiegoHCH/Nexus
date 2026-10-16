@@ -28,6 +28,26 @@ void main() {
     startedAt: las9.add(Duration(seconds: segundo)),
   );
 
+  // Pedido el 16 oct: «quisiera que todos los pasos se vieran en las
+  // etiquetas». Los de primer nivel, en orden, cortos y con si acabaron.
+  test('todos los pasos del encargo, sin los de los subagentes', () {
+    final etiquetas = loQueDicenLasEtiquetas([
+      paso('1', 'Leyendo lib/main.dart', hecho: true),
+      paso('2', 'Delegando: revisar el escenario', hecho: true),
+      paso('2a', 'Leyendo lib/otro.dart', padre: '2', hecho: true),
+      paso('3', 'Editando lib/features/x/el_escenario.dart', escribe: true),
+    ]);
+
+    expect(etiquetas.pasos.map((uno) => uno.objeto), [
+      'main.dart',
+      'revisar el escenario',
+      'el_escenario.dart',
+    ]);
+    expect(etiquetas.pasos.map((uno) => uno.hecho), [true, true, false]);
+    expect(etiquetas.pasos.last.escribe, isTrue);
+    expect(etiquetas.hechos, 2);
+  });
+
   test('sin actividad no hay nada que contar', () {
     expect(loQueDicenLasEtiquetas(const []).vacias, isTrue);
   });

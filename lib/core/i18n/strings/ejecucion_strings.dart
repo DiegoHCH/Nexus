@@ -172,7 +172,8 @@ mixin EjecucionStringsEs implements EjecucionStrings {
   String get runTitle => 'Correr la app';
   @override
   String get runNoConfigs =>
-      'Este proyecto no declara configuraciones en .vscode/launch.json';
+      'Nada que correr: ni .vscode/launch.json, ni configuraciones de Android '
+      'Studio, ni un lib/main.dart de Flutter';
   @override
   String get runChooseDevice => 'Elige un dispositivo';
   @override
@@ -346,7 +347,8 @@ mixin EjecucionStringsEn implements EjecucionStrings {
   String get runTitle => 'Run the app';
   @override
   String get runNoConfigs =>
-      'This project declares no configurations in .vscode/launch.json';
+      'Nothing to run: no .vscode/launch.json, no Android Studio '
+      'configurations and no Flutter lib/main.dart';
   @override
   String get runChooseDevice => 'Pick a device';
   @override

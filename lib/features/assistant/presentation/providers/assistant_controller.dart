@@ -70,6 +70,7 @@ import 'package:nexus/features/workspace/domain/usecases/el_comando_directo.dart
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_hilo_que_viaja.dart';
 import 'package:nexus/features/lo_que_te_espera/presentation/providers/lo_que_te_espera_provider.dart';
+import 'package:nexus/features/history/domain/usecases/la_memoria_del_proyecto.dart';
 
 /// El pegamento entre los dos modelos y la pantalla: traduce cada
 /// [ClaudeEvent] y cada [VoiceEvent] al mismo [AssistantHudState] que el orbe,
@@ -2613,10 +2614,9 @@ class AssistantController extends Notifier<AssistantHudState> {
         .folders
         .where((item) => item.path == folder)
         .firstOrNull;
-    final profile = paired?.claudeProfile;
-    if (profile == null || profile.isEmpty) return null;
-    final name = profile.split('/').last;
-    return name.startsWith('.claude-') ? name.substring(8) : name;
+    // La misma regla que lee la memoria del proyecto: si se calcularan
+    // distinto, las notas irían a una carpeta y la memoria se buscaría en otra.
+    return LaCarpetaEnLaBoveda.deLaCuenta(paired?.claudeProfile);
   }
 
   /// Cuándo empezó, para fechar el archivo. Se fija al construir el

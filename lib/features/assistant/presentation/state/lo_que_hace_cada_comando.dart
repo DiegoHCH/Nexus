@@ -12,6 +12,7 @@ String loQueHaceElComando(NexusStrings s, ElComandoDeLaCasa comando) =>
       ElComandoDeLaCasa.aparte => s.ayudaAparte,
       ElComandoDeLaCasa.imagen => s.ayudaImagen,
       ElComandoDeLaCasa.edita => s.ayudaEdita,
+      ElComandoDeLaCasa.idea => s.ayudaIdea,
       ElComandoDeLaCasa.git => s.ayudaGit,
       ElComandoDeLaCasa.parte => s.ayudaParte,
       ElComandoDeLaCasa.agenda => s.ayudaAgenda,

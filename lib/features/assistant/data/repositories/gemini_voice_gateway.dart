@@ -669,6 +669,26 @@ class GeminiVoiceGateway implements VoiceGateway {
       'parameters': {'type': 'OBJECT', 'properties': <String, Object?>{}},
     },
     {
+      'name': ideaToolName,
+      'description':
+          'Apunta una idea suelta en la bóveda de notas, enlazada al proyecto '
+          'de esta conversación. Úsala cuando digan «apunta esta idea», «anota '
+          'que…», «guárdame la idea de…» o «toma nota de…», en vez de '
+          'pasárselo a Claude: es apuntar, no un encargo, y por aquí queda '
+          'escrita al momento. Pasa la idea con sus palabras, sin el «apunta» '
+          'delante. Cuando vuelva, di en pocas palabras que quedó apuntada.',
+      'parameters': {
+        'type': 'OBJECT',
+        'properties': {
+          'idea': {
+            'type': 'STRING',
+            'description': 'La idea, tal como la dijeron.',
+          },
+        },
+        'required': ['idea'],
+      },
+    },
+    {
       'name': loQueTeEsperaToolName,
       'description':
           'Cuenta lo que le espera hoy: las reuniones que le quedan, los PR '
@@ -697,6 +717,7 @@ class GeminiVoiceGateway implements VoiceGateway {
   static const parteToolName = 'pedir_el_parte';
   static const agendaToolName = 'consultar_agenda';
   static const loQueTeEsperaToolName = 'lo_que_me_espera_hoy';
+  static const ideaToolName = 'apuntar_idea';
 
   /// Qué significa un marco del servicio.
   ///

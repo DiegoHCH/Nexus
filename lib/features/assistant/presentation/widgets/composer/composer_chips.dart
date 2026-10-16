@@ -111,6 +111,7 @@ class ComposerChips extends ConsumerWidget {
         if (git == null &&
             paired != null &&
             // Solo donde hay código, y sabiéndolo: ver [LaCarpetaDeCodigo].
+            !ref.watch(soloAsistenteProvider) &&
             ref.watch(laCarpetaEsDeCodigoProvider(paired.path)).value == true)
           // Sin repositorio no hay nada que deshacer, y eso hay que decirlo
           // donde se ve el permiso: es la red de seguridad que falta.

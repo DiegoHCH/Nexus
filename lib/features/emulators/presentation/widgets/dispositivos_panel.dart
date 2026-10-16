@@ -682,13 +682,24 @@ class _FilaDeAjustesDeDispositivo extends ConsumerWidget {
           ? null
           // Un iPhone físico se mira con lo que trae macOS; cada forma solo
           // si su app está en la máquina.
-          : Row(
-              mainAxisSize: MainAxisSize.min,
+          // 🔴 **Cortos, y la frase entera de tooltip.** Con la explicación
+          // como texto del botón, los dos ocupaban la fila entera y el nombre
+          // del teléfono quedaba en una columna de una letra. Reportado con la
+          // captura delante: «mira cómo se ve horrible».
+          : Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              alignment: WrapAlignment.end,
               children: [
-                for (final (i, como) in comoIphone.indexed) ...[
-                  if (i > 0) const SizedBox(width: 6),
+                for (final como in comoIphone)
                   BotonDeAjustes(
                     texto: switch (como) {
+                      ComoVerElIphone.duplicado =>
+                        strings.verElIphoneDuplicadoCorto,
+                      ComoVerElIphone.quickTime =>
+                        strings.verElIphoneQuickTimeCorto,
+                    },
+                    tooltip: switch (como) {
                       ComoVerElIphone.duplicado => strings.verElIphoneDuplicado,
                       ComoVerElIphone.quickTime => strings.verElIphoneQuickTime,
                     },
@@ -696,7 +707,6 @@ class _FilaDeAjustesDeDispositivo extends ConsumerWidget {
                         .read(emuladoresDataSourceProvider)
                         .verElIphone(como),
                   ),
-                ],
               ],
             ),
     );

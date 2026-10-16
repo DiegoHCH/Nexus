@@ -6,9 +6,13 @@ import 'package:nexus/core/i18n/strings/conversacion_fluida_strings.dart';
 import 'package:nexus/core/i18n/strings/documentos_strings.dart';
 import 'package:nexus/core/i18n/strings/el_dia_strings.dart';
 import 'package:nexus/core/i18n/strings/identidad_strings.dart';
+import 'package:nexus/core/i18n/strings/ideas_strings.dart';
 import 'package:nexus/core/i18n/strings/isla_strings.dart';
 import 'package:nexus/core/i18n/strings/modelo_rapido_strings.dart';
+import 'package:nexus/core/i18n/strings/modo_strings.dart';
+import 'package:nexus/core/i18n/strings/propuesta_de_memoria_strings.dart';
 import 'package:nexus/core/i18n/strings/quien_eres_strings.dart';
+import 'package:nexus/core/i18n/strings/tablero_strings.dart';
 import 'package:nexus/core/i18n/strings/terminal_strings.dart';
 import 'package:nexus/core/i18n/strings/escenario_strings.dart';
 import 'package:nexus/core/i18n/strings/ejecucion_strings.dart';
@@ -80,7 +84,11 @@ abstract class NexusStrings
         IslaStrings,
         QuienEresStrings,
         IdentidadStrings,
-        ModeloRapidoStrings {
+        ModeloRapidoStrings,
+        ModoStrings,
+        IdeasStrings,
+        PropuestaDeMemoriaStrings,
+        TableroStrings {
   const NexusStrings();
 
   static const supported = [Locale('es'), Locale('en')];
@@ -125,7 +133,11 @@ class NexusStringsEs extends NexusStrings
         IslaStringsEs,
         QuienEresStringsEs,
         IdentidadStringsEs,
-        ModeloRapidoStringsEs {
+        ModeloRapidoStringsEs,
+        ModoStringsEs,
+        IdeasStringsEs,
+        PropuestaDeMemoriaStringsEs,
+        TableroStringsEs {
   const NexusStringsEs();
 
   @override
@@ -159,7 +171,11 @@ class NexusStringsEn extends NexusStrings
         IslaStringsEn,
         QuienEresStringsEn,
         IdentidadStringsEn,
-        ModeloRapidoStringsEn {
+        ModeloRapidoStringsEn,
+        ModoStringsEn,
+        IdeasStringsEn,
+        PropuestaDeMemoriaStringsEn,
+        TableroStringsEn {
   const NexusStringsEn();
 
   @override

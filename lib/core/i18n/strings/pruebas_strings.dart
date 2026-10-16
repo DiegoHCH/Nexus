@@ -154,6 +154,12 @@ mixin PruebasStrings {
   String get verLaPantallaSinTocar;
   String get verElIphoneDuplicado;
   String get verElIphoneQuickTime;
+
+  /// Los mismos, cortos, para el botón escrito de Ajustes: las frases largas
+  /// van de tooltip. Como botón ocupaban la fila entera y dejaban el nombre
+  /// del teléfono en una columna de una letra.
+  String get verElIphoneDuplicadoCorto;
+  String get verElIphoneQuickTimeCorto;
   String get channelTitle;
   String get channelExplainer;
   String get channelStarting;
@@ -510,6 +516,10 @@ mixin PruebasStringsEs implements PruebasStrings {
   @override
   String get verElIphoneQuickTime =>
       'QuickTime: por cable y sin control. La fuente se elige dentro de QuickTime.';
+  @override
+  String get verElIphoneDuplicadoCorto => 'Duplicado de iPhone';
+  @override
+  String get verElIphoneQuickTimeCorto => 'QuickTime';
   @override
   String get channelTitle => 'El canal del teléfono';
   @override
@@ -946,6 +956,10 @@ mixin PruebasStringsEn implements PruebasStrings {
   @override
   String get verElIphoneQuickTime =>
       'QuickTime: over cable, no control. You pick the source inside QuickTime.';
+  @override
+  String get verElIphoneDuplicadoCorto => 'iPhone Mirroring';
+  @override
+  String get verElIphoneQuickTimeCorto => 'QuickTime';
   @override
   String get channelTitle => 'The phone channel';
   @override

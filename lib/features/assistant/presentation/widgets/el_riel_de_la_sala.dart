@@ -28,6 +28,7 @@ class ElRielDeLaSala extends StatelessWidget {
     required this.onHistorial,
     required this.onDocumentos,
     required this.onAjustes,
+    this.onAgentes,
   });
 
   final bool chatAbierto;
@@ -40,7 +41,12 @@ class ElRielDeLaSala extends StatelessWidget {
   final VoidCallback onDocumentos;
   final VoidCallback onAjustes;
 
+  /// El tablero con todos los agentes a la vez. Ver `ElTableroDeAgentes`.
+  final VoidCallback? onAgentes;
+
   static const ancho = 56.0;
+
+  static const laLlaveDeLosAgentes = ValueKey('riel-agentes');
 
   static const laLlaveDelChat = ValueKey('riel-chat');
   static const laLlaveDelPunto = ValueKey('riel-chat-sin-leer');
@@ -91,6 +97,18 @@ class ElRielDeLaSala extends StatelessWidget {
             atajo: '⌘J',
             onPulsar: onDocumentos,
           ),
+          // Todos los agentes a la vez: es otra hoja de la sala, como el
+          // historial y los documentos.
+          if (onAgentes case final abrir?) ...[
+            const SizedBox(height: NexusSpacing.s2),
+            _Boton(
+              key: laLlaveDeLosAgentes,
+              icono: Icons.grid_view_outlined,
+              nombre: strings.tableroTitulo,
+              atajo: '',
+              onPulsar: abrir,
+            ),
+          ],
           const Spacer(),
           _Boton(
             icono: Icons.settings_outlined,
@@ -143,7 +161,9 @@ class _BotonState extends State<_Boton> {
       selected: widget.encendido,
       label: widget.nombre,
       child: Tooltip(
-        message: '${widget.nombre} · ${widget.atajo}',
+        message: widget.atajo.isEmpty
+            ? widget.nombre
+            : '${widget.nombre} · ${widget.atajo}',
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
           onEnter: (_) => setState(() => _encima = true),

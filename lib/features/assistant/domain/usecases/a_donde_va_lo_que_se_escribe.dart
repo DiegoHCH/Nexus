@@ -8,6 +8,7 @@ import 'package:nexus/features/history/domain/usecases/el_parte_de_ayer.dart';
 import 'package:nexus/features/lo_que_te_espera/domain/usecases/lo_que_te_espera_hoy.dart';
 import 'package:nexus/features/programadas/domain/usecases/lo_que_se_pide_programar.dart';
 import 'package:nexus/features/workspace/domain/usecases/el_comando_directo.dart';
+import 'package:nexus/features/history/domain/usecases/una_idea.dart';
 
 /// Dónde acaba lo que se escribe en el compositor.
 sealed class ADondeVa {
@@ -107,6 +108,14 @@ final class ALaMemoria extends ADondeVa {
   final String queApuntar;
 }
 
+/// Una idea para la bóveda: `/idea el login podría recordar la cuenta`. Ver
+/// `UnaIdea`.
+final class AApuntarLaIdea extends ADondeVa {
+  const AApuntarLaIdea(this.texto);
+
+  final String texto;
+}
+
 /// Una pregunta sobre ella —quién es, qué sabe hacer—: la contesta ella con el
 /// modelo de voz, sin Claude. Ver [VoiceRouting.esSobreElla].
 final class AElla extends ADondeVa {
@@ -182,6 +191,11 @@ abstract final class ADondeVaLoQueSeEscribe {
     // texto detrás, como `/imagen`: allí solo viven los exactos.
     if (LoQueSePideRecordar.deLaFrase(limpia) case final algo?) {
       return ALaMemoria(algo);
+    }
+
+    // `/idea algo`, igual: con texto detrás, reconocido por su dueño.
+    if (UnaIdea.deLaFrase(limpia) case final idea?) {
+      return AApuntarLaIdea(idea);
     }
 
     // Lo que corre aparte del turno, reconocido por su dueño como los demás

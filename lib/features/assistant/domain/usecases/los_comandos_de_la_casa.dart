@@ -66,6 +66,9 @@ enum ElComandoDeLaCasa {
   /// solo está para que la ayuda lo cuente.
   imagen(['/imagen', '/img'], conTexto: true),
 
+  /// Apuntar una idea en la bóveda, enlazada al proyecto. Ver `UnaIdea`.
+  idea(['/idea', '/apunta'], conTexto: true),
+
   /// Seguir con la última imagen.
   edita(['/edita', '/editar'], conTexto: true),
 
@@ -134,6 +137,7 @@ enum ElComandoDeLaCasa {
     programadas,
     imagen,
     edita,
+    idea,
     mcp,
     aparte,
     git,

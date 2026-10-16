@@ -95,6 +95,7 @@ void main() {
         ElComandoDeLaCasa.aparte => textos.ayudaAparte,
         ElComandoDeLaCasa.imagen => textos.ayudaImagen,
         ElComandoDeLaCasa.edita => textos.ayudaEdita,
+        ElComandoDeLaCasa.idea => textos.ayudaIdea,
         ElComandoDeLaCasa.git => textos.ayudaGit,
         ElComandoDeLaCasa.parte => textos.ayudaParte,
         ElComandoDeLaCasa.agenda => textos.ayudaAgenda,

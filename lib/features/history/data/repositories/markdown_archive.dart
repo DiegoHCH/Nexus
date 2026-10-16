@@ -7,6 +7,8 @@ import 'package:nexus/features/history/data/repositories/el_grafo_de_obsidian.da
 import 'package:nexus/features/history/domain/entities/conversation_record.dart';
 import 'package:nexus/features/history/domain/entities/conversation_summary.dart';
 import 'package:nexus/features/history/domain/repositories/conversation_archive.dart';
+import 'package:nexus/features/history/data/datasources/la_memoria_del_proyecto_data_source.dart';
+import 'package:nexus/features/history/domain/usecases/la_memoria_del_proyecto.dart';
 
 /// Escribe las conversaciones como Markdown, una carpeta por proyecto.
 ///
@@ -37,12 +39,11 @@ class MarkdownArchive implements ConversationArchive {
   /// carpeta con dos organizaciones distintas, acabas con el mismo proyecto en
   /// dos sitios y ninguna lista completa. Sin perfil no se mete un nivel
   /// vacío — el proyecto cuelga directamente del destino.
-  String _pathFor(ConversationRecord record) {
-    final profile = record.profileName;
-    return profile == null || profile.isEmpty
-        ? '$root/${record.projectName}'
-        : '$root/$profile/${record.projectName}';
-  }
+  String _pathFor(ConversationRecord record) => LaCarpetaEnLaBoveda.del(
+    raiz: root,
+    cuenta: record.profileName,
+    proyecto: record.projectName,
+  );
 
   @override
   Future<void> save(ConversationRecord record) async {
@@ -60,7 +61,30 @@ class MarkdownArchive implements ConversationArchive {
     );
 
     await _updateProjectNote(directory, record);
-    if (wikilinks) await _coloreaElGrafo();
+    if (wikilinks) {
+      await _coloreaElGrafo();
+      await _laMemoriaSiFalta(directory, record);
+    }
+  }
+
+  /// La nota de memoria del proyecto —y la de su cuenta—, con la plantilla si
+  /// no la hay: es lo que la hace encontrable en Obsidian, junto a sus
+  /// conversaciones. Ver [LaMemoriaDelProyecto]. Como el grafo, un fallo aquí
+  /// no tumba el guardado.
+  Future<void> _laMemoriaSiFalta(
+    Directory directory,
+    ConversationRecord record,
+  ) async {
+    try {
+      const notas = LaMemoriaDelProyectoDataSource();
+      await notas.laPlantillaSiFalta(directory.path);
+      final cuenta = record.profileName;
+      if (cuenta != null && cuenta.isNotEmpty) {
+        await notas.laPlantillaSiFalta('$root/$cuenta', espacio: true);
+      }
+    } on Object catch (error) {
+      debugPrint('archivo · la memoria del proyecto no se creó: $error');
+    }
   }
 
   /// Las bóvedas ya coloreadas en esta sesión: una vez basta, y así cada turno

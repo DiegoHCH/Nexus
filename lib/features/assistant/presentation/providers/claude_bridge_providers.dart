@@ -27,6 +27,12 @@ import 'package:nexus/features/memoria/presentation/providers/lo_que_recuerda_de
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 import 'package:nexus/features/assistant/domain/usecases/el_modelo_al_abrir.dart';
 import 'package:nexus/features/assistant/presentation/providers/las_rapidas_por_voz.dart';
+import 'package:nexus/features/history/domain/usecases/la_memoria_del_proyecto.dart';
+import 'package:nexus/features/history/domain/entities/conversation_summary.dart';
+import 'package:nexus/features/history/domain/repositories/conversation_archive.dart';
+import 'package:nexus/features/history/presentation/providers/archive_providers.dart';
+import 'package:nexus/features/history/data/datasources/la_memoria_del_proyecto_data_source.dart';
+import 'package:nexus/features/assistant/data/datasources/el_resumen_de_la_compresion.dart';
 
 final claudeCliDataSourceProvider = Provider<ClaudeCliDataSource>(
   (ref) => const ClaudeCliDataSource(),
@@ -34,6 +40,17 @@ final claudeCliDataSourceProvider = Provider<ClaudeCliDataSource>(
 
 final conversationMemoryProvider = Provider<ConversationMemory>(
   (ref) => const ConversationMemoryImpl(ConversationMemoryDataSource()),
+);
+
+/// Las notas de memoria de la bóveda. Aparte para que las pruebas pongan otra.
+final laMemoriaDelProyectoProvider = Provider<LaMemoriaDelProyectoDataSource>(
+  (ref) => const LaMemoriaDelProyectoDataSource(),
+);
+
+/// El resumen de la última compresión de una sesión, del archivo de la sesión.
+/// Ver [LoQueSeProponeApuntar].
+final elResumenDeLaCompresionProvider = Provider<ElResumenDeLaCompresion>(
+  (ref) => const ElResumenDeLaCompresion(),
 );
 
 final claudeBridgeProvider = Provider<ClaudeBridge>(
@@ -59,6 +76,21 @@ final askClaudeProvider = Provider.family<AskClaude, String>((
       final paired = workspace.folders
           .where((item) => item.path == folder)
           .firstOrNull;
+      // La memoria del proyecto, de su nota en la bóveda, si hay bóveda. Ver
+      // [LaMemoriaDelProyecto].
+      final archivo = ref.read(archiveControllerProvider);
+      final delProyecto =
+          archivo.isReady &&
+              archivo.destination != ArchiveDestination.notion &&
+              archivo.folderPath != null
+          ? await ref
+                .read(laMemoriaDelProyectoProvider)
+                .paraElPrompt(
+                  raiz: archivo.folderPath!,
+                  cuenta: LaCarpetaEnLaBoveda.deLaCuenta(paired?.claudeProfile),
+                  proyecto: ConversationSummary.projectNameOf(folder),
+                )
+          : null;
 
       // Con una raíz de varios repos, nombrar uno en el encargo coloca a Claude
       // dentro. Se guarda además de usarse, para que la barra enseñe dónde se
@@ -80,6 +112,10 @@ final askClaudeProvider = Provider.family<AskClaude, String>((
       // Mac. Ver [Workspace.lecturasPara].
       final home = Platform.environment['HOME'] ?? '';
       final lecturas = workspace.lecturasPara(folder, home: home);
+      final loQueSeSabe = [
+        LoQueSeSabeDeTi.paraElPrompt(ref.read(loQueRecuerdaDeTiProvider)),
+        delProyecto,
+      ].nonNulls.join('\n\n');
       final activo =
           ref
               .read(workspaceControllerProvider)
@@ -158,9 +194,9 @@ final askClaudeProvider = Provider.family<AskClaude, String>((
         ),
         // Lo que le pediste que recordara de ti. Global como los nombres, y por
         // el mismo motivo elevado a regla: lo tuyo no cambia según el repo.
-        loQueSeSabeDeTi: LoQueSeSabeDeTi.paraElPrompt(
-          ref.read(loQueRecuerdaDeTiProvider),
-        ),
+        // Y lo del proyecto detrás: lo tuyo y lo de este repo son dos bloques
+        // con su encabezado, y viajan por el mismo sitio.
+        loQueSeSabeDeTi: loQueSeSabe.isEmpty ? null : loQueSeSabe,
         model: paired?.claudeModel,
         effort: paired?.claudeEffort,
         claudeProfile: paired?.claudeProfile,

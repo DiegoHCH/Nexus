@@ -31,6 +31,7 @@ import 'package:nexus/features/lo_que_te_espera/presentation/providers/lo_que_te
 import 'package:nexus/features/remote/domain/audio_output_compartido.dart';
 import 'package:nexus/features/onboarding/presentation/providers/onboarding_providers.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
+import 'package:nexus/features/history/presentation/providers/las_ideas_providers.dart';
 
 final geminiLiveDataSourceProvider = Provider<GeminiLiveDataSource>(
   (ref) => const GeminiLiveDataSource(),
@@ -172,6 +173,21 @@ final holdVoiceConversationProvider =
         claveCaliente: () =>
             '$conversationId|${_loQueSuena(ref)}|${_esDeCodigo(ref, conversationId)}',
         esDeCodigo: () => _esDeCodigo(ref, conversationId),
+        // Las ideas, a la bóveda de la carpeta de esta conversación. Ver
+        // [UnaIdea].
+        apuntarIdea: (idea) async {
+          final carpeta = ref.read(conversationFolderProvider(conversationId));
+          final strings = ref.read(stringsProvider);
+          if (carpeta == null) return strings.ideaSinBoveda;
+          return loQueSeDiceDeLaIdea(
+            strings,
+            await ref.read(apuntarUnaIdeaProvider)(
+              carpeta,
+              idea,
+              DateTime.now(),
+            ),
+          );
+        },
         // Seguir sin su nombre justo después de que conteste: el ajuste de
         // Ajustes › Oído, que nace encendido. Lo no leído todavía cuenta como
         // encendido, que es lo de fábrica.
@@ -197,6 +213,7 @@ final laSesionDePuertaProvider = Provider<LaSesionDePuerta>(
 
 /// Si la carpeta de [conversationId] tiene código. Mientras no se sabe, sí.
 bool _esDeCodigo(Ref ref, String conversationId) {
+  if (ref.read(soloAsistenteProvider)) return false;
   final carpeta = ref.read(conversationFolderProvider(conversationId));
   return carpeta == null ||
       (ref.read(laCarpetaEsDeCodigoProvider(carpeta)).value ?? true);

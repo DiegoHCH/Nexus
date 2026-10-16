@@ -115,6 +115,14 @@ abstract final class ConversationMarkdown {
       ..writeln()
       ..writeln('Conversaciones de Nexus sobre `$folderPath`.')
       ..writeln();
+    // La memoria del proyecto, enlazada desde su centro: es la nota que se
+    // edita a mano, y desde aquí se llega a ella. Sin ruta a propósito:
+    // Obsidian resuelve primero en la misma carpeta. Ver [LaMemoriaDelProyecto].
+    if (wikilinks) {
+      buffer
+        ..writeln('Memoria del proyecto: [[_memoria]]')
+        ..writeln();
+    }
 
     // De la más reciente hacia atrás: lo último es lo que se busca.
     final ordenadas = [...conversations]

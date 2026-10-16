@@ -157,7 +157,7 @@ class _Claude implements AskClaude {
     await Future<void>.delayed(Duration.zero);
     yield const ClaudeTextDelta('ya está');
     // Cómo acabó la compactación, como lo manda el CLI: antes del resultado.
-    if (instruction == '/compact' && diceSiComprimio) {
+    if (instruction.startsWith('/compact') && diceSiComprimio) {
       yield const ClaudeCompacto(ok: true);
     }
     yield ClaudeTurnCompleted(
@@ -389,7 +389,7 @@ void main() {
 
     await hastaQue(
       () =>
-          todo.claude.pedidos.contains('/compact') &&
+          todo.claude.pedidos.any((p) => p.startsWith('/compact')) &&
           todo.container
               .read(assistantControllerProvider(_id))
               .messages
@@ -438,7 +438,7 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 120));
     expect(
       todo.claude.pedidos,
-      isNot(contains('/compact')),
+      isNot(anyElement(startsWith('/compact'))),
       reason:
           'resumir la sesión mientras el proceso anterior la tiene cogida es '
           'perder la compactación sin enterarse',
@@ -447,7 +447,7 @@ void main() {
     // Se fue: ahora sí.
     sigueVivo.complete();
     await hastaQue(
-      () => todo.claude.pedidos.contains('/compact'),
+      () => todo.claude.pedidos.any((p) => p.startsWith('/compact')),
       esperando: 'que la compresión arranque al irse el proceso',
       loQueSeVe: () => '${todo.claude.pedidos}',
     );
@@ -470,7 +470,7 @@ void main() {
     // de cometer.
     await hastaQue(
       () =>
-          todo.claude.pedidos.contains('/compact') &&
+          todo.claude.pedidos.any((p) => p.startsWith('/compact')) &&
           todo.almacen.guardados.any(
             (r) => r.messages.any((m) => m.text == strings.compactedUnknown),
           ),
@@ -479,7 +479,7 @@ void main() {
           '${loGuardado(todo.almacen)} · pedidos=${todo.claude.pedidos}',
     );
 
-    expect(todo.claude.pedidos, contains('/compact'));
+    expect(todo.claude.pedidos, anyElement(startsWith('/compact')));
     final textos = todo.almacen.guardados.last.messages.map((m) => m.text);
     expect(
       textos,

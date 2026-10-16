@@ -49,6 +49,7 @@ class ChatPanel extends StatefulWidget {
     this.onPregunta,
     this.onNoContestar,
     this.onPropuesta,
+    this.onPropuestaDeMemoria,
     this.onCorrer,
     this.etiquetaDelAgente,
     this.pensandoDesde,
@@ -98,6 +99,10 @@ class ChatPanel extends StatefulWidget {
   /// Ver [ChatMessage.propuesta]: la pregunta vive en el mensaje, como el
   /// permiso, y por el mismo motivo — no es una modal.
   final void Function(String id, DecisionDeProgramar decision)? onPropuesta;
+
+  /// Qué se contesta a lo que se propone apuntar en la memoria del proyecto:
+  /// las líneas, que son lo que la identifica, y si se apuntan.
+  final void Function(List<String> lineas, bool apuntar)? onPropuestaDeMemoria;
 
   /// Correr el comando de un bloque de código, tal cual está escrito.
   ///
@@ -257,6 +262,7 @@ class _ChatPanelState extends State<ChatPanel> {
                 onPregunta: widget.onPregunta,
                 onNoContestar: widget.onNoContestar,
                 onPropuesta: widget.onPropuesta,
+                onPropuestaDeMemoria: widget.onPropuestaDeMemoria,
                 onCorrer: widget.onCorrer,
               );
             },
@@ -369,6 +375,7 @@ class _Turn extends StatelessWidget {
     this.onPregunta,
     this.onNoContestar,
     this.onPropuesta,
+    this.onPropuestaDeMemoria,
     this.onCorrer,
   });
 
@@ -379,6 +386,10 @@ class _Turn extends StatelessWidget {
   final void Function(String id, Map<String, String> respuestas)? onPregunta;
   final void Function(String id)? onNoContestar;
   final void Function(String id, DecisionDeProgramar decision)? onPropuesta;
+
+  /// Qué se contesta a lo que se propone apuntar en la memoria del proyecto:
+  /// las líneas, que son lo que la identifica, y si se apuntan.
+  final void Function(List<String> lineas, bool apuntar)? onPropuestaDeMemoria;
 
   /// Correr el comando de un bloque de código, tal cual está escrito.
   ///
@@ -569,6 +580,14 @@ class _Turn extends StatelessWidget {
             propuesta: propuesta,
             decidido: message.decidido,
             onResponder: onPropuesta,
+          ),
+        // Lo que se propone apuntar en la memoria del proyecto, con la misma
+        // forma: la pregunta y sus respuestas, en el sitio.
+        if (message.propuestaDeMemoria case final lineas?)
+          _LaPropuestaDeMemoria(
+            lineas: lineas,
+            decidida: message.memoriaDecidida,
+            onResponder: onPropuestaDeMemoria,
           ),
         if (imagen != null)
           _LaImagen(
@@ -1635,6 +1654,97 @@ class _CorrerEsto extends StatelessWidget {
     texto: context.strings.runThisCommand.toUpperCase(),
     onPulsar: onTap,
   );
+}
+
+/// Lo que se propone apuntar en la memoria del proyecto, al comprimir. Ver
+/// `LoQueSeProponeApuntar`: se propone, y tú dices.
+class _LaPropuestaDeMemoria extends StatelessWidget {
+  const _LaPropuestaDeMemoria({
+    required this.lineas,
+    required this.decidida,
+    required this.onResponder,
+  });
+
+  final List<String> lineas;
+  final bool? decidida;
+  final void Function(List<String> lineas, bool apuntar)? onResponder;
+
+  static const llave = ValueKey('propuesta-de-memoria');
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final strings = context.strings;
+    return Padding(
+      key: llave,
+      padding: const EdgeInsets.only(top: NexusSpacing.s2),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(NexusSpacing.s3, 6, 0, 6),
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(
+              color: decidida == null ? colors.accent : colors.rule2,
+              width: 2,
+            ),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              strings.memoriaPropuestaPregunta,
+              style: NexusTypography.nota.copyWith(
+                color: colors.ink,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 6),
+            for (final linea in lineas)
+              Text(
+                '- $linea',
+                style: NexusTypography.nota.copyWith(color: colors.ink),
+              ),
+            const SizedBox(height: NexusSpacing.s2),
+            switch (decidida) {
+              final bool ya => Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    ya ? Icons.check : Icons.close,
+                    size: 12,
+                    color: ya ? colors.ok : colors.faint,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    ya
+                        ? strings.memoriaPropuestaApuntada
+                        : strings.memoriaPropuestaDescartada,
+                    style: NexusTypography.label.copyWith(color: colors.mute),
+                  ),
+                ],
+              ),
+              null => Wrap(
+                spacing: NexusSpacing.s2,
+                runSpacing: NexusSpacing.s2,
+                children: [
+                  BotonDelRegistro(
+                    texto: strings.memoriaPropuestaApuntar.toUpperCase(),
+                    tono: TonoDeBoton.principal,
+                    onPulsar: () => onResponder?.call(lineas, true),
+                  ),
+                  BotonDelRegistro(
+                    texto: strings.pasoAhoraNo.toUpperCase(),
+                    onPulsar: () => onResponder?.call(lineas, false),
+                  ),
+                ],
+              ),
+            },
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Una tarea que se repetiría, con lo que hace falta para decir que sí.

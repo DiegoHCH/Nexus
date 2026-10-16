@@ -22,10 +22,10 @@ import 'package:nexus/features/assistant/presentation/state/lo_que_dicen_las_eti
 ///
 /// Arriba, el paso de ahora: el tramo del aro del que sale se enciende y
 /// respira, un segundero lo rodea por fuera —una vuelta por minuto del paso—,
-/// y por la línea guía corre un destello del orbe hacia la ficha. Abajo, cuánto
-/// lleva el encargo y los subagentes que siguen en marcha. Todo en la mitad
-/// derecha de la columna del orbe: a la izquierda están la carpeta —arriba— y
-/// las conversaciones —abajo—, y a la derecha empieza el registro.
+/// y por la línea guía corre un destello del orbe hacia la ficha. A la
+/// derecha, todos los pasos del encargo. Abajo, cuánto lleva el encargo y los
+/// subagentes que siguen en marcha. Todo a la derecha del centro: a la
+/// izquierda están la carpeta —arriba— y las conversaciones —abajo—.
 ///
 /// 🔴 **Antes eran una caja y una línea quietas, y no se leían como parte del
 /// orbe.** Elegido el 14 oct entre dos prototipos animados sobre una captura
@@ -41,9 +41,13 @@ class LasEtiquetasDelOrbe extends StatefulWidget {
     super.key,
     required this.etiquetas,
     required this.orbe,
+    this.titulo,
   });
 
   final LasEtiquetas etiquetas;
+
+  /// Lo que se pidió, encima de los pasos: es lo que se está haciendo.
+  final String? titulo;
 
   /// La caja del orbe, en las coordenadas de quien pinta esto.
   final Rect orbe;
@@ -53,6 +57,13 @@ class LasEtiquetasDelOrbe extends StatefulWidget {
 
   static const llaveDelPaso = ValueKey('etiqueta-del-paso');
   static const llaveDelEncargo = ValueKey('etiqueta-del-encargo');
+  static const llaveDeLosPasos = ValueKey('etiqueta-de-los-pasos');
+
+  /// Lo más ancho que se hace una etiqueta: más allá, una línea se lee mal.
+  static const anchoMaximo = 380.0;
+
+  /// Lo más estrecha que puede quedar la de los pasos para pintarse.
+  static const anchoMinimoDeLosPasos = 200.0;
 
   /// A qué altura del aro se anclan, en grados desde las tres en punto: la de
   /// arriba a la una, la de abajo a las cinco.
@@ -175,10 +186,9 @@ class _LasEtiquetasDelOrbeState extends State<LasEtiquetasDelOrbe>
       return centro + Offset(math.cos(a), math.sin(a)) * r * f;
     }
 
-    // Sin pasar del borde derecho de la columna: el registro empieza a 32 px
-    // del orbe.
+    // Desde un poco a la derecha del centro: a la izquierda quedan la carpeta
+    // y las conversaciones.
     final izquierda = centro.dx + r * 0.15;
-    final ancho = orbe.right + NexusSpacing.s4 - izquierda;
 
     final paso = etiquetas.paso;
     final hayMarcas =
@@ -186,83 +196,127 @@ class _LasEtiquetasDelOrbeState extends State<LasEtiquetasDelOrbe>
     final tono = paso?.escribe ?? false ? colors.warn : colors.accent;
 
     // Cada línea sale del aro hacia fuera, se dobla en un codo y corre en
-    // horizontal bajo su ficha —o sobre ella, la de abajo—: el estante.
+    // horizontal bajo su ficha —o sobre ella, la de abajo—: el estante. La de
+    // los pasos sale recta, a las tres en punto.
     final codoArriba = enElAro(LasEtiquetasDelOrbe.anguloDeArriba, 1.30);
     final codoAbajo = enElAro(LasEtiquetasDelOrbe.anguloDeAbajo, 1.30);
+    final codoAlLado = enElAro(0, 1.14);
+    final pasosDesde = enElAro(0, 1.22).dx + NexusSpacing.s2;
 
     return LayoutBuilder(
-      builder: (context, caja) => Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            child: RepaintBoundary(
-              child: CustomPaint(
-                painter: _ElInstrumento(
-                  reloj: _reloj,
-                  aparicion: _aparicion,
-                  quieto: _quieto,
-                  centro: centro,
-                  radio: r,
-                  arriba: paso == null
-                      ? null
-                      : (
-                          desde: enElAro(
-                            LasEtiquetasDelOrbe.anguloDeArriba,
-                            1.06,
+      builder: (context, caja) {
+        // Hasta el borde de la sala, con su margen y sin pasarse de lo que se
+        // lee de un vistazo. Antes acababan en el borde de la columna del orbe,
+        // porque a la derecha estaba el registro de pasos; ahora los pasos son
+        // una etiqueta más.
+        double hasta(double desde) => math.min(
+          caja.maxWidth - NexusSpacing.s6 - desde,
+          LasEtiquetasDelOrbe.anchoMaximo,
+        );
+        final ancho = hasta(izquierda);
+        final anchoDeLosPasos = hasta(pasosDesde);
+        final hayPasos =
+            etiquetas.pasos.isNotEmpty &&
+            anchoDeLosPasos >= LasEtiquetasDelOrbe.anchoMinimoDeLosPasos;
+        // Lo que cabe a lo alto entre la ficha de arriba y la de abajo.
+        final altoDeLosPasos = (codoAbajo.dy - codoArriba.dy) - NexusSpacing.s6;
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: RepaintBoundary(
+                child: CustomPaint(
+                  painter: _ElInstrumento(
+                    reloj: _reloj,
+                    aparicion: _aparicion,
+                    quieto: _quieto,
+                    centro: centro,
+                    radio: r,
+                    arriba: paso == null
+                        ? null
+                        : (
+                            desde: enElAro(
+                              LasEtiquetasDelOrbe.anguloDeArriba,
+                              1.06,
+                            ),
+                            codo: codoArriba,
+                            hasta: Offset(izquierda, codoArriba.dy),
+                            tono: tono,
+                            pasoDesde: paso.desde,
                           ),
-                          codo: codoArriba,
-                          hasta: Offset(izquierda, codoArriba.dy),
-                          tono: tono,
-                          pasoDesde: paso.desde,
-                        ),
-                  abajo: !hayMarcas
-                      ? null
-                      : (
-                          desde: enElAro(
-                            LasEtiquetasDelOrbe.anguloDeAbajo,
-                            1.06,
+                    alLado: !hayPasos
+                        ? null
+                        : (
+                            desde: enElAro(0, 1.06),
+                            codo: codoAlLado,
+                            hasta: Offset(pasosDesde, codoAlLado.dy),
+                            tono: colors.accent,
+                            pasoDesde: null,
                           ),
-                          codo: codoAbajo,
-                          hasta: Offset(izquierda, codoAbajo.dy),
-                          tono: colors.accent,
-                          pasoDesde: null,
-                        ),
+                    abajo: !hayMarcas
+                        ? null
+                        : (
+                            desde: enElAro(
+                              LasEtiquetasDelOrbe.anguloDeAbajo,
+                              1.06,
+                            ),
+                            codo: codoAbajo,
+                            hasta: Offset(izquierda, codoAbajo.dy),
+                            tono: colors.accent,
+                            pasoDesde: null,
+                          ),
+                  ),
                 ),
               ),
             ),
-          ),
-          if (paso != null)
-            Positioned(
-              key: LasEtiquetasDelOrbe.llaveDelPaso,
-              left: izquierda,
-              bottom: caja.maxHeight - codoArriba.dy + 6,
-              width: ancho,
-              child: _LaFicha(
-                paso: paso,
-                ahora: ahora,
-                tono: tono,
-                strings: strings,
-                reloj: _reloj,
-                aparicion: _aparicion,
-                quieto: _quieto,
+            if (paso != null)
+              Positioned(
+                key: LasEtiquetasDelOrbe.llaveDelPaso,
+                left: izquierda,
+                bottom: caja.maxHeight - codoArriba.dy + 6,
+                width: ancho,
+                child: _LaFicha(
+                  paso: paso,
+                  ahora: ahora,
+                  tono: tono,
+                  strings: strings,
+                  reloj: _reloj,
+                  aparicion: _aparicion,
+                  quieto: _quieto,
+                ),
               ),
-            ),
-          if (hayMarcas)
-            Positioned(
-              key: LasEtiquetasDelOrbe.llaveDelEncargo,
-              left: izquierda,
-              top: codoAbajo.dy + 6,
-              width: ancho,
-              child: _ElPie(
-                etiquetas: etiquetas,
-                ahora: ahora,
-                strings: strings,
-                reloj: _reloj,
-                quieto: _quieto,
+            if (hayPasos)
+              Positioned(
+                key: LasEtiquetasDelOrbe.llaveDeLosPasos,
+                left: pasosDesde + NexusSpacing.s2,
+                top: codoAlLado.dy - altoDeLosPasos / 2,
+                width: anchoDeLosPasos - NexusSpacing.s2,
+                height: altoDeLosPasos,
+                child: _LosPasos(
+                  etiquetas: etiquetas,
+                  titulo: widget.titulo,
+                  strings: strings,
+                  alto: altoDeLosPasos,
+                ),
               ),
-            ),
-        ],
-      ),
+            if (hayMarcas)
+              Positioned(
+                key: LasEtiquetasDelOrbe.llaveDelEncargo,
+                left: izquierda,
+                top: codoAbajo.dy + 6,
+                width: ancho,
+                child: _ElPie(
+                  etiquetas: etiquetas,
+                  ahora: ahora,
+                  strings: strings,
+                  reloj: _reloj,
+                  quieto: _quieto,
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -393,6 +447,120 @@ class _LaFicha extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Todos los pasos del encargo, a la derecha del aro: en qué paso va, lo que
+/// se pidió y la lista, con los hechos en verde y el de ahora encendido.
+///
+/// Sin caja, como el pie: es texto colgado del aro, no un panel. Si no caben
+/// todos se enseñan los últimos y se dice cuántos quedan antes, que es lo que
+/// hacía el registro.
+class _LosPasos extends StatelessWidget {
+  const _LosPasos({
+    required this.etiquetas,
+    required this.titulo,
+    required this.strings,
+    required this.alto,
+  });
+
+  final LasEtiquetas etiquetas;
+  final String? titulo;
+  final NexusStrings strings;
+  final double alto;
+
+  /// Lo que ocupa una fila, y lo que ocupan el rótulo y lo pedido encima.
+  static const _fila = 20.0;
+  static const _cabecera = 64.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final pasos = etiquetas.pasos;
+    final hechos = etiquetas.hechos;
+    // Al menos tres, aunque aprieten: con menos ya no se lee como una lista.
+    final caben = math.min(
+      pasos.length,
+      math.max(3, ((alto - _cabecera) / _fila).floor()),
+    );
+    final antes = pasos.length - caben;
+    final visibles = antes > 0 ? pasos.sublist(antes) : pasos;
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          strings
+              .escenarioPasoDe(
+                (hechos + 1).clamp(1, pasos.length),
+                pasos.length,
+              )
+              .toUpperCase(),
+          style: NexusTypography.label.copyWith(color: colors.accent),
+        ),
+        if (titulo case final pedido? when pedido.trim().isNotEmpty) ...[
+          const SizedBox(height: NexusSpacing.s1),
+          Text(
+            pedido.trim(),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: NexusTypography.data.copyWith(
+              fontSize: 13,
+              color: colors.ink,
+            ),
+          ),
+        ],
+        const SizedBox(height: NexusSpacing.s2),
+        if (antes > 0)
+          Padding(
+            padding: const EdgeInsets.only(bottom: NexusSpacing.s1),
+            child: Text(
+              strings.etiquetaYMas(antes),
+              style: NexusTypography.label.copyWith(color: colors.faint),
+            ),
+          ),
+        for (final (i, uno) in visibles.indexed)
+          SizedBox(
+            height: _fila,
+            child: Row(
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: uno.hecho
+                        ? colors.ok
+                        : uno.escribe
+                        ? colors.warn
+                        : colors.accent,
+                  ),
+                ),
+                const SizedBox(width: NexusSpacing.s2),
+                Expanded(
+                  child: Text(
+                    [
+                      if (uno.verbo != VerboDelPaso.otro)
+                        textosDeActividad(
+                          strings,
+                        ).verbo(uno.verbo, hecho: uno.hecho),
+                      uno.objeto,
+                    ].join(' '),
+                    key: ValueKey('paso-de-la-etiqueta-${antes + i}'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: NexusTypography.data.copyWith(
+                      fontSize: 12,
+                      color: uno.hecho ? colors.mute : colors.ink,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
@@ -596,6 +764,7 @@ class _ElInstrumento extends CustomPainter {
     required this.centro,
     required this.radio,
     required this.arriba,
+    required this.alLado,
     required this.abajo,
   }) : super(repaint: Listenable.merge([reloj, aparicion]));
 
@@ -605,6 +774,7 @@ class _ElInstrumento extends CustomPainter {
   final Offset centro;
   final double radio;
   final _Guia? arriba;
+  final _Guia? alLado;
   final _Guia? abajo;
 
   /// Cuánto mide el destello que corre por la línea, y cuánto tarda.
@@ -638,6 +808,7 @@ class _ElInstrumento extends CustomPainter {
         _elSegundero(canvas, guia.tono, desde);
       }
     }
+    if (alLado case final guia?) _laLinea(canvas, guia, t, dibujada: 1);
     if (abajo case final guia?) _laLinea(canvas, guia, t, dibujada: 1);
   }
 
@@ -716,5 +887,6 @@ class _ElInstrumento extends CustomPainter {
       antes.centro != centro ||
       antes.radio != radio ||
       antes.arriba != arriba ||
+      antes.alLado != alLado ||
       antes.abajo != abajo;
 }

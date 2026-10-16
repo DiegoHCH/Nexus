@@ -23,6 +23,9 @@ abstract final class ElGrafoDeObsidian {
     'nexus/documento': 0xF59E0B,
     'nexus/parte': 0xA78BFA,
     'nexus/charla': 0x34D399,
+    // Las ideas sueltas, en rosa: no son conversaciones y se distinguen de
+    // todas ellas. Ver [UnaIdea].
+    'nexus/idea': 0xF472B6,
   };
 
   static const _prefijo = 'tag:#nexus/';

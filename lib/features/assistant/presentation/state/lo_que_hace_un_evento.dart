@@ -200,6 +200,7 @@ abstract final class LosMensajes {
     String? respondeA,
     bool esElParte = false,
     PropuestaDeProgramar? propuesta,
+    List<String>? propuestaDeMemoria,
     bool esLaListaDeProgramadas = false,
     bool esLaAyuda = false,
     DateTime? enviadoEl,
@@ -216,6 +217,7 @@ abstract final class LosMensajes {
       attachments: attachments,
       respondeA: respondeA,
       propuesta: propuesta,
+      propuestaDeMemoria: propuestaDeMemoria,
       esLaListaDeProgramadas: esLaListaDeProgramadas,
       esLaAyuda: esLaAyuda,
       // Solo la respuesta, no lo que se pidió: el botón de enviar va bajo el

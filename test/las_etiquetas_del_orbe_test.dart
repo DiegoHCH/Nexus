@@ -27,8 +27,8 @@ import 'support/screen_harness.dart';
 /// Las etiquetas del orbe, en la pantalla de verdad.
 ///
 /// Lo que se protege es dónde caen: pegadas al orbe, sin pisar la carpeta de
-/// la esquina ni el registro de pasos de la derecha — y fuera cuando el orbe
-/// es tan chico que taparían el aro.
+/// la esquina ni pisarse entre ellas — y fuera cuando el orbe es tan chico que
+/// taparían el aro.
 const carpeta = '/Users/alguien/nexus';
 
 class _Trabajando extends AssistantController {
@@ -140,7 +140,49 @@ void main() {
     );
   });
 
-  testWidgets('no pisan la esquina de la carpeta ni el registro de pasos', (
+  // 🔴 Pedido el 16 oct con la captura delante: «quisiera que todos los pasos
+  // se vieran en las etiquetas y se quitara ese panel al lado del orbe». Los
+  // pasos son ahora una etiqueta más, y el orbe no se encoge para dejarle sitio
+  // a un panel.
+  testWidgets('todos los pasos van en una etiqueta, sin panel al lado', (
+    tester,
+  ) async {
+    await abrir(
+      tester,
+      modo: FolderModality.voice,
+      size: const Size(1280, 800),
+    );
+
+    final pasos = find.byKey(LasEtiquetasDelOrbe.llaveDeLosPasos);
+    expect(pasos, findsOneWidget);
+    expect(
+      find.descendant(of: pasos, matching: find.text('PASO 2 DE 2')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: pasos, matching: find.text('Leyó main.dart')),
+      findsOneWidget,
+      reason: 'el hecho, en pasado',
+    );
+    expect(
+      find.descendant(
+        of: pasos,
+        matching: find.text('Edita el_escenario.dart'),
+      ),
+      findsOneWidget,
+    );
+    // El panel de antes ya no está: decía el paso con su ruta entera.
+    expect(
+      find.text('Editando lib/features/x/el_escenario.dart'),
+      findsNothing,
+    );
+
+    // Y el orbe, del mismo tamaño que dormido.
+    final orbe = tester.getRect(find.byKey(ElEscenario.laLlaveDelOrbe));
+    expect(orbe.width, greaterThan(400));
+  });
+
+  testWidgets('no se pisan entre ellas ni con la carpeta, y caben', (
     tester,
   ) async {
     await abrir(
@@ -150,21 +192,22 @@ void main() {
     );
 
     final paso = tester.getRect(find.byKey(LasEtiquetasDelOrbe.llaveDelPaso));
+    final pasos = tester.getRect(
+      find.byKey(LasEtiquetasDelOrbe.llaveDeLosPasos),
+    );
     final encargo = tester.getRect(
       find.byKey(LasEtiquetasDelOrbe.llaveDelEncargo),
     );
     final esquina = tester.getRect(find.byKey(ElEscenario.laLlaveDeLaCarpeta));
-    final registro = tester.getRect(
-      find.text('Editando lib/features/x/el_escenario.dart'),
-    );
     final ventana = Offset.zero & const Size(1024, 768);
 
-    for (final etiqueta in [paso, encargo]) {
+    for (final etiqueta in [paso, pasos, encargo]) {
       expect(etiqueta.overlaps(esquina), isFalse, reason: 'la carpeta');
-      expect(etiqueta.right, lessThan(registro.left), reason: 'el registro');
       expect(ventana.contains(etiqueta.topLeft), isTrue);
       expect(ventana.contains(etiqueta.bottomRight), isTrue);
     }
+    expect(pasos.overlaps(paso), isFalse, reason: 'la de arriba');
+    expect(pasos.overlaps(encargo), isFalse, reason: 'la de abajo');
     expect(tester.takeException(), isNull);
   });
 

@@ -110,7 +110,7 @@ class ElEscenario extends ConsumerWidget {
           trabajando: trabajando,
           debajo: _loQueVaDebajo,
         );
-        final lado = sitio.width, izquierda = sitio.left, arriba = sitio.top;
+        final lado = sitio.width, arriba = sitio.top;
 
         // **Lo que le deja libre la hoja abierta**, si hay una. La sala empieza
         // en el borde izquierdo de la ventana, así que lo libre es la ventana
@@ -212,6 +212,14 @@ class ElEscenario extends ConsumerWidget {
                             child: LasEtiquetasDelOrbe(
                               etiquetas: loQueDicenLasEtiquetas(hud.activity),
                               orbe: elOrbeEn(t),
+                              titulo: hud.messages.reversed
+                                  .where(
+                                    (m) =>
+                                        m.author == ChatAuthor.user &&
+                                        m.text.trim().isNotEmpty,
+                                  )
+                                  .map((m) => m.text.trim())
+                                  .firstOrNull,
                             ),
                           ),
                         ),
@@ -241,7 +249,6 @@ class ElEscenario extends ConsumerWidget {
                       hud: hud,
                       estado: estado,
                       bajoElOrbe: arriba + lado,
-                      alLadoDelOrbe: izquierda + lado,
                     ),
                   ],
                 ),
@@ -284,15 +291,20 @@ const _loQueVaDebajo = 120.0;
 /// Continuo en [libre]: sin hoja devuelve [orbe] tal cual, así que el orbe va
 /// y vuelve a la vez que la hoja, sin saltos.
 @visibleForTesting
-/// Dónde va el orbe en una sala de [sala] × [alto], como en el mockup: al
-/// centro salvo trabajando, que se aparta a la izquierda para dejarle el sitio
-/// al registro. Nada sube por encima de la barra: por eso el `top` nunca es
-/// negativo.
+/// Dónde va el orbe en una sala de [sala] × [alto]: al centro y grande.
+/// Trabajando **conserva su tamaño** y solo se corre a la izquierda lo justo
+/// para que quepan los pasos a la derecha del aro. Nada sube por encima de la
+/// barra: por eso el `top` nunca es negativo.
+///
+/// 🔴 **Antes, trabajando, se encogía y se iba al borde** para dejar sitio a un
+/// panel de pasos. Los pasos pasaron a las etiquetas del orbe —pedido el 16
+/// oct: «se quitara ese panel al lado del orbe, así el orbe podría tener más
+/// espacio»—, así que ya no hay panel que dejarle.
 ///
 /// **Centrado a lo alto**, el orbe junto con lo que va debajo de él —la hora,
-/// «escuchando», el subtítulo, [debajo]—: el grupo entero, no el dibujo solo,
-/// para que el texto no acabe pegado a las esquinas de abajo. Trabajando el
-/// registro va al lado, así que se centra el orbe.
+/// «escuchando», el subtítulo, lo que lleva dicho pensando, [debajo]—: el
+/// grupo entero, no el dibujo solo, para que el texto no acabe pegado a las
+/// esquinas de abajo.
 ///
 /// 🔴 Antes subía a un 18 % del hueco. Con la sala a lo ancho casi no se
 /// notaba, pero con la conversación abierta la sala se estrecha, el orbe se
@@ -306,13 +318,25 @@ Rect elSitioDelOrbe({
   required bool trabajando,
   required double debajo,
 }) {
-  final lado = trabajando
-      ? (alto * 0.62).clamp(0.0, sala * 0.40)
-      : (alto * 0.66).clamp(0.0, sala * 0.60);
-  final izquierda = trabajando ? sala * 0.03 : (sala - lado) / 2;
-  final bajo = trabajando ? 0.0 : debajo;
-  final arriba = ((alto - lado - bajo) / 2).clamp(0.0, double.infinity);
-  return Rect.fromLTWH(izquierda, arriba, lado, lado);
+  var lado = (alto * 0.66).clamp(0.0, sala * 0.60);
+  var centro = sala / 2;
+  if (trabajando) {
+    // Lo que ocupan los pasos a la derecha, medido desde el centro del orbe:
+    // el aro llega a menos de la mitad del lado, y la etiqueta, a su ancho.
+    final margen = sala * 0.03;
+    double laDerecha(double lado) =>
+        0.47 * lado + LasEtiquetasDelOrbe.anchoMaximo + margen;
+    // Primero se corre; si corriéndolo hasta el margen sigue sin caber, se
+    // encoge lo justo.
+    centro = math.min(centro, sala - laDerecha(lado));
+    if (centro - lado / 2 < margen) {
+      lado = ((sala - LasEtiquetasDelOrbe.anchoMaximo - 2 * margen) / 0.97)
+          .clamp(0.0, lado);
+      centro = margen + lado / 2;
+    }
+  }
+  final arriba = ((alto - lado - debajo) / 2).clamp(0.0, double.infinity);
+  return Rect.fromLTWH(centro - lado / 2, arriba, lado, lado);
 }
 
 Rect elOrbeConLaHoja(Rect orbe, {required double sala, required double libre}) {
@@ -380,13 +404,11 @@ class _LaCapa extends ConsumerWidget {
     required this.hud,
     required this.estado,
     required this.bajoElOrbe,
-    required this.alLadoDelOrbe,
   });
 
   final AssistantHudState hud;
   final NexusOrbState estado;
   final double bajoElOrbe;
-  final double alLadoDelOrbe;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -436,15 +458,18 @@ class _LaCapa extends ConsumerWidget {
             ],
           ),
         );
-      case NexusOrbState.think || NexusOrbState.ponder:
+      // Trabajando, los pasos van en las etiquetas del orbe: aquí no queda
+      // nada que poner. Ver [LasEtiquetasDelOrbe].
+      case NexusOrbState.think:
+        return const SizedBox.shrink();
+      // Pensando: lo que lleva dicho y cuánto calla, debajo del orbe como el
+      // subtítulo de cuando habla.
+      case NexusOrbState.ponder:
         return Positioned(
-          left: alLadoDelOrbe + NexusSpacing.s6,
-          right: NexusSpacing.s8,
-          top: NexusSpacing.s8,
-          bottom: NexusSpacing.s6,
-          child: estado == NexusOrbState.think
-              ? _ElRegistro(hud: hud, titulo: ultimo(ChatAuthor.user))
-              : _LoPensado(hud: hud, hastaAhora: ultimo(ChatAuthor.nexus)),
+          left: NexusSpacing.s8 * 2,
+          right: NexusSpacing.s8 * 2,
+          top: bajoElOrbe,
+          child: _LoPensado(hud: hud, hastaAhora: ultimo(ChatAuthor.nexus)),
         );
       case NexusOrbState.speak:
         // Hablando: su subtítulo bajo el orbe, en la franja grande — no una
@@ -531,79 +556,6 @@ class _LaHoraState extends State<_LaHora> {
   }
 }
 
-/// Trabajando: lo que se pidió y los pasos que va dando, uno por línea, con el
-/// de ahora encendido. Es lo mismo que cuenta el reactor, en palabras.
-class _ElRegistro extends StatelessWidget {
-  const _ElRegistro({required this.hud, required this.titulo});
-
-  final AssistantHudState hud;
-  final String? titulo;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final strings = context.strings;
-    final pasos = hud.activity.where((a) => a.parentId == null).toList();
-    final hechos = pasos.where((a) => a.done).length;
-    final visibles = pasos.length > 6 ? pasos.sublist(pasos.length - 6) : pasos;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          pasos.isEmpty
-              ? strings.escenarioTrabajando.toUpperCase()
-              : strings
-                    .escenarioPasoDe(
-                      (hechos + 1).clamp(1, pasos.length),
-                      pasos.length,
-                    )
-                    .toUpperCase(),
-          style: NexusTypography.label.copyWith(color: colors.accent),
-        ),
-        if (titulo != null) ...[
-          const SizedBox(height: NexusSpacing.s3),
-          Text(
-            titulo!,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: NexusTypography.title.copyWith(color: colors.ink),
-          ),
-        ],
-        const SizedBox(height: NexusSpacing.s5),
-        for (final paso in visibles)
-          Padding(
-            padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
-            child: Row(
-              children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: paso.done ? colors.ok : colors.accent,
-                  ),
-                ),
-                const SizedBox(width: NexusSpacing.s3),
-                Expanded(
-                  child: Text(
-                    paso.description,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: NexusTypography.mono.copyWith(
-                      color: paso.done ? colors.mute : colors.ink,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 /// Pensando: lo que lleva dicho y cuánto hace que no dice nada. El silencio de
 /// un turno largo se leía como un cuelgue; aquí se ve que sigue en ello.
 class _LoPensado extends StatelessWidget {
@@ -623,13 +575,13 @@ class _LoPensado extends StatelessWidget {
     final strings = context.strings;
     final desde = hud.pensandoDesde;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
         if (hastaAhora != null)
           Text(
             hastaAhora!,
-            maxLines: 6,
+            textAlign: TextAlign.center,
+            maxLines: 3,
             overflow: TextOverflow.fade,
             style: NexusTypography.lead.copyWith(color: colors.mute),
           ),

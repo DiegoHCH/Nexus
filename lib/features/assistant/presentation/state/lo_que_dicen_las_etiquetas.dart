@@ -15,16 +15,32 @@ typedef ElPasoDeAhora = ({
 /// Un subagente que sigue trabajando: lo que se le encargó y desde cuándo.
 typedef UnSubagente = ({String que, DateTime desde});
 
+/// Un paso del encargo, como lo cuenta la etiqueta de los pasos.
+typedef UnPasoDelEncargo = ({
+  VerboDelPaso verbo,
+  String objeto,
+  bool hecho,
+  bool escribe,
+});
+
 /// Lo que cuentan las etiquetas del orbe mientras trabaja.
 ///
-/// **Solo lo que no se ve en otro sitio.** La lista de pasos ya está a la
-/// derecha y el contexto en la esquina; esto añade lo que ninguna dice: cuánto
-/// lleva el paso de ahora, cuánto lleva el encargo entero y qué subagentes
-/// siguen en marcha. Datos que se miden, como pide el diseño — nada de
-/// «energía del núcleo».
+/// El paso de ahora y cuánto lleva, cuánto lleva el encargo entero, qué
+/// subagentes siguen en marcha y **todos los pasos**. Datos que se miden, como
+/// pide el diseño — nada de «energía del núcleo».
+///
+/// 🔴 **Los pasos viven aquí desde el 16 oct.** Iban en un panel al lado del
+/// orbe, que lo empujaba a un lado y lo encogía. Pedido con la captura delante:
+/// «quisiera que todos los pasos se vieran en las etiquetas y se quitara ese
+/// panel, así el orbe podría tener más espacio y las etiquetas verse mejor».
 @immutable
 class LasEtiquetas {
-  const LasEtiquetas({this.paso, this.desde, this.subagentes = const []});
+  const LasEtiquetas({
+    this.paso,
+    this.desde,
+    this.subagentes = const [],
+    this.pasos = const [],
+  });
 
   final ElPasoDeAhora? paso;
 
@@ -33,7 +49,15 @@ class LasEtiquetas {
 
   final List<UnSubagente> subagentes;
 
-  bool get vacias => paso == null && desde == null && subagentes.isEmpty;
+  /// Los pasos del encargo, en orden: los de primer nivel. Los de un subagente
+  /// van dentro de su paso, como en el reactor.
+  final List<UnPasoDelEncargo> pasos;
+
+  /// Cuántos acabaron: el número del paso de ahora es el siguiente.
+  int get hechos => pasos.where((uno) => uno.hecho).length;
+
+  bool get vacias =>
+      paso == null && desde == null && subagentes.isEmpty && pasos.isEmpty;
 
   static const nada = LasEtiquetas();
 }
@@ -78,7 +102,24 @@ LasEtiquetas loQueDicenLasEtiquetas(List<ActivityItem> actividad) {
     if (desde == null || item.startedAt.isBefore(desde)) desde = item.startedAt;
   }
 
-  return LasEtiquetas(paso: paso, desde: desde, subagentes: subagentes);
+  return LasEtiquetas(
+    paso: paso,
+    desde: desde,
+    subagentes: subagentes,
+    pasos: [
+      for (final item in propios)
+        if (ElVerboDeUnPaso.de(item.description) case (
+          :final verbo,
+          :final objeto,
+        ))
+          (
+            verbo: verbo,
+            objeto: _corto(verbo, objeto),
+            hecho: item.done,
+            escribe: item.writes,
+          ),
+    ],
+  );
 }
 
 /// Lo justo para reconocer el paso: el archivo sin su ruta, la orden con sus

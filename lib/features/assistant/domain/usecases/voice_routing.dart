@@ -243,11 +243,13 @@ abstract final class VoiceRouting {
   /// el texto, no la comprensión, y mandarle a Claude ese texto como encargo es
   /// mandarle una frase que nadie dijo.
   ///
-  /// No se puede arreglar por configuración: en un modelo de audio nativo el
-  /// idioma se autodetecta y `inputAudioTranscription` no acepta parámetros —la
-  /// doc de la Live API dice literalmente que fijar un código de idioma no está
-  /// soportado ahí—. Así que se deja de depender del texto para lo que importa:
-  /// **la instrucción la redacta quien oyó el audio**.
+  /// La configuración no lo arregla del todo. `inputAudioTranscription` sí
+  /// acepta `languageCodes` —esto decía que no admitía parámetros, y lo que la
+  /// doc declara no soportado es fijar el idioma **en que habla** un modelo de
+  /// audio nativo, no el de lo que oye—, y el gateway ya le pasa el de la app.
+  /// Pero es una pista, no una orden: la transcripción puede seguir llegando
+  /// mal. Así que se deja de depender del texto para lo que importa: **la
+  /// instrucción la redacta quien oyó el audio**.
   ///
   /// Es una petición y no una garantía: la API de voz no admite obligar a
   /// llamar a una herramienta —está probado y anotado arriba—, así que si no

@@ -1860,3 +1860,59 @@ final class VentanaPrincipalTests: XCTestCase {
     XCTAssertNil(MainFlutterWindow.marcoGuardado(en: defaults))
   }
 }
+
+/// **Recoger un panel con motor propio tiraba la app.**
+///
+/// Nexus 1.46.0, 19 oct, con diez horas abierta: `EXC_BAD_ACCESS` en
+/// `FlutterCompositor::Present`, dentro del commit diferido de un fotograma. El
+/// bloque que lo presenta guarda el compositor como puntero crudo, y el
+/// compositor muere con su `FlutterEngine`, que la isla, el orbe flotante y la
+/// botonera soltaban en el mismo instante en que lo apagaban.
+///
+/// Lo que se fija aquí **no es el segfault** —depende de que quede un
+/// fotograma en cola justo al cerrar, y no se reproduce a voluntad— sino la
+/// condición que lo causaba: que el motor se soltara al apagarlo. Ver
+/// `NexusMotorAparte.apagar`.
+final class ElMotorDeUnPanelTests: XCTestCase {
+  // El control: sin `apagar`, el motor se libera en el acto. Sin esto, la
+  // prueba de abajo pasaría igual aunque `apagar` no retuviera nada.
+  func testSinApagarElMotorSeLiberaEnElActo() {
+    weak var debil: FlutterEngine?
+    autoreleasepool {
+      let motor = FlutterEngine(name: "prueba", project: nil, allowHeadlessExecution: true)
+      debil = motor
+      motor.shutDownEngine()
+    }
+    XCTAssertNil(debil)
+  }
+
+  func testApagarNoSueltaElMotorEnElActo() {
+    weak var debil: FlutterEngine?
+    autoreleasepool {
+      let motor = FlutterEngine(name: "prueba", project: nil, allowHeadlessExecution: true)
+      debil = motor
+      NexusMotorAparte.apagar(motor, tras: 0.2)
+    }
+    XCTAssertNotNil(
+      debil,
+      "soltado en el acto, un fotograma que siguiera en cola lee un compositor ya liberado"
+    )
+
+    let suelto = expectation(description: "el motor, suelto pasada la gracia")
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+      XCTAssertNil(debil, "retenido para siempre sería una fuga por cada panel recogido")
+      suelto.fulfill()
+    }
+    wait(for: [suelto], timeout: 3)
+  }
+
+  func testLaGraciaCubreDeSobraUnFotogramaDiferido() {
+    // El motor retrasa un fotograma como mucho medio intervalo, unos 8 ms a
+    // 60 Hz. Por debajo de un segundo ya no es margen, es apostar.
+    XCTAssertGreaterThanOrEqual(NexusMotorAparte.gracia, 1)
+  }
+
+  func testApagarSinMotorNoHaceNada() {
+    NexusMotorAparte.apagar(nil)
+  }
+}

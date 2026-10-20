@@ -352,6 +352,7 @@ final class NexusBotonera: NSObject {
       panel.animator().alphaValue = 1
     }
     Self.log.info("botonera fuera")
+    NexusMotorAparte.anota("botonera · fuera")
     return true
   }
 
@@ -490,8 +491,9 @@ final class NexusBotonera: NSObject {
         panel.orderOut(nil)
         panel.contentViewController = nil
         panel.close()
-        motor?.shutDownEngine()
+        NexusMotorAparte.apagar(motor)
         Self.log.info("botonera recogida")
+        NexusMotorAparte.anota("botonera · recogida")
       })
   }
 }

@@ -50,6 +50,11 @@ class MainFlutterWindow: NSWindow {
     NexusEscucha.register(
       with: flutterViewController.registrar(forPlugin: "NexusEscucha")
     )
+    // Antes que los paneles: es por donde dejan en `nexus.log` que salieron o se
+    // recogieron.
+    NexusMotorAparte.register(
+      with: flutterViewController.registrar(forPlugin: "NexusMotorAparte")
+    )
     NexusOrbeFlotante.register(
       with: flutterViewController.registrar(forPlugin: "NexusOrbeFlotante")
     )

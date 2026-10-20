@@ -183,6 +183,7 @@ final class NexusOrbeFlotante: NSObject {
     }
     pinta(datos)
     Self.log.info("orbe fuera")
+    NexusMotorAparte.anota("orbe · fuera")
   }
 
   /// Lo que llega de la app viaja **tal cual** al motor del orbe: el estado,
@@ -234,8 +235,9 @@ final class NexusOrbeFlotante: NSObject {
         panel.orderOut(nil)
         panel.contentViewController = nil
         panel.close()
-        motor?.shutDownEngine()
+        NexusMotorAparte.apagar(motor)
         Self.log.info("orbe recogido")
+        NexusMotorAparte.anota("orbe · recogido")
       })
   }
 }

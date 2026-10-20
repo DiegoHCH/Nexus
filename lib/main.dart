@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
 import 'package:nexus/core/design_system/orbe_preference.dart';
 import 'package:nexus/core/design_system/appearance_channel.dart';
+import 'package:nexus/core/diagnostico/lo_que_cuenta_el_lado_nativo.dart';
 import 'package:nexus/core/diagnostico/registro_de_la_app.dart';
 import 'package:nexus/core/diagnostico/registro_providers.dart';
 import 'package:nexus/core/design_system/accent_preference.dart';
@@ -117,7 +118,7 @@ Future<void> main() async {
 
 /// Deja escrito en el registro todo lo que la app cuente de sí misma.
 ///
-/// Tres fuentes, y las tres hacían falta:
+/// Cuatro fuentes, y las cuatro hacían falta:
 ///
 /// **`debugPrint`**, envuelto en vez de sustituido en los 41 sitios que lo
 /// llaman. Sigue imprimiendo en la consola de `flutter run` —que es para lo que
@@ -129,6 +130,10 @@ Future<void> main() async {
 /// **Lo que escapa de una zona asíncrona**, que ni siquiera llega a la consola
 /// en release. Se devuelve `false` a propósito: manejarlo aquí sería tragárselo,
 /// y esto solo viene a mirar.
+///
+/// **Lo que cuenta el lado nativo**, que iba solo al registro unificado de
+/// macOS: que un panel con motor propio salió o se recogió. Ver
+/// [LoQueCuentaElLadoNativo].
 void engancharElRegistro(RegistroDeLaApp registro) {
   final imprimirDeAntes = debugPrint;
   debugPrint = (String? mensaje, {int? wrapWidth}) {
@@ -151,6 +156,8 @@ void engancharElRegistro(RegistroDeLaApp registro) {
     // `false`: no se da por manejado. Lo de aquí es enterarse, no decidir.
     return false;
   };
+
+  LoQueCuentaElLadoNativo.escuchar();
 }
 
 class MainApp extends ConsumerStatefulWidget {

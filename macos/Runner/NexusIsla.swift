@@ -152,6 +152,7 @@ final class NexusIsla: NSObject {
       panel.animator().alphaValue = 1
     }
     Self.log.info("isla fuera")
+    NexusMotorAparte.anota("isla · fuera")
     return true
   }
 
@@ -228,8 +229,9 @@ final class NexusIsla: NSObject {
         panel.orderOut(nil)
         panel.contentViewController = nil
         panel.close()
-        motor?.shutDownEngine()
+        NexusMotorAparte.apagar(motor)
         Self.log.info("isla recogida")
+        NexusMotorAparte.anota("isla · recogida")
       })
   }
 }

@@ -84,6 +84,8 @@ final voiceGatewayProvider = Provider<VoiceGateway>((ref) {
     ref.watch(losAjustesQueSuenanProvider),
     // Cómo es ella, la misma escribiendo y hablando. Ver [LaPersonalidad].
     leerLaPersonalidad: () => ref.read(laPersonalidadProvider),
+    // El idioma de la app, de pista para la transcripción de lo que dices.
+    leerElCodigoDelIdioma: () => ref.read(localeProvider).languageCode,
   );
 });
 

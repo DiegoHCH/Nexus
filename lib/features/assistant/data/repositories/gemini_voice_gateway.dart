@@ -38,13 +38,21 @@ class GeminiVoiceGateway implements VoiceGateway {
     this._readMemoria,
     this._ajustesYaLeidos, {
     String? Function()? leerLaPersonalidad,
-  }) : _leerLaPersonalidad = leerLaPersonalidad ?? _ninguna;
+    String? Function()? leerElCodigoDelIdioma,
+  }) : _leerLaPersonalidad = leerLaPersonalidad ?? _ninguna,
+       _leerElCodigoDelIdioma = leerElCodigoDelIdioma ?? _ninguna;
 
   static String? _ninguna() => null;
 
   /// La personalidad escrita por quien la usa, o `null` para la de la casa.
   /// Se consulta al conectar, como la voz. Ver [LaPersonalidad].
   final String? Function() _leerLaPersonalidad;
+
+  /// El idioma de la app como código BCP-47 (`es`, `en`), o `null` para no dar
+  /// pista. Va aparte de [_readLanguage] porque aquel es el nombre redactado
+  /// para el prompt —«español de Colombia»— y el servicio lo que lee es un
+  /// código.
+  final String? Function() _leerElCodigoDelIdioma;
 
   /// La llave se pide en el momento de conectar, no se guarda aquí: así una
   /// llave cambiada en Ajustes vale desde la siguiente sesión sin reconstruir
@@ -389,7 +397,18 @@ class GeminiVoiceGateway implements VoiceGateway {
     },
     // Sin esto no hay texto de la conversación, y la franja de subtítulos
     // tendría que transcribir por su cuenta. Con esto llega hecho.
-    'inputAudioTranscription': <String, dynamic>{},
+    //
+    // 🔴 **Con el idioma de la app como pista.** Sin ella el servicio adivina
+    // el idioma frase a frase, y en las cortas se equivoca: un «sí» quedó en
+    // el chat como «C'est votre leçon.». `languageCodes` es eso, una pista:
+    // comprobado contra el modelo el 19 oct 2026, el francés dicho en francés
+    // se sigue transcribiendo en francés, así que no tapa lo que de verdad se
+    // dijo en otro idioma. Y es una clave que el servicio conoce: una
+    // inventada en este mismo mapa cierra la conexión con 1007.
+    'inputAudioTranscription': <String, dynamic>{
+      if (_leerElCodigoDelIdioma() case final codigo?)
+        'languageCodes': [codigo],
+    },
     'outputAudioTranscription': <String, dynamic>{},
     // Una sesión de solo audio caduca a los 15 minutos; con la ventana
     // deslizante deja de caducar, a cambio de ir soltando lo más viejo de la

@@ -42,8 +42,27 @@ void main() {
         language: 'español',
       )!;
 
-      expect(texto, contains('responde en español'));
+      expect(texto, contains('Responde en español'));
       expect(texto, contains('el idioma en que te escribieron'));
+    });
+
+    // 🔴 Los verbos del marco son palabras inglesas, y con «si te escriben en otro
+    // idioma, contesta en ese» `flow review` se contestó en inglés: medido el 21 oct,
+    // y el trabajo largo detrás de un `flow plan ok` fue alternando idiomas.
+    test('un comando, el código o una salida no cambian el idioma', () {
+      final texto = ProjectContextPrompt.compose(
+        rules: const [],
+        language: 'español',
+      )!;
+
+      expect(texto, contains('`flow …`'));
+      expect(texto, contains('lo que devuelve una herramienta'));
+      expect(texto, contains('no cambian el de tu respuesta'));
+      expect(
+        texto,
+        contains('el resumen de un trabajo largo'),
+        reason: 'es donde derivaba: tras muchas salidas en inglés',
+      );
     });
 
     test('sin idioma no se dice nada del idioma', () {

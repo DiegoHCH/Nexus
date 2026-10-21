@@ -59,8 +59,13 @@ class AskClaude {
     this._awake, {
     this.conversacion,
     this.laRapida,
+    this.alAbrirSuSesion,
     LasSesionesRapidas? rapidas,
   }) : _rapidas = rapidas ?? LasSesionesRapidasEnMemoria();
+
+  /// Lo que se hace con el hilo propio en cuanto se abre: guardarlo en la ficha
+  /// de la conversación, para que sobreviva a reabrir la app. Ver [miSesion].
+  final void Function(String sesion)? alAbrirSuSesion;
 
   /// Cuál de las conversaciones es esta.
   ///
@@ -80,9 +85,10 @@ class AskClaude {
   /// separó de él. Y por conversación, que es como se construye este caso de
   /// uso.
   ///
-  /// En memoria y no en disco, de momento: al reabrir la app una conversación
-  /// bifurcada vuelve al hilo de la carpeta, que es lo que hacía antes de que
-  /// esto existiera.
+  /// 🔴 **Y se guarda en la ficha** ([alAbrirSuSesion]). Vivía solo en memoria,
+  /// y cada vez que la app se reabría —una actualización, un cierre— la
+  /// conversación separada perdía su hilo: el turno siguiente arrancaba una
+  /// sesión nueva, sin lo hablado y con el marco de trabajo apagado.
   String? _miSesion;
 
   /// Esta conversación dejó de compartir la sesión de la carpeta.
@@ -111,10 +117,11 @@ class AskClaude {
   /// `null` mientras comparta: entonces la de la carpeta **es** la suya.
   String? get miSesion => _miSesion;
 
-  /// Que esta conversación siga por su cuenta.
-  void empezarSolo() {
+  /// Que esta conversación siga por su cuenta: desde cero, o retomando
+  /// [conSesion], el hilo propio que se guardó en su ficha.
+  void empezarSolo({String? conSesion}) {
     _voySolo = true;
-    _miSesion = null;
+    _miSesion = conSesion;
   }
 
   /// Lo que Claude recuerda de esta carpeta. Se consulta al empezar cada
@@ -379,6 +386,9 @@ class AskClaude {
             // hilo es de esta conversación, y guardarlo ahí le cambiaría la
             // sesión a la otra a mitad de su trabajo.
             if (enParalelo) {
+              // Se guarda solo cuando cambia: retomándolo, cada turno vuelve a
+              // anunciar el mismo número.
+              if (_miSesion != sessionId) alAbrirSuSesion?.call(sessionId);
               _miSesion = sessionId;
             } else {
               await _memory.rememberSession(

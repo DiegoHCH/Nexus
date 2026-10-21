@@ -260,6 +260,20 @@ class ConversationsController extends Notifier<Conversations> {
     );
   }
 
+  /// Apunta el hilo propio de una conversación separada, para retomarlo al
+  /// reabrir la app. Ver [Conversation.sesionPropia].
+  Future<void> apuntarSesionPropia(String id, String sesion) async {
+    if (state.byId(id)?.sesionPropia == sesion) return;
+    await _persist(
+      state.copyWith(
+        items: [
+          for (final item in state.items)
+            if (item.id == id) item.conSesionPropia(sesion) else item,
+        ],
+      ),
+    );
+  }
+
   /// Espera a que la lista esté leída del disco.
   ///
   /// Público porque **quien pregunta desde fuera necesita lo mismo**: leer esta lista

@@ -50,7 +50,7 @@ class _Claude implements AskClaude {
   var seFueSola = false;
 
   @override
-  void empezarSolo() => seFueSola = true;
+  void empezarSolo({String? conSesion}) => seFueSola = true;
 
   /// Como el de verdad: `null` mientras comparte —entonces la de la carpeta es
   /// la suya— y una propia en cuanto se separa.

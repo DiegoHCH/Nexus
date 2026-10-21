@@ -14,6 +14,7 @@ class Conversation {
     this.name,
     this.recordId,
     this.memoriaPropia = false,
+    this.sesionPropia,
   });
 
   final String id;
@@ -38,6 +39,16 @@ class Conversation {
   /// le dice a su `AskClaude` que siga sola, así que la decisión sobrevive al
   /// reinicio como cualquier otra que se toma una vez.
   final bool memoriaPropia;
+
+  /// El hilo propio de una conversación separada, para retomarlo al reabrir.
+  ///
+  /// 🔴 **Sin esto, separarse duraba lo que tardara la app en reiniciarse.** La
+  /// marca de arriba sí se guardaba, pero la sesión no: al reabrir, la
+  /// conversación seguía sola y **sin hilo**, así que el turno siguiente
+  /// arrancaba una sesión nueva, sin lo hablado y con el marco de trabajo
+  /// apagado. Lo pone `AskClaude` en cuanto abre su sesión; separarse otra vez
+  /// —empezar de cero, ir sola— lo vacía, porque eso es empezar un hilo.
+  final String? sesionPropia;
 
   /// El nombre que le puso el usuario, si le puso uno.
   ///
@@ -68,6 +79,7 @@ class Conversation {
     name: nuevo,
     recordId: recordId,
     memoriaPropia: memoriaPropia,
+    sesionPropia: sesionPropia,
   );
 
   Conversation conRegistro(String? adoptado) => Conversation(
@@ -76,8 +88,10 @@ class Conversation {
     name: name,
     recordId: adoptado,
     memoriaPropia: memoriaPropia,
+    sesionPropia: sesionPropia,
   );
 
+  /// Separada y **sin hilo todavía**: el que tuviera se deja atrás.
   Conversation conMemoriaPropia() => Conversation(
     id: id,
     folderPath: folderPath,
@@ -86,12 +100,23 @@ class Conversation {
     memoriaPropia: true,
   );
 
+  /// Separada, con [sesion] como su hilo.
+  Conversation conSesionPropia(String sesion) => Conversation(
+    id: id,
+    folderPath: folderPath,
+    name: name,
+    recordId: recordId,
+    memoriaPropia: true,
+    sesionPropia: sesion,
+  );
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'folderPath': folderPath,
     if (name != null) 'name': name,
     if (recordId != null) 'recordId': recordId,
     if (memoriaPropia) 'memoriaPropia': true,
+    if (sesionPropia != null) 'sesionPropia': sesionPropia,
   };
 
   static Conversation? fromJson(Map<String, dynamic> json) {
@@ -106,6 +131,10 @@ class Conversation {
       name: json['name'] as String?,
       recordId: json['recordId'] as String?,
       memoriaPropia: json['memoriaPropia'] == true,
+      sesionPropia: switch (json['sesionPropia']) {
+        final String sesion when sesion.isNotEmpty => sesion,
+        _ => null,
+      },
     );
   }
 }

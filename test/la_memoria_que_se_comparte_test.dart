@@ -13,6 +13,11 @@ import 'package:nexus/features/history/domain/entities/conversation_summary.dart
 import 'package:nexus/features/history/presentation/providers/archive_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nexus/features/assistant/domain/entities/conversation.dart';
+import 'package:nexus/features/workspace/domain/entities/paired_folder.dart';
+import 'package:nexus/features/workspace/domain/entities/workspace.dart';
+import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
+
+import 'support/screen_harness.dart';
 
 /// Dos chats sobre la misma carpeta **no son dos hilos**, y lo parecían.
 ///
@@ -80,6 +85,19 @@ class _Disco implements ConversationsDataSource {
 
   @override
   Future<Map<String, dynamic>> read() async => const {};
+
+  @override
+  Future<void> write(Map<String, dynamic> json) async {}
+}
+
+/// El disco con conversaciones ya guardadas, como al reabrir la app.
+class _DiscoCon implements ConversationsDataSource {
+  const _DiscoCon(this.guardado);
+
+  final Map<String, dynamic> guardado;
+
+  @override
+  Future<Map<String, dynamic>> read() async => guardado;
 
   @override
   Future<void> write(Map<String, dynamic> json) async {}
@@ -230,6 +248,104 @@ void main() {
       expect(hud.notice, isNull);
       expect(hud.puedeEmpezarDeCero, isFalse);
     });
+
+    // 🔴 Reportado el 21 oct: «cuando abro otra conversación, cambio de rama y
+    // le doy empezar desde cero, esa conversación debería quedar con su
+    // contexto aparte y la anterior con su contexto aparte». Olvidar borraba la
+    // sesión de la carpeta, que es la de la anterior: al volver a ella no había
+    // nada que retomar y el marco de trabajo salía apagado.
+    test(
+      'empezar de cero en la nueva no le quita la sesión a la otra',
+      () async {
+        montar(sessionId: 'la-de-la-anterior');
+        final anterior = await abrir();
+        final nueva = await abrir();
+
+        await contenedor
+            .read(assistantControllerProvider(nueva).notifier)
+            .forgetConversation();
+
+        expect(memoria.olvidadas, isEmpty);
+        expect(memoria.sessionId, 'la-de-la-anterior');
+        final fichas = contenedor.read(conversationsProvider);
+        expect(fichas.byId(nueva)?.memoriaPropia, isTrue, reason: 'va sola');
+        expect(
+          fichas.byId(anterior)?.memoriaPropia,
+          isFalse,
+          reason: 'y la anterior sigue con la de la carpeta',
+        );
+      },
+    );
+  });
+
+  group('al reabrir la app, la que iba sola', () {
+    ProviderContainer montar(Map<String, dynamic> ficha) {
+      final contenedor = ProviderContainer(
+        overrides: [
+          conversationMemoryProvider.overrideWithValue(
+            _Memoria(sessionId: 'la-de-la-carpeta'),
+          ),
+          conversationsDataSourceProvider.overrideWithValue(
+            _DiscoCon({
+              'items': [ficha],
+              'focusedId': ficha['id'],
+            }),
+          ),
+          // Las fichas solo se cargan si su carpeta está emparejada.
+          workspaceControllerProvider.overrideWith(
+            () => FixedWorkspace(
+              const Workspace(
+                folders: [
+                  PairedFolder(
+                    path: _carpeta,
+                    modality: FolderModality.textOnly,
+                  ),
+                ],
+                activePath: _carpeta,
+              ),
+            ),
+          ),
+          // Con algo dicho: las vacías se descartan al cargar.
+          localConversationStoreProvider.overrideWithValue(
+            _Archivo([_ficha(ficha['id'] as String)]),
+          ),
+          conversationArchiveProvider.overrideWith((ref) async => null),
+        ],
+      );
+      addTearDown(contenedor.dispose);
+      return contenedor;
+    }
+
+    // 🔴 Seguía sola pero desde cero: el hilo propio vivía solo en memoria, y
+    // tras una actualización el turno siguiente abría una sesión nueva.
+    test('retoma el hilo que guardó, no uno nuevo ni el de otra', () async {
+      final contenedor = montar({
+        'id': 'c1',
+        'folderPath': _carpeta,
+        'memoriaPropia': true,
+        'sesionPropia': 'la-suya',
+      });
+      await contenedor.read(conversationsProvider.notifier).asegurarCargado();
+
+      contenedor.read(assistantControllerProvider('c1'));
+      await pumpEventQueue();
+
+      expect(contenedor.read(askClaudeProvider('c1')).miSesion, 'la-suya');
+    });
+
+    test('y si no llegó a guardar ninguno, empieza desde cero', () async {
+      final contenedor = montar({
+        'id': 'c1',
+        'folderPath': _carpeta,
+        'memoriaPropia': true,
+      });
+      await contenedor.read(conversationsProvider.notifier).asegurarCargado();
+
+      contenedor.read(assistantControllerProvider('c1'));
+      await pumpEventQueue();
+
+      expect(contenedor.read(askClaudeProvider('c1')).miSesion, isNull);
+    });
   });
 
   group('cuando la sesión se queda sin dueño', () {
@@ -348,6 +464,40 @@ void main() {
         Conversation.fromJson(sola.conRegistro('r2').toJson())?.memoriaPropia,
         isTrue,
       );
+    });
+
+    test('y guarda su hilo, de ida y vuelta', () {
+      final suya = const Conversation(
+        id: 'c1',
+        folderPath: _carpeta,
+      ).conSesionPropia('la-suya');
+
+      expect(suya.memoriaPropia, isTrue, reason: 'con hilo propio, va sola');
+      final leida = Conversation.fromJson(suya.toJson());
+      expect(leida?.sesionPropia, 'la-suya');
+      expect(leida?.memoriaPropia, isTrue);
+    });
+
+    test('y no lo pierde al apuntar el registro ni al renombrarla', () {
+      final suya = const Conversation(
+        id: 'c1',
+        folderPath: _carpeta,
+      ).conSesionPropia('la-suya');
+
+      expect(suya.conRegistro('r2').sesionPropia, 'la-suya');
+      expect(suya.conNombre('otro').sesionPropia, 'la-suya');
+    });
+
+    // Empezar de cero otra vez, o irse sola, es empezar un hilo: el de antes no
+    // se puede quedar apuntado.
+    test('pero separarse otra vez lo deja atrás', () {
+      final otraVez = const Conversation(
+        id: 'c1',
+        folderPath: _carpeta,
+      ).conSesionPropia('la-suya').conMemoriaPropia();
+
+      expect(otraVez.sesionPropia, isNull);
+      expect(otraVez.toJson().containsKey('sesionPropia'), isFalse);
     });
 
     // Lo de siempre sigue leyéndose igual: las fichas guardadas antes de esto no

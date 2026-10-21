@@ -65,6 +65,12 @@ class LasEtiquetasDelOrbe extends StatefulWidget {
   /// Lo más estrecha que puede quedar la de los pasos para pintarse.
   static const anchoMinimoDeLosPasos = 200.0;
 
+  /// Lo que se le reserva a la de los pasos al colocar el orbe trabajando: lo
+  /// que cabe cómodo de un vistazo —«Leyó gate-flow-check-registro.md» son unos
+  /// 250 px—, no [anchoMaximo]. La etiqueta se ajusta sola al hueco que le
+  /// quede, así que reservar el máximo solo servía para descentrar el orbe.
+  static const anchoComodoDeLosPasos = 240.0;
+
   /// A qué altura del aro se anclan, en grados desde las tres en punto: la de
   /// arriba a la una, la de abajo a las cinco.
   static const anguloDeArriba = -60.0;

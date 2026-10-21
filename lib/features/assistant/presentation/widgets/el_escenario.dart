@@ -292,14 +292,22 @@ const _loQueVaDebajo = 120.0;
 /// y vuelve a la vez que la hoja, sin saltos.
 @visibleForTesting
 /// Dónde va el orbe en una sala de [sala] × [alto]: al centro y grande.
-/// Trabajando **conserva su tamaño** y solo se corre a la izquierda lo justo
-/// para que quepan los pasos a la derecha del aro. Nada sube por encima de la
-/// barra: por eso el `top` nunca es negativo.
+/// Trabajando **conserva su tamaño y se queda en el centro** mientras los pasos
+/// quepan cómodos a la derecha del aro; si no, se corre a la izquierda lo justo
+/// para que quepan. Nada sube por encima de la barra: por eso el `top` nunca es
+/// negativo.
 ///
 /// 🔴 **Antes, trabajando, se encogía y se iba al borde** para dejar sitio a un
 /// panel de pasos. Los pasos pasaron a las etiquetas del orbe —pedido el 16
 /// oct: «se quitara ese panel al lado del orbe, así el orbe podría tener más
 /// espacio»—, así que ya no hay panel que dejarle.
+///
+/// 🔴 **Y se corría reservando el ancho máximo de la etiqueta**, 380 px, aunque
+/// la etiqueta se ajusta sola al hueco. Reportado el 21 oct a pantalla
+/// completa en la pantalla grande, «el orbe no se ve centrado»: medido en la
+/// captura, 121 px a la izquierda del centro de la sala para unos pasos que
+/// ocupaban 250. Ahora se reserva un ancho cómodo,
+/// [LasEtiquetasDelOrbe.anchoComodoDeLosPasos].
 ///
 /// **Centrado a lo alto**, el orbe junto con lo que va debajo de él —la hora,
 /// «escuchando», el subtítulo, lo que lleva dicho pensando, [debajo]—: el
@@ -322,16 +330,16 @@ Rect elSitioDelOrbe({
   var centro = sala / 2;
   if (trabajando) {
     // Lo que ocupan los pasos a la derecha, medido desde el centro del orbe:
-    // el aro llega a menos de la mitad del lado, y la etiqueta, a su ancho.
+    // el aro llega a menos de la mitad del lado, y la etiqueta, a un ancho
+    // cómodo —más, si le sobra sitio—.
+    const pasos = LasEtiquetasDelOrbe.anchoComodoDeLosPasos;
     final margen = sala * 0.03;
-    double laDerecha(double lado) =>
-        0.47 * lado + LasEtiquetasDelOrbe.anchoMaximo + margen;
-    // Primero se corre; si corriéndolo hasta el margen sigue sin caber, se
-    // encoge lo justo.
+    double laDerecha(double lado) => 0.47 * lado + pasos + margen;
+    // Si caben con el orbe centrado, no se mueve; si no, se corre; y si
+    // corriéndolo hasta el margen sigue sin caber, se encoge lo justo.
     centro = math.min(centro, sala - laDerecha(lado));
     if (centro - lado / 2 < margen) {
-      lado = ((sala - LasEtiquetasDelOrbe.anchoMaximo - 2 * margen) / 0.97)
-          .clamp(0.0, lado);
+      lado = ((sala - pasos - 2 * margen) / 0.97).clamp(0.0, lado);
       centro = margen + lado / 2;
     }
   }

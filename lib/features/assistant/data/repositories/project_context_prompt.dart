@@ -163,10 +163,21 @@ abstract final class ProjectContextPrompt {
     // la frase colgando del encargo, abrir una tarea la bautizaba «(Si no se te pide otra
     // cosa, responde en español.)» — pasó de verdad, y el mismo fallo habría metido esa
     // línea dentro de una narrativa de cierre o del motivo de un `cancel`.
+    //
+    // 🔴 **Un comando no es alguien escribiendo en inglés.** Decía solo «si te escriben
+    // en otro idioma, contesta en ese», y los verbos del marco son palabras inglesas:
+    // `flow review` se contestó entero en inglés, y en un `flow plan ok` lleno de
+    // identificadores el trabajo largo que vino detrás fue alternando idiomas —medido
+    // el 21 oct, 4 de 18 mensajes—. Sigue cediendo ante frases en otro idioma, que es
+    // lo que la preferencia protege; no ante comandos, código ni salidas.
     if (language != null && language.isNotEmpty) {
       sections.add(
-        'Si el encargo no pide otra cosa, responde en $language. Es una preferencia: '
-        'si te escriben en otro idioma, contesta en el idioma en que te escribieron.',
+        'Responde en $language, también en los avances y en el resumen de un trabajo '
+        'largo. Un comando (`flow …`, `/…`), el código, los nombres técnicos en inglés '
+        'o lo que devuelve una herramienta no son alguien escribiéndote en otro '
+        'idioma: no cambian el de tu respuesta. Es una preferencia, no una orden: si '
+        'te escriben frases en otro idioma, o te lo piden, contesta en el idioma en '
+        'que te escribieron.',
       );
     }
 

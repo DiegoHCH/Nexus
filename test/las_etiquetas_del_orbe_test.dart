@@ -227,6 +227,30 @@ void main() {
     );
   });
 
+  // 🔴 Reportado el 21 oct a pantalla completa: trabajando, el orbe se corría
+  // 121 px a la izquierda para reservarle a los pasos un ancho que no usaban.
+  testWidgets('a pantalla grande con la conversación abierta, sigue centrado', (
+    tester,
+  ) async {
+    await abrir(
+      tester,
+      modo: FolderModality.textOnly,
+      size: const Size(1920, 1080),
+    );
+
+    final sala = tester.getRect(find.byType(ElEscenario));
+    final orbe = tester.getRect(find.byKey(ElEscenario.laLlaveDelOrbe));
+    expect(orbe.center.dx, moreOrLessEquals(sala.center.dx, epsilon: 1));
+
+    // Y los pasos siguen ahí, enteros dentro de la sala.
+    final pasos = tester.getRect(
+      find.byKey(LasEtiquetasDelOrbe.llaveDeLosPasos),
+    );
+    expect(sala.contains(pasos.topLeft), isTrue);
+    expect(sala.contains(pasos.bottomRight), isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   // Con el widget suelto: lo que se mueve no depende de la pantalla.
   group('lo que se mueve', () {
     LasEtiquetas conPaso(String objeto, DateTime desde) => LasEtiquetas(

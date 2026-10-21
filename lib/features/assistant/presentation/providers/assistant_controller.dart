@@ -230,7 +230,12 @@ class AssistantController extends Notifier<AssistantHudState> {
     if (!_vive) return;
     final ficha = ref.read(conversationsProvider).byId(conversationId);
     if (ficha?.memoriaPropia != true) return;
-    ref.read(askClaudeProvider(conversationId)).empezarSolo();
+    // **Con su hilo, si lo tenía.** Sin él seguía sola pero desde cero: el
+    // turno siguiente abría una sesión nueva, sin lo hablado y con el marco de
+    // trabajo apagado. Ver [Conversation.sesionPropia].
+    ref
+        .read(askClaudeProvider(conversationId))
+        .empezarSolo(conSesion: ficha?.sesionPropia);
     state = state.copyWith(memoriaPropia: true);
   }
 
@@ -330,15 +335,34 @@ class AssistantController extends Notifier<AssistantHudState> {
     resume(mia);
   }
 
-  /// Empezar de cero **en esta carpeta**: Claude deja de reanudar la sesión
-  /// anterior. Afecta a las conversaciones que compartan carpeta, que es lo
-  /// coherente si comparten contexto. El historial de lo pedido se conserva
-  /// —sirve para repetir una petición— porque lo que estorba es el contexto
+  /// Empezar de cero: **esta** conversación deja de reanudar la sesión anterior
+  /// y sigue con hilo propio. El historial de lo pedido se conserva —sirve
+  /// para repetir una petición— porque lo que estorba es el contexto
   /// arrastrado, no la lista.
+  ///
+  /// 🔴 **Y no le quita la sesión a la otra.** Empezar de cero olvidaba la
+  /// sesión de la carpeta, que es la que reanuda cualquier otra conversación
+  /// abierta sobre el mismo repo: al volver a ella no quedaba nada que
+  /// retomar, arrancaba una sesión nueva y el marco de trabajo salía apagado.
+  /// Reportado así: «cuando abro otra conversación, cambio de rama y le doy
+  /// empezar desde cero, esa conversación debería quedar con su contexto aparte
+  /// y la anterior con su contexto aparte». Solo se olvida si no la comparte
+  /// nadie más.
   Future<void> forgetConversation() async {
     final folder = _folder;
     if (folder == null) return;
-    await ref.read(conversationMemoryProvider).forget(folder);
+    final laComparteOtra = ref
+        .read(conversationsProvider)
+        .items
+        .any(
+          (otra) =>
+              otra.id != conversationId &&
+              otra.folderPath == folder &&
+              !otra.memoriaPropia,
+        );
+    if (!laComparteOtra) {
+      await ref.read(conversationMemoryProvider).forget(folder);
+    }
     // Y **esta** deja de compartir la de la carpeta. Sin esto, con dos
     // conversaciones abiertas, olvidar se llevaba el contexto de las dos y la
     // siguiente volvía a ser común — empezar de cero duraba hasta que la otra

@@ -89,6 +89,7 @@ AskClaude _askWith(
   _Memory memory, {
   String? folder = '/repo',
   _Awake? awake,
+  void Function(String sesion)? alAbrirSuSesion,
 }) => AskClaude(
   bridge,
   (_) async => folder == null
@@ -113,6 +114,7 @@ AskClaude _askWith(
   memory,
   FolderErrandQueue(),
   awake ?? _Awake(),
+  alAbrirSuSesion: alAbrirSuSesion,
 );
 
 void main() {
@@ -263,6 +265,52 @@ void main() {
       final ask = _askWith(_Bridge(), _Memory())..empezarSolo();
 
       expect(ask.miSesion, isNull);
+    });
+
+    // 🔴 **Su hilo se guarda, o se pierde al reabrir la app.** Vivía solo en
+    // memoria: tras una actualización la conversación separada seguía sola pero
+    // sin hilo, abría una sesión nueva y el marco de trabajo salía apagado.
+    test('yendo sola, su hilo se apunta una vez para la ficha', () async {
+      final apuntadas = <String>[];
+      final ask = _askWith(_Bridge(), _Memory(), alAbrirSuSesion: apuntadas.add)
+        ..empezarSolo();
+
+      await ask('primero').toList();
+      await ask('segundo').toList();
+
+      expect(apuntadas, [
+        'sesion-1',
+      ], reason: 'retomándolo, cada turno anuncia el mismo número');
+    });
+
+    test(
+      'compartiendo no se apunta nada: su hilo es el de la carpeta',
+      () async {
+        final apuntadas = <String>[];
+        final ask = _askWith(
+          _Bridge(),
+          _Memory(),
+          alAbrirSuSesion: apuntadas.add,
+        );
+
+        await ask('primero').toList();
+
+        expect(apuntadas, isEmpty);
+      },
+    );
+
+    test('y al reabrir, retoma el hilo que se guardó', () async {
+      final bridge = _Bridge();
+      final memory = _Memory()..sessionId = 'la-de-la-carpeta';
+      final ask = _askWith(bridge, memory)
+        ..empezarSolo(conSesion: 'la-guardada');
+
+      await ask('primero').toList();
+
+      expect(bridge.resumed, [
+        'la-guardada',
+      ], reason: 'ni una sesión nueva ni la de la otra conversación');
+      expect(ask.miSesion, isNotNull);
     });
   });
 

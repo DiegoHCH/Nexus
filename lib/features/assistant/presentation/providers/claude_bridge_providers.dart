@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/features/personalidad/presentation/providers/la_personalidad_provider.dart';
@@ -234,6 +235,13 @@ final askClaudeProvider = Provider.family<AskClaude, String>((
         hayModeloElegido: paired?.claudeModel != null,
       );
     },
+    // El hilo propio, a la ficha: sin esto una conversación separada lo perdía
+    // al reabrir la app. Ver [Conversation.sesionPropia].
+    alAbrirSuSesion: (sesion) => unawaited(
+      ref
+          .read(conversationsProvider.notifier)
+          .apuntarSesionPropia(conversationId, sesion),
+    ),
     rapidas: ref.watch(lasSesionesRapidasProvider),
   );
 });

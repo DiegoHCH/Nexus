@@ -1916,3 +1916,70 @@ final class ElMotorDeUnPanelTests: XCTestCase {
     NexusMotorAparte.apagar(nil)
   }
 }
+
+/// **La botonera va con el espejo de escritorio en escritorio.**
+///
+/// Reportado el 22 oct, con dos escritorios en la tercera pantalla: el
+/// emulador quedaba pegado justo debajo de donde estaba la botonera, pero en
+/// su escritorio, y la botonera en el otro. Pegar mueve coordenadas, no
+/// escritorios, y macOS no deja llevar la ventana de otra app a otro. Lo que
+/// se fija aquí son las dos piezas de la salida: con el espejo pegado la barra
+/// es de todos los escritorios, y solo se da al espejo por visto si su ventana
+/// —la suya, no la barra de botones del emulador— está entre las que se ven.
+final class ElEspejoEnOtroEscritorioTests: XCTestCase {
+  private let pid: pid_t = 4242
+  /// El teléfono del emulador, en coordenadas de Accesibilidad.
+  private let telefono = CGRect(x: 67, y: 365, width: 360, height: 712)
+
+  private func ventana(
+    pid: pid_t, _ marco: CGRect, capa: Int = 0
+  ) -> [String: Any] {
+    [
+      kCGWindowOwnerPID as String: NSNumber(value: pid),
+      kCGWindowLayer as String: NSNumber(value: capa),
+      kCGWindowBounds as String: marco.dictionaryRepresentation as NSDictionary,
+    ]
+  }
+
+  func testConElEspejoPegadoLaBarraEsDeTodosLosEscritorios() {
+    XCTAssertTrue(NexusBotonera.conElEspejo.contains(.canJoinAllSpaces))
+    XCTAssertTrue(NexusBotonera.conElEspejo.contains(.fullScreenAuxiliary))
+    XCTAssertFalse(
+      NexusBotonera.conElEspejo.contains(.managed),
+      "atada a un escritorio se queda en el de la corrida, no en el del espejo")
+  }
+
+  func testSiSuVentanaSeVeElEspejoEstaALaVista() {
+    let vistas = [ventana(pid: 1, CGRect(x: 0, y: 0, width: 900, height: 700)),
+                  ventana(pid: pid, telefono)]
+    XCTAssertTrue(NexusEspejoPegado.estaALaVista(pid: pid, marco: telefono, ventanas: vistas))
+  }
+
+  /// La lista solo trae las ventanas de los escritorios que se ven: si el del
+  /// emulador no está a la vista, su ventana no viene.
+  func testEnOtroEscritorioNoEstaALaVista() {
+    let vistas = [ventana(pid: 1, CGRect(x: 0, y: 0, width: 900, height: 700))]
+    XCTAssertFalse(NexusEspejoPegado.estaALaVista(pid: pid, marco: telefono, ventanas: vistas))
+  }
+
+  /// El emulador abre dos ventanas: el teléfono y su barra de botones. Que se
+  /// vea la barra no dice que se vea el teléfono, que es lo que se pegó.
+  func testOtraVentanaDelMismoProgramaNoCuenta() {
+    let botones = CGRect(x: 375, y: 395, width: 52, height: 504)
+    let vistas = [ventana(pid: pid, botones)]
+    XCTAssertFalse(NexusEspejoPegado.estaALaVista(pid: pid, marco: telefono, ventanas: vistas))
+  }
+
+  func testUnaCapaQueNoEsLaDeLasVentanasNoCuenta() {
+    let vistas = [ventana(pid: pid, telefono, capa: 25)]
+    XCTAssertFalse(NexusEspejoPegado.estaALaVista(pid: pid, marco: telefono, ventanas: vistas))
+  }
+
+  /// Un par de puntos de diferencia es la misma ventana: la sombra o el
+  /// redondeo de cada lado no la convierten en otra.
+  func testUnosPuntosDeDiferenciaSiguenSiendoElla() {
+    let casi = telefono.offsetBy(dx: 2, dy: -3)
+    XCTAssertTrue(
+      NexusEspejoPegado.estaALaVista(pid: pid, marco: telefono, ventanas: [ventana(pid: pid, casi)]))
+  }
+}

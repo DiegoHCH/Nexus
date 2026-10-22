@@ -66,8 +66,18 @@ final class NexusBotonera: NSObject {
   /// El espejo del teléfono, pegado debajo cuando lo hay.
   private lazy var espejo = NexusEspejoPegado(
     laBarra: { [weak self] in self?.ventana },
-    moverLaBarra: { [weak self] origen in self?.laMueveElEspejo(origen) }
+    moverLaBarra: { [weak self] origen in self?.laMueveElEspejo(origen) },
+    alPegarseOSoltarse: { [weak self] pegado in self?.elEspejoSePego(pegado) }
   )
+
+  /// Lo que la lleva con el espejo mientras está pegado: el aviso de cambio de
+  /// escritorio y un reloj, para cuando el espejo se lleva a otro escritorio
+  /// desde Mission Control, que no avisa. Ver `elEspejoSePego`.
+  private var siguiendoAlEspejo: (aviso: NSObjectProtocol, reloj: Timer)?
+
+  /// Cada cuánto se mira dónde está el espejo: preguntar es una lista de
+  /// ventanas, barato, y un segundo es lo que se tarda en ir a mirarlo.
+  static let cadaCuantoSeMiraElEspejo: TimeInterval = 1
 
   /// Lo que espera el permiso de Accesibilidad después de pedirlo.
   private var esperandoElPermiso: Timer?
@@ -219,6 +229,17 @@ final class NexusBotonera: NSObject {
   /// es el que la ata a un escritorio, como a cualquier ventana normal; el
   /// nivel sigue siendo flotante dentro de él.
   static let enLosEscritorios: NSWindow.CollectionBehavior = [.managed, .fullScreenAuxiliary]
+
+  /// **Con el espejo pegado, va con él de escritorio en escritorio.**
+  ///
+  /// 🔴 Reportado el 22 oct: con dos escritorios en la misma pantalla, el
+  /// emulador en uno y la botonera en otro, cuando tenían que ir juntos. Pegar
+  /// mueve el espejo a las coordenadas de la barra, pero no a su escritorio
+  /// —macOS no deja llevar la ventana de otra app—, así que la barra se hace de
+  /// todos los escritorios y **solo se enseña donde se ve el espejo**. No sale
+  /// encima de cualquier app como la del 28 sep: sin el espejo a la vista se
+  /// aparta. Suelto el espejo, vuelve a `enLosEscritorios`.
+  static let conElEspejo: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
   private static func area(_ rect: NSRect) -> CGFloat {
     rect.isNull || rect.isEmpty ? 0 : rect.width * rect.height
@@ -471,14 +492,58 @@ final class NexusBotonera: NSObject {
   /// que cada aparición es la primera, y todo se suelta en el acto —antes del
   /// fundido— para que una corrida que arranca justo mientras se va cree la
   /// suya en vez de repintar una que está a punto de cerrarse.
+  /// El espejo se pegó o se soltó: la barra cambia de escritorio con él, o
+  /// vuelve a quedarse en el suyo. Ver `conElEspejo`.
+  private func elEspejoSePego(_ pegado: Bool) {
+    dejarDeSeguirAlEspejo()
+    guard let panel = ventana else { return }
+    panel.collectionBehavior = pegado ? Self.conElEspejo : Self.enLosEscritorios
+    guard pegado else {
+      // Si estaba apartada porque el espejo se veía en otro escritorio, vuelve
+      // aquí: sin espejo es una ventana más, y tiene que verse.
+      if !panel.isVisible { panel.orderFrontRegardless() }
+      return
+    }
+    let aviso = NSWorkspace.shared.notificationCenter.addObserver(
+      forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main
+    ) { [weak self] _ in self?.mirarDondeEstaElEspejo() }
+    let reloj = Timer.scheduledTimer(
+      withTimeInterval: Self.cadaCuantoSeMiraElEspejo, repeats: true
+    ) { [weak self] _ in self?.mirarDondeEstaElEspejo() }
+    siguiendoAlEspejo = (aviso, reloj)
+    mirarDondeEstaElEspejo()
+  }
+
+  private func dejarDeSeguirAlEspejo() {
+    if let siguiendo = siguiendoAlEspejo {
+      NSWorkspace.shared.notificationCenter.removeObserver(siguiendo.aviso)
+      siguiendo.reloj.invalidate()
+    }
+    siguiendoAlEspejo = nil
+  }
+
+  /// Se enseña donde se ve el espejo y se aparta donde no.
+  private func mirarDondeEstaElEspejo() {
+    guard let panel = ventana, let aLaVista = espejo.estaALaVista() else { return }
+    if aLaVista, !panel.isVisible {
+      panel.orderFrontRegardless()
+    } else if !aLaVista, panel.isVisible {
+      panel.orderOut(nil)
+    }
+  }
+
   private func cerrar() {
     guard let panel = ventana else { return }
+    guardarLuego?.invalidate()
+    let motor = self.motor
+    // **Antes de soltar el espejo**: al soltarse avisa, y con la ventana aún
+    // puesta la volvería a sacar —un destello en el escritorio donde estaba
+    // apartada— justo cuando se está yendo.
+    ventana = nil
+    dejarDeSeguirAlEspejo()
     // El espejo se suelta y se queda donde está: es una ventana ajena, y que
     // se vaya la barra no es motivo para llevársela.
     espejo.soltar()
-    guardarLuego?.invalidate()
-    let motor = self.motor
-    ventana = nil
     haciaLaBarra = nil
     self.motor = nil
     arrastre = nil

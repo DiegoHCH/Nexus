@@ -59,9 +59,18 @@ final class NexusEspejoPegado {
   /// Cómo se mueve la botonera cuando quien se mueve es el espejo.
   private let moverLaBarra: (NSPoint) -> Void
 
-  init(laBarra: @escaping () -> NSWindow?, moverLaBarra: @escaping (NSPoint) -> Void) {
+  /// Que el espejo se pegó (`true`) o se soltó (`false`): la botonera cambia
+  /// de escritorio con él mientras está pegado. Ver `estaALaVista`.
+  private let alPegarseOSoltarse: (Bool) -> Void
+
+  init(
+    laBarra: @escaping () -> NSWindow?,
+    moverLaBarra: @escaping (NSPoint) -> Void,
+    alPegarseOSoltarse: @escaping (Bool) -> Void = { _ in }
+  ) {
     self.laBarra = laBarra
     self.moverLaBarra = moverLaBarra
+    self.alPegarseOSoltarse = alPegarseOSoltarse
   }
 
   private var busca: LaVentanaDelEspejo?
@@ -263,6 +272,8 @@ final class NexusEspejoPegado {
 
   /// Lo suelta: se queda donde está.
   func soltar() {
+    let estabaPegado = ventana != nil
+    defer { if estabaPegado { alPegarseOSoltarse(false) } }
     buscando?.invalidate()
     buscando = nil
     busca = nil
@@ -335,6 +346,51 @@ final class NexusEspejoPegado {
     }
     Self.log.info("espejo pegado")
     recolocarYa()
+    alPegarseOSoltarse(true)
+  }
+
+  // MARK: - En qué escritorio está
+
+  /// Si el espejo está en un escritorio **a la vista**. `nil` sin espejo.
+  ///
+  /// 🔴 **Pegar mueve coordenadas, no escritorios.** Reportado el 22 oct con
+  /// dos escritorios en la tercera pantalla: el emulador quedaba justo debajo
+  /// de donde estaba la botonera, pero en su escritorio, y la botonera en el
+  /// que tocaba cuando arrancó la corrida. macOS no deja llevar la ventana de
+  /// otra app a otro escritorio, así que es la botonera la que va con él: se
+  /// pregunta aquí si el espejo se ve, y ella se enseña o se aparta.
+  ///
+  /// Minimizado cuenta como a la vista: la botonera son los mandos de la
+  /// corrida, y apartarla dejaría sin «Parar» a quien solo escondió el teléfono.
+  func estaALaVista() -> Bool? {
+    guard let ventana, pid != 0 else { return nil }
+    if Self.atributo(ventana, kAXMinimizedAttribute) as? Bool == true { return true }
+    guard let marco = marcoEnAccesibilidad() else { return nil }
+    let ventanas =
+      CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+      as? [[String: Any]] ?? []
+    return Self.estaALaVista(pid: pid, marco: marco, ventanas: ventanas)
+  }
+
+  /// Si entre [ventanas] —las que el sistema da por a la vista— está la del
+  /// espejo: de su programa, en la capa de las ventanas y con su marco.
+  ///
+  /// Por el marco y no solo por el programa: el emulador abre dos ventanas, el
+  /// teléfono y su barra de botones al lado, y la que se pega es la primera.
+  /// Las coordenadas son las de Accesibilidad, que son las mismas de la lista:
+  /// el origen arriba a la izquierda de la pantalla principal.
+  static func estaALaVista(
+    pid: pid_t, marco: CGRect, ventanas: [[String: Any]], margen: CGFloat = 8
+  ) -> Bool {
+    ventanas.contains { una in
+      guard (una[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == pid,
+        (una[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
+        let crudo = una[kCGWindowBounds as String] as? NSDictionary,
+        let visto = CGRect(dictionaryRepresentation: crudo)
+      else { return false }
+      return abs(visto.minX - marco.minX) <= margen && abs(visto.minY - marco.minY) <= margen
+        && abs(visto.width - marco.width) <= margen && abs(visto.height - marco.height) <= margen
+    }
   }
 
   /// La barra se movió o cambió de alto: el espejo va detrás.
@@ -404,6 +460,21 @@ final class NexusEspejoPegado {
       return nil
     }
     return valor
+  }
+
+  /// El marco tal como lo da Accesibilidad: origen arriba a la izquierda.
+  private func marcoEnAccesibilidad() -> CGRect? {
+    guard let ventana,
+      let posicion = Self.atributo(ventana, kAXPositionAttribute),
+      let tamano = Self.atributo(ventana, kAXSizeAttribute)
+    else { return nil }
+    var punto = CGPoint.zero
+    var medida = CGSize.zero
+    // swiftlint:disable:next force_cast
+    AXValueGetValue(posicion as! AXValue, .cgPoint, &punto)
+    // swiftlint:disable:next force_cast
+    AXValueGetValue(tamano as! AXValue, .cgSize, &medida)
+    return CGRect(origin: punto, size: medida)
   }
 
   private func marco() -> NSRect? {

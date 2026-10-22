@@ -1,7 +1,7 @@
 name: nexus
 description: "A new Flutter project."
 publish_to: 'none'
-version: 1.46.5+129
+version: 1.46.6+130
 
 environment:
   sdk: ^3.12.2

@@ -122,6 +122,42 @@ void main() {
   });
 
   group('lo que no debe enrutar', () {
+    // 🔴 Reportado el 22 oct, y no era la primera vez: una instrucción larga que
+    // nombra dos carpetas de pasada —dentro de un identificador, «el equipo
+    // personal»— contestaba «nombraste varias carpetas» en vez de hacerse.
+    test('dos nombradas de pasada en una instrucción larga no preguntan', () {
+      final personal = carpeta('/Users/alguien/personal');
+      final finan2 = carpeta('/Users/alguien/personal/finan2');
+
+      expect(
+        va(
+          'Lo de apple ya quedo y lo otro descartalo, Apple: pedir a soporte '
+          'que libere com.katanalabs.finan2 del equipo personal 3ABDAGH9WX; en '
+          'Xcode, firmar con el equipo de Katanalabs. Decidir qué hacer con los '
+          'cambios de Flutter 3.47 guardados en stash@{0} (propuesta: '
+          'descartarlos).',
+          [personal, finan2],
+        ),
+        isA<NoSeNombroCarpeta>(),
+      );
+    });
+
+    // Lo que se contesta en la puerta es corto, y ahí dos nombres sí son una
+    // pregunta aunque ninguno venga apuntado.
+    test('pero una respuesta corta con dos nombres sigue preguntando', () {
+      expect(va('quiero nexus y front mobile b2c'), isA<SeNombraronVarias>());
+    });
+
+    test('y con alguna apuntada también, aunque la frase sea larga', () {
+      expect(
+        va(
+          'en el front mobile b2c revisa lo que hicimos ayer con backend core '
+          'y déjalo listo para el lunes',
+        ),
+        isA<SeNombraronVarias>(),
+      );
+    });
+
     // Sin borde, `core` se encontraría dentro de «corenlace».
     test('un nombre dentro de otra palabra no cuenta', () {
       expect(

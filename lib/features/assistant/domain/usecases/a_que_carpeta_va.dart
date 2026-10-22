@@ -119,6 +119,19 @@ abstract final class ACarpetaVaLoQueDices {
     // —«nexus y front-mobile-b2c», que es como se contesta en la puerta— y
     // preguntar nunca hace trabajo en la carpeta que no era. Elegir sí lo hace,
     // así que para eso hace falta el puntero. Ver [_apuntaAUnaCarpeta].
+    //
+    // 🔴 **Pero una instrucción larga que las menciona de pasada no pregunta
+    // nada.** Reportado dos veces, la última el 22 oct: «pedir a soporte que
+    // libere com.katanalabs.finan2 del equipo personal 3ABDAGH9WX…» contestó
+    // «nombraste varias carpetas —personal, finan2—». Ninguna venía apuntada:
+    // una iba dentro de un identificador y la otra era «el equipo personal».
+    // Lo que se contesta en la puerta es corto —«nexus y front-mobile-b2c»—, y
+    // ahí sigue preguntando; con alguna apuntada, también.
+    if (hallazgos.length > 1 &&
+        hallazgos.every((h) => h.donde == null) &&
+        _palabras(plano) > palabrasDeUnaRespuesta) {
+      return const NoSeNombroCarpeta();
+    }
     if (hallazgos.length > 1) {
       return SeNombraronVarias([for (final h in hallazgos) h.carpeta]);
     }
@@ -131,6 +144,14 @@ abstract final class ACarpetaVaLoQueDices {
     final resto = _sinLaMencion(frase, donde.desde, donde.hasta);
     return AEstaCarpeta(hallazgo.carpeta, _esSoloIrAlli(resto) ? '' : resto);
   }
+
+  /// Hasta cuántas palabras se lee una frase como respuesta —«nexus y
+  /// front-mobile-b2c», «quiero nexus y el front»— y no como una instrucción
+  /// que nombra carpetas de pasada.
+  static const palabrasDeUnaRespuesta = 8;
+
+  static int _palabras(String plano) =>
+      plano.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).length;
 
   /// Si [padre] contiene a [hija] en el disco.
   static bool _esPadreDe(PairedFolder padre, PairedFolder hija) =>

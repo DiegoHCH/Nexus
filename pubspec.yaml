@@ -72,6 +72,15 @@ flutter:
   shaders:
     - shaders/orbe_plasma.frag
 
+  # El mod que publica documentos en claude.ai. Nexus lo copia a su carpeta de
+  # soporte y lo carga en una sesión oculta: ver `ElPublicadorPorLaTerminal`.
+  # Archivo a archivo y no la carpeta: `.claude-plugin` empieza por punto.
+  assets:
+    - mods/nexus-publicar/.claude-plugin/plugin.json
+    - mods/nexus-publicar/hooks/hooks.json
+    - mods/nexus-publicar/hooks/register.js
+    - mods/nexus-publicar/hooks/el_pedido.js
+
   fonts:
     - family: Instrument Sans
       fonts:

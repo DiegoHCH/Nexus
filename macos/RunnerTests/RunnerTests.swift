@@ -1983,3 +1983,24 @@ final class ElEspejoEnOtroEscritorioTests: XCTestCase {
       NexusEspejoPegado.estaALaVista(pid: pid, marco: telefono, ventanas: [ventana(pid: pid, casi)]))
   }
 }
+
+/// **Publicar en claude.ai, desde el título del visor.**
+///
+/// Pedido el 26 oct: publicar como artifact directo desde Nexus. El botón va
+/// solo donde tiene sentido: en los documentos HTML que escribió Claude. Las
+/// páginas propias de Nexus —un registro, una prueba corriendo— no son algo que
+/// compartir, y una imagen no es una página.
+final class PublicarDesdeElVisorTests: XCTestCase {
+  func testUnDocumentoHtmlDeClaudeSePuedePublicar() {
+    XCTAssertTrue(Viewer.sePuedePublicar(propia: false, path: "/d/work/tareas.html"))
+    XCTAssertTrue(Viewer.sePuedePublicar(propia: false, path: "/d/work/TAREAS.HTM"))
+  }
+
+  func testUnaPaginaPropiaDeNexusNo() {
+    XCTAssertFalse(Viewer.sePuedePublicar(propia: true, path: "/s/.ventana/registro.html"))
+  }
+
+  func testUnaImagenNo() {
+    XCTAssertFalse(Viewer.sePuedePublicar(propia: false, path: "/d/work/captura.png"))
+  }
+}

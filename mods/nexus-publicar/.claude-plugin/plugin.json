@@ -1,0 +1,6 @@
+{
+  "name": "nexus-publicar",
+  "version": "0.1.0",
+  "description": "Publica en claude.ai, como artifact, el documento que Nexus le deja preparado",
+  "author": { "name": "Diego Hoyos" }
+}

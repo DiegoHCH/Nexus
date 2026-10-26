@@ -130,6 +130,7 @@ class ArtifactsDataSource {
     String? apagado,
     String? encendido,
     String? pieDeLaConsola,
+    Map<String, String>? publicar,
   }) async {
     try {
       await _channel.invokeMethod<bool>('textos', {
@@ -140,9 +141,36 @@ class ArtifactsDataSource {
         'apagado': ?apagado,
         'encendido': ?encendido,
         'pieDeLaConsola': ?pieDeLaConsola,
+        // Los del botón de publicar en claude.ai y sus avisos.
+        'publicar': ?publicar,
       });
     } on PlatformException {
       // Sin rótulos el visor usa los suyos: se ve en otro idioma, no se rompe.
+    } on MissingPluginException {
+      // En pruebas no hay nadie al otro lado.
+    }
+  }
+
+  /// Cómo fue publicar en claude.ai el documento de [ruta], para que su visor
+  /// lo diga: [estado] es `publicado`, `confiar` o `error`. Ver
+  /// `LaPublicacionDesdeElVisor`.
+  Future<void> publicacion({
+    required String ruta,
+    required String estado,
+    required String titulo,
+    required String detalle,
+    String? url,
+  }) async {
+    try {
+      await _channel.invokeMethod<bool>('publicacion', {
+        'path': ruta,
+        'estado': estado,
+        'titulo': titulo,
+        'detalle': detalle,
+        'url': ?url,
+      });
+    } on PlatformException {
+      // Sin visor abierto no hay a quién decírselo: el registro ya lo dice.
     } on MissingPluginException {
       // En pruebas no hay nadie al otro lado.
     }

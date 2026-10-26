@@ -28,6 +28,16 @@ final class NexusArtifacts: NSObject {
   /// hay aquí es lo que se ve hasta que Dart hable, que en la práctica es antes
   /// de que se abra ninguna ventana.
   static var etiquetaPermiso = "Permitir scripts y red"
+
+  /// Los rótulos de publicar en claude.ai. Llegan de Dart con los demás, en el
+  /// idioma de la app; estos son los de antes de que lleguen.
+  static var etiquetaPublicar = "Publicar en claude.ai"
+  static var etiquetaPublicando = "Publicando…"
+  static var etiquetaAbrir = "Abrir"
+  static var etiquetaCopiar = "Copiar enlace"
+  static var etiquetaListo = "Listo"
+  static var etiquetaAbrirTerminal = "Abrir la terminal"
+  static var etiquetaCancelar = "Cancelar"
   /// El estado del permiso, al lado de su nombre: «… · apagado».
   static var etiquetaApagado = "apagado"
   static var etiquetaEncendido = "encendido"
@@ -59,6 +69,15 @@ final class NexusArtifacts: NSObject {
         if let apagado = args?["apagado"] as? String { etiquetaApagado = apagado }
         if let encendido = args?["encendido"] as? String { etiquetaEncendido = encendido }
         if let pie = args?["pieDeLaConsola"] as? String { pieDeLaConsola = pie }
+        if let publicar = args?["publicar"] as? [String: String] {
+          etiquetaPublicar = publicar["boton"] ?? etiquetaPublicar
+          etiquetaPublicando = publicar["publicando"] ?? etiquetaPublicando
+          etiquetaAbrir = publicar["abrir"] ?? etiquetaAbrir
+          etiquetaCopiar = publicar["copiar"] ?? etiquetaCopiar
+          etiquetaListo = publicar["listo"] ?? etiquetaListo
+          etiquetaAbrirTerminal = publicar["abrirTerminal"] ?? etiquetaAbrirTerminal
+          etiquetaCancelar = publicar["cancelar"] ?? etiquetaCancelar
+        }
         result(true)
         return
       }
@@ -103,6 +122,16 @@ final class NexusArtifacts: NSObject {
         result(true)
       case "reveal":
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+        result(true)
+      // Cómo fue publicar en claude.ai lo que se pidió desde el botón del
+      // título. Lo publica Dart; aquí se dice.
+      case "publicacion":
+        open[path]?.alPublicar(
+          estado: args?["estado"] as? String ?? "error",
+          titulo: args?["titulo"] as? String ?? "",
+          detalle: args?["detalle"] as? String ?? "",
+          url: args?["url"] as? String
+        )
         result(true)
       default:
         result(FlutterMethodNotImplemented)
@@ -243,6 +272,10 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
   /// permiso cambie desde otro sitio.
   private var casilla: NSButton?
 
+  /// Publicar en claude.ai, junto al interruptor. Solo en documentos HTML de
+  /// Claude: ver `Viewer.sePuedePublicar`.
+  private var botonDePublicar: NSButton?
+
   /// Que la página la escribió Nexus y no Claude: el registro de una corrida,
   /// una prueba en marcha, la actividad de un encargo.
   ///
@@ -354,7 +387,7 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
     casilla = boton
     pintarLaCasilla()
 
-    let contenedor = NSView(frame: NSRect(x: 0, y: 0, width: 280, height: 28))
+    let contenedor = NSView(frame: NSRect(x: 0, y: 0, width: 520, height: 28))
     boton.translatesAutoresizingMaskIntoConstraints = false
     contenedor.addSubview(boton)
     NSLayoutConstraint.activate([
@@ -363,6 +396,25 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
       boton.leadingAnchor.constraint(greaterThanOrEqualTo: contenedor.leadingAnchor),
       boton.heightAnchor.constraint(equalToConstant: 22),
     ])
+    // Publicar, a la izquierda del interruptor: los dos son lo que se hace
+    // con el documento, y el interruptor sigue en su esquina de siempre.
+    if Viewer.sePuedePublicar(propia: propia, path: url.path) {
+      let publicar = NSButton(title: "", target: self, action: #selector(publicar(_:)))
+      publicar.isBordered = false
+      publicar.wantsLayer = true
+      publicar.layer?.borderWidth = 1
+      publicar.layer?.cornerRadius = 2
+      publicar.translatesAutoresizingMaskIntoConstraints = false
+      contenedor.addSubview(publicar)
+      NSLayoutConstraint.activate([
+        publicar.centerYAnchor.constraint(equalTo: contenedor.centerYAnchor),
+        publicar.trailingAnchor.constraint(equalTo: boton.leadingAnchor, constant: -8),
+        publicar.leadingAnchor.constraint(greaterThanOrEqualTo: contenedor.leadingAnchor),
+        publicar.heightAnchor.constraint(equalToConstant: 22),
+      ])
+      botonDePublicar = publicar
+      pintarElBotonDePublicar(publicando: false)
+    }
 
     let accesorio = NSTitlebarAccessoryViewController()
     accesorio.layoutAttribute = .trailing
@@ -397,6 +449,72 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
       boton.layer?.backgroundColor = encendido
         ? NexusArtifacts.acento.withAlphaComponent(0.12).cgColor
         : NSColor.clear.cgColor
+    }
+  }
+
+  // MARK: - Publicar en claude.ai
+
+  /// El rótulo del botón, con el mismo trazo que el interruptor: un control en
+  /// mayúsculas, no una frase.
+  private func pintarElBotonDePublicar(publicando: Bool) {
+    guard let boton = botonDePublicar else { return }
+    let texto = publicando ? NexusArtifacts.etiquetaPublicando : NexusArtifacts.etiquetaPublicar
+    boton.isEnabled = !publicando
+    boton.attributedTitle = NSAttributedString(
+      string: "  \(texto)  ".uppercased(),
+      attributes: [
+        .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
+        .kern: 1.4,
+        .foregroundColor: NexusArtifacts.acento,
+      ]
+    )
+    window.appearance?.performAsCurrentDrawingAppearance {
+      boton.layer?.borderColor = NexusArtifacts.acento.cgColor
+    }
+  }
+
+  /// Lo publica Dart —ver `ElPublicadorPorLaTerminal`—; aquí solo se pide y se
+  /// deja el botón en «publicando» hasta que conteste.
+  @objc private func publicar(_ sender: NSButton) {
+    pintarElBotonDePublicar(publicando: true)
+    NexusArtifacts.pidieron("publicar", ruta: url.path)
+  }
+
+  /// Cómo fue: el botón vuelve, y se dice en un aviso pegado a la ventana con
+  /// lo que se puede hacer a continuación.
+  func alPublicar(estado: String, titulo: String, detalle: String, url enlace: String?) {
+    pintarElBotonDePublicar(publicando: false)
+    let aviso = NSAlert()
+    aviso.messageText = titulo
+    aviso.informativeText = detalle
+    switch estado {
+    case "publicado":
+      if let enlace { aviso.informativeText = "\(detalle)\n\n\(enlace)" }
+      aviso.addButton(withTitle: NexusArtifacts.etiquetaAbrir)
+      aviso.addButton(withTitle: NexusArtifacts.etiquetaCopiar)
+      aviso.addButton(withTitle: NexusArtifacts.etiquetaListo)
+    case "confiar":
+      aviso.addButton(withTitle: NexusArtifacts.etiquetaAbrirTerminal)
+      aviso.addButton(withTitle: NexusArtifacts.etiquetaCancelar)
+    default:
+      aviso.alertStyle = .warning
+      aviso.addButton(withTitle: NexusArtifacts.etiquetaListo)
+    }
+    let ruta = url.path
+    aviso.beginSheetModal(for: window) { respuesta in
+      switch (estado, respuesta) {
+      case ("publicado", .alertFirstButtonReturn):
+        if let enlace, let destino = URL(string: enlace) { NSWorkspace.shared.open(destino) }
+      case ("publicado", .alertSecondButtonReturn):
+        if let enlace {
+          NSPasteboard.general.clearContents()
+          NSPasteboard.general.setString(enlace, forType: .string)
+        }
+      case ("confiar", .alertFirstButtonReturn):
+        NexusArtifacts.pidieron("confiarParaPublicar", ruta: ruta)
+      default:
+        break
+      }
     }
   }
 
@@ -580,6 +698,14 @@ final class Viewer: NSObject, NSWindowDelegate, WKNavigationDelegate {
   ///
   /// Los demás formatos no se tocan: el HTML trae su propia maquetación, y el
   /// PDF ya lo encuadra el visor del sistema.
+  /// Si un documento lleva el botón de publicar en claude.ai: los HTML que
+  /// escribió Claude. Las páginas propias de Nexus —un registro, una prueba
+  /// corriendo— no se publican, y una imagen no es una página.
+  static func sePuedePublicar(propia: Bool, path: String) -> Bool {
+    let ext = (path as NSString).pathExtension.lowercased()
+    return !propia && (ext == "html" || ext == "htm")
+  }
+
   static func isImage(_ path: String) -> Bool {
     let images: Set<String> = [
       "png", "jpg", "jpeg", "gif", "bmp", "webp", "heic", "heif", "tiff", "tif", "ico",

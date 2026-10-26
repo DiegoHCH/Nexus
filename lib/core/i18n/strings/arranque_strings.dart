@@ -141,6 +141,28 @@ mixin ArranqueStrings {
   String get allowScriptsOff;
   String get allowScriptsOn;
 
+  /// Publicar un documento en claude.ai desde el visor, y lo que se dice al
+  /// terminar. Ver `ElPublicadorPorLaTerminal`.
+  String get publicarEnClaude;
+  String get publicando;
+  String get publicadoTitulo;
+  String get publicadoDetalle;
+
+  /// Lo mismo cuando se publicó encima del enlace que ya tenía.
+  String get actualizadoTitulo;
+  String get actualizadoDetalle;
+  String get publicarAbrir;
+  String get publicarCopiarEnlace;
+  String get publicarListo;
+  String get publicarFaltaConfiarTitulo;
+  String get publicarFaltaConfiarDetalle;
+  String get publicarAbrirLaTerminal;
+  String get publicarCancelar;
+  String get publicarNoSePudo;
+
+  /// Lo que dice la terminal que se abre para aceptar la carpeta.
+  String get publicarAvisoEnLaTerminal;
+
   /// El pie de la ventana de la consola de la app: de dónde sale y qué no
   /// toca.
   String get consolaSoloConLaCopia;
@@ -476,6 +498,45 @@ mixin ArranqueStringsEs implements ArranqueStrings {
       'carga nada de internet. Se recarga solo si cambia.';
   @override
   String get allowScriptsOff => 'apagado';
+  @override
+  String get publicarEnClaude => 'Publicar en claude.ai';
+  @override
+  String get publicando => 'Publicando…';
+  @override
+  String get publicadoTitulo => 'Publicado en claude.ai';
+  @override
+  String get publicadoDetalle =>
+      'Es privado: lo compartes desde el botón Share de la página. Cada vez '
+      'que vuelvas a publicar este documento se actualiza este mismo enlace.';
+  @override
+  String get actualizadoTitulo => 'Actualizado en claude.ai';
+  @override
+  String get actualizadoDetalle =>
+      'Es el mismo enlace de antes: quien lo tenga abierto ya ve esta versión.';
+  @override
+  String get publicarAbrir => 'Abrir';
+  @override
+  String get publicarCopiarEnlace => 'Copiar enlace';
+  @override
+  String get publicarListo => 'Listo';
+  @override
+  String get publicarFaltaConfiarTitulo => 'Falta un paso, solo esta vez';
+  @override
+  String get publicarFaltaConfiarDetalle =>
+      'Para publicar, Claude Code tiene que confiar en la carpeta de '
+      'publicación de Nexus, y eso se acepta a la vista. Se abrirá una '
+      'terminal: elige «Yes, I trust this folder», escribe /exit y vuelve a '
+      'publicar.';
+  @override
+  String get publicarAbrirLaTerminal => 'Abrir la terminal';
+  @override
+  String get publicarCancelar => 'Cancelar';
+  @override
+  String get publicarNoSePudo => 'No se pudo publicar';
+  @override
+  String get publicarAvisoEnLaTerminal =>
+      'Nexus: elige «Yes, I trust this folder», escribe /exit y vuelve a '
+      'publicar desde el visor.';
   @override
   String get allowScriptsOn => 'encendido';
   @override
@@ -841,6 +902,45 @@ mixin ArranqueStringsEn implements ArranqueStrings {
       'loads nothing from the internet. It reloads by itself when it changes.';
   @override
   String get allowScriptsOff => 'off';
+  @override
+  String get publicarEnClaude => 'Publish to claude.ai';
+  @override
+  String get publicando => 'Publishing…';
+  @override
+  String get publicadoTitulo => 'Published to claude.ai';
+  @override
+  String get publicadoDetalle =>
+      "It's private: share it from the page's Share button. Every time you "
+      'publish this document again, this same link is updated.';
+  @override
+  String get actualizadoTitulo => 'Updated on claude.ai';
+  @override
+  String get actualizadoDetalle =>
+      "It's the same link as before: anyone who has it open already sees this "
+      'version.';
+  @override
+  String get publicarAbrir => 'Open';
+  @override
+  String get publicarCopiarEnlace => 'Copy link';
+  @override
+  String get publicarListo => 'Done';
+  @override
+  String get publicarFaltaConfiarTitulo => 'One more step, just this once';
+  @override
+  String get publicarFaltaConfiarDetalle =>
+      "To publish, Claude Code has to trust Nexus's publishing folder, and "
+      "that's accepted in plain sight. A terminal will open: choose «Yes, I "
+      'trust this folder», type /exit and publish again.';
+  @override
+  String get publicarAbrirLaTerminal => 'Open Terminal';
+  @override
+  String get publicarCancelar => 'Cancel';
+  @override
+  String get publicarNoSePudo => "Couldn't publish";
+  @override
+  String get publicarAvisoEnLaTerminal =>
+      'Nexus: choose «Yes, I trust this folder», type /exit and publish again '
+      'from the viewer.';
   @override
   String get allowScriptsOn => 'on';
   @override

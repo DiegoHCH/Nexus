@@ -6,6 +6,7 @@ import 'package:nexus/core/design_system/accent_preference.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/core/platform/status_item_channel.dart';
 import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
+import 'package:nexus/features/artifacts/presentation/providers/publicar_providers.dart';
 import 'package:nexus/features/assistant/presentation/providers/assistant_controller.dart';
 import 'package:nexus/features/assistant/presentation/state/orb_state.dart';
 import 'package:nexus/features/isla/presentation/providers/la_isla_provider.dart';
@@ -72,7 +73,19 @@ class _StatusPresenceState extends ConsumerState<StatusPresence> {
           apagado: strings.allowScriptsOff,
           encendido: strings.allowScriptsOn,
           pieDeLaConsola: strings.consolaSoloConLaCopia,
+          publicar: {
+            'boton': strings.publicarEnClaude,
+            'publicando': strings.publicando,
+            'abrir': strings.publicarAbrir,
+            'copiar': strings.publicarCopiarEnlace,
+            'listo': strings.publicarListo,
+            'abrirTerminal': strings.publicarAbrirLaTerminal,
+            'cancelar': strings.publicarCancelar,
+          },
         );
+    // Y quien atiende su botón de publicar en claude.ai: se lee aquí para que
+    // escuche desde que hay app. Ver [LaPublicacionDesdeElVisor].
+    ref.read(laPublicacionDesdeElVisorProvider);
     StatusItemChannel.onAction(
       talk: () => ref
           .read(assistantControllerProvider(widget.conversationId).notifier)

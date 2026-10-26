@@ -111,4 +111,18 @@ void main() {
       isTrue,
     );
   });
+
+  // 🔴 Las sesiones ocultas con las que Nexus publica en claude.ai no son
+  // tuyas, y se paran sin cerrarse: sin esto se quedaban en la barra media hora.
+  test('las sesiones con las que Nexus publica no salen en la barra', () {
+    final t = tras([
+      e('inicio', {
+        'carpeta':
+            '/Users/a/Library/Application Support/com.katanalabs.nexus/publicar/1793',
+      }),
+    ]);
+
+    expect(t.sesiones, isEmpty);
+    expect(tras([e('inicio')]).sesiones, hasLength(1), reason: 'las tuyas sí');
+  });
 }

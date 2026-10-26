@@ -1,0 +1,4 @@
+{
+  "description": "Publicar documentos de Nexus como artifacts",
+  "modules": ["./register.js"]
+}

@@ -10,6 +10,13 @@ abstract final class LoQueCuentaLaTerminal {
   /// se cerró de golpe, sin `session.end`.
   static const callada = Duration(minutes: 30);
 
+  /// Las sesiones que lanza el propio Nexus para publicar en claude.ai: corren
+  /// ocultas en su carpeta de soporte —ver `ElPublicadorPorLaTerminal`— y no
+  /// son tuyas. Se paran sin cerrarse, así que sin esto se quedarían en la
+  /// barra la media hora de [callada].
+  static bool esDeNexus(String carpeta) =>
+      carpeta.contains('/com.katanalabs.nexus/publicar/');
+
   static LaTerminal con(
     LaTerminal antes,
     Map<String, dynamic> evento, {
@@ -19,6 +26,7 @@ abstract final class LoQueCuentaLaTerminal {
     final id = evento['sesion'];
     final carpeta = evento['carpeta'];
     if (tipo is! String || id is! String || id.isEmpty) return antes;
+    if (carpeta is String && esDeNexus(carpeta)) return antes;
 
     if (tipo == 'cierre') {
       return antes.copyWith(

@@ -45,6 +45,37 @@ export function laPublicacion(pedido, { conUrl = true } = {}) {
   }
 }
 
+const COPIA = /saved (?:to|at) (\/.*?\.html?)(?=[\s:—]|$)/
+const LINEAS = /\((\d+) lines?\b/
+
+/**
+ * La copia que guardó la herramienta al leer una página que no le cabe en la
+ * respuesta: `{ ruta, lineas }`, o `null` si la página vino en la respuesta.
+ *
+ * 🔴 **Leer el artifact no basta cuando es grande.** Con una página de unos
+ * 300 KB la lectura la deja en un archivo, y publicar encima se rechaza
+ * («You hadn't viewed the live version») hasta que la sesión lee cada línea
+ * de esa copia. Medido el 27 oct con el documento de tareas asignadas: la
+ * prueba del 26, pequeña, venía entera en la respuesta y no lo enseñó.
+ */
+export function laCopiaGuardada(texto) {
+  const ruta = String(texto ?? '').match(COPIA)?.[1]
+  if (!ruta) return null
+  const lineas = Number(String(texto).match(LINEAS)?.[1])
+  return { ruta, lineas: Number.isInteger(lineas) && lineas > 0 ? lineas : null }
+}
+
+/** Cuántas líneas tiene [texto], como las numera `Read`. */
+export function lasLineas(texto) {
+  if (!texto) return 0
+  return texto.endsWith('\n') ? texto.split('\n').length - 1 : texto.split('\n').length
+}
+
+/** Una lectura de [tramo] líneas de [ruta] desde la línea [desde]. */
+export function laLectura(ruta, desde, tramo) {
+  return { tool: 'Read', file_path: ruta, offset: desde, limit: tramo }
+}
+
 const ENLACE = /https:\/\/(?:preview\.)?claude\.ai\/(?:code\/)?artifact\/[A-Za-z0-9_-]+/
 
 /**

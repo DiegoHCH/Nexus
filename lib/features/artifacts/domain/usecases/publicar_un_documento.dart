@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:nexus/features/artifacts/domain/entities/la_publicacion.dart';
 import 'package:nexus/features/artifacts/domain/repositories/el_publicador.dart';
 
@@ -35,13 +38,45 @@ class PublicarUnDocumento {
       archivo: archivo,
       titulo: elTituloDelDocumento(html, archivo),
       cuenta: cuenta,
-      enlace: antes,
+      enlace: antes?.url,
     );
     if (salio case Publicado(:final url)) {
-      await _enlaces.apuntar(archivo, url, cuenta: cuenta);
+      await _enlaces.apuntar(
+        archivo,
+        url,
+        cuenta: cuenta,
+        huella: laHuella(html),
+      );
     }
     return salio;
   }
+
+  /// Vuelve a publicar [archivo] en su enlace **si cambió desde la última
+  /// vez**; `null` si no hacía falta, porque nunca se publicó o porque el
+  /// enlace ya tiene esta versión.
+  ///
+  /// Pedido el 27 oct: «le pedí que actualizara el documento HTML de tareas
+  /// asignadas pero no actualizó por defecto también el artifact que se creó
+  /// a partir de ese documento». Publicar una vez es decir «esto vive en
+  /// claude.ai»; que haya que volver a pulsar después de cada cambio dejaba el
+  /// enlace atrás justo cuando alguien lo estaba mirando.
+  ///
+  /// Lo publicado antes de que se guardara la huella se vuelve a publicar una
+  /// vez: no se sabe qué versión tiene, y publicar de más deja el mismo enlace
+  /// con lo mismo, mientras que de menos lo deja viejo.
+  Future<LoQueSalioDePublicar?> siCambio(
+    String archivo, {
+    required String html,
+  }) async {
+    final cuenta = laCuentaDelDocumento(archivo, home: home, existe: existe);
+    final antes = await _enlaces.de(archivo, cuenta: cuenta);
+    if (antes == null || antes.huella == laHuella(html)) return null;
+    return call(archivo, html: html);
+  }
+
+  /// La huella de un HTML: cambia si cambia una letra.
+  static String laHuella(String html) =>
+      sha256.convert(utf8.encode(html)).toString();
 
   /// Con qué cuenta de Claude se publica [archivo]: la de la carpeta donde
   /// está, si es una.

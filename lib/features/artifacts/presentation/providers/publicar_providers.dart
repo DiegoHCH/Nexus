@@ -5,12 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/core/platform/lo_que_pide_la_pagina.dart';
+import 'package:nexus/core/platform/notifications_channel.dart';
 import 'package:nexus/features/artifacts/data/datasources/el_publicador_por_la_terminal.dart';
 import 'package:nexus/features/artifacts/data/datasources/los_enlaces_publicados_en_disco.dart';
 import 'package:nexus/features/artifacts/domain/entities/la_publicacion.dart';
 import 'package:nexus/features/artifacts/domain/repositories/el_publicador.dart';
 import 'package:nexus/features/artifacts/domain/usecases/publicar_un_documento.dart';
 import 'package:nexus/features/artifacts/presentation/providers/artifacts_providers.dart';
+import 'package:nexus/features/artifacts/presentation/providers/lo_publicado_al_dia.dart';
 import 'package:path_provider/path_provider.dart';
 
 final elPublicadorProvider = Provider<ElPublicador>(
@@ -33,6 +35,43 @@ final publicarUnDocumentoProvider = Provider<PublicarUnDocumento>(
     existe: (ruta) => Directory(ruta).existsSync(),
   ),
 );
+
+/// Lo que vuelve a publicar un documento cuando cambia. Vive lo que la app: se
+/// lee una vez al arrancar, pone al día lo que cambió con la app cerrada y
+/// vigila desde ahí.
+final loPublicadoAlDiaProvider = Provider<LoPublicadoAlDia>((ref) {
+  final alDia = LoPublicadoAlDia(
+    publicados: ref.read(losEnlacesPublicadosProvider).todos,
+    ponerAlDia: ref.read(publicarUnDocumentoProvider).siCambio,
+    alTerminar: (archivo, html, salio) {
+      switch (salio) {
+        case Publicado(:final url):
+          debugPrint('publicar · al día · $url');
+          return;
+        case HayQueConfiarEnLaCarpeta(:final carpeta):
+          debugPrint(
+            'publicar · sin poner al día $archivo: confiar en $carpeta',
+          );
+        case NoSePudoPublicar(:final motivo):
+          debugPrint('publicar · sin poner al día $archivo: $motivo');
+      }
+      // Un enlace que se quedó atrás sin decirlo es peor que no publicar: quien
+      // lo compartió cree que enseña lo último.
+      final strings = ref.read(stringsProvider);
+      unawaited(
+        NotificationsChannel.notify(
+          title: strings.publicadoSinActualizarTitulo,
+          body: strings.publicadoSinActualizarDetalle(
+            PublicarUnDocumento.elTituloDelDocumento(html, archivo),
+          ),
+        ),
+      );
+    },
+  );
+  unawaited(alDia.empezar());
+  ref.onDispose(alDia.olvidar);
+  return alDia;
+});
 
 /// Lo que atiende el botón «Publicar en claude.ai» del visor. Vive lo que la
 /// app: se lee una vez al arrancar y escucha desde ahí.
@@ -87,6 +126,8 @@ class LaPublicacionDesdeElVisor {
       switch (salio) {
         case Publicado(:final url, :final nuevo):
           debugPrint('publicar · ${nuevo ? 'nuevo' : 'mismo enlace'} · $url');
+          // Y desde ahora, cada cambio del documento va a este enlace solo.
+          _ref.read(loPublicadoAlDiaProvider).vigilar(ruta);
           await visor.publicacion(
             ruta: ruta,
             estado: 'publicado',

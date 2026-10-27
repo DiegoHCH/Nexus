@@ -49,10 +49,10 @@ class _Publicador implements ElPublicador {
 }
 
 class _Enlaces implements LosEnlacesPublicados {
-  final guardados = <String, String>{};
+  final guardados = <String, LoPublicado>{};
 
   @override
-  Future<String?> de(String archivo, {required String? cuenta}) async =>
+  Future<LoPublicado?> de(String archivo, {required String? cuenta}) async =>
       guardados['$cuenta|$archivo'];
 
   @override
@@ -60,7 +60,16 @@ class _Enlaces implements LosEnlacesPublicados {
     String archivo,
     String url, {
     required String? cuenta,
-  }) async => guardados['$cuenta|$archivo'] = url;
+    required String huella,
+  }) async => guardados['$cuenta|$archivo'] = LoPublicado(
+    archivo: archivo,
+    cuenta: cuenta,
+    url: url,
+    huella: huella,
+  );
+
+  @override
+  Future<List<LoPublicado>> todos() async => [...guardados.values];
 }
 
 void main() {
@@ -144,14 +153,25 @@ void main() {
       expect(publicador.pedidos.single.enlace, isNull);
       expect(publicador.pedidos.single.cuenta, '$home/.claude-work');
       expect(publicador.pedidos.single.titulo, 'T');
-      expect(enlaces.guardados.values, ['https://claude.ai/artifact/a1']);
+      expect(
+        enlaces.guardados.values.single.url,
+        'https://claude.ai/artifact/a1',
+      );
+      expect(
+        enlaces.guardados.values.single.huella,
+        PublicarUnDocumento.laHuella('<title>T</title>'),
+      );
     });
 
     // 🔴 La mitad que importa: quien ya tiene el enlace ve la versión nueva.
     test('la segunda va encima del enlace que ya tenía', () async {
       final enlaces = _Enlaces()
         ..guardados['$home/.claude-work|$home/documentos/work/t.html'] =
-            'https://claude.ai/artifact/a1';
+            const LoPublicado(
+              archivo: '$home/documentos/work/t.html',
+              cuenta: '$home/.claude-work',
+              url: 'https://claude.ai/artifact/a1',
+            );
       final publicador = _Publicador(
         const Publicado('https://claude.ai/artifact/a1', nuevo: false),
       );
@@ -177,6 +197,84 @@ void main() {
       )('$home/documentos/work/t.html', html: '');
 
       expect(enlaces.guardados, isEmpty);
+    });
+  });
+
+  // Pedido el 27 oct: «le pedí que actualizara el documento HTML de tareas
+  // asignadas pero no actualizó por defecto también el artifact que se creó a
+  // partir de ese documento».
+  group('lo publicado sigue al documento', () {
+    const archivo = '$home/documentos/work/t.html';
+    const enlace = 'https://claude.ai/artifact/a1';
+
+    ({_Publicador publicador, _Enlaces enlaces, PublicarUnDocumento publicar})
+    publicadoCon(String? html) {
+      final publicador = _Publicador(const Publicado(enlace, nuevo: false));
+      final enlaces = _Enlaces();
+      if (html != null) {
+        enlaces.guardados['$home/.claude-work|$archivo'] = LoPublicado(
+          archivo: archivo,
+          cuenta: '$home/.claude-work',
+          url: enlace,
+          huella: PublicarUnDocumento.laHuella(html),
+        );
+      }
+      return (
+        publicador: publicador,
+        enlaces: enlaces,
+        publicar: PublicarUnDocumento(
+          publicador,
+          enlaces,
+          home: home,
+          existe: soloElDelTrabajo,
+        ),
+      );
+    }
+
+    test('si cambió, va a su mismo enlace y apunta la versión nueva', () async {
+      final (:publicador, :enlaces, :publicar) = publicadoCon('<p>antes</p>');
+
+      final salio = await publicar.siCambio(archivo, html: '<p>después</p>');
+
+      expect(salio, isA<Publicado>());
+      expect(publicador.pedidos.single.enlace, enlace);
+      expect(publicador.pedidos.single.cuenta, '$home/.claude-work');
+      expect(
+        enlaces.guardados.values.single.huella,
+        PublicarUnDocumento.laHuella('<p>después</p>'),
+      );
+    });
+
+    test('si es lo mismo que ya está publicado, no se publica', () async {
+      final (:publicador, enlaces: _, :publicar) = publicadoCon('<p>igual</p>');
+
+      expect(await publicar.siCambio(archivo, html: '<p>igual</p>'), isNull);
+      expect(publicador.pedidos, isEmpty);
+    });
+
+    // Publicar es cosa de quien pulsa el botón: un documento que nunca se
+    // publicó no sale a claude.ai porque cambie.
+    test('lo que nunca se publicó no se publica solo', () async {
+      final (:publicador, enlaces: _, :publicar) = publicadoCon(null);
+
+      expect(await publicar.siCambio(archivo, html: '<p>nuevo</p>'), isNull);
+      expect(publicador.pedidos, isEmpty);
+    });
+
+    // Lo publicado con la 1.47.0 no tiene huella: no se sabe qué versión
+    // tiene el enlace, y es justo el caso que lo pidió.
+    test('lo publicado sin huella se pone al día una vez', () async {
+      final (:publicador, :enlaces, :publicar) = publicadoCon(null);
+      enlaces.guardados['$home/.claude-work|$archivo'] = const LoPublicado(
+        archivo: archivo,
+        cuenta: '$home/.claude-work',
+        url: enlace,
+      );
+
+      await publicar.siCambio(archivo, html: '<p>hoy</p>');
+      await publicar.siCambio(archivo, html: '<p>hoy</p>');
+
+      expect(publicador.pedidos.single.enlace, enlace);
     });
   });
 
@@ -327,19 +425,21 @@ void main() {
         '/d/t.html',
         'https://claude.ai/artifact/w',
         cuenta: '/u/.claude-work',
+        huella: 'h1',
       );
       await nuevo().apuntar(
         '/d/t.html',
         'https://claude.ai/artifact/p',
         cuenta: null,
+        huella: 'h2',
       );
 
       expect(
-        await nuevo().de('/d/t.html', cuenta: '/u/.claude-work'),
+        (await nuevo().de('/d/t.html', cuenta: '/u/.claude-work'))?.url,
         'https://claude.ai/artifact/w',
       );
       expect(
-        await nuevo().de('/d/t.html', cuenta: null),
+        (await nuevo().de('/d/t.html', cuenta: null))?.url,
         'https://claude.ai/artifact/p',
       );
       expect(await nuevo().de('/d/otro.html', cuenta: null), isNull);
@@ -351,6 +451,50 @@ void main() {
         () async => File('${carpeta.path}/publicados.json'),
       );
       expect(await enlaces.de('/d/t.html', cuenta: null), isNull);
+    });
+
+    test('todo lo publicado, con su cuenta y su huella', () async {
+      final enlaces = LosEnlacesPublicadosEnDisco(
+        () async => File('${carpeta.path}/publicados.json'),
+      );
+      await enlaces.apuntar(
+        '/d/t.html',
+        'https://w',
+        cuenta: '/u/.c',
+        huella: 'h',
+      );
+      await enlaces.apuntar(
+        '/d/s.html',
+        'https://p',
+        cuenta: null,
+        huella: 'g',
+      );
+
+      final todos = await enlaces.todos();
+
+      expect(
+        [for (final p in todos) (p.archivo, p.cuenta, p.url, p.huella)],
+        [
+          ('/d/t.html', '/u/.c', 'https://w', 'h'),
+          ('/d/s.html', null, 'https://p', 'g'),
+        ],
+      );
+    });
+
+    // Lo que dejó la 1.47.0: solo el enlace.
+    test('lo apuntado sin huella se lee, sin huella', () async {
+      File(
+        '${carpeta.path}/publicados.json',
+      ).writeAsStringSync(jsonEncode({'/u/.c|/d/t.html': 'https://w'}));
+      final enlaces = LosEnlacesPublicadosEnDisco(
+        () async => File('${carpeta.path}/publicados.json'),
+      );
+
+      final publicado = await enlaces.de('/d/t.html', cuenta: '/u/.c');
+
+      expect(publicado?.url, 'https://w');
+      expect(publicado?.huella, isNull);
+      expect((await enlaces.todos()).single.archivo, '/d/t.html');
     });
   });
 }

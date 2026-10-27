@@ -27,6 +27,11 @@ El mod publica —encima de `url` si viene, leyéndolo antes, como exige la
 herramienta— y deja `respuesta.json`: `{ "ok": true, "url", "nuevo" }` o
 `{ "ok": false, "error" }`. Nexus la recoge y para la sesión.
 
+Una página grande (cientos de KB) no viene en la lectura: la herramienta la
+guarda en un archivo y no deja publicar encima hasta que la sesión lee **cada
+línea** de esa copia. El mod la lee con `Read`, por tramos, antes de publicar.
+Medido con una de 313 KB: 9 s la actualización.
+
 **Sin `pedido.json`, o en una sesión que no es interactiva, no hace nada**:
 cargado por error en otra parte, no publica nada de nadie.
 

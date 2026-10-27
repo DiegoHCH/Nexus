@@ -25,7 +25,16 @@ abstract interface class ElPublicador {
 /// Los enlaces que ya tiene cada documento publicado, para actualizar el mismo
 /// en vez de sacar uno nuevo cada vez.
 abstract interface class LosEnlacesPublicados {
-  Future<String?> de(String archivo, {required String? cuenta});
+  Future<LoPublicado?> de(String archivo, {required String? cuenta});
 
-  Future<void> apuntar(String archivo, String url, {required String? cuenta});
+  /// Apunta que [archivo] está en [url], con la [huella] del HTML publicado.
+  Future<void> apuntar(
+    String archivo,
+    String url, {
+    required String? cuenta,
+    required String huella,
+  });
+
+  /// Todo lo publicado, para vigilarlo.
+  Future<List<LoPublicado>> todos();
 }

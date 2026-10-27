@@ -163,6 +163,11 @@ mixin ArranqueStrings {
   /// Lo que dice la terminal que se abre para aceptar la carpeta.
   String get publicarAvisoEnLaTerminal;
 
+  /// El aviso cuando un documento publicado cambió y no se pudo poner al día
+  /// su enlace. Ver `LoPublicadoAlDia`.
+  String get publicadoSinActualizarTitulo;
+  String publicadoSinActualizarDetalle(String titulo);
+
   /// El pie de la ventana de la consola de la app: de dónde sale y qué no
   /// toca.
   String get consolaSoloConLaCopia;
@@ -506,8 +511,8 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   String get publicadoTitulo => 'Publicado en claude.ai';
   @override
   String get publicadoDetalle =>
-      'Es privado: lo compartes desde el botón Share de la página. Cada vez '
-      'que vuelvas a publicar este documento se actualiza este mismo enlace.';
+      'Es privado: lo compartes desde el botón Share de la página. Cuando el '
+      'documento cambie, Nexus lo vuelve a publicar solo en este mismo enlace.';
   @override
   String get actualizadoTitulo => 'Actualizado en claude.ai';
   @override
@@ -537,6 +542,12 @@ mixin ArranqueStringsEs implements ArranqueStrings {
   String get publicarAvisoEnLaTerminal =>
       'Nexus: elige «Yes, I trust this folder», escribe /exit y vuelve a '
       'publicar desde el visor.';
+  @override
+  String get publicadoSinActualizarTitulo => 'No se actualizó en claude.ai';
+  @override
+  String publicadoSinActualizarDetalle(String titulo) =>
+      '«$titulo» cambió, pero su enlace sigue con la versión anterior. Ábrelo '
+      'en el visor y pulsa Publicar en claude.ai.';
   @override
   String get allowScriptsOn => 'encendido';
   @override
@@ -910,8 +921,8 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   String get publicadoTitulo => 'Published to claude.ai';
   @override
   String get publicadoDetalle =>
-      "It's private: share it from the page's Share button. Every time you "
-      'publish this document again, this same link is updated.';
+      "It's private: share it from the page's Share button. Whenever the "
+      'document changes, Nexus publishes it again to this same link on its own.';
   @override
   String get actualizadoTitulo => 'Updated on claude.ai';
   @override
@@ -941,6 +952,12 @@ mixin ArranqueStringsEn implements ArranqueStrings {
   String get publicarAvisoEnLaTerminal =>
       'Nexus: choose «Yes, I trust this folder», type /exit and publish again '
       'from the viewer.';
+  @override
+  String get publicadoSinActualizarTitulo => "Couldn't update on claude.ai";
+  @override
+  String publicadoSinActualizarDetalle(String titulo) =>
+      '«$titulo» changed, but its link still shows the previous version. Open '
+      'it in the viewer and press Publish to claude.ai.';
   @override
   String get allowScriptsOn => 'on';
   @override

@@ -29,3 +29,22 @@ final class NoSePudoPublicar extends LoQueSalioDePublicar {
 
   final String motivo;
 }
+
+/// Un documento que ya está en claude.ai: dónde, con qué cuenta y qué versión.
+final class LoPublicado {
+  const LoPublicado({
+    required this.archivo,
+    required this.cuenta,
+    required this.url,
+    this.huella,
+  });
+
+  final String archivo;
+  final String? cuenta;
+  final String url;
+
+  /// La huella del HTML que se publicó, para saber si el documento cambió
+  /// desde entonces. `null` en lo publicado antes de que se guardara: no se
+  /// sabe qué versión tiene el enlace.
+  final String? huella;
+}

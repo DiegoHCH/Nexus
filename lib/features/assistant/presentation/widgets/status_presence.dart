@@ -86,6 +86,9 @@ class _StatusPresenceState extends ConsumerState<StatusPresence> {
     // Y quien atiende su botón de publicar en claude.ai: se lee aquí para que
     // escuche desde que hay app. Ver [LaPublicacionDesdeElVisor].
     ref.read(laPublicacionDesdeElVisorProvider);
+    // Y lo que vuelve a publicar un documento publicado cuando cambia. Ver
+    // `LoPublicadoAlDia`.
+    ref.read(loPublicadoAlDiaProvider);
     StatusItemChannel.onAction(
       talk: () => ref
           .read(assistantControllerProvider(widget.conversationId).notifier)

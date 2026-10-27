@@ -12,7 +12,17 @@
 // sesión no hay `pedido.json`, o la sesión no es interactiva, no hace nada:
 // cargado por error en otra parte, no publica nada de nadie.
 
-import { PEDIDO, RESPUESTA, elPedido, laPublicacion, elEnlace, elMotivo } from './el_pedido.js'
+import {
+  PEDIDO,
+  RESPUESTA,
+  elPedido,
+  laPublicacion,
+  elEnlace,
+  elMotivo,
+  laCopiaGuardada,
+  lasLineas,
+  laLectura,
+} from './el_pedido.js'
 
 export function register(on) {
   on('session.start', async ($, e, next) => {
@@ -39,15 +49,27 @@ export function register(on) {
  * publicar sobre un artifact que la sesión no ha leído, y así además se publica
  * sobre la versión de verdad. Si ese enlace ya no está —se borró en
  * claude.ai—, se publica uno nuevo en vez de fallar.
+ *
+ * Lo que se publica es el documento de Nexus tal cual: es la fuente, y la
+ * versión de claude.ai es la que se publicó desde él la vez anterior.
  */
 export async function publicar($, pedido) {
   let conUrl = Boolean(pedido.url)
   if (conUrl) {
+    let leido = null
     try {
-      const leido = await $.tool.call({ tool: 'Artifact', action: 'read', url: pedido.url })
+      leido = await $.tool.call({ tool: 'Artifact', action: 'read', url: pedido.url })
       if (leido?.isError) conUrl = false
     } catch {
       conUrl = false
+    }
+    const copia = conUrl ? laCopiaGuardada(leido?.text ?? leido?.result) : null
+    if (copia) {
+      try {
+        await leerEntera($, copia)
+      } catch (error) {
+        return { ok: false, error: elMotivo(error) }
+      }
     }
   }
   try {
@@ -58,5 +80,26 @@ export async function publicar($, pedido) {
     return { ok: true, url, nuevo: !conUrl }
   } catch (error) {
     return { ok: false, error: elMotivo(error) }
+  }
+}
+
+/**
+ * Lee cada línea de la copia que guardó la herramienta, que es lo que pide
+ * para dejar publicar encima: ver `laCopiaGuardada`.
+ *
+ * Por tramos, porque `Read` no devuelve de una vez una página de cientos de
+ * KB; si un tramo no cabe, se parte en dos y se sigue con el más corto.
+ */
+async function leerEntera($, { ruta, lineas }) {
+  const total = lineas ?? lasLineas(await $.fs.read(ruta))
+  let tramo = 200
+  for (let desde = 1; desde <= total; ) {
+    const leido = await $.tool.call(laLectura(ruta, desde, tramo))
+    if (!leido?.isError) {
+      desde += tramo
+      continue
+    }
+    if (tramo === 1) throw new Error(leido.text ?? leido.result ?? 'Read')
+    tramo = Math.max(1, Math.floor(tramo / 2))
   }
 }

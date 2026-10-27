@@ -204,7 +204,9 @@ abstract final class ProjectContextPrompt {
         'presentación, una hoja de cálculo, una imagen—, guárdalo en '
         '$destino con un nombre que se entienda de aquí a un mes. '
         'Lo que es código del proyecto NO va ahí: eso va donde le toque dentro '
-        'del repositorio.',
+        'del repositorio. Si uno de esos documentos ya está publicado en '
+        'claude.ai, al cambiarlo Nexus lo vuelve a publicar solo en su mismo '
+        'enlace: no hace falta publicarlo aparte.',
       );
     }
 

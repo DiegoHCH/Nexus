@@ -59,8 +59,9 @@ final class NexusEspejoPegado {
   /// Cómo se mueve la botonera cuando quien se mueve es el espejo.
   private let moverLaBarra: (NSPoint) -> Void
 
-  /// Que el espejo se pegó (`true`) o se soltó (`false`): la botonera cambia
-  /// de escritorio con él mientras está pegado. Ver `estaALaVista`.
+  /// Que la botonera tiene que ir con el espejo (`true`) —está pegado, o se le
+  /// espera en otro escritorio— o que ya no (`false`): se soltó, o ya no está
+  /// en ninguno. Ver `estaALaVista`.
   private let alPegarseOSoltarse: (Bool) -> Void
 
   init(
@@ -76,6 +77,14 @@ final class NexusEspejoPegado {
   private var busca: LaVentanaDelEspejo?
   private var buscando: Timer?
   private var intentos = 0
+
+  /// El aviso de que cambió el escritorio, mientras se busca: al llegar al
+  /// del espejo se mira en el acto. Ver `buscar`.
+  private var alCambiarDeEscritorio: NSObjectProtocol?
+
+  /// Que el espejo está, pero **en un escritorio que no se ve**. La botonera lo
+  /// espera allí: ver `buscar`.
+  private var enOtroEscritorio = false
 
   private var ventana: AXUIElement?
   private var pid: pid_t = 0
@@ -105,6 +114,16 @@ final class NexusEspejoPegado {
   /// su servidor al teléfono, y medio minuto cubre hasta un cable lento.
   static let cadaCuanto: TimeInterval = 0.5
   static let intentosMaximos = 60
+
+  /// Y pasado ese medio minuto, **no se deja de buscar**: se sigue más despacio
+  /// mientras la botonera esté fuera. Ver `buscar`.
+  static let cadaCuantoDespues: TimeInterval = 1
+
+  /// Lo que tiene que medir de cada lado una ventana para contar como el
+  /// espejo cuando se busca en otro escritorio: deja fuera la barra de botones
+  /// del emulador y las ventanas de una línea que todos estos programas tienen
+  /// escondidas.
+  static let minimoParaSerEspejo: CGFloat = 100
 
   /// Lo que se tarda en dar por terminada una recolocación nuestra: la app
   /// ajusta su ventana —el Simulador guarda la proporción— y avisa varias veces.
@@ -263,20 +282,21 @@ final class NexusEspejoPegado {
     intentos = 0
     buscar()
     if ventana == nil {
-      buscando = Timer.scheduledTimer(withTimeInterval: Self.cadaCuanto, repeats: true) {
-        [weak self] _ in self?.buscar()
-      }
+      buscarCada(Self.cadaCuanto)
+      alCambiarDeEscritorio = NSWorkspace.shared.notificationCenter.addObserver(
+        forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main
+      ) { [weak self] _ in self?.buscar(trasCambiarDeEscritorio: true) }
     }
     return "buscando"
   }
 
   /// Lo suelta: se queda donde está.
   func soltar() {
-    let estabaPegado = ventana != nil
-    defer { if estabaPegado { alPegarseOSoltarse(false) } }
-    buscando?.invalidate()
-    buscando = nil
+    let laBarraLoSeguia = ventana != nil || enOtroEscritorio
+    defer { if laBarraLoSeguia { alPegarseOSoltarse(false) } }
+    dejarDeBuscar()
     busca = nil
+    enOtroEscritorio = false
     if let observador {
       CFRunLoopRemoveSource(
         CFRunLoopGetMain(), AXObserverGetRunLoopSource(observador), .defaultMode)
@@ -289,22 +309,117 @@ final class NexusEspejoPegado {
     ajusteDeLaApp = nil
   }
 
-  private func buscar() {
+  /// Busca la ventana del espejo entre las que se ven y, si no está, mira si
+  /// está en otro escritorio.
+  ///
+  /// 🔴 **Accesibilidad solo ve las ventanas de los escritorios a la vista.**
+  /// Reportado el 10 nov: la corrida se lanzó estando en el escritorio de
+  /// Slack, con el emulador en otro de la misma pantalla. La búsqueda no lo
+  /// encontraba, se rendía al medio minuto, y la botonera se quedaba para
+  /// siempre encima de Slack, sin pegarse. Medido ese día: con Nexus en tres
+  /// escritorios, Accesibilidad daba una sola de sus ventanas, la del que se
+  /// veía; y ninguna de Slack, que estaba en otro.
+  ///
+  /// Por eso ahora:
+  /// - **No se rinde.** Pasado el medio minuto sigue buscando más despacio, y
+  ///   al cambiar de escritorio mira en el acto: en cuanto llegas al del
+  ///   espejo, se pega.
+  /// - **Si el espejo está en otro escritorio, la botonera lo espera allí**:
+  ///   se hace de todos los escritorios y no se enseña hasta que se vea el
+  ///   espejo, como cuando ya está pegado. Ver `estaEnOtroEscritorio`.
+  /// - **Al encontrarlo así, la que va es la barra**: la tienes delante con el
+  ///   espejo, y traerlo a donde estaba la barra sería sacártelo de la vista.
+  private func buscar(trasCambiarDeEscritorio: Bool = false) {
     guard let busca, ventana == nil else {
-      buscando?.invalidate()
-      buscando = nil
+      dejarDeBuscar()
       return
     }
     intentos += 1
     if let (pid, encontrada) = Self.encontrar(busca) {
-      buscando?.invalidate()
-      buscando = nil
-      enganchar(pid, encontrada)
-    } else if intentos >= Self.intentosMaximos {
-      buscando?.invalidate()
-      buscando = nil
-      Self.log.info("el espejo no apareció")
+      let deOtroEscritorio = enOtroEscritorio || trasCambiarDeEscritorio
+      dejarDeBuscar()
+      enOtroEscritorio = false
+      enganchar(pid, encontrada, llevarLaBarra: deOtroEscritorio)
+      return
     }
+    let enOtro = Self.estaEnOtroEscritorio(busca)
+    if enOtro != enOtroEscritorio {
+      enOtroEscritorio = enOtro
+      if enOtro {
+        Self.log.info("el espejo está en otro escritorio")
+      } else {
+        Self.log.info("el espejo ya no está en otro escritorio")
+      }
+      alPegarseOSoltarse(enOtro)
+    }
+    if intentos == Self.intentosMaximos {
+      Self.log.info("el espejo no apareció: se sigue buscando, más despacio")
+      buscarCada(Self.cadaCuantoDespues)
+    }
+  }
+
+  private func buscarCada(_ intervalo: TimeInterval) {
+    buscando?.invalidate()
+    buscando = Timer.scheduledTimer(withTimeInterval: intervalo, repeats: true) {
+      [weak self] _ in self?.buscar()
+    }
+  }
+
+  private func dejarDeBuscar() {
+    buscando?.invalidate()
+    buscando = nil
+    if let alCambiarDeEscritorio {
+      NSWorkspace.shared.notificationCenter.removeObserver(alCambiarDeEscritorio)
+    }
+    alCambiarDeEscritorio = nil
+  }
+
+  /// Si la ventana de [busca] está en un escritorio que no se ve. `false`
+  /// también si no se puede saber: es lo de antes, y el espejo se pega igual
+  /// al llegar a su escritorio.
+  private static func estaEnOtroEscritorio(_ busca: LaVentanaDelEspejo) -> Bool {
+    guard Escritorios.seSabe else { return false }
+    let pids = Set(
+      NSWorkspace.shared.runningApplications
+        .filter {
+          busca.esSuya(bundle: $0.bundleIdentifier, ejecutable: $0.executableURL?.lastPathComponent)
+        }
+        .map(\.processIdentifier))
+    guard !pids.isEmpty else { return false }
+    let ventanas =
+      CGWindowListCopyWindowInfo([.optionAll, .excludeDesktopElements], kCGNullWindowID)
+      as? [[String: Any]] ?? []
+    return enOtroEscritorio(pids: pids, ventanas: ventanas, escritorios: Escritorios.de)
+  }
+
+  /// Si entre [ventanas] —todas las del sistema, se vean o no— la de alguno
+  /// de [pids] está en un escritorio que no se ve: en alguno según
+  /// [escritorios], y no en pantalla.
+  ///
+  /// 🔴 **Que tenga escritorio es lo que cuenta.** Sin pantalla está también
+  /// lo que el programa tiene guardado y no enseña en ninguno —el emulador
+  /// lleva una ventana de 500 × 500 así—, y esperar a una de esas dejaría la
+  /// botonera escondida en todas partes.
+  ///
+  /// Con una suya a la vista no está en otro: si no se pegó es que no era la
+  /// que se buscaba, y la botonera se queda donde está.
+  static func enOtroEscritorio(
+    pids: Set<pid_t>, ventanas: [[String: Any]], escritorios: (CGWindowID) -> [UInt64]
+  ) -> Bool {
+    var enOtro = false
+    for una in ventanas {
+      guard let duena = (una[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value,
+        pids.contains(duena),
+        (una[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
+        let crudo = una[kCGWindowBounds as String] as? NSDictionary,
+        let marco = CGRect(dictionaryRepresentation: crudo),
+        marco.width >= minimoParaSerEspejo, marco.height >= minimoParaSerEspejo,
+        let numero = (una[kCGWindowNumber as String] as? NSNumber)?.uint32Value
+      else { continue }
+      if (una[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue == true { return false }
+      if !escritorios(numero).isEmpty { enOtro = true }
+    }
+    return enOtro
   }
 
   private static func encontrar(_ busca: LaVentanaDelEspejo) -> (pid_t, AXUIElement)? {
@@ -327,7 +442,9 @@ final class NexusEspejoPegado {
     return candidatas[i]
   }
 
-  private func enganchar(_ pid: pid_t, _ encontrada: AXUIElement) {
+  /// Lo pega. Con [llevarLaBarra], primero la barra va encima del espejo
+  /// —lo encontraste tú en su escritorio— y después el espejo toma su ancho.
+  private func enganchar(_ pid: pid_t, _ encontrada: AXUIElement, llevarLaBarra: Bool = false) {
     ventana = encontrada
     self.pid = pid
     var nuevo: AXObserver?
@@ -342,6 +459,9 @@ final class NexusEspejoPegado {
       observador = nuevo
     }
     if let actual = marco(), let barra = laBarra()?.frame {
+      if llevarLaBarra {
+        moverLaBarra(Self.dondeVaLaBarra(espejo: actual, lado: .abajo, barra: barra.size))
+      }
       tamanoDeseado = Self.tamanoAlPegar(actual.size, ancho: barra.width)
     }
     Self.log.info("espejo pegado")
@@ -362,8 +482,11 @@ final class NexusEspejoPegado {
   ///
   /// Minimizado cuenta como a la vista: la botonera son los mandos de la
   /// corrida, y apartarla dejaría sin «Parar» a quien solo escondió el teléfono.
+  ///
+  /// Esperándolo en otro escritorio, **no**: la botonera se aparta hasta que
+  /// llegues a él, y entonces `buscar` lo pega y ella sale allí.
   func estaALaVista() -> Bool? {
-    guard let ventana, pid != 0 else { return nil }
+    guard let ventana, pid != 0 else { return enOtroEscritorio ? false : nil }
     if Self.atributo(ventana, kAXMinimizedAttribute) as? Bool == true { return true }
     guard let marco = marcoEnAccesibilidad() else { return nil }
     let ventanas =
@@ -529,6 +652,48 @@ final class NexusEspejoPegado {
         AXUIElementSetAttributeValue(self.ventana ?? ventana, kAXPositionAttribute as CFString, valor)
       }
     }
+  }
+}
+
+/// **En qué escritorios está una ventana**, que macOS no cuenta con API
+/// pública.
+///
+/// Se le pregunta al servidor de ventanas con `CGSCopySpacesForWindows`, la
+/// misma llamada de solo lectura que usan AltTab o yabai. Se busca con `dlsym`
+/// en vez de enlazarla: si un macOS futuro la quita, Nexus sigue abriendo y
+/// solo deja de saber de escritorios —el espejo se pega igual, al llegar al
+/// suyo—. Ver `NexusEspejoPegado.estaEnOtroEscritorio`.
+enum Escritorios {
+  private typealias Conexion = @convention(c) () -> Int32
+  private typealias DeLasVentanas = @convention(c) (Int32, Int32, CFArray) -> Unmanaged<CFArray>?
+
+  /// Todos: los de usuario, los de pantalla completa y los del sistema.
+  private static let todos: Int32 = 0x7
+
+  /// `RTLD_DEFAULT`, que Swift no trae: buscar en todo lo cargado.
+  private static let entreTodo = UnsafeMutableRawPointer(bitPattern: -2)
+
+  private static let llamadas: (conexion: Conexion, deLasVentanas: DeLasVentanas)? = {
+    guard let conexion = dlsym(Self.entreTodo, "CGSMainConnectionID"),
+      let deLasVentanas = dlsym(Self.entreTodo, "CGSCopySpacesForWindows")
+    else { return nil }
+    return (
+      unsafeBitCast(conexion, to: Conexion.self),
+      unsafeBitCast(deLasVentanas, to: DeLasVentanas.self)
+    )
+  }()
+
+  static var seSabe: Bool { llamadas != nil }
+
+  /// Los escritorios de [ventana]. Vacío si no está en ninguno: escondida o
+  /// cerrada.
+  static func de(_ ventana: CGWindowID) -> [UInt64] {
+    guard let llamadas,
+      let lista = llamadas.deLasVentanas(
+        llamadas.conexion(), todos, [NSNumber(value: ventana)] as CFArray)?
+        .takeRetainedValue() as? [NSNumber]
+    else { return [] }
+    return lista.map(\.uint64Value)
   }
 }
 

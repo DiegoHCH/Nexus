@@ -33,20 +33,35 @@ final laVentanaDeLaBotoneraProvider = Provider<LaVentanaDeLaBotonera>(
 /// Es lo único que miraba la barra antes —las corridas, los trabajos largos, lo
 /// de fondo y la recarga sola— hecho foto en un sitio. Así la barra de dentro y
 /// la de fuera no pueden enseñar cosas distintas: las dos se pintan con esto.
-final loQueEnsenaLaBotoneraProvider = Provider<LoQueEnsenaLaBotonera>((ref) {
+/// **Cada corrida como fila de la botonera**, todas: las usan la botonera
+/// flotante (solo las de iOS, ver abajo) y el hub (la de su dispositivo).
+final lasFilasDeCorridaProvider = Provider<List<FilaDeCorrida>>((ref) {
   final abiertas = ref.watch(lasVentanasDelRegistroProvider);
   bool abierta(String deviceId, {required bool sistema}) => abiertas.contains(
     LasVentanasDelRegistro.nombreDe(deviceId, sistema: sistema),
   );
+  return [
+    for (final corrida in ref.watch(corridasProvider).values)
+      FilaDeCorrida.de(
+        corrida,
+        registroAbierto: abierta(corrida.deviceId, sistema: false),
+        sistemaAbierto: abierta(corrida.deviceId, sistema: true),
+      ),
+  ];
+});
 
+final loQueEnsenaLaBotoneraProvider = Provider<LoQueEnsenaLaBotonera>((ref) {
+  final corridas = ref.watch(corridasProvider);
   return LoQueEnsenaLaBotonera(
+    // 🔴 **Sin las de Android** (A2, 10 nov): sus mandos están en el hub, con
+    // su pantalla dentro, y el hub se abre solo al empezar una (P4). La
+    // flotante queda para iOS —cuya pantalla sigue en la ventana de Apple y
+    // se pega a ella— y para los trabajos y las tareas de fondo, que no son de
+    // ningún dispositivo.
     corridas: [
-      for (final corrida in ref.watch(corridasProvider).values)
-        FilaDeCorrida.de(
-          corrida,
-          registroAbierto: abierta(corrida.deviceId, sistema: false),
-          sistemaAbierto: abierta(corrida.deviceId, sistema: true),
-        ),
+      for (final fila in ref.watch(lasFilasDeCorridaProvider))
+        if (corridas[fila.deviceId]?.plataforma != PlataformaEmulador.android)
+          fila,
     ],
     // 🔴 **Y los trabajos largos, que también corren con vida propia.**
     // Reportado al usarlo: «¿cómo sé que está corriendo si no hay nada en la

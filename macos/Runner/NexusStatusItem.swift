@@ -128,6 +128,10 @@ final class NexusStatusItem: NSObject {
     // Dock, y escondida con la cruz esta fila es el camino de vuelta. El
     // rótulo llega solo en ese caso; sin él, `add` no pone nada.
     add("runBar", { channel?.invokeMethod("runBar", arguments: nil) })
+    // El hub de dispositivos, **solo con una corrida de Android y el hub
+    // cerrado**: sus mandos viven ahí (A2), y cerrado a mano esta fila es el
+    // camino de vuelta, como la de la botonera.
+    add("hub", { channel?.invokeMethod("hub", arguments: nil) })
     // La vista compacta, junto a las otras dos que traen algo de Nexus al
     // frente. Llega solo mientras la isla no está fuera.
     add("island", { channel?.invokeMethod("island", arguments: nil) })

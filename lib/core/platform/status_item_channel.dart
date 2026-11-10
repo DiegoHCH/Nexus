@@ -35,6 +35,7 @@ abstract final class StatusItemChannel {
     required String quit,
     String? update,
     String? runBar,
+    String? hub,
     String? island,
   }) => _llamar('setMenu', {
     'talk': talk,
@@ -46,6 +47,9 @@ abstract final class StatusItemChannel {
     'update': ?update,
     // Y la botonera escondida, por lo mismo: solo mientras hay algo que traer.
     'runBar': ?runBar,
+    // Y el hub de dispositivos, mientras haya algo de Android que mirar en él
+    // y esté cerrado.
+    'hub': ?hub,
     // La vista compacta, mientras no esté ya fuera.
     'island': ?island,
   });
@@ -57,6 +61,7 @@ abstract final class StatusItemChannel {
     required void Function() settings,
     required void Function() update,
     required void Function() runBar,
+    required void Function() hub,
     required void Function() island,
   }) {
     _channel.setMethodCallHandler((call) async {
@@ -74,6 +79,8 @@ abstract final class StatusItemChannel {
         // es la que tiene lo que enseña.
         case 'runBar':
           runBar();
+        case 'hub':
+          hub();
         case 'island':
           island();
       }

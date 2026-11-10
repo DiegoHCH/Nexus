@@ -1,3 +1,6 @@
+import 'package:nexus/features/emulators/domain/entities/emulador.dart';
+import 'package:nexus/features/run/presentation/providers/corridas_providers.dart';
+import 'package:nexus/features/hub/presentation/providers/el_hub_de_dispositivos.dart';
 import 'dart:ui';
 
 import 'package:flutter/widgets.dart';
@@ -45,6 +48,11 @@ class _StatusPresenceState extends ConsumerState<StatusPresence> {
     final strings = context.strings;
     final aviso = ref.read(updatesControllerProvider).notice;
     final escondida = ref.read(laBotoneraDeFueraProvider).escondida;
+    final hubCerrado = !ref.read(elHubDeDispositivosProvider);
+    final hayAndroid = ref
+        .read(corridasProvider)
+        .values
+        .any((c) => c.plataforma == PlataformaEmulador.android);
     final enLaIsla = ref.read(laIslaProvider);
     StatusItemChannel.setMenu(
       talk: strings.statusTalk,
@@ -58,6 +66,9 @@ class _StatusPresenceState extends ConsumerState<StatusPresence> {
       // Dock: escondida con la cruz, esta fila es el único camino de vuelta
       // mientras siga corriendo lo mismo. Sin nada escondido sobraría.
       runBar: escondida ? strings.runToolbarMostrar : null,
+      // El hub, con algo de Android corriendo y él cerrado: sus mandos viven
+      // ahí desde que la botonera flotante dejó Android (A2).
+      hub: hayAndroid && hubCerrado ? strings.hubMostrar : null,
       // La isla, desde aquí también: con la ventana grande apartada, este menú
       // es lo que queda a mano. Fuera ya, sobra.
       island: enLaIsla ? null : strings.islaSacar,
@@ -101,6 +112,7 @@ class _StatusPresenceState extends ConsumerState<StatusPresence> {
       // hacer por ti.
       update: ref.read(updatesControllerProvider.notifier).comprobarAhora,
       runBar: ref.read(laBotoneraDeFueraProvider.notifier).mostrarOtraVez,
+      hub: () => ref.read(elHubDeDispositivosProvider.notifier).abrir(),
       island: () => ref.read(laIslaProvider.notifier).sacar(),
     );
   }
@@ -116,6 +128,19 @@ class _StatusPresenceState extends ConsumerState<StatusPresence> {
       updatesControllerProvider.select((s) => s.notice),
       (_, _) => _rehacerMenu(),
     );
+
+    // Y al abrir o cerrar el hub, o al empezar o terminar algo de Android: la
+    // fila del hub va y viene con eso.
+    ref
+      ..listen(elHubDeDispositivosProvider, (_, _) => _rehacerMenu())
+      ..listen(
+        corridasProvider.select(
+          (corridas) => corridas.values.any(
+            (c) => c.plataforma == PlataformaEmulador.android,
+          ),
+        ),
+        (_, _) => _rehacerMenu(),
+      );
 
     // Y al esconder o traer la botonera, que es la otra fila que va y viene.
     ref.listen(

@@ -218,6 +218,7 @@ final laFotoDelHubProvider = Provider<LoQueEnsenaElHub>((ref) {
   final id = elegido?.id;
   final deviceId = elegido?.deviceId;
   final botonera = ref.watch(loQueEnsenaLaBotoneraProvider);
+  final filas = ref.watch(lasFilasDeCorridaProvider);
   return LoQueEnsenaElHub(
     apariencia: ref.watch(laAparienciaDeFueraProvider),
     dispositivos: lista,
@@ -227,7 +228,7 @@ final laFotoDelHubProvider = Provider<LoQueEnsenaElHub>((ref) {
     // de un dispositivo, y siguen en la botonera flotante.
     botonera: LoQueEnsenaLaBotonera(
       corridas: [
-        for (final c in botonera.corridas)
+        for (final c in filas)
           if (c.deviceId == deviceId) c,
       ],
       trabajos: const [],
@@ -285,6 +286,17 @@ class ElHubDeDispositivos extends Notifier<bool> {
       });
     ref
       ..listen(laFotoDelHubProvider, (_, _) => _repintar())
+      // P4: una corrida de Android que empieza abre el hub con ella elegida,
+      // como antes salía la botonera. Cerrado a mano, queda cerrado hasta la
+      // próxima.
+      ..listen(corridasProvider, (antes, ahora) {
+        for (final MapEntry(key: deviceId, value: corrida) in ahora.entries) {
+          if (antes?.containsKey(deviceId) ?? false) continue;
+          if (corrida.plataforma != PlataformaEmulador.android) continue;
+          unawaited(abrir(elegido: deviceId));
+          return;
+        }
+      })
       ..onDispose(() {
         _espera?.cancel();
         if (_abierta) unawaited(_ventana.cerrar());

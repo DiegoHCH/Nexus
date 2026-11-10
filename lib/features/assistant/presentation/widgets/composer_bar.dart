@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:nexus/features/assistant/presentation/widgets/composer/composer_chips.dart';
 import 'package:nexus/features/assistant/presentation/widgets/composer/composer_menus.dart';
 import 'package:nexus/features/emulators/presentation/widgets/dispositivos_menu.dart';
+import 'package:nexus/features/hub/presentation/providers/el_hub_de_dispositivos.dart';
+import 'package:nexus/features/run/presentation/providers/corridas_providers.dart';
 import 'package:nexus/features/e2e/presentation/providers/e2e_providers.dart';
 import 'package:nexus/features/e2e/presentation/widgets/pruebas_sheet.dart';
 import 'package:nexus/features/run/presentation/widgets/correr_menu.dart';
@@ -574,6 +576,10 @@ class _Controls extends ConsumerWidget {
         // Los tres, **solo donde hay código**: en una carpeta como `General`
         // no hay app que correr ni pruebas que pasar. Ver [LaCarpetaDeCodigo].
         if (seEnsenaLoDeCodigo(ref, carpeta?.path)) ...[
+          // El hub de dispositivos, en su ventana: dispositivos, correr y
+          // pruebas en una mesa. Convive con los tres de abajo hasta que los
+          // sustituya (T14 del refinamiento).
+          _Casilla(child: _BotonDelHub(proyecto: proyecto)),
           const _Casilla(child: DispositivosMenu()),
           // Correr la app va justo al lado de los dispositivos porque son los
           // dos pasos del mismo gesto: encender dónde, y lanzar qué.
@@ -663,6 +669,50 @@ class _NoScrollbar extends MaterialScrollBehavior {
 /// correr: una prueba corriendo se mira un rato —ocho pasos, medio minuto— y un
 /// popover se cierra al primer clic fuera. Es el mismo motivo por el que los
 /// documentos abren en sheet.
+/// **El hub de dispositivos.** Lo abre —o lo trae al frente— con esta carpeta
+/// como la app elegida. Con algo corriendo, el acento y su punto, como el
+/// botón de correr.
+class _BotonDelHub extends ConsumerWidget {
+  const _BotonDelHub({required this.proyecto});
+
+  final String? proyecto;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final corre = ref.watch(corridasProvider).isNotEmpty;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          onPressed: () =>
+              ref.read(elHubDeDispositivosProvider.notifier).abrir(),
+          tooltip: context.strings.hubTitulo,
+          iconSize: 15,
+          splashRadius: 15,
+          color: corre ? colors.accent : colors.faint,
+          icon: const Icon(Icons.phonelink_rounded),
+        ),
+        if (corre)
+          Positioned(
+            top: 2,
+            right: 2,
+            child: Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: colors.accent,
+                shape: BoxShape.circle,
+                border: Border.all(color: colors.void_, width: 1),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _BotonDePruebas extends ConsumerWidget {
   const _BotonDePruebas({required this.proyecto});
 

@@ -35,6 +35,7 @@ mixin HubStrings {
   String get hubFueraTextoEmulador;
   String get hubFueraTextoEnchufado;
   String get hubSimulatorApp;
+  String get hubDuplicadoApp;
   String get hubVentanaDelEmulador;
   String get hubTraerAlFrente;
   String get hubVerLaPantalla;
@@ -123,6 +124,8 @@ mixin HubStringsEs implements HubStrings {
       'Su pantalla se ve con scrcpy, en su propia ventana.';
   @override
   String get hubSimulatorApp => 'Simulator';
+  @override
+  String get hubDuplicadoApp => 'Duplicado de iPhone';
   @override
   String get hubVentanaDelEmulador => 'la ventana del emulador';
   @override
@@ -230,6 +233,8 @@ mixin HubStringsEn implements HubStrings {
       'Its screen is shown with scrcpy, in its own window.';
   @override
   String get hubSimulatorApp => 'Simulator';
+  @override
+  String get hubDuplicadoApp => 'iPhone Mirroring';
   @override
   String get hubVentanaDelEmulador => "the emulator's window";
   @override

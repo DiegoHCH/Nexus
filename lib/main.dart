@@ -7,6 +7,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
 import 'package:nexus/features/hub/presentation/providers/el_hub_de_dispositivos.dart';
+import 'package:nexus/hub_de_dispositivos.dart';
 import 'package:nexus/core/design_system/orbe_preference.dart';
 import 'package:nexus/core/design_system/appearance_channel.dart';
 import 'package:nexus/core/diagnostico/lo_que_cuenta_el_lado_nativo.dart';
@@ -65,6 +66,11 @@ void botoneraDeFuera() => arrancarLaBotoneraDeFuera();
 /// la botonera; el cuerpo está en `isla_de_nexus.dart`.
 @pragma('vm:entry-point')
 void islaDeNexus() => arrancarLaIsla();
+
+/// **El hub de dispositivos**, en su ventana. Aquí por lo mismo que los demás:
+/// el motor aparte busca su punto de entrada en el archivo de `main`.
+@pragma('vm:entry-point')
+void hubDeDispositivos() => arrancarElHub();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

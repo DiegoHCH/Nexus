@@ -686,8 +686,9 @@ class _BotonDelHub extends ConsumerWidget {
       clipBehavior: Clip.none,
       children: [
         IconButton(
-          onPressed: () =>
-              ref.read(elHubDeDispositivosProvider.notifier).abrir(),
+          onPressed: () => ref
+              .read(elHubDeDispositivosProvider.notifier)
+              .abrir(app: proyecto),
           tooltip: context.strings.hubTitulo,
           iconSize: 15,
           splashRadius: 15,

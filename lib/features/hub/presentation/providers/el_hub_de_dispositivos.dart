@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,13 +9,19 @@ import 'package:nexus/features/emulators/domain/entities/emulador.dart';
 import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
 import 'package:nexus/features/hub/data/la_ventana_del_hub.dart';
 import 'package:nexus/features/hub/domain/entities/dispositivo_del_hub.dart';
+import 'package:nexus/features/hub/domain/usecases/correr_desde_el_hub.dart';
 import 'package:nexus/features/hub/domain/usecases/los_dispositivos_del_hub.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_ensena_el_hub.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_pide_el_hub.dart';
+import 'package:nexus/features/run/domain/entities/config_de_arranque.dart';
+import 'package:nexus/features/run/domain/usecases/la_config_de_casa.dart';
+import 'package:nexus/features/run/domain/usecases/lector_de_configs.dart';
 import 'package:nexus/features/run/presentation/providers/corridas_providers.dart';
+import 'package:nexus/features/run/presentation/providers/run_providers.dart';
 import 'package:nexus/features/run/presentation/providers/la_botonera_de_fuera.dart';
 import 'package:nexus/features/run/presentation/state/lo_que_ensena_la_botonera.dart';
 import 'package:nexus/features/run/presentation/state/lo_que_pide_la_botonera.dart';
+import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
 
 final laVentanaDelHubProvider = Provider<LaVentanaDelHub>(
   (ref) => LaVentanaNativaDelHub(),
@@ -84,19 +91,131 @@ final losDispositivosDelHubProvider =
       );
     });
 
-/// **La foto entera del hub.** Ver `LoQueEnsenaElHub`.
-final laFotoDelHubProvider = Provider<LoQueEnsenaElHub>((ref) {
-  final (:lista, :buscando) = ref.watch(losDispositivosDelHubProvider);
+/// El elegido de la lista, ya resuelto: el que se eligió, el que siguió al
+/// arrancar, o el primero.
+final elElegidoEnLaListaProvider = Provider<DispositivoDelHub?>((ref) {
+  final (:lista, buscando: _) = ref.watch(losDispositivosDelHubProvider);
   final elegido = ref.watch(elElegidoDelHubProvider);
   final id = LosDispositivosDelHub.elegido(
     elegido.id,
     lista,
     catalogoDelActual: elegido.catalogo,
   );
-  String? deviceId;
   for (final d in lista) {
-    if (d.id == id) deviceId = d.deviceId;
+    if (d.id == id) return d;
   }
+  return null;
+});
+
+/// Si una carpeta tiene `pubspec.yaml`. Aparte para poder probar sin disco.
+final tienePubspecProvider = Provider<bool Function(String ruta)>(
+  (ref) =>
+      (ruta) => File('$ruta/pubspec.yaml').existsSync(),
+);
+
+/// La app elegida en el hub: la carpeta. La pone el botón del chat al abrir
+/// —la de su conversación— y se cambia en la cabecera.
+class LaAppDelHub extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void elige(String? ruta) => state = ruta;
+}
+
+final laAppDelHubProvider = NotifierProvider<LaAppDelHub, String?>(
+  LaAppDelHub.new,
+);
+
+/// La configuración elegida en esta sesión, por app. Lo que se elige también
+/// se recuerda en `configsPorDefectoProvider`, como en el menú de correr.
+class LaConfigDelHub extends Notifier<Map<String, String>> {
+  @override
+  Map<String, String> build() => const {};
+
+  void elige(String app, String nombre) => state = {...state, app: nombre};
+
+  void olvida(String app) => state = {...state}..remove(app);
+}
+
+final laConfigDelHubProvider =
+    NotifierProvider<LaConfigDelHub, Map<String, String>>(LaConfigDelHub.new);
+
+/// Que se está corriendo o copiando desde el hub.
+class ElHubOcupado extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void pon(bool ocupado) => state = ocupado;
+}
+
+final elHubOcupadoProvider = NotifierProvider<ElHubOcupado, bool>(
+  ElHubOcupado.new,
+);
+
+/// Las apps que se pueden correr (P5).
+final lasAppsDelHubProvider = Provider<List<AppDelHub>>((ref) {
+  final carpetas = ref.watch(workspaceControllerProvider).folders;
+  return CorrerDesdeElHub.lasApps(
+    carpetas: [
+      for (final c in carpetas)
+        AppDelHub(ruta: c.workingDirectory, nombre: c.nombreDelRepo),
+    ],
+    tienePubspec: ref.watch(tienePubspecProvider),
+    activa: ref.watch(laAppDelHubProvider),
+  );
+});
+
+/// **Qué se corre**, para la cabecera. Ver `LoDeCorrer`.
+final loDeCorrerProvider = Provider<LoDeCorrer>((ref) {
+  final apps = ref.watch(lasAppsDelHubProvider);
+  final app = CorrerDesdeElHub.laApp(ref.watch(laAppDelHubProvider), apps);
+  final configs = app == null
+      ? const <ConfigDeArranque>[]
+      : ref.watch(configsProvider(app)).value ?? const <ConfigDeArranque>[];
+  final config = app == null
+      ? null
+      : CorrerDesdeElHub.laConfig(
+          [for (final c in configs) c.nombre],
+          deLaSesion: ref.watch(laConfigDelHubProvider)[app],
+          recordada: ref.watch(configsPorDefectoProvider)[app],
+        );
+  ConfigDeArranque? laElegida;
+  for (final c in configs) {
+    if (c.nombre == config) laElegida = c;
+  }
+  final (:lista, :buscando) = ref.watch(losDispositivosDelHubProvider);
+  final elegido = ref.watch(elElegidoEnLaListaProvider);
+  return LoDeCorrer(
+    apps: apps,
+    app: app,
+    configs: [
+      for (final c in configs) ConfigDelHub(nombre: c.nombre, deCasa: c.local),
+    ],
+    config: config,
+    porQueNo: CorrerDesdeElHub.porQueNo(
+      app: app,
+      config: config,
+      buscando: buscando,
+      dispositivos: lista,
+      elegido: elegido,
+    ),
+    arrancaYCorre: elegido?.estado == EstadoDelDispositivo.apagado,
+    copia: switch (laElegida) {
+      null => null,
+      final c when c.local => LaCopia.quitar,
+      final c when LaConfigDeCasa.sePuedeDuplicar(c) => LaCopia.duplicar,
+      _ => LaCopia.yaTraeConsola,
+    },
+    ocupado: ref.watch(elHubOcupadoProvider),
+  );
+});
+
+/// **La foto entera del hub.** Ver `LoQueEnsenaElHub`.
+final laFotoDelHubProvider = Provider<LoQueEnsenaElHub>((ref) {
+  final (:lista, :buscando) = ref.watch(losDispositivosDelHubProvider);
+  final elegido = ref.watch(elElegidoEnLaListaProvider);
+  final id = elegido?.id;
+  final deviceId = elegido?.deviceId;
   final botonera = ref.watch(loQueEnsenaLaBotoneraProvider);
   return LoQueEnsenaElHub(
     apariencia: ref.watch(laAparienciaDeFueraProvider),
@@ -117,6 +236,7 @@ final laFotoDelHubProvider = Provider<LoQueEnsenaElHub>((ref) {
     registro: deviceId == null
         ? const []
         : ref.watch(registrosProvider)[deviceId] ?? const [],
+    correr: ref.watch(loDeCorrerProvider),
     aviso: ref.watch(elAvisoDelHubProvider),
   );
 });
@@ -160,8 +280,10 @@ class ElHubDeDispositivos extends Notifier<bool> {
     return false;
   }
 
-  /// La abre —o la trae al frente— con [elegido] elegido, si se dice.
-  Future<void> abrir({String? elegido}) async {
+  /// La abre —o la trae al frente— con [app] como app elegida —la carpeta de
+  /// la conversación desde la que se abre— y [elegido] elegido, si se dicen.
+  Future<void> abrir({String? app, String? elegido}) async {
+    if (app != null) ref.read(laAppDelHubProvider.notifier).elige(app);
     if (elegido != null) {
       ref.read(elElegidoDelHubProvider.notifier).elige(elegido);
     }
@@ -214,20 +336,9 @@ class ElHubDeDispositivos extends Notifier<bool> {
             .read(elElegidoDelHubProvider.notifier)
             .elige(id, catalogo: _dispositivo(id)?.catalogo);
       case ArrancarDispositivo(:final id, :final frio):
-        final emulador = _emulador(id);
-        if (emulador == null) return;
         aviso.pon(null);
-        ref
-            .read(elElegidoDelHubProvider.notifier)
-            .elige(id, catalogo: emulador.id);
-        final arrancan = ref.read(losQueArrancanProvider.notifier)
-          ..empieza(emulador.id);
-        final error = await ref
-            .read(emuladoresDataSourceProvider)
-            .lanzar(emulador, frio: frio);
+        final (:error, deviceId: _) = await _arrancar(id, frio: frio);
         if (!ref.mounted) return;
-        arrancan.termina(emulador.id);
-        ref.invalidate(emuladoresProvider);
         aviso.pon(error);
       case CerrarDispositivo(:final id):
         final emulador = _emulador(id);
@@ -246,7 +357,145 @@ class ElHubDeDispositivos extends Notifier<bool> {
       case DeLaBotonera(:final pedido):
         final dela = PedidoDeLaBotonera.fromMap(pedido);
         if (dela != null) await ref.read(atenderLaBotoneraProvider)(dela);
+      case ElegirApp(:final ruta):
+        aviso.pon(null);
+        ref.read(laAppDelHubProvider.notifier).elige(ruta);
+      case ElegirConfig(:final nombre):
+        final app = ref.read(loDeCorrerProvider).app;
+        if (app == null) return;
+        aviso.pon(null);
+        ref.read(laConfigDelHubProvider.notifier).elige(app, nombre);
+        ref.read(configsPorDefectoProvider.notifier).elegir(app, nombre);
+      case Correr():
+        await _correr();
+      case DuplicarConConsola():
+        await _duplicar();
+      case QuitarLaCopia():
+        await _quitarLaCopia();
     }
+  }
+
+  /// Arranca el emulador o el simulador [id] y, cuando está arriba, lo deja
+  /// elegido con su nuevo id. Devuelve el error de la herramienta, si lo hubo,
+  /// y el dispositivo en que quedó.
+  Future<({String? error, String? deviceId})> _arrancar(
+    String id, {
+    bool frio = false,
+  }) async {
+    final emulador = _emulador(id);
+    if (emulador == null) return (error: null, deviceId: null);
+    ref.read(elElegidoDelHubProvider.notifier).elige(id, catalogo: emulador.id);
+    final arrancan = ref.read(losQueArrancanProvider.notifier)
+      ..empieza(emulador.id);
+    final error = await ref
+        .read(emuladoresDataSourceProvider)
+        .lanzar(emulador, frio: frio);
+    if (!ref.mounted) return (error: error, deviceId: null);
+    arrancan.termina(emulador.id);
+    ref.invalidate(emuladoresProvider);
+    final lista = await ref.read(emuladoresProvider.future);
+    String? deviceId;
+    for (final e in lista.emuladores) {
+      if (e.id == emulador.id && e.corriendo) deviceId = e.deviceId;
+    }
+    return (error: error, deviceId: deviceId);
+  }
+
+  /// ▶. Es el `correr` del menú de correr, con el dispositivo del hub, y
+  /// arrancándolo antes si está apagado.
+  Future<void> _correr() async {
+    final lo = ref.read(loDeCorrerProvider);
+    final app = lo.app;
+    final nombre = lo.config;
+    if (lo.ocupado || app == null || nombre == null) return;
+    if (lo.porQueNo != null) return;
+    final configs = ref.read(configsProvider(app)).value ?? const [];
+    ConfigDeArranque? elegida;
+    for (final c in configs) {
+      if (c.nombre == nombre) elegida = c;
+    }
+    var dispositivo = ref.read(elElegidoEnLaListaProvider);
+    if (elegida == null || dispositivo == null) return;
+
+    final aviso = ref.read(elAvisoDelHubProvider.notifier)..pon(null);
+    final ocupado = ref.read(elHubOcupadoProvider.notifier)..pon(true);
+    try {
+      var deviceId = dispositivo.deviceId;
+      if (dispositivo.estado == EstadoDelDispositivo.apagado) {
+        final arrancado = await _arrancar(dispositivo.id);
+        if (!ref.mounted) return;
+        if (arrancado.error != null || arrancado.deviceId == null) {
+          aviso.pon(arrancado.error);
+          return;
+        }
+        deviceId = arrancado.deviceId;
+        dispositivo = ref.read(elElegidoEnLaListaProvider) ?? dispositivo;
+      }
+      if (deviceId == null) return;
+      final error = await ref
+          .read(corridasProvider.notifier)
+          .correr(
+            proyecto: app,
+            configuracion: nombre,
+            args: LectorDeConfigs.argumentos(elegida, proyecto: app),
+            deviceId: deviceId,
+            dispositivo: dispositivo.nombre,
+            plataforma: dispositivo.android
+                ? PlataformaEmulador.android
+                : PlataformaEmulador.ios,
+          );
+      if (!ref.mounted) return;
+      aviso.pon(error);
+    } finally {
+      if (ref.mounted) ocupado.pon(false);
+    }
+  }
+
+  Future<void> _duplicar() async {
+    final lo = ref.read(loDeCorrerProvider);
+    final app = lo.app;
+    if (app == null || lo.ocupado) return;
+    final configs = ref.read(configsProvider(app)).value ?? const [];
+    ConfigDeArranque? elegida;
+    for (final c in configs) {
+      if (c.nombre == lo.config) elegida = c;
+    }
+    if (elegida == null) return;
+    final copia = LaConfigDeCasa.conLaConsola(
+      elegida,
+      modelo: LaConfigDeCasa.laQueEnciendeLaConsola(configs),
+    );
+    final ocupado = ref.read(elHubOcupadoProvider.notifier)..pon(true);
+    final ok = await ref.read(lasConfigsDeCasaProvider).anadir(app, copia);
+    if (!ref.mounted) return;
+    ocupado.pon(false);
+    ref.invalidate(configsProvider(app));
+    if (!ok) {
+      ref
+          .read(elAvisoDelHubProvider.notifier)
+          .pon(
+            NexusStrings.of(
+              Locale(ref.read(laAparienciaDeFueraProvider).idioma),
+            ).runCopiaFallo,
+          );
+      return;
+    }
+    ref.read(laConfigDelHubProvider.notifier).elige(app, copia.nombre);
+    ref.read(configsPorDefectoProvider.notifier).elegir(app, copia.nombre);
+  }
+
+  Future<void> _quitarLaCopia() async {
+    final lo = ref.read(loDeCorrerProvider);
+    final app = lo.app;
+    final nombre = lo.config;
+    if (app == null || nombre == null || lo.ocupado) return;
+    final ocupado = ref.read(elHubOcupadoProvider.notifier)..pon(true);
+    await ref.read(lasConfigsDeCasaProvider).quitar(app, nombre);
+    if (!ref.mounted) return;
+    ocupado.pon(false);
+    ref.invalidate(configsProvider(app));
+    ref.read(laConfigDelHubProvider.notifier).olvida(app);
+    ref.read(configsPorDefectoProvider.notifier).olvidar(app);
   }
 
   DispositivoDelHub? _dispositivo(String id) {

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:nexus/core/design_system/la_apariencia_de_fuera.dart';
 import 'package:nexus/features/hub/domain/entities/dispositivo_del_hub.dart';
+import 'package:nexus/features/hub/domain/usecases/correr_desde_el_hub.dart';
 import 'package:nexus/features/run/presentation/state/lo_que_ensena_la_botonera.dart';
 
 /// **Todo lo que pinta la ventana del hub**, en una foto.
@@ -19,6 +20,7 @@ class LoQueEnsenaElHub {
     required this.buscando,
     required this.botonera,
     required this.registro,
+    this.correr = const LoDeCorrer(),
     this.aviso,
   });
 
@@ -41,6 +43,9 @@ class LoQueEnsenaElHub {
   /// Las líneas de su corrida, las mismas que guarda `registrosProvider`.
   final List<String> registro;
 
+  /// Qué se corre: la app, la configuración y si se puede. Ver [LoDeCorrer].
+  final LoDeCorrer correr;
+
   /// Lo que salió mal en lo último que se pidió —arrancar, cerrar—, tal como lo
   /// contó la herramienta. Se borra con el siguiente pedido.
   final String? aviso;
@@ -59,6 +64,7 @@ class LoQueEnsenaElHub {
     'buscando': buscando,
     'botonera': botonera.toMap(),
     'registro': registro,
+    'correr': correr.toMap(),
     'aviso': ?aviso,
   };
 
@@ -76,6 +82,7 @@ class LoQueEnsenaElHub {
           for (final l in _lista(mapa['registro']))
             if (l is String) l,
         ],
+        correr: LoDeCorrer.fromMap(_mapa(mapa['correr'])),
         aviso: mapa['aviso'] as String?,
       );
 
@@ -83,4 +90,92 @@ class LoQueEnsenaElHub {
       o is Map<Object?, Object?> ? o : const {};
 
   static List<Object?> _lista(Object? o) => o is List<Object?> ? o : const [];
+}
+
+/// Una configuración de `launch.json`, o una copia «tuya» ([deCasa]).
+@immutable
+class ConfigDelHub {
+  const ConfigDelHub({required this.nombre, this.deCasa = false});
+
+  final String nombre;
+  final bool deCasa;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ConfigDelHub && other.nombre == nombre && other.deCasa == deCasa;
+
+  @override
+  int get hashCode => Object.hash(nombre, deCasa);
+}
+
+/// Lo que se puede hacer con la configuración elegida, como en el menú de
+/// correr: quitar la copia si es tuya, duplicarla con la consola si se puede,
+/// o decir que ya la trae.
+enum LaCopia { quitar, duplicar, yaTraeConsola }
+
+/// **Qué se corre** (P1): la app, su configuración y por qué no se puede, si
+/// no se puede. Es lo que hacía el menú de correr del chat, ahora en la
+/// cabecera del hub.
+@immutable
+class LoDeCorrer {
+  const LoDeCorrer({
+    this.apps = const [],
+    this.app,
+    this.configs = const [],
+    this.config,
+    this.porQueNo = PorQueNoSeCorre.sinApp,
+    this.arrancaYCorre = false,
+    this.copia,
+    this.ocupado = false,
+  });
+
+  final List<AppDelHub> apps;
+  final String? app;
+  final List<ConfigDelHub> configs;
+  final String? config;
+
+  /// `null` si se puede correr.
+  final PorQueNoSeCorre? porQueNo;
+
+  /// Que el elegido está apagado: ▶ lo arranca y corre en él.
+  final bool arrancaYCorre;
+
+  final LaCopia? copia;
+
+  /// Que se está corriendo o copiando: los botones se apagan mientras.
+  final bool ocupado;
+
+  Map<String, Object?> toMap() => {
+    'apps': [
+      for (final a in apps) {'ruta': a.ruta, 'nombre': a.nombre},
+    ],
+    'app': ?app,
+    'configs': [
+      for (final c in configs) {'nombre': c.nombre, 'deCasa': c.deCasa},
+    ],
+    'config': ?config,
+    'porQueNo': ?porQueNo?.name,
+    'arrancaYCorre': arrancaYCorre,
+    'copia': ?copia?.name,
+    'ocupado': ocupado,
+  };
+
+  factory LoDeCorrer.fromMap(Map<Object?, Object?> mapa) => LoDeCorrer(
+    apps: [
+      for (final a in LoQueEnsenaElHub._lista(mapa['apps']))
+        if (a case {'ruta': final String ruta, 'nombre': final String nombre})
+          AppDelHub(ruta: ruta, nombre: nombre),
+    ],
+    app: mapa['app'] as String?,
+    configs: [
+      for (final c in LoQueEnsenaElHub._lista(mapa['configs']))
+        if (c case {'nombre': final String nombre})
+          ConfigDelHub(nombre: nombre, deCasa: c['deCasa'] == true),
+    ],
+    config: mapa['config'] as String?,
+    porQueNo: PorQueNoSeCorre.values.asNameMap()[mapa['porQueNo']],
+    arrancaYCorre: mapa['arrancaYCorre'] == true,
+    copia: LaCopia.values.asNameMap()[mapa['copia']],
+    ocupado: mapa['ocupado'] == true,
+  );
 }

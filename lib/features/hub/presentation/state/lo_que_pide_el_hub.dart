@@ -22,6 +22,11 @@ sealed class PedidoDelHub {
         ),
         ('cerrar', final String id) => CerrarDispositivo(id),
         ('refrescar', _) => const RefrescarLaLista(),
+        ('app', final String ruta) => ElegirApp(ruta),
+        ('config', final String nombre) => ElegirConfig(nombre),
+        ('correr', _) => const Correr(),
+        ('duplicar', _) => const DuplicarConConsola(),
+        ('quitarCopia', _) => const QuitarLaCopia(),
         ('botonera', _) => switch (mapa['pedido']) {
           final Map<Object?, Object?> pedido => DeLaBotonera(pedido),
           _ => null,
@@ -106,4 +111,75 @@ class DeLaBotonera extends PedidoDelHub {
 
   @override
   int get hashCode => Object.hashAll(pedido.entries.map((e) => e.key));
+}
+
+/// Elegir la app: [ruta] es la carpeta, que es lo que viaja en `id`.
+class ElegirApp extends PedidoDelHub {
+  const ElegirApp(this.ruta);
+  final String ruta;
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'app', 'id': ruta};
+
+  @override
+  bool operator ==(Object other) => other is ElegirApp && other.ruta == ruta;
+
+  @override
+  int get hashCode => ruta.hashCode;
+}
+
+class ElegirConfig extends PedidoDelHub {
+  const ElegirConfig(this.nombre);
+  final String nombre;
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'config', 'id': nombre};
+
+  @override
+  bool operator ==(Object other) =>
+      other is ElegirConfig && other.nombre == nombre;
+
+  @override
+  int get hashCode => nombre.hashCode;
+}
+
+/// ▶: correr la app elegida, con su configuración, en el dispositivo elegido
+/// —arrancándolo antes si está apagado—.
+class Correr extends PedidoDelHub {
+  const Correr();
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'correr'};
+
+  @override
+  bool operator ==(Object other) => other is Correr;
+
+  @override
+  int get hashCode => 1;
+}
+
+class DuplicarConConsola extends PedidoDelHub {
+  const DuplicarConConsola();
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'duplicar'};
+
+  @override
+  bool operator ==(Object other) => other is DuplicarConConsola;
+
+  @override
+  int get hashCode => 2;
+}
+
+class QuitarLaCopia extends PedidoDelHub {
+  const QuitarLaCopia();
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'quitarCopia'};
+
+  @override
+  bool operator ==(Object other) => other is QuitarLaCopia;
+
+  @override
+  int get hashCode => 3;
 }

@@ -4,6 +4,7 @@ import 'package:nexus/core/design_system/la_apariencia_de_fuera.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/hub/domain/entities/dispositivo_del_hub.dart';
+import 'package:nexus/features/hub/domain/usecases/correr_desde_el_hub.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_ensena_el_hub.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_pide_el_hub.dart';
 import 'package:nexus/features/hub/presentation/widgets/el_hub.dart';
@@ -57,6 +58,7 @@ void main() {
     bool conCorrida = true,
     List<String> registro = const ['Launching lib/main.dart…', 'Reloaded.'],
     String? aviso,
+    LoDeCorrer correr = const LoDeCorrer(),
   }) => LoQueEnsenaElHub(
     apariencia: LaAparienciaDeFuera(
       claro: claro,
@@ -87,6 +89,7 @@ void main() {
       recargaSola: true,
     ),
     registro: conCorrida ? registro : const [],
+    correr: correr,
     aviso: aviso,
   );
 
@@ -132,7 +135,7 @@ void main() {
   testWidgets('cabe también en el tamaño mínimo de la ventana, y en claro', (
     tester,
   ) async {
-    await montar(tester, foto(claro: true), tamano: const Size(820, 560));
+    await montar(tester, foto(claro: true), tamano: const Size(920, 560));
     expect(tester.takeException(), isNull);
   });
 
@@ -240,5 +243,83 @@ void main() {
     final pedidos = await montar(tester, foto());
     expect(tester.takeException(), isNull);
     expect(pedidos, isEmpty);
+  });
+
+  group('la cabecera de correr', () {
+    const tienda = AppDelHub(ruta: '/p/tienda', nombre: 'tienda');
+    LoDeCorrer lista({
+      String? config = 'ci',
+      PorQueNoSeCorre? porQueNo,
+      bool arrancaYCorre = false,
+    }) => LoDeCorrer(
+      apps: const [tienda],
+      app: '/p/tienda',
+      configs: const [
+        ConfigDelHub(nombre: 'ci'),
+        ConfigDelHub(nombre: 'prod'),
+      ],
+      config: config,
+      porQueNo: porQueNo,
+      arrancaYCorre: arrancaYCorre,
+    );
+
+    testWidgets('sin corrida y con todo elegido: ▶ corre', (tester) async {
+      final pedidos = await montar(
+        tester,
+        foto(conCorrida: false, correr: lista()),
+      );
+      expect(find.text('tienda'), findsOneWidget);
+      expect(find.text('ci'), findsOneWidget);
+      await tester.tap(find.textContaining('▶'));
+      expect(pedidos, [const Correr()]);
+    });
+
+    testWidgets('en uno apagado, ▶ dice que lo arranca', (tester) async {
+      await montar(
+        tester,
+        foto(
+          elegido: 'Small_Phone',
+          conCorrida: false,
+          correr: lista(arrancaYCorre: true),
+        ),
+      );
+      expect(find.textContaining('ARRANCAR Y CORRER'), findsOneWidget);
+    });
+
+    testWidgets('si falta algo, dice qué en vez de ▶', (tester) async {
+      await montar(
+        tester,
+        foto(
+          conCorrida: false,
+          correr: lista(config: null, porQueNo: PorQueNoSeCorre.eligeConfig),
+        ),
+      );
+      expect(find.textContaining('▶'), findsNothing);
+      expect(find.text(strings.runEligeConfig), findsOneWidget);
+    });
+
+    testWidgets('con corrida, la botonera en vez de ▶, y cabe en el mínimo', (
+      tester,
+    ) async {
+      await montar(
+        tester,
+        foto(correr: lista(porQueNo: PorQueNoSeCorre.yaCorre)),
+        tamano: const Size(920, 560),
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('▶'), findsNothing);
+    });
+
+    testWidgets('elegir otra configuración la pide', (tester) async {
+      final pedidos = await montar(
+        tester,
+        foto(conCorrida: false, correr: lista()),
+      );
+      await tester.tap(find.text('ci'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('prod').last);
+      await tester.pumpAndSettle();
+      expect(pedidos, [const ElegirConfig('prod')]);
+    });
   });
 }

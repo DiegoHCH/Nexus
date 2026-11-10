@@ -7,11 +7,14 @@ import 'package:nexus/features/emulators/data/datasources/emuladores_data_source
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
 import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
 import 'package:nexus/features/hub/domain/entities/dispositivo_del_hub.dart';
+import 'package:nexus/features/hub/domain/usecases/correr_desde_el_hub.dart';
 import 'package:nexus/features/hub/presentation/providers/el_hub_de_dispositivos.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_ensena_el_hub.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_pide_el_hub.dart';
+import 'package:nexus/features/run/domain/entities/config_de_arranque.dart';
 import 'package:nexus/features/run/domain/entities/corrida.dart';
 import 'package:nexus/features/run/presentation/providers/corridas_providers.dart';
+import 'package:nexus/features/run/presentation/providers/run_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/ventana_del_hub.dart';
@@ -75,15 +78,35 @@ class _Maquina extends EmuladoresDataSource {
 class _Corridas extends CorridasController {
   _Corridas(this._inicial);
   final Map<String, Corrida> _inicial;
+  final corridas = <({String proyecto, String config, String deviceId})>[];
 
   @override
   Map<String, Corrida> build() => _inicial;
+
+  @override
+  Future<String?> correr({
+    required String proyecto,
+    required String configuracion,
+    required List<String> args,
+    required String deviceId,
+    required String dispositivo,
+    required PlataformaEmulador plataforma,
+  }) async {
+    corridas.add((
+      proyecto: proyecto,
+      config: configuracion,
+      deviceId: deviceId,
+    ));
+    return null;
+  }
 }
 
 void main() {
   // La apariencia mira el brillo del sistema, que vive en el binding.
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  late _Corridas lasCorridas;
 
   ({ProviderContainer c, VentanaDelHubQueApunta ventana, _Maquina maquina})
   montar({Map<String, Corrida> corridas = const {}}) {
@@ -96,7 +119,17 @@ void main() {
       overrides: [
         laVentanaDelHubProvider.overrideWithValue(ventana),
         emuladoresDataSourceProvider.overrideWithValue(maquina),
-        corridasProvider.overrideWith(() => _Corridas(corridas)),
+        corridasProvider.overrideWith(() => lasCorridas = _Corridas(corridas)),
+        lasAppsDelHubProvider.overrideWithValue(const [
+          AppDelHub(ruta: '/p/tienda', nombre: 'tienda'),
+          AppDelHub(ruta: '/p/banco', nombre: 'banco'),
+        ]),
+        configsProvider.overrideWith(
+          (ref, app) async => const [
+            ConfigDeArranque(nombre: 'ci'),
+            ConfigDeArranque(nombre: 'prod'),
+          ],
+        ),
       ],
     );
     addTearDown(c.dispose);
@@ -274,6 +307,11 @@ void main() {
 
   test('cada pedido va y vuelve por el canal tal cual', () {
     for (final p in <PedidoDelHub>[
+      const ElegirApp('/p/app'),
+      const ElegirConfig('ci'),
+      const Correr(),
+      const DuplicarConConsola(),
+      const QuitarLaCopia(),
       const ElegirDispositivo('a'),
       const ArrancarDispositivo('b', frio: true),
       const CerrarDispositivo('c'),
@@ -282,5 +320,74 @@ void main() {
     ]) {
       expect(PedidoDelHub.fromMap(p.toMap()), p);
     }
+  });
+
+  group('correr desde el hub (P1)', () {
+    Future<void> configs(ProviderContainer c, String app) =>
+        c.read(configsProvider(app).future);
+
+    test('la app es la de la conversación desde la que se abre', () async {
+      final (:c, ventana: _, maquina: _) = montar();
+      await listas(c);
+      await c.read(elHubDeDispositivosProvider.notifier).abrir(app: '/p/banco');
+      expect(c.read(loDeCorrerProvider).app, '/p/banco');
+    });
+
+    test('sin configuración elegida no se corre, y lo dice', () async {
+      final (:c, ventana: _, maquina: _) = montar();
+      await listas(c);
+      await configs(c, '/p/tienda');
+      expect(c.read(loDeCorrerProvider).porQueNo, PorQueNoSeCorre.eligeConfig);
+    });
+
+    test(
+      'elegir la configuración la recuerda, como el menú de correr',
+      () async {
+        final (:c, ventana: _, maquina: _) = montar();
+        await listas(c);
+        await configs(c, '/p/tienda');
+        await c
+            .read(elHubDeDispositivosProvider.notifier)
+            .atender(const ElegirConfig('prod').toMap());
+        expect(c.read(loDeCorrerProvider).config, 'prod');
+        expect(c.read(configsPorDefectoProvider)['/p/tienda'], 'prod');
+      },
+    );
+
+    test('▶ corre la app, con su configuración, en el elegido', () async {
+      final (:c, ventana: _, maquina: _) = montar();
+      await listas(c);
+      await configs(c, '/p/tienda');
+      final hub = c.read(elHubDeDispositivosProvider.notifier);
+      await hub.atender(const ElegirConfig('ci').toMap());
+      expect(c.read(loDeCorrerProvider).porQueNo, isNull);
+      await hub.atender(const Correr().toMap());
+      expect(lasCorridas.corridas, [
+        (proyecto: '/p/tienda', config: 'ci', deviceId: 'emulator-5554'),
+      ]);
+      expect(c.read(loDeCorrerProvider).ocupado, isFalse);
+    });
+
+    test('▶ en uno apagado lo arranca y corre en él', () async {
+      final (:c, ventana: _, :maquina) = montar();
+      await listas(c);
+      await configs(c, '/p/tienda');
+      final hub = c.read(elHubDeDispositivosProvider.notifier);
+      await hub.atender(const ElegirDispositivo('Small_Phone').toMap());
+      await hub.atender(const ElegirConfig('ci').toMap());
+      expect(c.read(loDeCorrerProvider).arrancaYCorre, isTrue);
+      await hub.atender(const Correr().toMap());
+      expect(maquina.lanzados, [(id: 'Small_Phone', frio: false)]);
+      expect(lasCorridas.corridas.single.deviceId, 'emulator-5556');
+    });
+
+    test('cambiar de app', () async {
+      final (:c, ventana: _, maquina: _) = montar();
+      await listas(c);
+      await c
+          .read(elHubDeDispositivosProvider.notifier)
+          .atender(const ElegirApp('/p/banco').toMap());
+      expect(c.read(loDeCorrerProvider).app, '/p/banco');
+    });
   });
 }

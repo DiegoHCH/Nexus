@@ -54,6 +54,10 @@ mixin HubStrings {
   String get hubPlegar;
   String get hubDesplegar;
   String get hubSinLineas;
+  String get hubArrancarYCorrer;
+  String get hubNinguna;
+  String get hubSinApps;
+  String get hubEsperandoArranque;
 }
 
 mixin HubStringsEs implements HubStrings {
@@ -164,6 +168,15 @@ mixin HubStringsEs implements HubStrings {
   String get hubDesplegar => 'Desplegar el registro';
   @override
   String get hubSinLineas => 'Todavía no dijo nada.';
+  @override
+  String get hubArrancarYCorrer => 'Arrancar y correr';
+  @override
+  String get hubNinguna => 'ninguna';
+  @override
+  String get hubSinApps =>
+      'Ninguna conversación tiene una carpeta con pubspec.yaml';
+  @override
+  String get hubEsperandoArranque => 'Esperando a que arranque…';
 }
 
 mixin HubStringsEn implements HubStrings {
@@ -273,4 +286,12 @@ mixin HubStringsEn implements HubStrings {
   String get hubDesplegar => 'Expand the log';
   @override
   String get hubSinLineas => 'Nothing yet.';
+  @override
+  String get hubArrancarYCorrer => 'Start and run';
+  @override
+  String get hubNinguna => 'none';
+  @override
+  String get hubSinApps => 'No conversation has a folder with pubspec.yaml';
+  @override
+  String get hubEsperandoArranque => 'Waiting for it to start…';
 }

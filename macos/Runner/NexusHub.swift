@@ -42,7 +42,10 @@ final class NexusHub: NSObject, NSWindowDelegate {
   private var ultima: [String: Any] = [:]
 
   static let tamanoInicial = NSSize(width: 1100, height: 760)
-  static let tamanoMinimo = NSSize(width: 820, height: 560)
+  /// 920 de ancho porque la cabecera, con una corrida, lleva la app y la
+  /// configuración (210) junto a la botonera de siempre (430): con menos, la
+  /// botonera se cortaba. Medido en las pruebas de la ventana.
+  static let tamanoMinimo = NSSize(width: 920, height: 560)
 
   /// Donde se guardan los marcos, uno por cada juego de pantallas, como la
   /// botonera: el sitio que tiene sentido con un monitor no lo tiene sin él.

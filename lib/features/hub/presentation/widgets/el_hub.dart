@@ -4,6 +4,7 @@ import 'package:nexus/features/hub/presentation/state/lo_que_ensena_el_hub.dart'
 import 'package:nexus/features/hub/presentation/state/lo_que_pide_el_hub.dart';
 import 'package:nexus/features/hub/presentation/widgets/el_centro_del_hub.dart';
 import 'package:nexus/features/hub/presentation/widgets/el_registro_del_hub.dart';
+import 'package:nexus/features/hub/presentation/widgets/la_cabecera_de_correr.dart';
 import 'package:nexus/features/hub/presentation/widgets/la_lista_del_hub.dart';
 import 'package:nexus/features/run/presentation/widgets/la_barra_de_corridas.dart';
 
@@ -20,7 +21,6 @@ class ElHub extends StatelessWidget {
     required this.foto,
     required this.onPedido,
     this.pantalla,
-    this.cabecera,
   });
 
   final LoQueEnsenaElHub foto;
@@ -29,10 +29,6 @@ class ElHub extends StatelessWidget {
   /// La pantalla de dentro del dispositivo elegido, si la tiene. Ver
   /// [ElCentroDelHub].
   final Widget? pantalla;
-
-  /// Lo que va a la izquierda de la botonera: la app, la configuración y
-  /// correr. Ver `LaCabeceraDeCorrer`.
-  final Widget? cabecera;
 
   @override
   Widget build(BuildContext context) {
@@ -60,10 +56,15 @@ class ElHub extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        if (cabecera != null) ...[
-                          Flexible(child: cabecera!),
-                          const SizedBox(width: NexusSpacing.s3),
-                        ],
+                        // Qué se corre: la app, su configuración y ▶ (P1).
+                        Flexible(
+                          child: LaCabeceraDeCorrer(
+                            lo: foto.correr,
+                            hayCorrida: hayCorrida,
+                            onPedido: onPedido,
+                          ),
+                        ),
+                        const SizedBox(width: NexusSpacing.s3),
                         // La botonera de siempre, sin tocarla: quien la conoce
                         // flotando la reconoce aquí. Sin la X de esconder: en
                         // el hub no hay de qué esconderse.
@@ -74,8 +75,6 @@ class ElHub extends StatelessWidget {
                                 onPedido(DeLaBotonera(pedido.toMap())),
                             conSombra: false,
                           ),
-                        if (cabecera == null && !hayCorrida)
-                          const SizedBox(height: 36),
                       ],
                     ),
                   ),

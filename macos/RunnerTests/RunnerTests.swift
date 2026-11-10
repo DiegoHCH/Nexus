@@ -1984,6 +1984,95 @@ final class ElEspejoEnOtroEscritorioTests: XCTestCase {
   }
 }
 
+/// **Antes de pegarlo: el espejo en otro escritorio.**
+///
+/// Reportado el 10 nov: la corrida se lanzó desde el escritorio de Slack, con
+/// el emulador en otro. Accesibilidad solo ve las ventanas de los escritorios a
+/// la vista, así que el espejo no se encontraba, y la botonera se quedaba
+/// encima de Slack. Ahora, si su ventana está en otro escritorio, la botonera
+/// lo espera allí.
+final class ElEspejoEsperadoEnOtroEscritorioTests: XCTestCase {
+  private let pid: pid_t = 4242
+  private let telefono = CGRect(x: 41, y: 148, width: 329, height: 760)
+
+  /// Una ventana de todas las del sistema: con número, y en pantalla o no.
+  private func ventana(
+    _ numero: CGWindowID, pid: pid_t, _ marco: CGRect, capa: Int = 0, enPantalla: Bool = false
+  ) -> [String: Any] {
+    var una: [String: Any] = [
+      kCGWindowNumber as String: NSNumber(value: numero),
+      kCGWindowOwnerPID as String: NSNumber(value: pid),
+      kCGWindowLayer as String: NSNumber(value: capa),
+      kCGWindowBounds as String: marco.dictionaryRepresentation as NSDictionary,
+    ]
+    if enPantalla { una[kCGWindowIsOnscreen as String] = NSNumber(value: true) }
+    return una
+  }
+
+  /// Los escritorios de cada ventana, por su número.
+  private func en(_ escritorios: [CGWindowID: [UInt64]]) -> (CGWindowID) -> [UInt64] {
+    { escritorios[$0] ?? [] }
+  }
+
+  func testSuVentanaEnUnEscritorioQueNoSeVeEstaEnOtro() {
+    XCTAssertTrue(
+      NexusEspejoPegado.enOtroEscritorio(
+        pids: [pid], ventanas: [ventana(647, pid: pid, telefono)], escritorios: en([647: [35]])))
+  }
+
+  /// Si se ve, Accesibilidad la habría encontrado: si no se pegó, es que no
+  /// era la que se buscaba, y la botonera no tiene a quién esperar.
+  func testConUnaSuyaEnPantallaNoEstaEnOtro() {
+    let ventanas = [
+      ventana(647, pid: pid, telefono),
+      ventana(700, pid: pid, CGRect(x: 600, y: 100, width: 329, height: 760), enPantalla: true),
+    ]
+    XCTAssertFalse(
+      NexusEspejoPegado.enOtroEscritorio(
+        pids: [pid], ventanas: ventanas, escritorios: en([647: [35], 700: [50]])))
+  }
+
+  /// El emulador guarda una ventana de 500 × 500 que no está en ningún
+  /// escritorio. Esperarla dejaría la botonera escondida en todas partes.
+  func testUnaVentanaQueNoEstaEnNingunEscritorioNoCuenta() {
+    let escondida = ventana(661, pid: pid, CGRect(x: 0, y: 482, width: 500, height: 500))
+    XCTAssertFalse(
+      NexusEspejoPegado.enOtroEscritorio(pids: [pid], ventanas: [escondida], escritorios: en([:])))
+  }
+
+  func testLaDeOtroProgramaNoCuenta() {
+    XCTAssertFalse(
+      NexusEspejoPegado.enOtroEscritorio(
+        pids: [pid], ventanas: [ventana(163, pid: 1, telefono)], escritorios: en([163: [50]])))
+  }
+
+  /// La barra de botones del emulador, a su lado, y las de una línea: ninguna
+  /// es el teléfono.
+  func testLasVentanasPequenasNoCuentan() {
+    let ventanas = [
+      ventana(648, pid: pid, CGRect(x: 370, y: 176, width: 54, height: 506)),
+      ventana(653, pid: pid, CGRect(x: 0, y: 0, width: 1512, height: 33)),
+    ]
+    XCTAssertFalse(
+      NexusEspejoPegado.enOtroEscritorio(
+        pids: [pid], ventanas: ventanas, escritorios: en([648: [35], 653: [35]])))
+  }
+
+  func testUnaCapaQueNoEsLaDeLasVentanasNoCuenta() {
+    XCTAssertFalse(
+      NexusEspejoPegado.enOtroEscritorio(
+        pids: [pid], ventanas: [ventana(647, pid: pid, telefono, capa: 3)],
+        escritorios: en([647: [35]])))
+  }
+
+  /// La llamada al servidor de ventanas se busca al arrancar y no se enlaza.
+  /// Si un macOS la quita, esto avisa: Nexus sigue abriendo, pero la botonera
+  /// ya no espera al espejo en su escritorio.
+  func testElServidorDeVentanasDiceLosEscritorios() {
+    XCTAssertTrue(Escritorios.seSabe)
+  }
+}
+
 /// **Publicar en claude.ai, desde el título del visor.**
 ///
 /// Pedido el 26 oct: publicar como artifact directo desde Nexus. El botón va

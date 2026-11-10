@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nexus/core/design_system/accent_preference.dart';
-import 'package:nexus/core/design_system/theme_preference.dart';
+import 'package:nexus/core/design_system/la_apariencia_de_fuera.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/features/assistant/presentation/providers/las_tareas_de_fondo.dart';
 import 'package:nexus/features/assistant/presentation/providers/los_trabajos_providers.dart';
@@ -83,15 +81,13 @@ final loQueEnsenaLaBotoneraProvider = Provider<LoQueEnsenaLaBotonera>((ref) {
 /// `MaterialApp`: con el color sin ajustar, la de fuera tendría otro tono que
 /// la de dentro justo en el tema claro, que es donde se ajusta.
 final laFotoDeLaBotoneraProvider = Provider<LaFotoDeLaBotonera>((ref) {
-  final claro = !ref.watch(isDarkProvider);
-  final acento = ref
-      .watch(accentControllerProvider)
-      .forBrightness(claro ? Brightness.light : Brightness.dark);
+  // La misma que el hub: ver `LaAparienciaDeFuera`.
+  final apariencia = ref.watch(laAparienciaDeFueraProvider);
   return LaFotoDeLaBotonera(
     lo: ref.watch(loQueEnsenaLaBotoneraProvider),
-    claro: claro,
-    acento: acento.toARGB32(),
-    idioma: ref.watch(localeProvider).languageCode,
+    claro: apariencia.claro,
+    acento: apariencia.acento,
+    idioma: apariencia.idioma,
   );
 });
 

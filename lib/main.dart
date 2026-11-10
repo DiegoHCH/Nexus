@@ -6,6 +6,7 @@ import 'package:nexus/core/platform/el_anfitrion_de_las_pruebas.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
+import 'package:nexus/features/hub/presentation/providers/el_hub_de_dispositivos.dart';
 import 'package:nexus/core/design_system/orbe_preference.dart';
 import 'package:nexus/core/design_system/appearance_channel.dart';
 import 'package:nexus/core/diagnostico/lo_que_cuenta_el_lado_nativo.dart';
@@ -356,6 +357,11 @@ class _MainAppState extends ConsumerState<MainApp> {
     // Y los teléfonos enchufados, ya cargados cuando se abra dónde correr la
     // app, y al día si se enchufa uno después. Ver [ElVigiaDeLosAparatos].
     ref.watch(elVigiaDeLosAparatosProvider);
+
+    // Y el hub de dispositivos, escuchado desde aquí: un provider que nadie
+    // escucha pausa sus `listen` (Riverpod 3), y el hub dejaría de repintarse
+    // en cuanto se cerrara lo que lo abrió.
+    ref.watch(elHubDeDispositivosProvider);
 
     return MaterialApp(
       navigatorKey: _navigatorKey,

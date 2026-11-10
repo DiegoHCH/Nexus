@@ -10,6 +10,7 @@ import 'package:nexus/features/hub/domain/entities/dispositivo_del_hub.dart';
 import 'package:nexus/features/hub/presentation/widgets/el_hub.dart';
 import 'package:nexus/features/hub/presentation/widgets/la_columna_del_telefono.dart';
 import 'package:nexus/features/hub/presentation/widgets/la_pantalla_del_emulador.dart';
+import 'package:nexus/features/hub/presentation/widgets/la_pantalla_del_enchufado.dart';
 
 /// **El motor del hub de dispositivos**, el de su ventana. Ver `NexusHub`.
 ///
@@ -61,24 +62,35 @@ class _ElHubSoloState extends State<_ElHubSolo> {
   /// su gRPC. Lo demás —iOS, el físico sin su historia— sigue con su aviso.
   Widget? _pantalla(DispositivoDelHub d, Widget aviso) {
     final deviceId = d.deviceId;
-    if (!d.android ||
-        d.clase != ClaseDeDispositivo.emulador ||
-        deviceId == null) {
-      return null;
+    if (!d.android || deviceId == null) return null;
+    Widget columna(LaConexionDeLaPantalla conexion, Widget pantalla) =>
+        LaColumnaDelTelefono(
+          conexion: conexion,
+          pantalla: pantalla,
+          onVerEnSuVentana: () => _pide(
+            d.clase == ClaseDeDispositivo.enchufado
+                ? VerFuera(d.id, ComoVerFuera.scrcpy)
+                : TraerAlFrente(d.id),
+          ),
+          onGirar: conexion.girar,
+          sonido: conexion.sonido,
+          onSonido: conexion.alternarSonido,
+        );
+    // Un Android enchufado, por scrcpy (T12).
+    if (d.clase == ClaseDeDispositivo.enchufado) {
+      return LaPantallaDelEnchufado(
+        key: ValueKey('enchufado-$deviceId'),
+        serial: deviceId,
+        sinPantalla: aviso,
+        alrededor: columna,
+      );
     }
     return LaPantallaDelEmulador(
       // Otro dispositivo, otra conexión.
       key: ValueKey(deviceId),
       deviceId: deviceId,
       sinPantalla: aviso,
-      alrededor: (conexion, pantalla) => LaColumnaDelTelefono(
-        conexion: conexion,
-        pantalla: pantalla,
-        onVerEnSuVentana: () => _pide(TraerAlFrente(d.id)),
-        onGirar: conexion.girar,
-        sonido: conexion.sonido,
-        onSonido: conexion.alternarSonido,
-      ),
+      alrededor: columna,
     );
   }
 

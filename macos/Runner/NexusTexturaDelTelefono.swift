@@ -29,6 +29,14 @@ final class NexusTexturaDelTelefono: NSObject {
   /// El del motor del hub que está abierto: hay un hub a la vez.
   private static var actual: NexusTexturaDelTelefono?
 
+  /// Una imagen ya hecha —el vídeo de scrcpy, decodificado por
+  /// `NexusVideoDelTelefono`— a la textura [id].
+  static func poner(_ buffer: CVPixelBuffer, en id: Int64) {
+    guard let actual, let textura = actual.texturas[id] else { return }
+    textura.poner(buffer)
+    actual.registro.textureFrameAvailable(id)
+  }
+
   /// Al cerrarse el hub: sus texturas y sus archivos se van con él.
   static func soltarTodo() {
     guard let actual else { return }
@@ -121,6 +129,13 @@ final class LaTexturaDelTelefono: NSObject, FlutterTexture {
     defer { cerrojo.unlock() }
     guard let ultimo else { return nil }
     return Unmanaged.passRetained(ultimo)
+  }
+
+  /// Una imagen ya decodificada, tal cual.
+  func poner(_ buffer: CVPixelBuffer) {
+    cerrojo.lock()
+    ultimo = buffer
+    cerrojo.unlock()
   }
 
   /// Lo que hay ahora en el archivo, a un `CVPixelBuffer` BGRA de

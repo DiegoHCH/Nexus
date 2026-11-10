@@ -156,6 +156,8 @@ final class NexusHub: NSObject, NSWindowDelegate {
       with: motor.registrar(forPlugin: "NexusTexturaDelTelefono"))
     NexusSonidoDelTelefono.register(
       with: motor.registrar(forPlugin: "NexusSonidoDelTelefono"))
+    NexusVideoDelTelefono.register(
+      with: motor.registrar(forPlugin: "NexusVideoDelTelefono"))
     let hacia = FlutterMethodChannel(
       name: "com.katanalabs.nexus/hub.ventana", binaryMessenger: motor.binaryMessenger)
     hacia.setMethodCallHandler { [weak self] call, result in
@@ -237,6 +239,7 @@ final class NexusHub: NSObject, NSWindowDelegate {
     haciaLaApp?.invokeMethod("cerrado", arguments: nil)
     NexusTexturaDelTelefono.soltarTodo()
     NexusSonidoDelTelefono.soltarTodo()
+    NexusVideoDelTelefono.soltarTodo()
     // Con gracia antes de soltarlo: un motor soltado en el acto tumbaba la app
     // en `FlutterCompositor::Present` (19 oct). Ver `NexusMotorAparte`.
     NexusMotorAparte.apagar(motor)

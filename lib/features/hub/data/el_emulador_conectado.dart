@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:grpc/grpc.dart';
+import 'package:nexus/features/hub/data/el_telefono_conectado.dart';
 import 'package:nexus/features/hub/domain/el_emulador_por_grpc.dart';
 import 'package:nexus/features/hub/domain/el_protocolo_del_emulador.dart';
 
@@ -11,7 +12,7 @@ import 'package:nexus/features/hub/domain/el_protocolo_del_emulador.dart';
 /// El paquete `grpc` con serializadores crudos: los mensajes los escribe y los
 /// lee [ElProtocoloDelEmulador], sin código generado. Es Dart puro, así que
 /// funciona en el motor del hub, que no tiene plugins.
-class ElEmuladorConectado extends Client {
+class ElEmuladorConectado extends Client implements ElTelefonoConectado {
   ElEmuladorConectado._(this._canal, String token)
     : super(
         _canal,
@@ -118,9 +119,31 @@ class ElEmuladorConectado extends Client {
     eventos.add(evento);
   }
 
-  Future<void> girar(double grados) async {
-    await $createUnaryCall(_fisica, ElProtocoloDelEmulador.giro(grados));
+  /// De vertical a apaisado y vuelta, girando el teléfono con su sensor:
+  /// medido el 10 nov, z = 90 apaisado y z = 0 vertical.
+  @override
+  Future<void> girar({required bool apaisado}) async {
+    await $createUnaryCall(
+      _fisica,
+      ElProtocoloDelEmulador.giro(apaisado ? 0 : 90),
+    );
   }
+
+  @override
+  void toque(ToqueEnElTelefono toque) =>
+      entrada(ElProtocoloDelEmulador.entradaDeToques([toque]));
+
+  @override
+  void tecla(String nombre) =>
+      entrada(ElProtocoloDelEmulador.entradaDeTecla(nombre));
+
+  @override
+  void texto(String texto) =>
+      entrada(ElProtocoloDelEmulador.entradaDeTexto(texto));
+
+  @override
+  void rueda({required int dx, required int dy, int x = 0, int y = 0}) =>
+      entrada(ElProtocoloDelEmulador.rueda(dx: dx, dy: dy));
 
   /// El sonido en PCM de 16 bits estéreo. No manda nada mientras el teléfono
   /// no suena (medido): un silencio no es un fallo.
@@ -135,6 +158,7 @@ class ElEmuladorConectado extends Client {
           .where((pcm) => pcm != null && pcm.isNotEmpty)
           .cast<Uint8List>();
 
+  @override
   Future<void> cerrar() async {
     await _eventos?.close();
     _eventos = null;

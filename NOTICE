@@ -5,3 +5,7 @@ This product includes software developed by Diego Hoyos.
 
 Licensed under the Apache License, Version 2.0. See the LICENSE file for the
 full terms.
+
+This product bundles scrcpy-server 3.3.3 (assets/scrcpy/scrcpy-server),
+Copyright (C) 2018 Genymobile and Copyright (C) 2018-2025 Romain Vimont,
+licensed under the Apache License, Version 2.0. See assets/scrcpy/LICENSE.

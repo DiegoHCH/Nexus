@@ -13,7 +13,6 @@ import 'package:nexus/features/run/domain/usecases/el_error_que_pinta_la_app.dar
 import 'package:nexus/features/run/domain/usecases/el_freno_de_la_app.dart';
 import 'package:nexus/features/run/domain/usecases/estado_de_la_corrida.dart';
 import 'package:nexus/features/run/presentation/providers/la_consola_que_se_abre.dart';
-import 'package:nexus/features/run/presentation/providers/el_espejo_que_se_abre.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/features/run/domain/usecases/como_fue_la_recarga.dart';
 
@@ -78,14 +77,8 @@ class CorridasController extends Notifier<Map<String, Corrida>> {
     final consola = ref.read(laConsolaQueSeAbreProvider)
       ..alArrancar(deviceId: deviceId, args: args);
 
-    // Y la pantalla del móvil, si es uno de verdad. Sin esperarla: abrir un
-    // espejo no puede retrasar el arranque de la app, y si falla lo dice en el
-    // registro. Ver [ElEspejoQueSeAbre].
-    unawaited(
-      ref
-          .read(elEspejoQueSeAbreProvider)
-          .alArrancar(deviceId: deviceId, dispositivo: dispositivo),
-    );
+    // La pantalla del móvil ya no se abre aquí, en scrcpy fuera: está dentro
+    // del hub, que se abre solo al empezar una corrida de Android (T12, P4).
 
     final viva = await CorridaViva.arrancar(
       flutter: flutter,

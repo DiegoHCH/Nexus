@@ -2145,3 +2145,23 @@ final class LaVentanaDelHubTests: XCTestCase {
     XCTAssertNil(NexusHub.guardado(firma: "con-monitor", en: defaults))
   }
 }
+
+/// **El vídeo de un Android enchufado** (T12): scrcpy manda H.264 en Annex B
+/// y VideoToolbox lo quiere en AVCC.
+final class ElVideoDelTelefonoTests: XCTestCase {
+  func testPartePorLosCodigosDeInicioDeTresYDeCuatro() {
+    let datos: [UInt8] = [0, 0, 0, 1, 0x67, 1, 2, 0, 0, 1, 0x68, 3, 0, 0, 0, 1, 0x65, 4, 5, 6]
+    XCTAssertEqual(
+      NexusVideoDelTelefono.nals(datos), [[0x67, 1, 2], [0x68, 3], [0x65, 4, 5, 6]])
+  }
+
+  func testSinCodigoDeInicioNoHayNada() {
+    XCTAssertEqual(NexusVideoDelTelefono.nals([1, 2, 3]), [])
+  }
+
+  func testAVCCPoneElLargoDelante() {
+    XCTAssertEqual(
+      NexusVideoDelTelefono.aAVCC([[0x65, 9], [0x06]]),
+      [0, 0, 0, 2, 0x65, 9, 0, 0, 0, 1, 0x06])
+  }
+}

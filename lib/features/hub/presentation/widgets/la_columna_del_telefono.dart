@@ -69,10 +69,8 @@ class _LaColumnaDelTelefonoState extends State<LaColumnaDelTelefono> {
       alto: alto,
       cuartosDeGiro: imagen.cuartosDeGiro,
     );
-    widget.conexion.emulador.entrada(
-      ElProtocoloDelEmulador.entradaDeToques([
-        ToqueEnElTelefono(x: p.x, y: p.y, dedo: _dedo, presion: abajo ? 1 : 0),
-      ]),
+    widget.conexion.telefono.toque(
+      ToqueEnElTelefono(x: p.x, y: p.y, dedo: _dedo, presion: abajo ? 1 : 0),
     );
   }
 
@@ -82,17 +80,15 @@ class _LaColumnaDelTelefonoState extends State<LaColumnaDelTelefono> {
     final dy = e.scrollDelta.dy == 0 ? 0 : (e.scrollDelta.dy > 0 ? -1 : 1);
     final dx = e.scrollDelta.dx == 0 ? 0 : (e.scrollDelta.dx > 0 ? -1 : 1);
     if (dx == 0 && dy == 0) return;
-    widget.conexion.emulador.entrada(
-      ElProtocoloDelEmulador.rueda(dx: dx, dy: dy),
-    );
+    widget.conexion.telefono.rueda(dx: dx, dy: dy);
   }
 
   KeyEventResult _tecla(FocusNode _, KeyEvent e) {
     if (e is KeyUpEvent) return KeyEventResult.handled;
-    final emulador = widget.conexion.emulador;
+    final telefono = widget.conexion.telefono;
     final especial = AlTelefono.tecla(e.logicalKey.keyLabel);
     if (especial != null) {
-      emulador.entrada(ElProtocoloDelEmulador.entradaDeTecla(especial));
+      telefono.tecla(especial);
       return KeyEventResult.handled;
     }
     final caracter = e.character;
@@ -100,16 +96,14 @@ class _LaColumnaDelTelefonoState extends State<LaColumnaDelTelefono> {
         HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;
     if (caracter != null && caracter.isNotEmpty && !conComando) {
-      emulador.entrada(ElProtocoloDelEmulador.entradaDeTexto(caracter));
+      telefono.texto(caracter);
       return KeyEventResult.handled;
     }
     // ⌘ con algo: es de la ventana (⌘W cierra), no del teléfono.
     return KeyEventResult.ignored;
   }
 
-  void _boton(String tecla) => widget.conexion.emulador.entrada(
-    ElProtocoloDelEmulador.entradaDeTecla(tecla),
-  );
+  void _boton(String tecla) => widget.conexion.telefono.tecla(tecla);
 
   @override
   Widget build(BuildContext context) {

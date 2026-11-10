@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/features/hub/data/el_emulador_conectado.dart';
 import 'package:nexus/features/hub/data/el_sonido_del_telefono.dart';
+import 'package:nexus/features/hub/data/el_telefono_conectado.dart';
 import 'package:nexus/features/hub/data/la_textura_del_telefono.dart';
 import 'package:nexus/features/hub/domain/el_protocolo_del_emulador.dart';
 
@@ -51,7 +52,7 @@ class LaPantallaDelEmulador extends StatefulWidget {
 /// tamaño real de su pantalla y de lo que se ve.
 class LaConexionDeLaPantalla {
   const LaConexionDeLaPantalla({
-    required this.emulador,
+    required this.telefono,
     required this.nativo,
     required this.imagen,
     required this.sonido,
@@ -59,7 +60,9 @@ class LaConexionDeLaPantalla {
     required this.girar,
   });
 
-  final ElEmuladorConectado emulador;
+  /// El teléfono conectado: un emulador por su gRPC o un Android enchufado
+  /// por scrcpy.
+  final ElTelefonoConectado telefono;
 
   /// El tamaño de la pantalla del teléfono en píxeles (`hw.lcd.*`).
   final ({int ancho, int alto})? nativo;
@@ -165,7 +168,7 @@ class _LaPantallaDelEmuladorState extends State<LaPantallaDelEmulador> {
     if (imagen == null) return;
     unawaited(
       _emulador
-          ?.girar(imagen.cuartosDeGiro.isOdd ? 0 : 90)
+          ?.girar(apaisado: imagen.cuartosDeGiro.isOdd)
           .catchError((Object _) {}),
     );
   }
@@ -285,7 +288,7 @@ class _LaPantallaDelEmuladorState extends State<LaPantallaDelEmulador> {
           ),
         );
         final conexion = LaConexionDeLaPantalla(
-          emulador: _emulador!,
+          telefono: _emulador!,
           nativo: _nativo,
           imagen: imagen,
           sonido: _conSonido,

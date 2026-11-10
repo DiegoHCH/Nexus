@@ -27,8 +27,10 @@ class ElCentroDelHub extends StatelessWidget {
   final LoQueEnsenaElHub foto;
   final ValueChanged<PedidoDelHub> onPedido;
 
-  /// La pantalla de dentro, si el dispositivo elegido la tiene.
-  final Widget? pantalla;
+  /// La pantalla de dentro, si el dispositivo elegido la tiene: recibe el
+  /// dispositivo y el aviso que se enseñaría sin ella, para usarlo si no puede
+  /// conectarse. `null` si este dispositivo no la tiene.
+  final Widget? Function(DispositivoDelHub dispositivo, Widget aviso)? pantalla;
 
   @override
   Widget build(BuildContext context) {
@@ -43,8 +45,6 @@ class ElCentroDelHub extends StatelessWidget {
         titulo: foto.buscando ? strings.hubBuscando : strings.hubEligeUno,
         texto: strings.hubEligeUnoTexto,
       );
-    } else if (pantalla != null && d.encendido) {
-      contenido = pantalla!;
     } else {
       contenido = switch (d.estado) {
         EstadoDelDispositivo.apagado => _Aviso(
@@ -105,6 +105,31 @@ class ElCentroDelHub extends StatelessWidget {
           ],
         ),
       };
+    }
+
+    // Con pantalla de dentro, ella manda: el aviso queda de respaldo.
+    final dentro = d != null && d.encendido
+        ? pantalla?.call(d, contenido)
+        : null;
+    if (dentro != null) {
+      return ColoredBox(
+        color: colors.void_,
+        child: Stack(
+          children: [
+            Positioned.fill(child: dentro),
+            if (aviso != null)
+              Positioned(
+                left: NexusSpacing.s4,
+                right: NexusSpacing.s4,
+                bottom: NexusSpacing.s3,
+                child: Text(
+                  aviso,
+                  style: NexusTypography.data.copyWith(color: colors.err),
+                ),
+              ),
+          ],
+        ),
+      );
     }
 
     return ColoredBox(

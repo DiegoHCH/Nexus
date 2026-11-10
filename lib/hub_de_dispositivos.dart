@@ -6,7 +6,10 @@ import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_ensena_el_hub.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_pide_el_hub.dart';
+import 'package:nexus/features/hub/domain/entities/dispositivo_del_hub.dart';
 import 'package:nexus/features/hub/presentation/widgets/el_hub.dart';
+import 'package:nexus/features/hub/presentation/widgets/la_columna_del_telefono.dart';
+import 'package:nexus/features/hub/presentation/widgets/la_pantalla_del_emulador.dart';
 
 /// **El motor del hub de dispositivos**, el de su ventana. Ver `NexusHub`.
 ///
@@ -54,6 +57,31 @@ class _ElHubSoloState extends State<_ElHubSolo> {
     _canal.invokeMethod<void>('pide', pedido.toMap()).catchError((Object _) {}),
   );
 
+  /// La pantalla de dentro (T6–T8): por ahora, la del emulador de Android por
+  /// su gRPC. Lo demás —iOS, el físico sin su historia— sigue con su aviso.
+  Widget? _pantalla(DispositivoDelHub d, Widget aviso) {
+    final deviceId = d.deviceId;
+    if (!d.android ||
+        d.clase != ClaseDeDispositivo.emulador ||
+        deviceId == null) {
+      return null;
+    }
+    return LaPantallaDelEmulador(
+      // Otro dispositivo, otra conexión.
+      key: ValueKey(deviceId),
+      deviceId: deviceId,
+      sinPantalla: aviso,
+      alrededor: (conexion, pantalla) => LaColumnaDelTelefono(
+        conexion: conexion,
+        pantalla: pantalla,
+        onVerEnSuVentana: () => _pide(TraerAlFrente(d.id)),
+        onGirar: conexion.girar,
+        sonido: conexion.sonido,
+        onSonido: conexion.alternarSonido,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final foto = _foto;
@@ -71,7 +99,7 @@ class _ElHubSoloState extends State<_ElHubSolo> {
           ? const SizedBox.shrink()
           : Material(
               type: MaterialType.transparency,
-              child: ElHub(foto: foto, onPedido: _pide),
+              child: ElHub(foto: foto, onPedido: _pide, pantalla: _pantalla),
             ),
     );
   }

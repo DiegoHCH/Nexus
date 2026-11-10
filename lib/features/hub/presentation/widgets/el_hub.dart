@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nexus/core/design_system/design_system.dart';
+import 'package:nexus/features/hub/domain/entities/dispositivo_del_hub.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_ensena_el_hub.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_pide_el_hub.dart';
 import 'package:nexus/features/hub/presentation/widgets/el_centro_del_hub.dart';
@@ -27,8 +28,8 @@ class ElHub extends StatelessWidget {
   final ValueChanged<PedidoDelHub> onPedido;
 
   /// La pantalla de dentro del dispositivo elegido, si la tiene. Ver
-  /// [ElCentroDelHub].
-  final Widget? pantalla;
+  /// [ElCentroDelHub.pantalla].
+  final Widget? Function(DispositivoDelHub dispositivo, Widget aviso)? pantalla;
 
   @override
   Widget build(BuildContext context) {

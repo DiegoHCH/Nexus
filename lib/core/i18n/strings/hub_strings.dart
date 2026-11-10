@@ -59,6 +59,14 @@ mixin HubStrings {
   String get hubNinguna;
   String get hubSinApps;
   String get hubEsperandoArranque;
+  String get hubAtras;
+  String get hubInicio;
+  String get hubRecientes;
+  String get hubGirar;
+  String get hubSilenciar;
+  String get hubOirlo;
+  String get hubEncender;
+  String get hubVerEnSuVentana;
 }
 
 mixin HubStringsEs implements HubStrings {
@@ -180,6 +188,22 @@ mixin HubStringsEs implements HubStrings {
       'Ninguna conversación tiene una carpeta con pubspec.yaml';
   @override
   String get hubEsperandoArranque => 'Esperando a que arranque…';
+  @override
+  String get hubAtras => 'Atrás';
+  @override
+  String get hubInicio => 'Inicio';
+  @override
+  String get hubRecientes => 'Recientes';
+  @override
+  String get hubGirar => 'Girar';
+  @override
+  String get hubSilenciar => 'Silenciar el teléfono';
+  @override
+  String get hubOirlo => 'Oír el teléfono';
+  @override
+  String get hubEncender => 'Encender o apagar la pantalla';
+  @override
+  String get hubVerEnSuVentana => 'Ver en su ventana';
 }
 
 mixin HubStringsEn implements HubStrings {
@@ -299,4 +323,20 @@ mixin HubStringsEn implements HubStrings {
   String get hubSinApps => 'No conversation has a folder with pubspec.yaml';
   @override
   String get hubEsperandoArranque => 'Waiting for it to start…';
+  @override
+  String get hubAtras => 'Back';
+  @override
+  String get hubInicio => 'Home';
+  @override
+  String get hubRecientes => 'Recents';
+  @override
+  String get hubGirar => 'Rotate';
+  @override
+  String get hubSilenciar => 'Mute the phone';
+  @override
+  String get hubOirlo => 'Hear the phone';
+  @override
+  String get hubEncender => 'Screen on or off';
+  @override
+  String get hubVerEnSuVentana => 'Show in its own window';
 }

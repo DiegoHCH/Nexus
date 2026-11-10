@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/la_apariencia_de_fuera.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
+import 'package:nexus/features/emulators/domain/usecases/el_espejo_del_iphone.dart';
 import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
 import 'package:nexus/features/hub/data/la_ventana_del_hub.dart';
 import 'package:nexus/features/hub/domain/entities/dispositivo_del_hub.dart';
@@ -237,6 +238,17 @@ final laFotoDelHubProvider = Provider<LoQueEnsenaElHub>((ref) {
         ? const []
         : ref.watch(registrosProvider)[deviceId] ?? const [],
     correr: ref.watch(loDeCorrerProvider),
+    verFuera: elegido == null || !elegido.encendido
+        ? const []
+        : [
+            if (ref.watch(sePuedeVerLaPantallaProvider(elegido.id)))
+              ComoVerFuera.scrcpy,
+            for (final como in ref.watch(comoVerElIphoneProvider(elegido.id)))
+              switch (como) {
+                ComoVerElIphone.duplicado => ComoVerFuera.duplicado,
+                ComoVerElIphone.quickTime => ComoVerFuera.quickTime,
+              },
+          ],
     aviso: ref.watch(elAvisoDelHubProvider),
   );
 });
@@ -372,6 +384,41 @@ class ElHubDeDispositivos extends Notifier<bool> {
         await _duplicar();
       case QuitarLaCopia():
         await _quitarLaCopia();
+      case TraerAlFrente(:final id):
+        final d = _dispositivo(id);
+        if (d == null) return;
+        await _ventana.traerAlFrente(
+          apps: d.clase == ClaseDeDispositivo.simulador
+              ? const ['com.apple.iphonesimulator']
+              : const [],
+          ejecutables: d.clase == ClaseDeDispositivo.emulador
+              ? const ['qemu-system']
+              : const [],
+        );
+      case VerFuera(:final id, :final como):
+        final d = _dispositivo(id);
+        if (d == null) return;
+        final datos = ref.read(emuladoresDataSourceProvider);
+        aviso.pon(null);
+        final error = switch (como) {
+          ComoVerFuera.scrcpy => await datos.verLaPantalla(
+            deviceId: id,
+            titulo: d.nombre,
+            conControl: true,
+          ),
+          ComoVerFuera.duplicado => await datos.verElIphone(
+            ComoVerElIphone.duplicado,
+          ),
+          ComoVerFuera.quickTime => await datos.verElIphone(
+            ComoVerElIphone.quickTime,
+          ),
+        };
+        if (!ref.mounted) return;
+        aviso.pon(error);
+        // Como en el panel: si corre algo en él, la botonera se pega al espejo.
+        if (como == ComoVerFuera.scrcpy && error == null) {
+          ref.read(elEspejoAbiertoProvider.notifier).abrio(id);
+        }
     }
   }
 

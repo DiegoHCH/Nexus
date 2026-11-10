@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:nexus/features/hub/presentation/state/lo_que_ensena_el_hub.dart';
 
 /// **Lo que se pulsa en el hub**, de vuelta a la app.
 ///
@@ -27,6 +28,12 @@ sealed class PedidoDelHub {
         ('correr', _) => const Correr(),
         ('duplicar', _) => const DuplicarConConsola(),
         ('quitarCopia', _) => const QuitarLaCopia(),
+        ('traer', final String id) => TraerAlFrente(id),
+        ('verFuera', final String id) => switch (ComoVerFuera.values
+            .asNameMap()[mapa['como']]) {
+          final como? => VerFuera(id, como),
+          null => null,
+        },
         ('botonera', _) => switch (mapa['pedido']) {
           final Map<Object?, Object?> pedido => DeLaBotonera(pedido),
           _ => null,
@@ -182,4 +189,41 @@ class QuitarLaCopia extends PedidoDelHub {
 
   @override
   int get hashCode => 3;
+}
+
+/// Traer al frente la ventana donde está su pantalla: Simulator, o la del
+/// emulador cuando no deja verla dentro.
+class TraerAlFrente extends PedidoDelHub {
+  const TraerAlFrente(this.id);
+  final String id;
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'traer', 'id': id};
+
+  @override
+  bool operator ==(Object other) => other is TraerAlFrente && other.id == id;
+
+  @override
+  int get hashCode => Object.hash('traer', id);
+}
+
+/// Abrir su pantalla en otra ventana: scrcpy, Duplicado de iPhone, QuickTime.
+class VerFuera extends PedidoDelHub {
+  const VerFuera(this.id, this.como);
+  final String id;
+  final ComoVerFuera como;
+
+  @override
+  Map<String, Object?> toMap() => {
+    'que': 'verFuera',
+    'id': id,
+    'como': como.name,
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      other is VerFuera && other.id == id && other.como == como;
+
+  @override
+  int get hashCode => Object.hash(id, como);
 }

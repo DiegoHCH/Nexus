@@ -66,10 +66,29 @@ final class NexusHub: NSObject, NSWindowDelegate {
       case "cerrar":
         compartido.ventana?.performClose(nil)
         result(nil)
+      case "traerAlFrente":
+        result(traerAlFrente(datos))
       default:
         result(FlutterMethodNotImplemented)
       }
     }
+  }
+
+  /// Trae al frente la app donde está la pantalla de un dispositivo que no se
+  /// ve dentro: Simulator, o el emulador cuando no deja verla aquí. Se
+  /// reconoce como el espejo de la botonera: por paquete o por ejecutable.
+  static func traerAlFrente(_ datos: [String: Any]) -> Bool {
+    let busca = LaVentanaDelEspejo(
+      ejecutables: datos["ejecutables"] as? [String] ?? [],
+      apps: datos["apps"] as? [String] ?? [])
+    guard
+      let app = NSWorkspace.shared.runningApplications.first(where: {
+        busca.esSuya(bundle: $0.bundleIdentifier, ejecutable: $0.executableURL?.lastPathComponent)
+      })
+    else { return false }
+    if app.isHidden { app.unhide() }
+    if #available(macOS 14, *) { return app.activate() }
+    return app.activate(options: [.activateIgnoringOtherApps])
   }
 
   // MARK: - Las cuentas, aparte para poder probarlas sin ventanas

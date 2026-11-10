@@ -79,6 +79,30 @@ class ElCentroDelHub extends StatelessWidget {
               strings.hubFueraTextoEnchufado,
             (true, _) => strings.hubFueraTextoEmulador,
           },
+          acciones: [
+            // Lo de hoy en el panel de dispositivos (T13), aquí.
+            if (d.clase != ClaseDeDispositivo.enchufado)
+              BotonDeFila(
+                texto: strings.hubTraerAlFrente,
+                tono: TonoDeBoton.principal,
+                onPulsar: () => onPedido(TraerAlFrente(d.id)),
+              ),
+            for (final como in foto.verFuera)
+              BotonDeFila(
+                texto: switch (como) {
+                  ComoVerFuera.scrcpy => strings.hubVerLaPantalla,
+                  ComoVerFuera.duplicado => strings.hubDuplicadoApp,
+                  ComoVerFuera.quickTime => strings.hubQuickTime,
+                },
+                tono: TonoDeBoton.principal,
+                onPulsar: () => onPedido(VerFuera(d.id, como)),
+              ),
+            if (d.catalogo != null)
+              BotonDeFila(
+                texto: strings.hubCerrar,
+                onPulsar: () => onPedido(CerrarDispositivo(d.id)),
+              ),
+          ],
         ),
       };
     }

@@ -21,6 +21,7 @@ class LoQueEnsenaElHub {
     required this.botonera,
     required this.registro,
     this.correr = const LoDeCorrer(),
+    this.verFuera = const [],
     this.aviso,
   });
 
@@ -46,6 +47,11 @@ class LoQueEnsenaElHub {
   /// Qué se corre: la app, la configuración y si se puede. Ver [LoDeCorrer].
   final LoDeCorrer correr;
 
+  /// Cómo se puede ver la pantalla del elegido en otra ventana: scrcpy en un
+  /// Android enchufado, Duplicado y QuickTime en un iPhone. Lo de hoy en el
+  /// panel de dispositivos.
+  final List<ComoVerFuera> verFuera;
+
   /// Lo que salió mal en lo último que se pidió —arrancar, cerrar—, tal como lo
   /// contó la herramienta. Se borra con el siguiente pedido.
   final String? aviso;
@@ -65,6 +71,7 @@ class LoQueEnsenaElHub {
     'botonera': botonera.toMap(),
     'registro': registro,
     'correr': correr.toMap(),
+    'verFuera': [for (final c in verFuera) c.name],
     'aviso': ?aviso,
   };
 
@@ -83,6 +90,10 @@ class LoQueEnsenaElHub {
             if (l is String) l,
         ],
         correr: LoDeCorrer.fromMap(_mapa(mapa['correr'])),
+        verFuera: [
+          for (final c in _lista(mapa['verFuera']))
+            ?ComoVerFuera.values.asNameMap()[c],
+        ],
         aviso: mapa['aviso'] as String?,
       );
 
@@ -91,6 +102,9 @@ class LoQueEnsenaElHub {
 
   static List<Object?> _lista(Object? o) => o is List<Object?> ? o : const [];
 }
+
+/// Con qué se ve la pantalla de un dispositivo en otra ventana.
+enum ComoVerFuera { scrcpy, duplicado, quickTime }
 
 /// Una configuración de `launch.json`, o una copia «tuya» ([deCasa]).
 @immutable

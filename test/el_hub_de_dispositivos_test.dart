@@ -33,9 +33,11 @@ const _small = Emulador(
 );
 
 class _Maquina extends EmuladoresDataSource {
-  _Maquina(this.emuladores);
+  _Maquina(this.emuladores, {this.enchufados = const []});
 
   List<Emulador> emuladores;
+  final List<DispositivoConectado> enchufados;
+  final espejos = <String>[];
   final lanzados = <({String id, bool frio})>[];
   final cerrados = <String>[];
   String? errorAlLanzar;
@@ -46,7 +48,21 @@ class _Maquina extends EmuladoresDataSource {
       (emuladores: emuladores, error: null);
 
   @override
-  Future<List<DispositivoConectado>> listarDispositivos() async => const [];
+  Future<List<DispositivoConectado>> listarDispositivos() async => enchufados;
+
+  @override
+  bool hayEspejo() => true;
+
+  @override
+  Future<String?> verLaPantalla({
+    required String deviceId,
+    required String titulo,
+    required bool conControl,
+    bool encima = true,
+  }) async {
+    espejos.add(deviceId);
+    return null;
+  }
 
   @override
   Future<String?> lanzar(
@@ -109,12 +125,17 @@ void main() {
   late _Corridas lasCorridas;
 
   ({ProviderContainer c, VentanaDelHubQueApunta ventana, _Maquina maquina})
-  montar({Map<String, Corrida> corridas = const {}}) {
+  montar({
+    Map<String, Corrida> corridas = const {},
+    List<Emulador> extra = const [],
+    List<DispositivoConectado> enchufados = const [],
+  }) {
     final ventana = VentanaDelHubQueApunta();
     final maquina = _Maquina([
       _medium.conEstado(corriendo: true, deviceId: 'emulator-5554'),
       _small,
-    ]);
+      ...extra,
+    ], enchufados: enchufados);
     final c = ProviderContainer(
       overrides: [
         laVentanaDelHubProvider.overrideWithValue(ventana),
@@ -307,6 +328,8 @@ void main() {
 
   test('cada pedido va y vuelve por el canal tal cual', () {
     for (final p in <PedidoDelHub>[
+      const TraerAlFrente('x'),
+      const VerFuera('y', ComoVerFuera.duplicado),
       const ElegirApp('/p/app'),
       const ElegirConfig('ci'),
       const Correr(),
@@ -388,6 +411,54 @@ void main() {
           .read(elHubDeDispositivosProvider.notifier)
           .atender(const ElegirApp('/p/banco').toMap());
       expect(c.read(loDeCorrerProvider).app, '/p/banco');
+    });
+  });
+
+  group('lo del panel de dispositivos (T13)', () {
+    test('traer al frente un simulador activa Simulator', () async {
+      final (:c, :ventana, maquina: _) = montar(
+        extra: [
+          const Emulador(
+            id: 'apple_ios_simulator',
+            nombre: 'iPhone 17 Pro',
+            fabricante: 'Apple',
+            plataforma: PlataformaEmulador.ios,
+            corriendo: true,
+            deviceId: '3ECC5967',
+          ),
+        ],
+      );
+      await listas(c);
+      await c
+          .read(elHubDeDispositivosProvider.notifier)
+          .atender(const TraerAlFrente('3ECC5967').toMap());
+      expect(ventana.traidas.single.apps, ['com.apple.iphonesimulator']);
+    });
+
+    test('un Android enchufado se ofrece ver con scrcpy, y se abre', () async {
+      final (:c, ventana: _, :maquina) = montar(
+        enchufados: const [
+          DispositivoConectado(
+            id: '36c56d94',
+            nombre: 'POCO F6',
+            plataforma: PlataformaEmulador.android,
+          ),
+        ],
+      );
+      await listas(c);
+      final hub = c.read(elHubDeDispositivosProvider.notifier);
+      await hub.atender(const ElegirDispositivo('36c56d94').toMap());
+      expect(c.read(laFotoDelHubProvider).verFuera, [ComoVerFuera.scrcpy]);
+      await hub.atender(
+        const VerFuera('36c56d94', ComoVerFuera.scrcpy).toMap(),
+      );
+      expect(maquina.espejos, ['36c56d94']);
+    });
+
+    test('un emulador no se ofrece ver con scrcpy', () async {
+      final (:c, ventana: _, maquina: _) = montar();
+      await listas(c);
+      expect(c.read(laFotoDelHubProvider).verFuera, isEmpty);
     });
   });
 }

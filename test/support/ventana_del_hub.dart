@@ -37,6 +37,17 @@ class VentanaDelHubQueApunta implements LaVentanaDelHub {
   @override
   void alCerrarse(void Function() hacer) => _alCerrarse = hacer;
 
+  final traidas = <({List<String> apps, List<String> ejecutables})>[];
+
+  @override
+  Future<bool> traerAlFrente({
+    List<String> apps = const [],
+    List<String> ejecutables = const [],
+  }) async {
+    traidas.add((apps: apps, ejecutables: ejecutables));
+    return true;
+  }
+
   void pulsan(Map<Object?, Object?> pedido) => _atender?.call(pedido);
 
   void laCierran() => _alCerrarse?.call();

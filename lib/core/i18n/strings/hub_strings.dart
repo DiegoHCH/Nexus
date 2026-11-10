@@ -36,6 +36,7 @@ mixin HubStrings {
   String get hubFueraTextoEnchufado;
   String get hubSimulatorApp;
   String get hubDuplicadoApp;
+  String get hubQuickTime;
   String get hubVentanaDelEmulador;
   String get hubTraerAlFrente;
   String get hubVerLaPantalla;
@@ -130,6 +131,8 @@ mixin HubStringsEs implements HubStrings {
   String get hubSimulatorApp => 'Simulator';
   @override
   String get hubDuplicadoApp => 'Duplicado de iPhone';
+  @override
+  String get hubQuickTime => 'QuickTime';
   @override
   String get hubVentanaDelEmulador => 'la ventana del emulador';
   @override
@@ -248,6 +251,8 @@ mixin HubStringsEn implements HubStrings {
   String get hubSimulatorApp => 'Simulator';
   @override
   String get hubDuplicadoApp => 'iPhone Mirroring';
+  @override
+  String get hubQuickTime => 'QuickTime';
   @override
   String get hubVentanaDelEmulador => "the emulator's window";
   @override

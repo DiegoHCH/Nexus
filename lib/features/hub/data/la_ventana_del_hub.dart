@@ -21,6 +21,14 @@ abstract interface class LaVentanaDelHub {
 
   /// La cerró quien mira: con su botón, con ⌘W.
   void alCerrarse(void Function() hacer);
+
+  /// Trae al frente la app de otra ventana: la de [apps] (identificadores de
+  /// paquete) o la del ejecutable que empiece por alguno de [ejecutables].
+  /// `false` si no estaba abierta.
+  Future<bool> traerAlFrente({
+    List<String> apps = const [],
+    List<String> ejecutables = const [],
+  });
 }
 
 class LaVentanaNativaDelHub implements LaVentanaDelHub {
@@ -70,6 +78,25 @@ class LaVentanaNativaDelHub implements LaVentanaDelHub {
 
   @override
   void alCerrarse(void Function() hacer) => _alCerrarse = hacer;
+
+  @override
+  Future<bool> traerAlFrente({
+    List<String> apps = const [],
+    List<String> ejecutables = const [],
+  }) async {
+    try {
+      return await _canal.invokeMethod<bool>('traerAlFrente', {
+            'apps': apps,
+            'ejecutables': ejecutables,
+          }) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException catch (error) {
+      debugPrint('hub · traer al frente: $error');
+      return false;
+    }
+  }
 
   Future<void> _decir(String que, Object? datos) async {
     try {

@@ -322,4 +322,60 @@ void main() {
       expect(pedidos, [const ElegirConfig('prod')]);
     });
   });
+
+  group('lo del panel de dispositivos (T13)', () {
+    testWidgets('un simulador encendido: traerlo al frente y cerrarlo', (
+      tester,
+    ) async {
+      final pedidos = await montar(
+        tester,
+        foto(elegido: '3ECC5967', conCorrida: false),
+      );
+      await tester.tap(find.text('TRAER AL FRENTE'));
+      await tester.tap(find.text('CERRAR'));
+      expect(pedidos, [
+        const TraerAlFrente('3ECC5967'),
+        const CerrarDispositivo('3ECC5967'),
+      ]);
+    });
+
+    testWidgets('un Android enchufado: ver con scrcpy, sin cerrar', (
+      tester,
+    ) async {
+      final pedidos = await montar(
+        tester,
+        LoQueEnsenaElHub(
+          apariencia: const LaAparienciaDeFuera(
+            claro: false,
+            acento: 0xFF56E1EA,
+            idioma: 'es',
+          ),
+          dispositivos: const [
+            DispositivoDelHub(
+              id: '36c56d94',
+              nombre: 'POCO F6',
+              android: true,
+              clase: ClaseDeDispositivo.enchufado,
+              estado: EstadoDelDispositivo.encendido,
+              deviceId: '36c56d94',
+            ),
+          ],
+          elegido: '36c56d94',
+          buscando: false,
+          botonera: const LoQueEnsenaLaBotonera(
+            corridas: [],
+            trabajos: [],
+            deFondo: [],
+            recargaSola: true,
+          ),
+          registro: const [],
+          verFuera: const [ComoVerFuera.scrcpy],
+        ),
+      );
+      expect(find.text('CERRAR'), findsNothing);
+      expect(find.text('TRAER AL FRENTE'), findsNothing);
+      await tester.tap(find.text('VER LA PANTALLA'));
+      expect(pedidos, [const VerFuera('36c56d94', ComoVerFuera.scrcpy)]);
+    });
+  });
 }

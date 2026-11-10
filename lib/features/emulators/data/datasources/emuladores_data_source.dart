@@ -102,13 +102,13 @@ class EmuladoresDataSource {
     final catalogo = ComandoDeEmuladores.leerTabla(catalogoBruto.salida);
     // Estos dos sí en paralelo: son de plataformas distintas y no comparten
     // ningún lock. El de Android son varios procesos cortos y el de iOS uno.
-    final (avds, ios) = await (_avdsArriba(), _hayIosArriba()).wait;
+    final (avds, ios) = await (_avdsArriba(), _simuladoresArriba()).wait;
 
     return (
       emuladores: ComandoDeEmuladores.conEstado(
         catalogo,
         avdsArriba: avds,
-        iosArriba: ios,
+        simuladoresArriba: ios,
       ),
       error: null,
     );
@@ -406,7 +406,9 @@ class EmuladoresDataSource {
   /// Pregunta solo por su plataforma: esperar a un simulador de iOS no tiene por
   /// qué costar los `adb` de Android ni al revés.
   Future<bool> _estaArriba(Emulador emulador) async {
-    if (emulador.plataforma == PlataformaEmulador.ios) return _hayIosArriba();
+    if (emulador.plataforma == PlataformaEmulador.ios) {
+      return (await _simuladoresArriba()).isNotEmpty;
+    }
 
     final avds = await _avdsArriba();
     return avds.keys.any((avd) => avd == emulador.id || avd == emulador.nombre);
@@ -417,17 +419,23 @@ class EmuladoresDataSource {
   /// Cada plataforma por su lado, y en iOS son **dos pasos**: apagar el
   /// simulador y además cerrar la app. Sin lo segundo queda la ventana abierta en
   /// negro, que se lee como que sigue arrancado.
+  ///
+  /// En iOS se apaga **ese** simulador, por su UDID: cada uno encendido es su
+  /// propia fila, y cerrar una no puede apagar las demás. La app solo se cierra
+  /// si ya no queda ninguno, que con otro encendido se llevaría su ventana.
   Future<String?> cerrar(Emulador emulador) async {
     if (emulador.plataforma == PlataformaEmulador.ios) {
       final apagado = await _correr('/usr/bin/xcrun', [
         'simctl',
         'shutdown',
-        'all',
+        emulador.deviceId ?? 'all',
       ]);
       if (apagado == null) return 'No se pudo apagar el simulador';
       // Si esto falla no es un fallo del cierre: el simulador ya está apagado y
       // lo único que queda es una ventana. Se ignora a propósito.
-      await _correr('/usr/bin/osascript', ['-e', 'quit app "Simulator"']);
+      if ((await _simuladoresArriba()).isEmpty) {
+        await _correr('/usr/bin/osascript', ['-e', 'quit app "Simulator"']);
+      }
       return null;
     }
 
@@ -482,7 +490,7 @@ class EmuladoresDataSource {
     return arriba;
   }
 
-  Future<bool> _hayIosArriba() async {
+  Future<List<SimuladorArriba>> _simuladoresArriba() async {
     final salida = await _correr('/usr/bin/xcrun', [
       'simctl',
       'list',
@@ -491,8 +499,8 @@ class EmuladoresDataSource {
       '--json',
     ]);
     return salida == null
-        ? false
-        : ComandoDeEmuladores.hayIosArriba(salida.salida);
+        ? const []
+        : ComandoDeEmuladores.simuladoresArriba(salida.salida);
   }
 
   /// `null` cuando el proceso no llegó a contestar. Un código de salida distinto

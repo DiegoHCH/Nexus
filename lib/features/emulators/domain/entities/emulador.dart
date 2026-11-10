@@ -54,13 +54,14 @@ class Emulador {
   /// campo se rellena aparte en vez de venir del parseo.
   final bool corriendo;
 
-  /// El dispositivo con el que se cierra, cuando está arriba.
+  /// El dispositivo que resultó de arrancarlo, cuando está arriba: el que pide
+  /// `-d` para correr y con el que se cierra.
   ///
-  /// Solo Android, y ahí está el motivo de que exista: **no hay ningún
-  /// identificador común entre un emulador y el dispositivo que resulta de
-  /// arrancarlo**. `Medium_Phone_API_36.1` se convierte en `emulator-5554`, y
-  /// para matarlo hace falta el segundo. En iOS no se necesita porque se apagan
-  /// todos de una vez.
+  /// Existe porque **no hay ningún identificador común entre un emulador y el
+  /// dispositivo que resulta de arrancarlo**. `Medium_Phone_API_36.1` se
+  /// convierte en `emulator-5554`; en iOS, el único `apple_ios_simulator` del
+  /// catálogo se convierte en el UDID de cada simulador encendido. Ver
+  /// `ComandoDeEmuladores.conEstado`.
   final String? deviceId;
 
   Emulador conEstado({required bool corriendo, String? deviceId}) => Emulador(

@@ -440,6 +440,35 @@ emulator-5554	device
       expect(maquina.sePidio('simctl shutdown all'), isTrue);
       expect(maquina.sePidio('quit app "Simulator"'), isTrue);
     });
+
+    // Cada simulador encendido es su fila: cerrar una no apaga las demás, ni
+    // se lleva la ventana de la app mientras quede otro.
+    test('uno de iOS con su UDID apaga solo ese', () async {
+      final maquina = _Maquina(
+        respuestas: {
+          'simctl list devices booted': _dice(
+            '{"devices":{"iOS-26-5":'
+            '[{"udid":"B2","name":"iPhone Air","state":"Booted"}]}}',
+          ),
+        },
+      );
+
+      final error = await conLa(maquina).cerrar(
+        const Emulador(
+          id: 'apple_ios_simulator',
+          nombre: 'iPhone 17 Pro',
+          fabricante: 'Apple',
+          plataforma: PlataformaEmulador.ios,
+          corriendo: true,
+          deviceId: 'A1',
+        ),
+      );
+
+      expect(error, isNull);
+      expect(maquina.sePidio('simctl shutdown A1'), isTrue);
+      expect(maquina.sePidio('simctl shutdown all'), isFalse);
+      expect(maquina.sePidio('quit app "Simulator"'), isFalse);
+    });
   });
 
   group('el espejo del móvil', () {

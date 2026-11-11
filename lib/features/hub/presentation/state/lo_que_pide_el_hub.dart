@@ -39,6 +39,7 @@ sealed class PedidoDelHub {
         ('verPasada', final String carpeta) => VerPasada(carpeta),
         ('panelDePruebas', _) => const AbrirElPanelDePruebas(),
         ('verPruebas', _) => VerPruebas(mapa['si'] == true),
+        ('verSistema', _) => VerElSistema(mapa['si'] == true),
         ('verFuera', final String id) => switch (ComoVerFuera.values
             .asNameMap()[mapa['como']]) {
           final como? => VerFuera(id, como),
@@ -330,6 +331,22 @@ class AbrirElPanelDePruebas extends PedidoDelHub {
 
   @override
   int get hashCode => 13;
+}
+
+/// En el panel de abajo, el registro del sistema del elegido ([si]) o el de
+/// su corrida. Lo pide la pestaña (11 nov).
+class VerElSistema extends PedidoDelHub {
+  const VerElSistema(this.si);
+  final bool si;
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'verSistema', 'si': si};
+
+  @override
+  bool operator ==(Object other) => other is VerElSistema && other.si == si;
+
+  @override
+  int get hashCode => Object.hash('verSistema', si);
 }
 
 /// Pasar a la cara de pruebas ([si]) o volver a la pantalla.

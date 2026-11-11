@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
+import 'package:nexus/features/emulators/domain/entities/linea_de_registro.dart';
 import 'package:nexus/features/run/domain/usecases/el_error_que_pinta_la_app.dart';
 
 /// **El registro de la corrida, abajo**: la tercera parte de la mesa.
@@ -19,18 +20,42 @@ import 'package:nexus/features/run/domain/usecases/el_error_que_pinta_la_app.dar
 /// hacia arriba el registro crece y la pantalla del teléfono encoge; hacia
 /// abajo, al revés. Nunca baja de [minimo] ni le quita al centro su
 /// [minimoDelCentro], y plegado, arrastrarlo hacia arriba lo despliega.
+///
+/// **Con dos pestañas** (11 nov, pedido de Diego): el registro de la corrida y
+/// el registro del sistema del teléfono —el crash nativo, el ANR—, que antes
+/// eran dos botones de la botonera y abrían cada uno su ventana. Ahora se leen
+/// aquí mismo. El del sistema se escucha solo mientras su pestaña está puesta.
 class ElRegistroDelHub extends StatefulWidget {
   const ElRegistroDelHub({
     super.key,
     required this.lineas,
     required this.hayCorrida,
+    this.sistema = const [],
+    this.enSistema = false,
+    this.escuchandoSistema = false,
+    this.hayDispositivo = false,
+    this.onSistema,
     this.espacio,
     this.altoInicial,
     this.onAlto,
   });
 
+  /// Las de la corrida.
   final List<String> lineas;
   final bool hayCorrida;
+
+  /// Las del sistema del elegido, y si es esa la pestaña puesta.
+  final List<LineaDeRegistro> sistema;
+  final bool enSistema;
+
+  /// Si se está escuchando: «escuchando, todavía nada» y no «no dijo nada».
+  final bool escuchandoSistema;
+
+  /// Si hay un dispositivo encendido elegido: sin él no hay sistema que oír.
+  final bool hayDispositivo;
+
+  /// Cambiar de pestaña: `true`, la del sistema.
+  final ValueChanged<bool>? onSistema;
 
   /// El alto que se reparten el centro y el registro, para no quitarle al
   /// centro su [minimoDelCentro]. `null`: sin tope.
@@ -57,6 +82,10 @@ class ElRegistroDelHub extends StatefulWidget {
   /// La cabecera, que es el asa, y las líneas: para las pruebas.
   static const elAsa = ValueKey('el-asa-del-registro');
   static const elCuerpo = ValueKey('el-cuerpo-del-registro');
+
+  /// Las dos pestañas.
+  static const laPestanaDeLaCorrida = ValueKey('pestana-de-la-corrida');
+  static const laPestanaDelSistema = ValueKey('pestana-del-sistema');
 
   @override
   State<ElRegistroDelHub> createState() => _ElRegistroDelHubState();
@@ -159,7 +188,12 @@ class _ElRegistroDelHubState extends State<ElRegistroDelHub> {
     if (llego != null && oldWidget.altoInicial == null && !_estirado) {
       _alto = llego;
     }
-    if (_alFinal && widget.lineas.length != oldWidget.lineas.length) {
+    final otraPestana = widget.enSistema != oldWidget.enSistema;
+    final otraCuenta = widget.enSistema
+        ? widget.sistema.length != oldWidget.sistema.length
+        : widget.lineas.length != oldWidget.lineas.length;
+    if (otraPestana) _alFinal = true;
+    if (_alFinal && (otraCuenta || otraPestana)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scroll.hasClients) {
           _scroll.jumpTo(_scroll.position.maxScrollExtent);
@@ -175,7 +209,10 @@ class _ElRegistroDelHubState extends State<ElRegistroDelHub> {
   }
 
   Future<void> _copiar() async {
-    await Clipboard.setData(ClipboardData(text: widget.lineas.join('\n')));
+    final texto = widget.enSistema
+        ? [for (final l in widget.sistema) '${l.etiqueta}: ${l.texto}']
+        : widget.lineas;
+    await Clipboard.setData(ClipboardData(text: texto.join('\n')));
     if (!mounted) return;
     setState(() => _copiado = true);
     await Future<void>.delayed(const Duration(seconds: 2));
@@ -187,7 +224,13 @@ class _ElRegistroDelHubState extends State<ElRegistroDelHub> {
     final colors = context.colors;
     final strings = context.strings;
     final lineas = widget.lineas;
+    final sistema = widget.enSistema;
     _midela();
+
+    // Qué hay en la pestaña puesta: sin corrida no hay registro de la
+    // corrida, y sin dispositivo encendido no hay sistema que oír.
+    final hayCuerpo = sistema ? widget.hayDispositivo : widget.hayCorrida;
+    final cuantas = sistema ? widget.sistema.length : lineas.length;
 
     final fila = Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -198,19 +241,42 @@ class _ElRegistroDelHubState extends State<ElRegistroDelHub> {
       ),
       child: Row(
         children: [
+          // «Registro», y a su lado de qué: la corrida o el sistema. Con los
+          // nombres enteros —«Registro de la corrida», «Registro del
+          // sistema»— no cabían en la ventana mínima junto a copiar y plegar.
           Text(
             strings.hubRegistro.toUpperCase(),
             style: NexusTypography.label.copyWith(color: colors.faint),
           ),
+          const SizedBox(width: NexusSpacing.s2),
+          _Pestana(
+            key: ElRegistroDelHub.laPestanaDeLaCorrida,
+            texto: strings.hubPestanaCorrida,
+            puesta: !sistema,
+            onPulsar: () => widget.onSistema?.call(false),
+          ),
+          const SizedBox(width: NexusSpacing.s1),
+          _Pestana(
+            key: ElRegistroDelHub.laPestanaDelSistema,
+            texto: strings.hubPestanaSistema,
+            puesta: sistema,
+            onPulsar: () => widget.onSistema?.call(true),
+          ),
           const SizedBox(width: NexusSpacing.s3),
-          Text(
-            widget.hayCorrida
-                ? strings.hubLineas(lineas.length)
-                : strings.hubSinCorrida,
-            style: NexusTypography.data.copyWith(color: colors.faint),
+          Flexible(
+            child: Text(
+              hayCuerpo
+                  ? strings.hubLineas(cuantas)
+                  : sistema
+                  ? strings.hubSinDispositivo
+                  : strings.hubSinCorrida,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: NexusTypography.data.copyWith(color: colors.faint),
+            ),
           ),
           const Spacer(),
-          if (widget.hayCorrida && lineas.isNotEmpty && !_plegado)
+          if (hayCuerpo && cuantas > 0 && !_plegado)
             TextButton(
               onPressed: _copiar,
               child: Text(
@@ -219,7 +285,7 @@ class _ElRegistroDelHubState extends State<ElRegistroDelHub> {
                 style: NexusTypography.boton.copyWith(color: colors.accent),
               ),
             ),
-          if (widget.hayCorrida)
+          if (hayCuerpo)
             IconButton(
               tooltip: _plegado ? strings.hubDesplegar : strings.hubPlegar,
               visualDensity: VisualDensity.compact,
@@ -237,8 +303,8 @@ class _ElRegistroDelHubState extends State<ElRegistroDelHub> {
     );
 
     // **La cabecera es el asa**, con una raya encima que lo dice y el cursor
-    // de estirar. Sin corrida no hay líneas que estirar, y no se ofrece.
-    final sePuedeEstirar = widget.hayCorrida;
+    // de estirar. Sin líneas que enseñar no hay nada que estirar.
+    final sePuedeEstirar = hayCuerpo;
     final raya = Padding(
       padding: const EdgeInsets.only(top: 4, bottom: 2),
       child: Center(
@@ -279,7 +345,7 @@ class _ElRegistroDelHubState extends State<ElRegistroDelHub> {
             ),
     );
 
-    final abierto = widget.hayCorrida && !_plegado;
+    final abierto = hayCuerpo && !_plegado;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.deep,
@@ -298,11 +364,13 @@ class _ElRegistroDelHubState extends State<ElRegistroDelHub> {
               child: SizedBox(
                 key: ElRegistroDelHub.elCuerpo,
                 height: _altoQueCabe,
-                child: lineas.isEmpty
+                child: cuantas == 0
                     ? Padding(
                         padding: const EdgeInsets.all(NexusSpacing.s4),
                         child: Text(
-                          strings.hubSinLineas,
+                          sistema && widget.escuchandoSistema
+                              ? strings.hubSistemaEscuchando
+                              : strings.hubSinLineas,
                           style: NexusTypography.data.copyWith(
                             color: colors.faint,
                           ),
@@ -310,26 +378,125 @@ class _ElRegistroDelHubState extends State<ElRegistroDelHub> {
                       )
                     : SelectionArea(
                         child: ListView.builder(
+                          // Otra pestaña, otra lista: que no herede el sitio
+                          // por donde se iba leyendo la otra.
+                          key: ValueKey(sistema),
                           controller: _scroll,
                           padding: const EdgeInsets.symmetric(
                             horizontal: NexusSpacing.s4,
                             vertical: NexusSpacing.s1 + 2,
                           ),
-                          itemCount: lineas.length,
-                          itemBuilder: (context, i) => Text(
-                            lineas[i],
-                            style: NexusTypography.data.copyWith(
-                              fontSize: 11.5,
-                              height: 1.55,
-                              color: ElErrorQuePintaLaApp.pintaMal(lineas[i])
-                                  ? colors.err
-                                  : colors.mute,
-                            ),
-                          ),
+                          itemCount: cuantas,
+                          itemBuilder: (context, i) => sistema
+                              ? _LineaDelSistema(linea: widget.sistema[i])
+                              : Text(
+                                  lineas[i],
+                                  style: NexusTypography.data.copyWith(
+                                    fontSize: 11.5,
+                                    height: 1.55,
+                                    color:
+                                        ElErrorQuePintaLaApp.pintaMal(lineas[i])
+                                        ? colors.err
+                                        : colors.mute,
+                                  ),
+                                ),
                         ),
                       ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Una pestaña del panel: su nombre, subrayado con el acento si es la puesta.
+/// Con el ratón encima se aclara y lleva la mano: se nota que se pulsa.
+class _Pestana extends StatefulWidget {
+  const _Pestana({
+    super.key,
+    required this.texto,
+    required this.puesta,
+    required this.onPulsar,
+  });
+
+  final String texto;
+  final bool puesta;
+  final VoidCallback onPulsar;
+
+  @override
+  State<_Pestana> createState() => _PestanaState();
+}
+
+class _PestanaState extends State<_Pestana> {
+  bool _encima = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return MouseRegion(
+      cursor: widget.puesta
+          ? SystemMouseCursors.basic
+          : SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _encima = true),
+      onExit: (_) => setState(() => _encima = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.puesta ? null : widget.onPulsar,
+        child: Semantics(
+          button: true,
+          selected: widget.puesta,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: widget.puesta ? colors.accent : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+            ),
+            child: Text(
+              widget.texto.toUpperCase(),
+              style: NexusTypography.label.copyWith(
+                color: widget.puesta || _encima ? colors.ink : colors.faint,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Una línea del registro del sistema: de quién viene, en tenue, y lo que
+/// dice, en rojo si es un error y en ámbar si es un aviso.
+class _LineaDelSistema extends StatelessWidget {
+  const _LineaDelSistema({required this.linea});
+
+  final LineaDeRegistro linea;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final estilo = NexusTypography.data.copyWith(fontSize: 11.5, height: 1.55);
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '${linea.etiqueta}  ',
+            style: estilo.copyWith(color: colors.faint),
+          ),
+          TextSpan(
+            text: linea.texto,
+            style: estilo.copyWith(
+              color: switch (linea.nivel) {
+                NivelDeRegistro.fatal || NivelDeRegistro.error => colors.err,
+                NivelDeRegistro.aviso => colors.warn,
+                _ => colors.mute,
+              },
+            ),
+          ),
         ],
       ),
     );

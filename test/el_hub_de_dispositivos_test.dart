@@ -3,6 +3,9 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexus/features/emulators/presentation/providers/registro_del_sistema_providers.dart';
+import 'package:nexus/features/emulators/domain/entities/linea_de_registro.dart';
+import 'package:nexus/features/emulators/data/datasources/registros_data_source.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/features/e2e/data/datasources/repo_de_pruebas_data_source.dart';
@@ -171,6 +174,7 @@ void main() {
 
   late _Corridas lasCorridas;
   late _Lanzamientos lasPruebas;
+  late _ElSistema elSistema;
   var losFlows = <Prueba>[];
 
   ({ProviderContainer c, VentanaDelHubQueApunta ventana, _Maquina maquina})
@@ -185,9 +189,11 @@ void main() {
       _small,
       ...extra,
     ], enchufados: enchufados);
+    elSistema = _ElSistema();
     final c = ProviderContainer(
       overrides: [
         laVentanaDelHubProvider.overrideWithValue(ventana),
+        registrosDataSourceProvider.overrideWithValue(elSistema),
         emuladoresDataSourceProvider.overrideWithValue(maquina),
         corridasProvider.overrideWith(() => lasCorridas = _Corridas(corridas)),
         lasAppsDelHubProvider.overrideWithValue(const [
@@ -251,6 +257,84 @@ void main() {
     await c.read(emuladoresProvider.future);
     await c.read(dispositivosProvider.future);
   }
+
+  // 11 nov: el registro del sistema es una pestaña del panel de abajo. Se
+  // escucha a petición —un logcat abierto es un proceso, el cable ocupado y
+  // batería del teléfono—: con el hub abierto y la pestaña puesta, nada más.
+  group('el registro del sistema, en su pestaña', () {
+    test(
+      'con la pestaña puesta se escucha el elegido, y llega en la foto',
+      () async {
+        final (:c, ventana: _, maquina: _) = montar();
+        await listas(c);
+        final hub = c.read(elHubDeDispositivosProvider.notifier);
+        await hub.abrir(elegido: 'emulator-5554');
+        expect(elSistema.escuchando, isEmpty);
+
+        await hub.atender(const VerElSistema(true).toMap());
+        expect(elSistema.escuchando, ['emulator-5554']);
+        elSistema.dice(
+          'emulator-5554',
+          const LineaDeRegistro(
+            nivel: NivelDeRegistro.error,
+            etiqueta: 'AndroidRuntime',
+            texto: 'FATAL EXCEPTION: main',
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+        final foto = c.read(laFotoDelHubProvider);
+        expect(foto.enSistema, isTrue);
+        expect(foto.escuchandoSistema, isTrue);
+        expect(foto.sistema.single.texto, 'FATAL EXCEPTION: main');
+      },
+    );
+
+    test('se deja al volver a la corrida, y lo oído se queda', () async {
+      final (:c, ventana: _, maquina: _) = montar();
+      await listas(c);
+      final hub = c.read(elHubDeDispositivosProvider.notifier);
+      await hub.abrir(elegido: 'emulator-5554');
+      await hub.atender(const VerElSistema(true).toMap());
+      await hub.atender(const VerElSistema(false).toMap());
+      await Future<void>.delayed(Duration.zero);
+      expect(elSistema.soltados, ['emulator-5554']);
+      expect(c.read(laFotoDelHubProvider).enSistema, isFalse);
+    });
+
+    test('al cerrar el hub se deja de escuchar', () async {
+      final (:c, ventana: _, maquina: _) = montar();
+      await listas(c);
+      final hub = c.read(elHubDeDispositivosProvider.notifier);
+      await hub.abrir(elegido: 'emulator-5554');
+      await hub.atender(const VerElSistema(true).toMap());
+      await hub.cerrar();
+      await Future<void>.delayed(Duration.zero);
+      expect(elSistema.soltados, ['emulator-5554']);
+    });
+
+    test('con el hub cerrado, la pestaña puesta no escucha nada', () async {
+      final (:c, ventana: _, maquina: _) = montar();
+      await listas(c);
+      c.read(elHubEnSistemaProvider.notifier).pon(true);
+      await Future<void>.delayed(Duration.zero);
+      expect(elSistema.escuchando, isEmpty);
+    });
+
+    test('si ya lo escuchaba otra ventana, salir no lo corta', () async {
+      final (:c, ventana: _, maquina: _) = montar();
+      await listas(c);
+      c
+          .read(registroDelSistemaProvider.notifier)
+          .escucha('emulator-5554', PlataformaEmulador.android);
+      final hub = c.read(elHubDeDispositivosProvider.notifier);
+      await hub.abrir(elegido: 'emulator-5554');
+      await hub.atender(const VerElSistema(true).toMap());
+      await hub.atender(const VerElSistema(false).toMap());
+      await Future<void>.delayed(Duration.zero);
+      expect(elSistema.escuchando, ['emulator-5554']);
+      expect(elSistema.soltados, isEmpty);
+    });
+  });
 
   test(
     'abre la ventana con la foto entera y el título en el idioma de Nexus',
@@ -476,6 +560,7 @@ void main() {
 
   test('cada pedido va y vuelve por el canal tal cual', () {
     for (final p in <PedidoDelHub>[
+      const VerElSistema(true),
       const TraerAlFrente('x'),
       const VerFuera('y', ComoVerFuera.duplicado),
       const ElegirApp('/p/app'),
@@ -741,4 +826,34 @@ void main() {
       expect(c.read(laFotoDelHubProvider).pruebas.flows, isEmpty);
     });
   });
+}
+
+/// El registro del sistema de mentira: quién se escucha, quién se soltó, y
+/// cómo hacer que un teléfono diga algo.
+class _ElSistema extends RegistrosDataSource {
+  _ElSistema();
+
+  final escuchando = <String>[];
+  final soltados = <String>[];
+  final _bocas = <String, StreamController<LineaDeRegistro>>{};
+
+  void dice(String deviceId, LineaDeRegistro linea) =>
+      _bocas[deviceId]?.add(linea);
+
+  @override
+  Stream<LineaDeRegistro> escuchar({
+    required PlataformaEmulador plataforma,
+    required String deviceId,
+    bool desdeAhora = true,
+  }) {
+    escuchando.add(deviceId);
+    final boca = StreamController<LineaDeRegistro>(
+      onCancel: () {
+        escuchando.remove(deviceId);
+        soltados.add(deviceId);
+      },
+    );
+    _bocas[deviceId] = boca;
+    return boca.stream;
+  }
 }

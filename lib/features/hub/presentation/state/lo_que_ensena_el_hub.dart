@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:nexus/features/emulators/domain/entities/linea_de_registro.dart';
 import 'package:nexus/core/design_system/la_apariencia_de_fuera.dart';
 import 'package:nexus/features/hub/domain/entities/dispositivo_del_hub.dart';
 import 'package:nexus/features/hub/domain/usecases/correr_desde_el_hub.dart';
@@ -25,6 +26,9 @@ class LoQueEnsenaElHub {
     this.verFuera = const [],
     this.pruebas = const LoDePruebas(),
     this.enPruebas = false,
+    this.enSistema = false,
+    this.sistema = const [],
+    this.escuchandoSistema = false,
     this.aviso,
   });
 
@@ -61,6 +65,18 @@ class LoQueEnsenaElHub {
   /// Si se ve la cara de pruebas en vez de la pantalla.
   final bool enPruebas;
 
+  /// Si el panel de abajo enseña el registro del sistema del elegido en vez
+  /// del de su corrida (11 nov: las dos, como pestañas del mismo panel).
+  final bool enSistema;
+
+  /// Lo que dice el sistema del elegido —`logcat` en Android—, ya filtrado y
+  /// solo las últimas: solo viaja con [enSistema] puesto.
+  final List<LineaDeRegistro> sistema;
+
+  /// Si se está escuchando ahora: «escuchando, todavía nada» no es lo mismo
+  /// que «no se pudo».
+  final bool escuchandoSistema;
+
   /// Lo que salió mal en lo último que se pidió —arrancar, cerrar—, tal como lo
   /// contó la herramienta. Se borra con el siguiente pedido.
   final String? aviso;
@@ -83,6 +99,12 @@ class LoQueEnsenaElHub {
     'verFuera': [for (final c in verFuera) c.name],
     'pruebas': pruebas.toMap(),
     'enPruebas': enPruebas,
+    'enSistema': enSistema,
+    'sistema': [
+      for (final l in sistema)
+        {'n': l.nivel.name, 'e': l.etiqueta, 't': l.texto},
+    ],
+    'escuchandoSistema': escuchandoSistema,
     'aviso': ?aviso,
   };
 
@@ -107,6 +129,19 @@ class LoQueEnsenaElHub {
         ],
         pruebas: LoDePruebas.fromMap(_mapa(mapa['pruebas'])),
         enPruebas: mapa['enPruebas'] == true,
+        enSistema: mapa['enSistema'] == true,
+        sistema: [
+          for (final l in _lista(mapa['sistema']))
+            if (l is Map<Object?, Object?>)
+              LineaDeRegistro(
+                nivel:
+                    NivelDeRegistro.values.asNameMap()[l['n']] ??
+                    NivelDeRegistro.info,
+                etiqueta: l['e'] is String ? l['e']! as String : '',
+                texto: l['t'] is String ? l['t']! as String : '',
+              ),
+        ],
+        escuchandoSistema: mapa['escuchandoSistema'] == true,
         aviso: mapa['aviso'] as String?,
       );
 

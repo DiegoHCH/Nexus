@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexus/features/emulators/domain/entities/linea_de_registro.dart';
 import 'package:nexus/core/design_system/la_apariencia_de_fuera.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
@@ -71,6 +72,9 @@ void main() {
     String? aviso,
     LoDeCorrer correr = const LoDeCorrer(),
     LoDePruebas? pruebas,
+    bool enSistema = false,
+    List<LineaDeRegistro> sistema = const [],
+    bool escuchandoSistema = false,
   }) => LoQueEnsenaElHub(
     apariencia: LaAparienciaDeFuera(
       claro: claro,
@@ -104,6 +108,9 @@ void main() {
     correr: correr,
     pruebas: pruebas ?? const LoDePruebas(),
     enPruebas: pruebas != null,
+    enSistema: enSistema,
+    sistema: sistema,
+    escuchandoSistema: escuchandoSistema,
     aviso: aviso,
   );
 
@@ -149,7 +156,8 @@ void main() {
     expect(find.text('emulator-5554 · corre ci'), findsOneWidget);
     expect(find.text('Small_Phone · apagado'), findsNothing);
     expect(find.text('emulador · apagado'), findsOneWidget);
-    expect(find.text('REGISTRO DE LA CORRIDA'), findsOneWidget);
+    expect(find.text('REGISTRO'), findsOneWidget);
+    expect(find.text('CORRIDA'), findsOneWidget);
     expect(find.text('Reloaded.'), findsOneWidget);
   });
 
@@ -359,6 +367,81 @@ void main() {
     });
   });
 
+  // 11 nov: «los botones de registro y registro del sistema quiero que estén
+  // en la misma de registro de la corrida, pero esta vez como pestañas, y que
+  // el registro se muestre allí mismo».
+  group('el registro, con pestañas', () {
+    testWidgets('las dos pestañas, y tocar la del sistema la pide', (
+      tester,
+    ) async {
+      final pedidos = await montar(tester, foto());
+      expect(find.text('REGISTRO'), findsOneWidget);
+      expect(find.text('CORRIDA'), findsOneWidget);
+      expect(find.text('SISTEMA'), findsOneWidget);
+      await tester.tap(find.byKey(ElRegistroDelHub.laPestanaDelSistema));
+      expect(pedidos, [const VerElSistema(true)]);
+    });
+
+    testWidgets('en la del sistema se leen sus líneas, aquí mismo', (
+      tester,
+    ) async {
+      final pedidos = await montar(
+        tester,
+        foto(
+          enSistema: true,
+          escuchandoSistema: true,
+          sistema: const [
+            LineaDeRegistro(
+              nivel: NivelDeRegistro.info,
+              etiqueta: 'ActivityManager',
+              texto: 'Start proc 4321:com.global66',
+            ),
+            LineaDeRegistro(
+              nivel: NivelDeRegistro.error,
+              etiqueta: 'AndroidRuntime',
+              texto: 'FATAL EXCEPTION: main',
+            ),
+          ],
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      expect(
+        find.textContaining('FATAL EXCEPTION: main', findRichText: true),
+        findsOneWidget,
+      );
+      // Lo de la corrida no se mezcla.
+      expect(find.text('Reloaded.'), findsNothing);
+      expect(find.text('2 líneas'), findsOneWidget);
+      await tester.tap(find.byKey(ElRegistroDelHub.laPestanaDeLaCorrida));
+      expect(pedidos, [const VerElSistema(false)]);
+    });
+
+    testWidgets('escuchando y sin nada todavía, lo dice', (tester) async {
+      await montar(tester, foto(enSistema: true, escuchandoSistema: true));
+      expect(find.text(strings.hubSistemaEscuchando), findsOneWidget);
+    });
+
+    testWidgets('la caja ya no lleva los botones de registro', (tester) async {
+      await montar(
+        tester,
+        foto(
+          acciones: const [
+            AccionDeCorrida.recargar,
+            AccionDeCorrida.registro,
+            AccionDeCorrida.registroDelSistema,
+            AccionDeCorrida.parar,
+          ],
+        ),
+      );
+      expect(find.byKey(const ValueKey('accion-registro')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('accion-registroDelSistema')),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey('accion-recargar')), findsOneWidget);
+    });
+  });
+
   testWidgets('elegir en la lista lo pide', (tester) async {
     final pedidos = await montar(tester, foto());
     await tester.tap(find.text('Small Phone'));
@@ -465,7 +548,7 @@ void main() {
     await tester.tap(find.byTooltip('Plegar el registro'));
     await tester.pump();
     expect(find.text('Reloaded.'), findsNothing);
-    expect(find.text('REGISTRO DE LA CORRIDA'), findsOneWidget);
+    expect(find.text('REGISTRO'), findsOneWidget);
   });
 
   testWidgets('lo que se pulsa en la botonera vuelve por el hub', (

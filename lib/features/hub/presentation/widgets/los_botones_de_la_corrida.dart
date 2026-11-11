@@ -19,6 +19,10 @@ import 'package:nexus/features/run/presentation/widgets/la_barra_de_corridas.dar
 /// tooltip); después, las acciones de la corrida del elegido, con los mismos
 /// iconos y colores que la botonera (ver [comoSeVeLaAccion]). La flotante de
 /// iOS no cambia.
+///
+/// **Sin los dos del registro** (11 nov): el de la corrida y el del sistema
+/// son las pestañas del panel de abajo, que los enseña ahí mismo en vez de
+/// abrir una ventana.
 class LosBotonesDeLaCorrida extends StatelessWidget {
   const LosBotonesDeLaCorrida({
     super.key,
@@ -37,6 +41,20 @@ class LosBotonesDeLaCorrida extends StatelessWidget {
   /// «Recargar sola al terminar».
   static const laRecargaSola = ValueKey('hub-recargar-sola');
 
+  /// Las que no van aquí: son las pestañas del panel del registro.
+  static const _enElPanel = {
+    AccionDeCorrida.registro,
+    AccionDeCorrida.registroDelSistema,
+  };
+
+  static List<({FilaDeCorrida fila, AccionDeCorrida accion})> _acciones(
+    LoQueEnsenaLaBotonera lo,
+  ) => [
+    for (final fila in lo.corridas)
+      for (final accion in fila.acciones)
+        if (!_enElPanel.contains(accion)) (fila: fila, accion: accion),
+  ];
+
   static const _entre = 6.0;
   static const _relleno = NexusSpacing.s2 - 1;
   static const _filete = 1.0;
@@ -44,7 +62,7 @@ class LosBotonesDeLaCorrida extends StatelessWidget {
   /// Lo que mide, para que la cabecera sepa si cabe junto a los selectores
   /// sin tener que pintarla antes.
   static double anchoPara(LoQueEnsenaLaBotonera lo) {
-    final acciones = [for (final c in lo.corridas) ...c.acciones].length;
+    final acciones = _acciones(lo).length;
     final conAcciones = acciones == 0
         ? 0.0
         : 2 * _entre +
@@ -59,10 +77,7 @@ class LosBotonesDeLaCorrida extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final strings = context.strings;
-    final acciones = [
-      for (final fila in lo.corridas)
-        for (final accion in fila.acciones) (fila: fila, accion: accion),
-    ];
+    final acciones = _acciones(lo);
 
     Widget accion(({FilaDeCorrida fila, AccionDeCorrida accion}) a) {
       final se = comoSeVeLaAccion(context, a.fila, a.accion);

@@ -165,6 +165,12 @@ class ElHub extends StatelessWidget {
                           ElRegistroDelHub(
                             lineas: foto.registro,
                             hayCorrida: hayCorrida,
+                            sistema: foto.sistema,
+                            enSistema: foto.enSistema,
+                            escuchandoSistema: foto.escuchandoSistema,
+                            hayDispositivo:
+                                foto.elDispositivo?.encendido ?? false,
+                            onSistema: (si) => onPedido(VerElSistema(si)),
                             espacio: caja.maxHeight,
                             altoInicial: altoDelRegistro,
                             onAlto: onAltoDelRegistro,

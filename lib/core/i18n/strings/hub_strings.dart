@@ -49,8 +49,12 @@ mixin HubStrings {
   String get hubEligeUno;
   String get hubEligeUnoTexto;
   String get hubRegistro;
+  String get hubPestanaCorrida;
+  String get hubPestanaSistema;
   String get hubSinCorrida;
   String hubLineas(int n);
+  String get hubSinDispositivo;
+  String get hubSistemaEscuchando;
   String get hubCopiar;
   String get hubCopiado;
   String get hubPlegar;
@@ -177,9 +181,18 @@ mixin HubStringsEs implements HubStrings {
       'Los dispositivos aparecen solos en cuanto existen: se mira cada 3 s '
       'mientras esta ventana está abierta.';
   @override
-  String get hubRegistro => 'Registro de la corrida';
+  String get hubRegistro => 'Registro';
+  @override
+  String get hubPestanaCorrida => 'Corrida';
+  @override
+  String get hubPestanaSistema => 'Sistema';
   @override
   String get hubSinCorrida => 'sin corrida';
+  @override
+  String get hubSinDispositivo => 'sin dispositivo encendido';
+  @override
+  String get hubSistemaEscuchando =>
+      'Escuchando el registro del sistema; todavía no dijo nada.';
   @override
   String hubLineas(int n) => n == 1 ? '1 línea' : '$n líneas';
   @override
@@ -337,9 +350,18 @@ mixin HubStringsEn implements HubStrings {
       'Devices show up on their own as soon as they exist: this window checks '
       'every 3 s while it is open.';
   @override
-  String get hubRegistro => 'Run log';
+  String get hubRegistro => 'Log';
+  @override
+  String get hubPestanaCorrida => 'Run';
+  @override
+  String get hubPestanaSistema => 'System';
   @override
   String get hubSinCorrida => 'no run';
+  @override
+  String get hubSinDispositivo => 'no device on';
+  @override
+  String get hubSistemaEscuchando =>
+      'Listening to the system log; nothing yet.';
   @override
   String hubLineas(int n) => n == 1 ? '1 line' : '$n lines';
   @override

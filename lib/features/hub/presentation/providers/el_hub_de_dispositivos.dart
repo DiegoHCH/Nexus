@@ -20,7 +20,9 @@ import 'package:nexus/features/e2e/presentation/providers/repo_de_pruebas_provid
 import 'package:nexus/features/e2e/presentation/widgets/pruebas_sheet.dart';
 import 'package:nexus/features/emulators/domain/usecases/el_espejo_del_iphone.dart';
 import 'package:nexus/features/run/domain/usecases/el_espejo_que_se_pega.dart';
+import 'package:nexus/features/emulators/domain/entities/linea_de_registro.dart';
 import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
+import 'package:nexus/features/emulators/presentation/providers/registro_del_sistema_providers.dart';
 import 'package:nexus/features/hub/data/la_ventana_del_hub.dart';
 import 'package:nexus/features/hub/domain/entities/dispositivo_del_hub.dart';
 import 'package:nexus/features/hub/domain/usecases/correr_desde_el_hub.dart';
@@ -248,6 +250,16 @@ final elHubEnPruebasProvider = NotifierProvider<ElHubEnPruebas, bool>(
   ElHubEnPruebas.new,
 );
 
+/// Si el panel de abajo enseña el registro del sistema y no el de la corrida
+/// (11 nov: las dos, como pestañas). Mismo patrón que [elHubEnPruebasProvider].
+final elHubEnSistemaProvider = NotifierProvider<ElHubEnPruebas, bool>(
+  ElHubEnPruebas.new,
+);
+
+/// Lo más que viaja del registro del sistema en cada foto: con un teléfono de
+/// verdad son cientos por minuto, y la foto va y viene cada 300 ms.
+const _lineasDelSistemaEnLaFoto = 300;
+
 /// Lo que falta para correr una prueba, o lo que dijo al no arrancar.
 class ElAvisoDePruebas extends Notifier<String?> {
   @override
@@ -370,6 +382,7 @@ final laFotoDelHubProvider = Provider<LoQueEnsenaElHub>((ref) {
   final elegido = ref.watch(elElegidoEnLaListaProvider);
   final id = elegido?.id;
   final deviceId = elegido?.deviceId;
+  final enSistema = ref.watch(elHubEnSistemaProvider);
   final botonera = ref.watch(loQueEnsenaLaBotoneraProvider);
   final filas = ref.watch(lasFilasDeCorridaProvider);
   return LoQueEnsenaElHub(
@@ -394,6 +407,19 @@ final laFotoDelHubProvider = Provider<LoQueEnsenaElHub>((ref) {
     correr: ref.watch(loDeCorrerProvider),
     pruebas: ref.watch(loDePruebasProvider),
     enPruebas: ref.watch(elHubEnPruebasProvider),
+    enSistema: enSistema,
+    sistema: switch ((enSistema, deviceId)) {
+      (true, final id?) => _lasUltimas(
+        ref.watch(loQueSeVeDelRegistroProvider(id)),
+        _lineasDelSistemaEnLaFoto,
+      ),
+      _ => const [],
+    },
+    escuchandoSistema:
+        enSistema &&
+        deviceId != null &&
+        (ref.watch(registroDelSistemaProvider).containsKey(deviceId) &&
+            ref.read(registroDelSistemaProvider.notifier).escuchando(deviceId)),
     verFuera: elegido == null || !elegido.encendido
         ? const []
         : [
@@ -427,6 +453,43 @@ class ElHubDeDispositivos extends Notifier<bool> {
   void _ponAbierta(bool abierta) {
     _abierta = abierta;
     state = abierta;
+    _escuchaElSistema();
+  }
+
+  /// El dispositivo cuyo registro del sistema empezó a escuchar el hub, para
+  /// dejarlo al salir. Solo el suyo: si ya lo escuchaba otra ventana, sigue.
+  String? _escuchandoYo;
+
+  /// Quien lo escucha, guardado al empezar: al soltarse el hub no se puede
+  /// leer ningún proveedor (Riverpod 3), y es justo cuando hay que dejarlo.
+  ElRegistroDelSistema? _elSistema;
+
+  /// **El registro del sistema se escucha a petición** —un `logcat` abierto es
+  /// un proceso más, el cable ocupado y batería del teléfono—: mientras el hub
+  /// está abierto, con la pestaña del sistema puesta y un dispositivo
+  /// encendido elegido. Fuera de eso se deja, y lo escuchado se queda.
+  void _escuchaElSistema() {
+    final elegido = ref.read(elElegidoEnLaListaProvider);
+    final deviceId = elegido?.deviceId;
+    final quiere =
+        _abierta &&
+            ref.read(elHubEnSistemaProvider) &&
+            elegido != null &&
+            elegido.encendido
+        ? deviceId
+        : null;
+    if (quiere == _escuchandoYo) return;
+    final sistema = ref.read(registroDelSistemaProvider.notifier);
+    _elSistema = sistema;
+    if (_escuchandoYo case final antes?) unawaited(sistema.deja(antes));
+    _escuchandoYo = null;
+    if (quiere == null || elegido == null) return;
+    if (sistema.escuchando(quiere)) return;
+    sistema.escucha(
+      quiere,
+      elegido.android ? PlataformaEmulador.android : PlataformaEmulador.ios,
+    );
+    _escuchandoYo = quiere;
   }
 
   static const ritmo = Duration(milliseconds: 300);
@@ -441,6 +504,8 @@ class ElHubDeDispositivos extends Notifier<bool> {
       });
     ref
       ..listen(laFotoDelHubProvider, (_, _) => _repintar())
+      ..listen(elHubEnSistemaProvider, (_, _) => _escuchaElSistema())
+      ..listen(elElegidoEnLaListaProvider, (_, _) => _escuchaElSistema())
       // P4: una corrida de Android que empieza abre el hub con ella elegida,
       // como antes salía la botonera. Cerrado a mano, queda cerrado hasta la
       // próxima.
@@ -455,6 +520,7 @@ class ElHubDeDispositivos extends Notifier<bool> {
       ..onDispose(() {
         _espera?.cancel();
         if (_abierta) unawaited(_ventana.cerrar());
+        if (_escuchandoYo case final id?) unawaited(_elSistema?.deja(id));
       });
     return false;
   }
@@ -560,6 +626,8 @@ class ElHubDeDispositivos extends Notifier<bool> {
         await _duplicar();
       case QuitarLaCopia():
         await _quitarLaCopia();
+      case VerElSistema(:final si):
+        ref.read(elHubEnSistemaProvider.notifier).pon(si);
       case VerPruebas(:final si):
         ref.read(elHubEnPruebasProvider.notifier).pon(si);
         if (si) ref.invalidate(pasadasDePruebaProvider);
@@ -929,3 +997,7 @@ class ElHubDeDispositivos extends Notifier<bool> {
 final elHubDeDispositivosProvider = NotifierProvider<ElHubDeDispositivos, bool>(
   ElHubDeDispositivos.new,
 );
+
+/// Las últimas [cuantas] de [lineas].
+List<LineaDeRegistro> _lasUltimas(List<LineaDeRegistro> lineas, int cuantas) =>
+    lineas.length <= cuantas ? lineas : lineas.sublist(lineas.length - cuantas);

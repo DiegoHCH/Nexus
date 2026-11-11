@@ -34,6 +34,10 @@ class _ElHubSoloState extends State<ElHubSolo> {
 
   LoQueEnsenaElHub? _foto;
 
+  /// El alto del registro que se dejó la última vez: lo guarda el lado nativo,
+  /// que este motor no tiene los plugins de la app. `null` hasta que contesta.
+  double? _altoDelRegistro;
+
   @override
   void initState() {
     super.initState();
@@ -48,12 +52,23 @@ class _ElHubSoloState extends State<ElHubSolo> {
           .invokeMethod<Object?>('lista')
           .then(_recibe, onError: (Object _) {}),
     );
+    unawaited(
+      _canal.invokeMethod<double>('altoDelRegistro').then((alto) {
+        if (alto != null && mounted) setState(() => _altoDelRegistro = alto);
+      }, onError: (Object _) {}),
+    );
   }
 
   void _recibe(Object? datos) {
     if (datos is! Map<Object?, Object?> || !mounted) return;
     setState(() => _foto = LoQueEnsenaElHub.fromMap(datos));
   }
+
+  void _guardaElAltoDelRegistro(double alto) => unawaited(
+    _canal
+        .invokeMethod<void>('guardaElAltoDelRegistro', alto)
+        .catchError((Object _) {}),
+  );
 
   void _pide(PedidoDelHub pedido) => unawaited(
     _canal.invokeMethod<void>('pide', pedido.toMap()).catchError((Object _) {}),
@@ -126,7 +141,13 @@ class _ElHubSoloState extends State<ElHubSolo> {
           ? const SizedBox.shrink()
           : Material(
               type: MaterialType.transparency,
-              child: ElHub(foto: foto, onPedido: _pide, pantalla: _pantalla),
+              child: ElHub(
+                foto: foto,
+                onPedido: _pide,
+                pantalla: _pantalla,
+                altoDelRegistro: _altoDelRegistro,
+                onAltoDelRegistro: _guardaElAltoDelRegistro,
+              ),
             ),
     );
   }

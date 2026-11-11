@@ -152,6 +152,9 @@ final class NexusHub: NSObject, NSWindowDelegate {
     return NSRect(x: cuatro[0], y: cuatro[1], width: cuatro[2], height: cuatro[3])
   }
 
+  /// Dónde se guarda el alto del registro. Ver `ElRegistroDelHub`.
+  static let claveDelRegistro = "hub.altoDelRegistro"
+
   private static var firmaDeAhora: String { NexusBotonera.firma(de: NSScreen.screens.map(\.frame)) }
 
   // MARK: - La ventana
@@ -188,6 +191,16 @@ final class NexusHub: NSObject, NSWindowDelegate {
       // La foto que llegó mientras el motor arrancaba.
       case "lista":
         result(self?.ultima ?? [:])
+      // El alto del registro, el que se dejó la última vez (11 nov): se
+      // estira arrastrando, y al volver a abrir el hub sigue como se dejó.
+      // Aquí y no en el motor del hub, que no tiene los plugins de la app.
+      case "altoDelRegistro":
+        result(UserDefaults.standard.object(forKey: Self.claveDelRegistro) as? Double)
+      case "guardaElAltoDelRegistro":
+        if let alto = call.arguments as? Double {
+          UserDefaults.standard.set(alto, forKey: Self.claveDelRegistro)
+        }
+        result(nil)
       // Lo que se pulsó viaja tal cual a la app, que es quien decide.
       case "pide":
         self?.haciaLaApp?.invokeMethod("pide", arguments: call.arguments)

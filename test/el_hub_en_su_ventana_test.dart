@@ -9,6 +9,8 @@ import 'package:nexus/features/hub/presentation/state/lo_de_pruebas.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_ensena_el_hub.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_pide_el_hub.dart';
 import 'package:nexus/features/hub/presentation/widgets/el_cargando_del_telefono.dart';
+import 'package:nexus/features/hub/presentation/widgets/el_centro_del_hub.dart';
+import 'package:nexus/features/hub/presentation/widgets/el_registro_del_hub.dart';
 import 'package:nexus/features/hub/presentation/widgets/el_hub.dart';
 import 'package:nexus/features/run/domain/usecases/como_va_la_corrida.dart';
 import 'package:nexus/features/run/presentation/state/lo_que_pide_la_botonera.dart';
@@ -109,6 +111,8 @@ void main() {
     WidgetTester tester,
     LoQueEnsenaElHub foto, {
     Size tamano = const Size(1100, 760),
+    double? altoDelRegistro,
+    ValueChanged<double>? onAltoDelRegistro,
   }) async {
     tester.view
       ..physicalSize = tamano
@@ -122,7 +126,12 @@ void main() {
             StringsScope(strings: strings, child: child!),
         home: Material(
           type: MaterialType.transparency,
-          child: ElHub(foto: foto, onPedido: pedidos.add),
+          child: ElHub(
+            foto: foto,
+            onPedido: pedidos.add,
+            altoDelRegistro: altoDelRegistro,
+            onAltoDelRegistro: onAltoDelRegistro,
+          ),
         ),
       ),
     );
@@ -251,6 +260,102 @@ void main() {
           ).toMap(),
         ),
       ]);
+    });
+  });
+
+  // 11 nov: «el registro de la corrida, la barra debería poder ampliarse más
+  // hacia arriba o hacia abajo, que sea flexible; esto haría que el emulador
+  // se agrandara o se redujera».
+  group('el registro se estira', () {
+    testWidgets('hacia arriba crece, y el centro encoge lo mismo', (
+      tester,
+    ) async {
+      await montar(tester, foto());
+      final centro = tester.getSize(find.byType(ElCentroDelHub)).height;
+      final cuerpo = tester
+          .getSize(find.byKey(ElRegistroDelHub.elCuerpo))
+          .height;
+      await tester.drag(
+        find.byKey(ElRegistroDelHub.elAsa),
+        const Offset(0, -100),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getSize(find.byKey(ElRegistroDelHub.elCuerpo)).height,
+        cuerpo + 100,
+      );
+      expect(tester.getSize(find.byType(ElCentroDelHub)).height, centro - 100);
+    });
+
+    testWidgets('hacia abajo se achica, hasta su mínimo', (tester) async {
+      await montar(tester, foto());
+      await tester.drag(
+        find.byKey(ElRegistroDelHub.elAsa),
+        const Offset(0, 400),
+      );
+      await tester.pump();
+      expect(
+        tester.getSize(find.byKey(ElRegistroDelHub.elCuerpo)).height,
+        ElRegistroDelHub.minimo,
+      );
+    });
+
+    testWidgets('nunca le quita al centro su mínimo', (tester) async {
+      await montar(tester, foto());
+      await tester.drag(
+        find.byKey(ElRegistroDelHub.elAsa),
+        const Offset(0, -2000),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getSize(find.byType(ElCentroDelHub)).height,
+        ElRegistroDelHub.minimoDelCentro,
+      );
+    });
+
+    testWidgets('la barra dice con el cursor que se arrastra', (tester) async {
+      await montar(tester, foto());
+      expect(
+        tester.widget<MouseRegion>(find.byKey(ElRegistroDelHub.elAsa)).cursor,
+        SystemMouseCursors.resizeUpDown,
+      );
+    });
+
+    testWidgets('empieza con el alto que se dejó la última vez', (
+      tester,
+    ) async {
+      await montar(tester, foto(), altoDelRegistro: 260);
+      expect(tester.getSize(find.byKey(ElRegistroDelHub.elCuerpo)).height, 260);
+    });
+
+    testWidgets('al soltar avisa del alto nuevo, para guardarlo', (
+      tester,
+    ) async {
+      final guardados = <double>[];
+      await montar(tester, foto(), onAltoDelRegistro: guardados.add);
+      await tester.drag(
+        find.byKey(ElRegistroDelHub.elAsa),
+        const Offset(0, -100),
+      );
+      await tester.pump();
+      expect(guardados, [ElRegistroDelHub.alto + 100]);
+    });
+
+    testWidgets('plegado, arrastrarlo hacia arriba lo despliega', (
+      tester,
+    ) async {
+      await montar(tester, foto());
+      await tester.tap(find.byTooltip(strings.hubPlegar));
+      await tester.pump();
+      expect(find.byKey(ElRegistroDelHub.elCuerpo), findsNothing);
+      await tester.drag(
+        find.byKey(ElRegistroDelHub.elAsa),
+        const Offset(0, -120),
+      );
+      await tester.pump();
+      expect(tester.getSize(find.byKey(ElRegistroDelHub.elCuerpo)).height, 120);
     });
   });
 

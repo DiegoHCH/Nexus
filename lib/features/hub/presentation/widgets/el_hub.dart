@@ -25,6 +25,8 @@ class ElHub extends StatelessWidget {
     required this.foto,
     required this.onPedido,
     this.pantalla,
+    this.altoDelRegistro,
+    this.onAltoDelRegistro,
   });
 
   final LoQueEnsenaElHub foto;
@@ -33,6 +35,11 @@ class ElHub extends StatelessWidget {
   /// La pantalla de dentro del dispositivo elegido, si la tiene. Ver
   /// [ElCentroDelHub.pantalla].
   final Widget? Function(DispositivoDelHub dispositivo, Widget aviso)? pantalla;
+
+  /// El alto del registro que se dejó la última vez, y a quién avisar cuando
+  /// se estira, para guardarlo. Ver [ElRegistroDelHub].
+  final double? altoDelRegistro;
+  final ValueChanged<double>? onAltoDelRegistro;
 
   @override
   Widget build(BuildContext context) {
@@ -115,42 +122,57 @@ class ElHub extends StatelessWidget {
                     ),
                   ),
                 ),
+                // El centro y el registro se reparten lo que queda debajo de
+                // la cabecera: el registro se estira (11 nov) y le pasa el
+                // sitio a la pantalla del teléfono, o se lo quita.
                 Expanded(
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: foto.enPruebas
-                            ? LaCaraDePruebas(
-                                lo: foto.pruebas,
-                                app: nombreDeLaApp,
-                                dispositivo: foto.elDispositivo,
-                                onPedido: onPedido,
-                              )
-                            : ElCentroDelHub(
-                                foto: foto,
-                                onPedido: onPedido,
-                                pantalla: pantalla,
+                  child: LayoutBuilder(
+                    builder: (context, caja) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: foto.enPruebas
+                                    ? LaCaraDePruebas(
+                                        lo: foto.pruebas,
+                                        app: nombreDeLaApp,
+                                        dispositivo: foto.elDispositivo,
+                                        onPedido: onPedido,
+                                      )
+                                    : ElCentroDelHub(
+                                        foto: foto,
+                                        onPedido: onPedido,
+                                        pantalla: pantalla,
+                                      ),
                               ),
-                      ),
-                      // El interruptor va arriba a la derecha del centro y no
-                      // en la cabecera, como pedía la maqueta: con la botonera
-                      // de 430 y la ventana mínima de 920 no cabe.
-                      Positioned(
-                        top: NexusSpacing.s2,
-                        right: NexusSpacing.s3,
-                        child: ElInterruptorDeModo(
-                          enPruebas: foto.enPruebas,
-                          onPedido: onPedido,
+                              // El interruptor va arriba a la derecha del centro y no
+                              // en la cabecera, como pedía la maqueta: con la botonera
+                              // de 430 y la ventana mínima de 920 no cabe.
+                              Positioned(
+                                top: NexusSpacing.s2,
+                                right: NexusSpacing.s3,
+                                child: ElInterruptorDeModo(
+                                  enPruebas: foto.enPruebas,
+                                  onPedido: onPedido,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                        if (!foto.enPruebas)
+                          ElRegistroDelHub(
+                            lineas: foto.registro,
+                            hayCorrida: hayCorrida,
+                            espacio: caja.maxHeight,
+                            altoInicial: altoDelRegistro,
+                            onAlto: onAltoDelRegistro,
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-                if (!foto.enPruebas)
-                  ElRegistroDelHub(
-                    lineas: foto.registro,
-                    hayCorrida: hayCorrida,
-                  ),
               ],
             ),
           ),

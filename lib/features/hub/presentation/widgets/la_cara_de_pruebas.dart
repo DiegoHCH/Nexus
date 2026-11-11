@@ -35,6 +35,14 @@ class LaCaraDePruebas extends StatelessWidget {
   /// Lo que deja libre arriba a la derecha para el interruptor de modo.
   static const sitioDelInterruptor = 190.0;
 
+  /// Lo menos que piden las tres columnas a la vista; por debajo, pestañas.
+  static const anchoDeTresColumnas = 720.0;
+
+  /// Las tres pestañas, cuando no caben las columnas.
+  static const laPestanaDeLaLanzadera = ValueKey('pruebas-lanzadera');
+  static const laPestanaDelRepo = ValueKey('pruebas-repo');
+  static const laPestanaDelHistorial = ValueKey('pruebas-historial');
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -99,50 +107,75 @@ class LaCaraDePruebas extends StatelessWidget {
           ),
           Divider(height: 1, color: colors.rule),
           Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  flex: 11,
-                  child: _Columna(
-                    titulo:
-                        '${strings.hubLanzadera} · '
-                        '${strings.e2eRepoFlows(lo.flows.length)}',
-                    child: _LaLanzadera(
-                      lo: lo,
-                      hayApp: app != null,
-                      sePuede: hayDonde && !corre,
-                      onPedido: onPedido,
+            child: LayoutBuilder(
+              builder: (context, caja) {
+                final lanzadera = _LaLanzadera(
+                  lo: lo,
+                  hayApp: app != null,
+                  sePuede: hayDonde && !corre,
+                  onPedido: onPedido,
+                );
+                final repositorio = _ElRepositorio(
+                  lo: lo,
+                  sePuede: hayDonde && !corre,
+                  onPedido: onPedido,
+                );
+                final historial = _ElHistorial(
+                  lo: lo,
+                  sePuede: hayDonde && !corre,
+                  onPedido: onPedido,
+                );
+                // Con el teléfono al lado (11 nov) no caben las tres columnas:
+                // van como pestañas, una cada vez. En una ventana ancha,
+                // las tres a la vista como siempre.
+                if (caja.maxWidth < anchoDeTresColumnas) {
+                  return _EnPestanas(
+                    partes: [
+                      (
+                        titulo: '${strings.hubLanzadera} · ${lo.flows.length}',
+                        child: lanzadera,
+                      ),
+                      (
+                        titulo: '${strings.hubRepoCorto} · ${lo.repo.length}',
+                        child: repositorio,
+                      ),
+                      (titulo: strings.e2eHistorial, child: historial),
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      flex: 11,
+                      child: _Columna(
+                        titulo:
+                            '${strings.hubLanzadera} · '
+                            '${strings.e2eRepoFlows(lo.flows.length)}',
+                        child: lanzadera,
+                      ),
                     ),
-                  ),
-                ),
-                VerticalDivider(width: 1, color: colors.rule),
-                Expanded(
-                  flex: 10,
-                  child: _Columna(
-                    titulo:
-                        '${strings.e2eRepoTitle} · '
-                        '${strings.e2eRepoFlows(lo.repo.length)}',
-                    child: _ElRepositorio(
-                      lo: lo,
-                      sePuede: hayDonde && !corre,
-                      onPedido: onPedido,
+                    VerticalDivider(width: 1, color: colors.rule),
+                    Expanded(
+                      flex: 10,
+                      child: _Columna(
+                        titulo:
+                            '${strings.e2eRepoTitle} · '
+                            '${strings.e2eRepoFlows(lo.repo.length)}',
+                        child: repositorio,
+                      ),
                     ),
-                  ),
-                ),
-                VerticalDivider(width: 1, color: colors.rule),
-                Expanded(
-                  flex: 10,
-                  child: _Columna(
-                    titulo: [strings.e2eHistorial, ?app].join(' · '),
-                    child: _ElHistorial(
-                      lo: lo,
-                      sePuede: hayDonde && !corre,
-                      onPedido: onPedido,
+                    VerticalDivider(width: 1, color: colors.rule),
+                    Expanded(
+                      flex: 10,
+                      child: _Columna(
+                        titulo: [strings.e2eHistorial, ?app].join(' · '),
+                        child: historial,
+                      ),
                     ),
-                  ),
-                ),
-              ],
+                  ],
+                );
+              },
             ),
           ),
           Divider(height: 1, color: colors.rule),
@@ -653,6 +686,136 @@ class _ElHistorial extends StatelessWidget {
                 ),
         ),
       ],
+    );
+  }
+}
+
+/// **Las tres partes como pestañas**, cuando no caben como columnas: con el
+/// teléfono a la izquierda, el panel tiene unos 400 px (11 nov). Una a la vez,
+/// con su nombre y cuántos flows tiene.
+class _EnPestanas extends StatefulWidget {
+  const _EnPestanas({required this.partes});
+
+  final List<({String titulo, Widget child})> partes;
+
+  @override
+  State<_EnPestanas> createState() => _EnPestanasState();
+}
+
+class _EnPestanasState extends State<_EnPestanas> {
+  var _puesta = 0;
+
+  static const _llaves = [
+    LaCaraDePruebas.laPestanaDeLaLanzadera,
+    LaCaraDePruebas.laPestanaDelRepo,
+    LaCaraDePruebas.laPestanaDelHistorial,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final puesta = _puesta.clamp(0, widget.partes.length - 1);
+    return ColoredBox(
+      color: colors.deep,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              NexusSpacing.s2,
+              NexusSpacing.s2,
+              NexusSpacing.s2,
+              0,
+            ),
+            child: Row(
+              children: [
+                for (final (i, parte) in widget.partes.indexed)
+                  Flexible(
+                    child: _LaPestana(
+                      key: i < _llaves.length ? _llaves[i] : null,
+                      texto: parte.titulo,
+                      puesta: i == puesta,
+                      onPulsar: () => setState(() => _puesta = i),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: colors.rule),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                NexusSpacing.s3 + 2,
+                NexusSpacing.s3,
+                NexusSpacing.s3 + 2,
+                0,
+              ),
+              child: widget.partes[puesta].child,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Una pestaña de las partes: su nombre, subrayado con el acento si es la
+/// puesta; con el ratón encima se aclara y lleva la mano.
+class _LaPestana extends StatefulWidget {
+  const _LaPestana({
+    super.key,
+    required this.texto,
+    required this.puesta,
+    required this.onPulsar,
+  });
+
+  final String texto;
+  final bool puesta;
+  final VoidCallback onPulsar;
+
+  @override
+  State<_LaPestana> createState() => _LaPestanaState();
+}
+
+class _LaPestanaState extends State<_LaPestana> {
+  bool _encima = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return MouseRegion(
+      cursor: widget.puesta
+          ? SystemMouseCursors.basic
+          : SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _encima = true),
+      onExit: (_) => setState(() => _encima = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.puesta ? null : widget.onPulsar,
+        child: Semantics(
+          button: true,
+          selected: widget.puesta,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: widget.puesta ? colors.accent : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+            ),
+            child: Text(
+              widget.texto.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: NexusTypography.label.copyWith(
+                color: widget.puesta || _encima ? colors.ink : colors.faint,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

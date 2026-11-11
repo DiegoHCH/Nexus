@@ -15,6 +15,8 @@ import 'package:nexus/features/hub/presentation/widgets/el_cargando_del_telefono
 import 'package:nexus/features/hub/presentation/widgets/el_centro_del_hub.dart';
 import 'package:nexus/features/hub/presentation/widgets/el_registro_del_hub.dart';
 import 'package:nexus/features/hub/presentation/widgets/el_hub.dart';
+import 'package:nexus/features/hub/presentation/widgets/la_lista_del_hub.dart';
+import 'package:nexus/features/hub/presentation/widgets/la_cara_de_pruebas.dart';
 import 'package:nexus/features/run/domain/usecases/como_va_la_corrida.dart';
 import 'package:nexus/features/run/presentation/state/lo_que_pide_la_botonera.dart';
 import 'package:nexus/features/hub/presentation/widgets/los_botones_de_la_corrida.dart';
@@ -124,6 +126,7 @@ void main() {
     Size tamano = const Size(1100, 760),
     double? altoDelRegistro,
     ValueChanged<double>? onAltoDelRegistro,
+    Widget? Function(DispositivoDelHub dispositivo, Widget aviso)? pantalla,
   }) async {
     tester.view
       ..physicalSize = tamano
@@ -142,6 +145,7 @@ void main() {
             onPedido: pedidos.add,
             altoDelRegistro: altoDelRegistro,
             onAltoDelRegistro: onAltoDelRegistro,
+            pantalla: pantalla,
           ),
         ),
       ),
@@ -836,8 +840,27 @@ void main() {
       expect(otros, [const VerPruebas(false)]);
     });
 
+    // 11 nov: «cuando me pase a las pruebas el teléfono se arrincone al lado
+    // izquierdo y el resto se ocupe con el panel de pruebas».
+    testWidgets('el teléfono a la izquierda y el panel ocupa el resto', (
+      tester,
+    ) async {
+      await montar(tester, foto(correr: conApp, pruebas: pruebas()));
+      expect(tester.takeException(), isNull);
+      final telefono = tester.getRect(find.byType(ElCentroDelHub));
+      final panel = tester.getRect(find.byType(LaCaraDePruebas));
+      expect(telefono.left, LaListaDelHub.ancho);
+      expect(panel.left, greaterThan(telefono.right));
+      expect(panel.right, 1100);
+      expect(
+        telefono.width,
+        lessThanOrEqualTo((1100 - LaListaDelHub.ancho) * ElHub.parteMaxima),
+      );
+    });
+
     testWidgets(
-      'tres columnas y caben en la ventana mínima, en los dos temas',
+      'en la ventana mínima, las tres partes en pestañas y sin desbordes, en '
+      'los dos temas',
       (tester) async {
         for (final claro in [false, true]) {
           await montar(
@@ -846,14 +869,45 @@ void main() {
             tamano: const Size(920, 560),
           );
           expect(tester.takeException(), isNull);
-          expect(find.text('LANZADERA · 3 FLOWS'), findsOneWidget);
-          expect(find.text('REPO DE PRUEBAS · 2 FLOWS'), findsOneWidget);
-          expect(find.text('HISTORIAL · TIENDA'), findsOneWidget);
+          expect(find.text('LANZADERA · 3'), findsOneWidget);
+          expect(find.text('REPO · 2'), findsOneWidget);
+          expect(find.text('HISTORIAL'), findsOneWidget);
+          expect(find.byType(ElCentroDelHub), findsOneWidget);
           // Sin el registro de la corrida: esta cara no lo usa.
           expect(find.text(strings.hubRegistro.toUpperCase()), findsNothing);
         }
       },
     );
+
+    testWidgets('en una ventana ancha, las tres columnas a la vista', (
+      tester,
+    ) async {
+      await montar(
+        tester,
+        foto(correr: conApp, pruebas: pruebas()),
+        tamano: const Size(1920, 1080),
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.text('LANZADERA · 3 FLOWS'), findsOneWidget);
+      expect(find.text('REPO DE PRUEBAS · 2 FLOWS'), findsOneWidget);
+      expect(find.text('HISTORIAL · TIENDA'), findsOneWidget);
+    });
+
+    testWidgets('al pasar a pruebas, la pantalla no vuelve a empezar', (
+      tester,
+    ) async {
+      _PantallaQueCuenta.veces = 0;
+      Widget pantalla(DispositivoDelHub d, Widget aviso) =>
+          const _PantallaQueCuenta();
+      await montar(tester, foto(correr: conApp), pantalla: pantalla);
+      await montar(
+        tester,
+        foto(correr: conApp, pruebas: pruebas()),
+        pantalla: pantalla,
+      );
+      expect(find.byType(_PantallaQueCuenta), findsOneWidget);
+      expect(_PantallaQueCuenta.veces, 1);
+    });
 
     testWidgets('▶ corre un flow de la app y otro del repositorio', (
       tester,
@@ -868,6 +922,9 @@ void main() {
           matching: find.byIcon(Icons.play_arrow),
         ),
       );
+      // Con el teléfono al lado, el repositorio es otra pestaña.
+      await tester.tap(find.byKey(LaCaraDePruebas.laPestanaDelRepo));
+      await tester.pump();
       await tester.tap(
         find.descendant(
           of: find.byKey(const ValueKey('repo-flows/pagos/pse.yaml')),
@@ -900,6 +957,8 @@ void main() {
       );
       expect(find.text(strings.e2eNoDevice), findsOneWidget);
       await tester.tap(find.byIcon(Icons.play_arrow).first);
+      await tester.tap(find.byKey(LaCaraDePruebas.laPestanaDelHistorial));
+      await tester.pump();
       await tester.tap(find.byKey(const ValueKey('repetir-/r/1')));
       expect(pedidos, isEmpty);
     });
@@ -909,6 +968,8 @@ void main() {
         tester,
         foto(correr: conApp, pruebas: pruebas()),
       );
+      await tester.tap(find.byKey(LaCaraDePruebas.laPestanaDelHistorial));
+      await tester.pump();
       expect(find.text('3'), findsOneWidget);
       expect(find.text('4'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('ver-/r/1')));
@@ -970,4 +1031,25 @@ void main() {
       expect(find.text(strings.hubPruebasSinApp), findsOneWidget);
     });
   });
+}
+
+/// Una pantalla de teléfono de mentira que cuenta cuántas veces empieza.
+class _PantallaQueCuenta extends StatefulWidget {
+  const _PantallaQueCuenta();
+
+  static var veces = 0;
+
+  @override
+  State<_PantallaQueCuenta> createState() => _PantallaQueCuentaState();
+}
+
+class _PantallaQueCuentaState extends State<_PantallaQueCuenta> {
+  @override
+  void initState() {
+    super.initState();
+    _PantallaQueCuenta.veces++;
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.expand();
 }

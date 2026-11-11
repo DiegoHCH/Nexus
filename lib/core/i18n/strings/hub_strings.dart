@@ -76,6 +76,7 @@ mixin HubStrings {
   String get hubApagarElEmulador;
   String get hubMostrar;
   String get hubLanzadera;
+  String get hubRepoCorto;
   String get hubPruebasSinApp;
   String get hubPasaron;
   String get hubCayeron;
@@ -239,6 +240,8 @@ mixin HubStringsEs implements HubStrings {
   String get hubMostrar => 'Mostrar Dispositivos';
   @override
   String get hubLanzadera => 'Lanzadera';
+  @override
+  String get hubRepoCorto => 'Repo';
   @override
   String get hubPruebasSinApp => 'Elige una app arriba para ver sus pruebas.';
   @override
@@ -409,6 +412,8 @@ mixin HubStringsEn implements HubStrings {
   String get hubMostrar => 'Show Devices';
   @override
   String get hubLanzadera => 'Launcher';
+  @override
+  String get hubRepoCorto => 'Repo';
   @override
   String get hubPruebasSinApp => 'Pick an app above to see its tests.';
   @override

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
@@ -19,6 +21,10 @@ import 'package:nexus/features/hub/presentation/widgets/los_botones_de_la_corrid
 /// plegado—: todo lo demás viene de la app, también el modo (pantalla o
 /// pruebas, porque la app solo mira las pruebas mientras se ven), y todo lo
 /// que se pulsa vuelve como [PedidoDelHub].
+/// La pantalla del teléfono, la misma en las dos caras: con esta llave se
+/// muda de sitio sin volver a empezar, y la conexión con el emulador sigue.
+final _elTelefono = GlobalKey(debugLabel: 'el teléfono del hub');
+
 class ElHub extends StatelessWidget {
   const ElHub({
     super.key,
@@ -40,6 +46,26 @@ class ElHub extends StatelessWidget {
   /// se estira, para guardarlo. Ver [ElRegistroDelHub].
   final double? altoDelRegistro;
   final ValueChanged<double>? onAltoDelRegistro;
+
+  /// **Lo que ocupa el teléfono en la cara de pruebas**: lo que pide la
+  /// pantalla para caber entera a lo alto —un teléfono es de 9 por 20, más su
+  /// columna de botones y el margen—, y nunca más de [parteMaxima] del ancho,
+  /// para que el panel de pruebas tenga sitio. Tampoco menos de [anchoMinimo]:
+  /// el aviso de un iPhone o de uno apagado tiene que leerse.
+  static double anchoDelTelefonoEnPruebas(Size centro) {
+    const margen = 2 * NexusSpacing.s4;
+    const columnaDeBotones = 52.0;
+    const proporcion = 0.46;
+    final quiere =
+        (centro.height - margen) * proporcion + columnaDeBotones + margen;
+    return quiere.clamp(
+      anchoMinimo,
+      math.max(anchoMinimo, centro.width * parteMaxima),
+    );
+  }
+
+  static const anchoMinimo = 280.0;
+  static const parteMaxima = 0.45;
 
   @override
   Widget build(BuildContext context) {
@@ -134,18 +160,50 @@ class ElHub extends StatelessWidget {
                           child: Stack(
                             children: [
                               Positioned.fill(
-                                child: foto.enPruebas
-                                    ? LaCaraDePruebas(
-                                        lo: foto.pruebas,
-                                        app: nombreDeLaApp,
-                                        dispositivo: foto.elDispositivo,
-                                        onPedido: onPedido,
-                                      )
-                                    : ElCentroDelHub(
+                                child: LayoutBuilder(
+                                  builder: (context, centro) {
+                                    // La misma pantalla en las dos caras, con
+                                    // su llave: al pasar a pruebas se muda a
+                                    // la izquierda sin soltar el emulador.
+                                    final telefono = KeyedSubtree(
+                                      key: _elTelefono,
+                                      child: ElCentroDelHub(
                                         foto: foto,
                                         onPedido: onPedido,
                                         pantalla: pantalla,
                                       ),
+                                    );
+                                    if (!foto.enPruebas) return telefono;
+                                    // En pruebas (11 nov), el teléfono se
+                                    // arrincona a la izquierda y el panel de
+                                    // pruebas ocupa el resto: se ve correr la
+                                    // prueba mientras se mira el panel.
+                                    return Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        SizedBox(
+                                          width: anchoDelTelefonoEnPruebas(
+                                            centro.biggest,
+                                          ),
+                                          child: telefono,
+                                        ),
+                                        VerticalDivider(
+                                          width: 1,
+                                          color: colors.rule,
+                                        ),
+                                        Expanded(
+                                          child: LaCaraDePruebas(
+                                            lo: foto.pruebas,
+                                            app: nombreDeLaApp,
+                                            dispositivo: foto.elDispositivo,
+                                            onPedido: onPedido,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
                               ),
                               // El interruptor va arriba a la derecha del centro y no
                               // en la cabecera, como pedía la maqueta: con la botonera

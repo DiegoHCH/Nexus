@@ -102,13 +102,13 @@ class EmuladoresDataSource {
     final catalogo = ComandoDeEmuladores.leerTabla(catalogoBruto.salida);
     // Estos dos sí en paralelo: son de plataformas distintas y no comparten
     // ningún lock. El de Android son varios procesos cortos y el de iOS uno.
-    final (avds, ios) = await (_avdsArriba(), _hayIosArriba()).wait;
+    final (avds, ios) = await (_avdsArriba(), _simuladoresArriba()).wait;
 
     return (
       emuladores: ComandoDeEmuladores.conEstado(
         catalogo,
         avdsArriba: avds,
-        iosArriba: ios,
+        simuladoresArriba: ios,
       ),
       error: null,
     );
@@ -370,6 +370,21 @@ class EmuladoresDataSource {
     Duration cada = const Duration(seconds: 2),
     int intentos = 45,
   }) async {
+    // Android, sin su ventana: la pantalla está en el hub. Si el `emulator`
+    // del SDK no aparece, como siempre —con ventana—, que es peor que lo de
+    // ahora pero mejor que no arrancar.
+    if (emulador.plataforma == PlataformaEmulador.android) {
+      final registro = await _lanzarSinVentana(emulador, frio: frio);
+      if (registro != null) {
+        return _esperar(
+          emulador,
+          cada: cada,
+          intentos: intentos,
+          registro: registro,
+        );
+      }
+    }
+
     final flutter = await _flutter();
     if (flutter == null) return 'No se encontró Flutter';
 
@@ -389,10 +404,78 @@ class EmuladoresDataSource {
     );
     if (veredicto.error != null) return veredicto.error;
 
+    return _esperar(emulador, cada: cada, intentos: intentos);
+  }
+
+  /// Lanza el `emulator` del SDK sin ventana y devuelve el archivo donde va
+  /// lo que escribe; `null` si no hay `emulator` o no se pudo lanzar.
+  ///
+  /// **Suelto y con lo que escribe a un archivo**, por lo mismo que scrcpy (ver
+  /// [verLaPantalla]): un emulador vive horas escribiendo, y con tuberías que
+  /// nadie lee se quedaría colgado al llenarlas. Además así sobrevive a cerrar
+  /// Nexus, como el de `flutter emulators --launch`. El archivo es lo que
+  /// permite enterarse de un arranque que no llegó a nada sin sostener el
+  /// proceso: ver [ComandoDeEmuladores.problemaDelEmulador].
+  Future<File?> _lanzarSinVentana(
+    Emulador emulador, {
+    bool frio = false,
+  }) async {
+    final home = Platform.environment['HOME'] ?? '';
+    final adb = await _adb();
+    final binario = await buscar(
+      'emulator',
+      HerramientaExterna.candidatosDelEmulador(
+        home,
+        entorno: Platform.environment,
+        sdkDeAdb: adb == null ? null : HerramientaExterna.sdkDelAdb(adb),
+      ),
+    );
+    if (binario == null) return null;
+
+    final registro = File(
+      '${Directory.systemTemp.path}/nexus-emulador-${emulador.id}.log',
+    );
+    try {
+      if (registro.existsSync()) registro.deleteSync();
+      await abrirSuelto(
+        '/bin/sh',
+        [
+          '-c',
+          r'exec "$0" "$@" >"$NEXUS_REGISTRO" 2>&1',
+          binario,
+          ...ComandoDeEmuladores.argumentosSinVentana(emulador, frio: frio),
+        ],
+        modo: ProcessStartMode.detached,
+        entorno: {
+          ...ClaudeEnvironment.forTools(),
+          'NEXUS_REGISTRO': registro.path,
+        },
+      );
+      return registro;
+    } on Exception {
+      return null;
+    }
+  }
+
+  /// Espera a que [emulador] aparezca arriba. Con [registro], además, se
+  /// entera de un arranque que se paró y dice por qué en vez de esperar los
+  /// noventa segundos.
+  Future<String?> _esperar(
+    Emulador emulador, {
+    required Duration cada,
+    required int intentos,
+    File? registro,
+  }) async {
     // Se comprueba **antes** de esperar: uno que ya estaba arriba no cuesta ni
     // un plazo.
     for (var intento = 0; intento < intentos; intento++) {
       if (await _estaArriba(emulador)) return null;
+      if (registro != null && registro.existsSync()) {
+        final problema = ComandoDeEmuladores.problemaDelEmulador(
+          await registro.readAsString().catchError((Object _) => ''),
+        );
+        if (problema != null) return problema;
+      }
       await Future<void>.delayed(cada);
     }
 
@@ -406,7 +489,9 @@ class EmuladoresDataSource {
   /// Pregunta solo por su plataforma: esperar a un simulador de iOS no tiene por
   /// qué costar los `adb` de Android ni al revés.
   Future<bool> _estaArriba(Emulador emulador) async {
-    if (emulador.plataforma == PlataformaEmulador.ios) return _hayIosArriba();
+    if (emulador.plataforma == PlataformaEmulador.ios) {
+      return (await _simuladoresArriba()).isNotEmpty;
+    }
 
     final avds = await _avdsArriba();
     return avds.keys.any((avd) => avd == emulador.id || avd == emulador.nombre);
@@ -417,17 +502,33 @@ class EmuladoresDataSource {
   /// Cada plataforma por su lado, y en iOS son **dos pasos**: apagar el
   /// simulador y además cerrar la app. Sin lo segundo queda la ventana abierta en
   /// negro, que se lee como que sigue arrancado.
-  Future<String?> cerrar(Emulador emulador) async {
+  ///
+  /// En iOS se apaga **ese** simulador, por su UDID: cada uno encendido es su
+  /// propia fila, y cerrar una no puede apagar las demás. La app solo se cierra
+  /// si ya no queda ninguno, que con otro encendido se llevaría su ventana.
+  ///
+  /// En Android, además, **se espera a que se haya apagado de verdad**: `adb
+  /// emu kill` vuelve al instante, pero el emulador tarda unos segundos en
+  /// guardar su estado y salir. Sin esperar, el hub lo volvía a ver arriba y
+  /// el botón parecía no hacer nada (11 nov). Es lo mismo que hace [lanzar]
+  /// al arrancar.
+  Future<String?> cerrar(
+    Emulador emulador, {
+    Duration cada = const Duration(seconds: 1),
+    int intentos = 40,
+  }) async {
     if (emulador.plataforma == PlataformaEmulador.ios) {
       final apagado = await _correr('/usr/bin/xcrun', [
         'simctl',
         'shutdown',
-        'all',
+        emulador.deviceId ?? 'all',
       ]);
       if (apagado == null) return 'No se pudo apagar el simulador';
       // Si esto falla no es un fallo del cierre: el simulador ya está apagado y
       // lo único que queda es una ventana. Se ignora a propósito.
-      await _correr('/usr/bin/osascript', ['-e', 'quit app "Simulator"']);
+      if ((await _simuladoresArriba()).isEmpty) {
+        await _correr('/usr/bin/osascript', ['-e', 'quit app "Simulator"']);
+      }
       return null;
     }
 
@@ -441,7 +542,17 @@ class EmuladoresDataSource {
       adb,
       ComandoDeEmuladores.argumentosDeCerrarAndroid(deviceId),
     );
-    return salida == null ? 'adb no contestó al cerrar el emulador' : null;
+    if (salida == null) return 'adb no contestó al cerrar el emulador';
+
+    for (var intento = 0; intento < intentos; intento++) {
+      final lista = await _correr(adb, ['devices']);
+      if (lista == null ||
+          !ComandoDeEmuladores.sigueEnAdb(lista.salida, deviceId)) {
+        return null;
+      }
+      await Future<void>.delayed(cada);
+    }
+    return 'Se pidió apagarlo, pero todavía no se ha apagado';
   }
 
   // ── Lo de dentro ───────────────────────────────────────────────────────────
@@ -482,7 +593,7 @@ class EmuladoresDataSource {
     return arriba;
   }
 
-  Future<bool> _hayIosArriba() async {
+  Future<List<SimuladorArriba>> _simuladoresArriba() async {
     final salida = await _correr('/usr/bin/xcrun', [
       'simctl',
       'list',
@@ -491,8 +602,8 @@ class EmuladoresDataSource {
       '--json',
     ]);
     return salida == null
-        ? false
-        : ComandoDeEmuladores.hayIosArriba(salida.salida);
+        ? const []
+        : ComandoDeEmuladores.simuladoresArriba(salida.salida);
   }
 
   /// `null` cuando el proceso no llegó a contestar. Un código de salida distinto

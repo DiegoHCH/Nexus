@@ -40,7 +40,7 @@ Corrida _corrida({
   dispositivo: 'Medium Phone API 36.1',
   proyecto: '/casa/tienda',
   configuracion: 'Tienda (dev)',
-  plataforma: PlataformaEmulador.android,
+  plataforma: PlataformaEmulador.ios, // desde A2 la botonera solo lleva iOS
   estado: estado,
   appId: appId,
   progreso: progreso,

@@ -18,6 +18,7 @@ import 'package:nexus/core/i18n/strings/escenario_strings.dart';
 import 'package:nexus/core/i18n/strings/ejecucion_strings.dart';
 import 'package:nexus/core/i18n/strings/estadisticas_strings.dart';
 import 'package:nexus/core/i18n/strings/historial_strings.dart';
+import 'package:nexus/core/i18n/strings/hub_strings.dart';
 import 'package:nexus/core/i18n/strings/icono_strings.dart';
 import 'package:nexus/core/i18n/strings/la_voz_strings.dart';
 import 'package:nexus/core/i18n/strings/lo_que_costo_strings.dart';
@@ -88,7 +89,8 @@ abstract class NexusStrings
         ModoStrings,
         IdeasStrings,
         PropuestaDeMemoriaStrings,
-        TableroStrings {
+        TableroStrings,
+        HubStrings {
   const NexusStrings();
 
   static const supported = [Locale('es'), Locale('en')];
@@ -137,7 +139,8 @@ class NexusStringsEs extends NexusStrings
         ModoStringsEs,
         IdeasStringsEs,
         PropuestaDeMemoriaStringsEs,
-        TableroStringsEs {
+        TableroStringsEs,
+        HubStringsEs {
   const NexusStringsEs();
 
   @override
@@ -175,7 +178,8 @@ class NexusStringsEn extends NexusStrings
         ModoStringsEn,
         IdeasStringsEn,
         PropuestaDeMemoriaStringsEn,
-        TableroStringsEn {
+        TableroStringsEn,
+        HubStringsEn {
   const NexusStringsEn();
 
   @override

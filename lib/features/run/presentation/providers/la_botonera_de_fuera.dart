@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nexus/core/design_system/accent_preference.dart';
-import 'package:nexus/core/design_system/theme_preference.dart';
+import 'package:nexus/core/design_system/la_apariencia_de_fuera.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/features/assistant/presentation/providers/las_tareas_de_fondo.dart';
 import 'package:nexus/features/assistant/presentation/providers/los_trabajos_providers.dart';
@@ -35,20 +33,35 @@ final laVentanaDeLaBotoneraProvider = Provider<LaVentanaDeLaBotonera>(
 /// Es lo único que miraba la barra antes —las corridas, los trabajos largos, lo
 /// de fondo y la recarga sola— hecho foto en un sitio. Así la barra de dentro y
 /// la de fuera no pueden enseñar cosas distintas: las dos se pintan con esto.
-final loQueEnsenaLaBotoneraProvider = Provider<LoQueEnsenaLaBotonera>((ref) {
+/// **Cada corrida como fila de la botonera**, todas: las usan la botonera
+/// flotante (solo las de iOS, ver abajo) y el hub (la de su dispositivo).
+final lasFilasDeCorridaProvider = Provider<List<FilaDeCorrida>>((ref) {
   final abiertas = ref.watch(lasVentanasDelRegistroProvider);
   bool abierta(String deviceId, {required bool sistema}) => abiertas.contains(
     LasVentanasDelRegistro.nombreDe(deviceId, sistema: sistema),
   );
+  return [
+    for (final corrida in ref.watch(corridasProvider).values)
+      FilaDeCorrida.de(
+        corrida,
+        registroAbierto: abierta(corrida.deviceId, sistema: false),
+        sistemaAbierto: abierta(corrida.deviceId, sistema: true),
+      ),
+  ];
+});
 
+final loQueEnsenaLaBotoneraProvider = Provider<LoQueEnsenaLaBotonera>((ref) {
+  final corridas = ref.watch(corridasProvider);
   return LoQueEnsenaLaBotonera(
+    // 🔴 **Sin las de Android** (A2, 10 nov): sus mandos están en el hub, con
+    // su pantalla dentro, y el hub se abre solo al empezar una (P4). La
+    // flotante queda para iOS —cuya pantalla sigue en la ventana de Apple y
+    // se pega a ella— y para los trabajos y las tareas de fondo, que no son de
+    // ningún dispositivo.
     corridas: [
-      for (final corrida in ref.watch(corridasProvider).values)
-        FilaDeCorrida.de(
-          corrida,
-          registroAbierto: abierta(corrida.deviceId, sistema: false),
-          sistemaAbierto: abierta(corrida.deviceId, sistema: true),
-        ),
+      for (final fila in ref.watch(lasFilasDeCorridaProvider))
+        if (corridas[fila.deviceId]?.plataforma != PlataformaEmulador.android)
+          fila,
     ],
     // 🔴 **Y los trabajos largos, que también corren con vida propia.**
     // Reportado al usarlo: «¿cómo sé que está corriendo si no hay nada en la
@@ -83,15 +96,13 @@ final loQueEnsenaLaBotoneraProvider = Provider<LoQueEnsenaLaBotonera>((ref) {
 /// `MaterialApp`: con el color sin ajustar, la de fuera tendría otro tono que
 /// la de dentro justo en el tema claro, que es donde se ajusta.
 final laFotoDeLaBotoneraProvider = Provider<LaFotoDeLaBotonera>((ref) {
-  final claro = !ref.watch(isDarkProvider);
-  final acento = ref
-      .watch(accentControllerProvider)
-      .forBrightness(claro ? Brightness.light : Brightness.dark);
+  // La misma que el hub: ver `LaAparienciaDeFuera`.
+  final apariencia = ref.watch(laAparienciaDeFueraProvider);
   return LaFotoDeLaBotonera(
     lo: ref.watch(loQueEnsenaLaBotoneraProvider),
-    claro: claro,
-    acento: acento.toARGB32(),
-    idioma: ref.watch(localeProvider).languageCode,
+    claro: apariencia.claro,
+    acento: apariencia.acento,
+    idioma: apariencia.idioma,
   );
 });
 

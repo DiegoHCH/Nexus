@@ -160,6 +160,21 @@ emulator-5554	offline
       expect(ComandoDeEmuladores.hayIosArriba(todosApagados), isFalse);
     });
 
+    test('simctl: los encendidos, con su UDID y su nombre', () {
+      const dos = '''
+{"devices":{
+  "com.apple.CoreSimulator.SimRuntime.iOS-26-5":[
+    {"udid":"3ECC5967","state":"Booted","name":"iPhone 17 Pro"},
+    {"udid":"B","state":"Shutdown","name":"iPhone Air"}],
+  "com.apple.CoreSimulator.SimRuntime.iOS-26-1":[
+    {"udid":"C","state":"Booted","name":"iPhone 17"}]}}''';
+      expect(ComandoDeEmuladores.simuladoresArriba(dos), [
+        (udid: '3ECC5967', nombre: 'iPhone 17 Pro'),
+        (udid: 'C', nombre: 'iPhone 17'),
+      ]);
+      expect(ComandoDeEmuladores.simuladoresArriba('xcrun: error: …'), isEmpty);
+    });
+
     test('sin Xcode, simctl no da JSON y eso no puede tirar la lista', () {
       expect(ComandoDeEmuladores.hayIosArriba('xcrun: error: …'), isFalse);
       expect(ComandoDeEmuladores.hayIosArriba(''), isFalse);
@@ -239,7 +254,7 @@ emulator-5554	offline
       final conEstado = ComandoDeEmuladores.conEstado(
         catalogo,
         avdsArriba: {'Medium_Phone_API_36.1': 'emulator-5554'},
-        iosArriba: false,
+        simuladoresArriba: const [],
       );
 
       final medium = conEstado.firstWhere(
@@ -262,7 +277,7 @@ emulator-5554	offline
       final conEstado = ComandoDeEmuladores.conEstado(
         catalogo,
         avdsArriba: {'Small Phone': 'emulator-5556'},
-        iosArriba: false,
+        simuladoresArriba: const [],
       );
 
       expect(
@@ -271,15 +286,38 @@ emulator-5554	offline
       );
     });
 
-    test('iOS no lleva dispositivo, porque se apagan todos juntos', () {
+    test('cada simulador encendido es una fila, con su UDID para -d', () {
+      // Reportado el 10 nov: el iPhone 17 Pro arrancado desde Device Hub salía
+      // «arriba» pero sin dispositivo, y la lista de dónde correr se lo
+      // saltaba.
       final conEstado = ComandoDeEmuladores.conEstado(
         catalogo,
         avdsArriba: const {},
-        iosArriba: true,
+        simuladoresArriba: const [
+          (udid: '3ECC5967', nombre: 'iPhone 17 Pro'),
+          (udid: 'A1B2C3D4', nombre: 'iPad Pro 13-inch (M5)'),
+        ],
       );
 
-      final ios = conEstado.firstWhere((e) => e.id == 'apple_ios_simulator');
-      expect(ios.corriendo, isTrue);
+      final ios = conEstado.where((e) => e.id == 'apple_ios_simulator');
+      expect(
+        [for (final e in ios) e.nombre],
+        ['iPhone 17 Pro', 'iPad Pro 13-inch (M5)'],
+      );
+      expect([for (final e in ios) e.deviceId], ['3ECC5967', 'A1B2C3D4']);
+      expect(ios.every((e) => e.corriendo), isTrue);
+    });
+
+    test('sin ninguno encendido queda la fila del catálogo, apagada', () {
+      final conEstado = ComandoDeEmuladores.conEstado(
+        catalogo,
+        avdsArriba: const {},
+        simuladoresArriba: const [],
+      );
+
+      final ios = conEstado.singleWhere((e) => e.id == 'apple_ios_simulator');
+      expect(ios.nombre, 'iOS Simulator');
+      expect(ios.corriendo, isFalse);
       expect(ios.deviceId, isNull);
     });
   });

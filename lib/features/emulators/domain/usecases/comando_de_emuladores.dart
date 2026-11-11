@@ -80,6 +80,48 @@ abstract final class ComandoDeEmuladores {
     if (frio && emulador.plataforma == PlataformaEmulador.android) '--cold',
   ];
 
+  /// Los argumentos del `emulator` del SDK para arrancar un Android **sin su
+  /// ventana**: `-qt-hide-window`, lo mismo que hace el panel de Android
+  /// Studio con los suyos.
+  ///
+  /// 🔴 **Con la ventana se veía el mismo teléfono dos veces** (11 nov): la del
+  /// emulador por un lado y la pantalla dentro del hub, por el gRPC del propio
+  /// emulador, por otro. La pantalla vive en el hub; la ventana sobraba.
+  /// Medido ese día con la 37.2.12: arranca en 30 s, no abre ninguna ventana,
+  /// no sale en el Dock, y su gRPC contesta como siempre.
+  ///
+  /// [frio] es `-no-snapshot-load`, lo mismo en que `flutter emulators
+  /// --launch --cold` traduce el suyo.
+  static List<String> argumentosSinVentana(
+    Emulador emulador, {
+    bool frio = false,
+  }) => ['-avd', emulador.id, '-qt-hide-window', if (frio) '-no-snapshot-load'];
+
+  /// Por qué no arrancó, leído del registro del emulador; `null` si no dice
+  /// nada que lo impida.
+  ///
+  /// Solo cuenta lo que lo **para**: el emulador escribe `INFO` y `WARNING` a
+  /// montones en un arranque bueno, y en uno bueno medido no escribió ninguna
+  /// línea `ERROR`, `FATAL` ni `PANIC`. La que más se verá es la del mismo
+  /// teléfono ya abierto en otro sitio:
+  ///
+  /// ```
+  /// ERROR        | Another emulator instance is running. Please close it or run all emulators with -read-only flag.
+  /// ```
+  ///
+  /// Se devuelve sin la etiqueta: lo que importa es el motivo.
+  static String? problemaDelEmulador(String registro) {
+    final etiqueta = RegExp(r'^(ERROR|FATAL|PANIC)\b\s*[|:]?\s*');
+    for (final linea in registro.split('\n')) {
+      final limpia = linea.trim();
+      final encaja = etiqueta.firstMatch(limpia);
+      if (encaja == null) continue;
+      final motivo = limpia.substring(encaja.end).trim();
+      if (motivo.isNotEmpty) return motivo;
+    }
+    return null;
+  }
+
   /// El veredicto de un lanzamiento, sacado de **la salida y no del código**.
   ///
   /// Porque `flutter emulators --launch <id>` sale con **0 aunque falle**: con un
@@ -128,36 +170,54 @@ abstract final class ComandoDeEmuladores {
           partes[0],
   ];
 
-  /// Si hay algún simulador de iOS arrancado, según
-  /// `xcrun simctl list devices booted --json`.
+  /// Si [deviceId] sigue en la lista de `adb devices`, **en cualquier
+  /// estado**: un emulador que se apaga pasa por `offline` mientras guarda su
+  /// estado, y hasta que no desaparece del todo sigue siendo un proceso vivo.
+  /// Arrancarlo otra vez en ese hueco falla con «Another emulator instance is
+  /// running».
+  static bool sigueEnAdb(String salida, String deviceId) => salida
+      .split('\n')
+      .any((linea) => linea.trim().split(RegExp(r'\s+')).first == deviceId);
+
+  /// Los simuladores de iOS encendidos, según
+  /// `xcrun simctl list devices booted --json`: su UDID y su nombre.
   ///
-  /// **Un booleano y no una lista**, y no es pereza: en iOS se apagan todos de
-  /// una vez (`simctl shutdown all`), así que saber cuál está arriba no cambia
-  /// nada de lo que se puede hacer. Y `flutter emulators` ofrece **un solo**
-  /// `apple_ios_simulator` para todos los modelos, así que no hay a quién
-  /// atribuirlo.
-  static bool hayIosArriba(String json) {
+  /// 🔴 **Antes era un booleano, y por eso un simulador encendido no salía para
+  /// correr.** Se decidió así porque en iOS se apagan todos de una vez y
+  /// `flutter emulators` ofrece un solo `apple_ios_simulator` para todos los
+  /// modelos. Pero correr pide `-d` con el UDID, y sin él la lista de dónde
+  /// correr se lo saltaba: estaba «arriba» sin dispositivo. Reportado el 10 nov
+  /// con el iPhone 17 Pro arrancado desde Device Hub de Xcode, que `flutter
+  /// devices` sí veía.
+  ///
+  /// Sin Xcode, `simctl` no contesta JSON, y eso no puede tirar la lista de
+  /// Android: se queda vacía.
+  static List<SimuladorArriba> simuladoresArriba(String json) {
     try {
       final leido = jsonDecode(json);
-      if (leido is! Map) return false;
+      if (leido is! Map) return const [];
       final porRuntime = leido['devices'];
-      if (porRuntime is! Map) return false;
+      if (porRuntime is! Map) return const [];
 
-      for (final lista in porRuntime.values) {
-        if (lista is! List) continue;
-        for (final dispositivo in lista) {
-          if (dispositivo is Map && dispositivo['state'] == 'Booted') {
-            return true;
-          }
-        }
-      }
+      return [
+        for (final lista in porRuntime.values)
+          if (lista is List)
+            for (final dispositivo in lista)
+              if (dispositivo is Map &&
+                  dispositivo['state'] == 'Booted' &&
+                  dispositivo['udid'] is String)
+                (
+                  udid: dispositivo['udid'] as String,
+                  nombre: '${dispositivo['name'] ?? dispositivo['udid']}',
+                ),
+      ];
     } on FormatException {
-      // Sin Xcode, `simctl` no contesta JSON. Que no se sepa el estado de iOS no
-      // puede tirar la lista de Android.
-      return false;
+      return const [];
     }
-    return false;
   }
+
+  /// Si hay alguno encendido. Ver [simuladoresArriba].
+  static bool hayIosArriba(String json) => simuladoresArriba(json).isNotEmpty;
 
   /// La lista con su estado, cruzando el catálogo con lo que está arriba.
   ///
@@ -168,17 +228,39 @@ abstract final class ComandoDeEmuladores {
   /// El emparejamiento admite el `id` **o** el `nombre` porque los dos aparecen
   /// según cómo se creara el AVD: `Small_Phone` es el id y `Small Phone` el
   /// nombre, y `adb` puede contestar cualquiera de los dos.
+  ///
+  /// En iOS, **uno por cada simulador encendido**, con su nombre y su UDID: el
+  /// catálogo trae un solo `apple_ios_simulator`, y lo que se elige para correr
+  /// es el aparato. Sin ninguno encendido queda esa fila, apagada, para
+  /// arrancarlo.
   static List<Emulador> conEstado(
     List<Emulador> catalogo, {
     required Map<String, String> avdsArriba,
-    required bool iosArriba,
+    required List<SimuladorArriba> simuladoresArriba,
   }) => [
     for (final emulador in catalogo)
       if (emulador.plataforma == PlataformaEmulador.ios)
-        emulador.conEstado(corriendo: iosArriba)
+        ..._conEstadoIos(emulador, simuladoresArriba)
       else
         _conEstadoAndroid(emulador, avdsArriba),
   ];
+
+  static List<Emulador> _conEstadoIos(
+    Emulador emulador,
+    List<SimuladorArriba> arriba,
+  ) => arriba.isEmpty
+      ? [emulador.conEstado(corriendo: false)]
+      : [
+          for (final simulador in arriba)
+            Emulador(
+              id: emulador.id,
+              nombre: simulador.nombre,
+              fabricante: emulador.fabricante,
+              plataforma: emulador.plataforma,
+              corriendo: true,
+              deviceId: simulador.udid,
+            ),
+        ];
 
   static Emulador _conEstadoAndroid(
     Emulador emulador,
@@ -320,3 +402,6 @@ abstract final class ComandoDeEmuladores {
     'kill',
   ];
 }
+
+/// Un simulador de iOS encendido: el UDID que pide `-d` y cómo se llama.
+typedef SimuladorArriba = ({String udid, String nombre});

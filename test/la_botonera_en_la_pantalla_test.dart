@@ -52,7 +52,7 @@ class _Corridas extends CorridasController {
       dispositivo: 'Medium Phone API 36.1',
       proyecto: '/Users/alguien/proyecto',
       configuracion: 'Tienda (dev)',
-      plataforma: PlataformaEmulador.android,
+      plataforma: PlataformaEmulador.ios, // desde A2 la botonera solo lleva iOS
       estado: EstadoDeCorrida.corriendo,
       appId: 'abc',
     ),

@@ -239,6 +239,11 @@ final class NexusBotonera: NSObject {
   /// todos los escritorios y **solo se enseña donde se ve el espejo**. No sale
   /// encima de cualquier app como la del 28 sep: sin el espejo a la vista se
   /// aparta. Suelto el espejo, vuelve a `enLosEscritorios`.
+  ///
+  /// 🔴 **Y también mientras se le espera en otro escritorio** (10 nov): la
+  /// corrida lanzada desde el escritorio de Slack dejaba la botonera encima de
+  /// Slack, porque el espejo no se encontraba desde allí. Ver
+  /// `NexusEspejoPegado.buscar`.
   static let conElEspejo: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
   private static func area(_ rect: NSRect) -> CGFloat {
@@ -492,8 +497,9 @@ final class NexusBotonera: NSObject {
   /// que cada aparición es la primera, y todo se suelta en el acto —antes del
   /// fundido— para que una corrida que arranca justo mientras se va cree la
   /// suya en vez de repintar una que está a punto de cerrarse.
-  /// El espejo se pegó o se soltó: la barra cambia de escritorio con él, o
-  /// vuelve a quedarse en el suyo. Ver `conElEspejo`.
+  /// El espejo se pegó —o se le espera en otro escritorio— o se soltó: la
+  /// barra cambia de escritorio con él, o vuelve a quedarse en el suyo. Ver
+  /// `conElEspejo`.
   private func elEspejoSePego(_ pegado: Bool) {
     dejarDeSeguirAlEspejo()
     guard let panel = ventana else { return }

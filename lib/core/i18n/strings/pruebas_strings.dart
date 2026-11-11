@@ -149,17 +149,8 @@ mixin PruebasStrings {
   String get e2eSearchingDevices;
   String get verLaPantalla;
 
-  /// El mismo verbo, corto, para el botón escrito de la fila.
-  String get verLaPantallaCorto;
   String get verLaPantallaSinTocar;
-  String get verElIphoneDuplicado;
-  String get verElIphoneQuickTime;
 
-  /// Los mismos, cortos, para el botón escrito de Ajustes: las frases largas
-  /// van de tooltip. Como botón ocupaban la fila entera y dejaban el nombre
-  /// del teléfono en una columna de una letra.
-  String get verElIphoneDuplicadoCorto;
-  String get verElIphoneQuickTimeCorto;
   String get channelTitle;
   String get channelExplainer;
   String get channelStarting;
@@ -505,21 +496,8 @@ mixin PruebasStringsEs implements PruebasStrings {
   @override
   String get verLaPantalla => 'Ver la pantalla del móvil';
   @override
-  String get verLaPantallaCorto => 'Ver la pantalla';
-  @override
   String get verLaPantallaSinTocar =>
       'Ver la pantalla, sin control: hay una prueba corriendo';
-  @override
-  String get verElIphoneDuplicado =>
-      'Duplicado de iPhone: con control. Pide el mismo Apple ID y el teléfono '
-      'bloqueado y cerca.';
-  @override
-  String get verElIphoneQuickTime =>
-      'QuickTime: por cable y sin control. La fuente se elige dentro de QuickTime.';
-  @override
-  String get verElIphoneDuplicadoCorto => 'Duplicado de iPhone';
-  @override
-  String get verElIphoneQuickTimeCorto => 'QuickTime';
   @override
   String get channelTitle => 'El canal del teléfono';
   @override
@@ -945,21 +923,8 @@ mixin PruebasStringsEn implements PruebasStrings {
   @override
   String get verLaPantalla => "See the phone's screen";
   @override
-  String get verLaPantallaCorto => 'See the screen';
-  @override
   String get verLaPantallaSinTocar =>
       'See the screen, no control: a test is running';
-  @override
-  String get verElIphoneDuplicado =>
-      'iPhone Mirroring: with control. Needs the same Apple ID and the phone '
-      'locked and nearby.';
-  @override
-  String get verElIphoneQuickTime =>
-      'QuickTime: over cable, no control. You pick the source inside QuickTime.';
-  @override
-  String get verElIphoneDuplicadoCorto => 'iPhone Mirroring';
-  @override
-  String get verElIphoneQuickTimeCorto => 'QuickTime';
   @override
   String get channelTitle => 'The phone channel';
   @override

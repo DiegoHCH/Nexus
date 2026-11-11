@@ -46,17 +46,21 @@ import 'support/ventana_de_la_botonera.dart';
 /// ventana de Nexus no pinte ni un píxel de barra.
 const _deviceId = 'emulator-5554';
 
+/// Una corrida **de iOS** de entrada: desde el 10 nov (A2) las de Android van
+/// al hub y la botonera flotante solo enseña las de iOS. Las pruebas de qué
+/// espejo es el de cada corrida, que no cambian, piden Android a mano.
 Corrida _corrida({
   String deviceId = _deviceId,
   EstadoDeCorrida estado = EstadoDeCorrida.corriendo,
   String? appId = 'abc',
   int errores = 0,
+  PlataformaEmulador plataforma = PlataformaEmulador.ios,
 }) => Corrida(
   deviceId: deviceId,
   dispositivo: 'POCO F6',
   proyecto: '/casa/tienda',
   configuracion: 'ci',
-  plataforma: PlataformaEmulador.android,
+  plataforma: plataforma,
   estado: estado,
   appId: appId,
   errores: errores,
@@ -716,18 +720,27 @@ void main() {
   group('qué espejo es el de cada corrida', () {
     test('un Android enchufado se ve con scrcpy, titulado con su nombre', () {
       expect(
-        ElEspejoQueSePega.de(_corrida(deviceId: '7a3f'), esFisico: true),
+        ElEspejoQueSePega.de(
+          _corrida(deviceId: '7a3f', plataforma: PlataformaEmulador.android),
+          esFisico: true,
+        ),
         const LaVentanaDelEspejo(ejecutables: ['scrcpy'], titulo: 'POCO F6'),
       );
     });
 
     test('un emulador, por su ventana y su puerto', () {
       expect(
-        ElEspejoQueSePega.de(_corrida(), esFisico: false),
+        ElEspejoQueSePega.de(
+          _corrida(plataforma: PlataformaEmulador.android),
+          esFisico: false,
+        ),
         const LaVentanaDelEspejo(ejecutables: ['qemu-system'], titulo: ':5554'),
       );
       expect(
-        ElEspejoQueSePega.de(_corrida(deviceId: 'raro'), esFisico: false),
+        ElEspejoQueSePega.de(
+          _corrida(deviceId: 'raro', plataforma: PlataformaEmulador.android),
+          esFisico: false,
+        ),
         isNull,
         reason: 'sin puerto no hay cómo distinguir dos emuladores iguales',
       );
@@ -805,14 +818,15 @@ void main() {
 
     String? tituloPegado() => ventana.pegados.last['titulo'] as String?;
 
-    // Una corrida en un emulador ya tiene su ventana: se pega en cuanto la
+    // Una corrida en un simulador ya tiene su ventana: se pega en cuanto la
     // botonera sale, sin que haya que abrir nada.
-    test('al correr en un emulador, su ventana se pega sola', () async {
+    test('al correr en un simulador, su ventana se pega sola', () async {
       await contenedor();
       await ahora({_deviceId: _corrida()});
 
       expect(ventana.llamadas, ['abrir', 'pegar']);
-      expect(tituloPegado(), ':5554');
+      expect(tituloPegado(), 'POCO F6');
+      expect(ventana.pegados.last['apps'], [ElEspejoQueSePega.simulador]);
 
       // Y una foto nueva de la misma corrida no la vuelve a buscar.
       await ahora({_deviceId: _corrida(errores: 1)});
@@ -824,8 +838,12 @@ void main() {
       await ahora({_deviceId: _corrida()});
       await ahora({_deviceId: _corrida(), '7a3f': _corrida(deviceId: '7a3f')});
 
-      expect(ventana.pegados.last['ejecutables'], ['scrcpy']);
-      expect(tituloPegado(), 'POCO F6');
+      // El iPhone enchufado: Duplicado de iPhone o QuickTime, sin título.
+      expect(ventana.pegados.last['apps'], [
+        ElEspejoQueSePega.duplicado,
+        ElEspejoQueSePega.quickTime,
+      ]);
+      expect(tituloPegado(), isNull);
     });
 
     // Abrir desde Nexus el espejo de una que corre lo hace el que toca, y lo
@@ -838,7 +856,7 @@ void main() {
       c.read(elEspejoAbiertoProvider.notifier).abrio(_deviceId);
       await Future<void>.delayed(Duration.zero);
       expect(ventana.pegados, hasLength(antes + 1));
-      expect(tituloPegado(), ':5554');
+      expect(ventana.pegados.last['apps'], [ElEspejoQueSePega.simulador]);
 
       c.read(elEspejoAbiertoProvider.notifier).abrio(_deviceId);
       await Future<void>.delayed(Duration.zero);
@@ -859,7 +877,9 @@ void main() {
       await ahora({_deviceId: _corrida(), '7a3f': _corrida(deviceId: '7a3f')});
 
       await ahora({_deviceId: _corrida()});
-      expect(tituloPegado(), ':5554', reason: 'vuelve al que sigue corriendo');
+      expect(ventana.pegados.last['apps'], [
+        ElEspejoQueSePega.simulador,
+      ], reason: 'vuelve al que sigue corriendo');
 
       await ahora(const {});
       expect(ventana.llamadas.last, 'cerrar');
@@ -870,15 +890,23 @@ void main() {
       );
     });
 
-    test('lo que no tiene espejo reconocible lo suelta', () async {
-      await contenedor();
+    // 🔴 Desde el 10 nov (A2) una corrida de Android no es de la botonera
+    // flotante: va al hub. Con solo una de Android, la flotante se recoge y
+    // suelta el espejo que tenía.
+    test('una corrida de Android no es de la botonera: se recoge', () async {
+      final c = await contenedor();
       await ahora({_deviceId: _corrida()});
-      await ahora({'raro': _corrida(deviceId: 'raro')});
-
-      expect(ventana.llamadas.last, 'soltar');
+      expect(ventana.llamadas, contains('pegar'));
+      await ahora({
+        'emulator-5556': _corrida(
+          deviceId: 'emulator-5556',
+          plataforma: PlataformaEmulador.android,
+        ),
+      });
+      expect(ventana.llamadas.last, 'cerrar');
+      expect(c.read(loQueEnsenaLaBotoneraProvider).corridas, isEmpty);
     });
 
-    // Sin permiso todo sigue como antes, y se pregunta una vez, en la barra.
     test('sin permiso se pregunta una vez, en la barra', () async {
       final c = await contenedor(alPegar: EspejoPegado.sinPermiso);
       await ahora({_deviceId: _corrida()});

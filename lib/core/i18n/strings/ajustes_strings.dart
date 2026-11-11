@@ -82,7 +82,6 @@ mixin AjustesStrings {
   String get slackListo;
   // Tus aparatos: la frase, los emuladores, las pruebas y las cuentas.
   String phraseDefinedFor(int minutos);
-  String get emulatorsChecking;
   String flowsEn(String ruta);
   String e2eVariables(int cuantas);
   // Estadísticas: la frase de debajo de las cifras y cómo se escriben.
@@ -219,8 +218,6 @@ mixin AjustesStringsEs implements AjustesStrings {
   @override
   String phraseDefinedFor(int minutos) =>
       'Definida: el teléfono puede escribir $minutos min tras decirla.';
-  @override
-  String get emulatorsChecking => 'Comprobando…';
   @override
   String flowsEn(String ruta) => 'en $ruta';
   @override
@@ -373,8 +370,6 @@ mixin AjustesStringsEn implements AjustesStrings {
   @override
   String phraseDefinedFor(int minutos) =>
       'Set: the phone can write for $minutos min after saying it.';
-  @override
-  String get emulatorsChecking => 'Checking…';
   @override
   String flowsEn(String ruta) => 'in $ruta';
   @override

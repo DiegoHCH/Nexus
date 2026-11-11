@@ -93,7 +93,7 @@ void main() {
     );
   });
 
-  test('Ajustes, sin emuladores, pruebas ni sus cuentas', () {
+  test('Ajustes, sin pruebas ni sus cuentas', () {
     expect(
       SeccionDeAjustes.de(PreguntaDeAjustes.tusAparatos, conLoDeCodigo: false),
       [SeccionDeAjustes.mobile],

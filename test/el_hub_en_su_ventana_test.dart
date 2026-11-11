@@ -1,3 +1,5 @@
+import 'package:flutter/gestures.dart';
+import 'package:nexus/core/design_system/design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/features/emulators/domain/entities/linea_de_registro.dart';
@@ -75,6 +77,7 @@ void main() {
     bool enSistema = false,
     List<LineaDeRegistro> sistema = const [],
     bool escuchandoSistema = false,
+    NivelDeRegistro nivelDelSistema = NivelDeRegistro.info,
   }) => LoQueEnsenaElHub(
     apariencia: LaAparienciaDeFuera(
       claro: claro,
@@ -111,6 +114,7 @@ void main() {
     enSistema: enSistema,
     sistema: sistema,
     escuchandoSistema: escuchandoSistema,
+    nivelDelSistema: nivelDelSistema,
     aviso: aviso,
   );
 
@@ -331,6 +335,39 @@ void main() {
       );
     });
 
+    // 11 nov: «si me paro en la barra de registro y le doy scroll puedo
+    // agrandarla […] solo debería poderse dándole click sostenido».
+    testWidgets('el scroll encima no lo estira: ni trackpad ni rueda', (
+      tester,
+    ) async {
+      await montar(tester, foto());
+      final antes = tester
+          .getSize(find.byKey(ElRegistroDelHub.elCuerpo))
+          .height;
+      final asa = tester.getCenter(find.byKey(ElRegistroDelHub.elAsa));
+
+      final dedos = await tester.createGesture(
+        kind: PointerDeviceKind.trackpad,
+      );
+      await dedos.panZoomStart(asa);
+      await dedos.panZoomUpdate(asa, pan: const Offset(0, -120));
+      await dedos.panZoomEnd();
+      await tester.pump();
+      expect(
+        tester.getSize(find.byKey(ElRegistroDelHub.elCuerpo)).height,
+        antes,
+      );
+
+      tester.binding.handlePointerEvent(
+        PointerScrollEvent(position: asa, scrollDelta: const Offset(0, -120)),
+      );
+      await tester.pump();
+      expect(
+        tester.getSize(find.byKey(ElRegistroDelHub.elCuerpo)).height,
+        antes,
+      );
+    });
+
     testWidgets('empieza con el alto que se dejó la última vez', (
       tester,
     ) async {
@@ -414,6 +451,59 @@ void main() {
       expect(find.text('2 líneas'), findsOneWidget);
       await tester.tap(find.byKey(ElRegistroDelHub.laPestanaDeLaCorrida));
       expect(pedidos, [const VerElSistema(false)]);
+    });
+
+    // 11 nov: «agrega el filtro de nivel y la búsqueda en la pestaña».
+    testWidgets('en la del sistema, los cuatro niveles; pulsar uno lo pide', (
+      tester,
+    ) async {
+      final pedidos = await montar(tester, foto(enSistema: true));
+      expect(tester.takeException(), isNull);
+      for (final texto in [
+        strings.nivelTodo,
+        strings.nivelDesdeAvisos,
+        strings.nivelSoloErrores,
+        strings.nivelSoloFatales,
+      ]) {
+        expect(find.text(texto), findsOneWidget);
+      }
+      await tester.tap(find.byKey(const ValueKey('nivel-error')));
+      expect(pedidos, [const FiltrarElSistema(NivelDeRegistro.error)]);
+    });
+
+    testWidgets('el nivel puesto no se vuelve a pedir', (tester) async {
+      final pedidos = await montar(
+        tester,
+        foto(enSistema: true, nivelDelSistema: NivelDeRegistro.error),
+      );
+      await tester.tap(find.byKey(const ValueKey('nivel-error')));
+      expect(pedidos, isEmpty);
+    });
+
+    testWidgets('lo que se escribe se busca al dejar de escribir', (
+      tester,
+    ) async {
+      final pedidos = await montar(tester, foto(enSistema: true));
+      await tester.enterText(find.byKey(ElRegistroDelHub.laBusqueda), 'FATAL');
+      expect(pedidos, isEmpty);
+      await tester.pump(ElRegistroDelHub.respiroDeLaBusqueda * 1.5);
+      expect(pedidos, [const BuscarEnElSistema('FATAL')]);
+    });
+
+    testWidgets('en la de la corrida no hay filtro', (tester) async {
+      await montar(tester, foto());
+      expect(find.byKey(ElRegistroDelHub.laBusqueda), findsNothing);
+      expect(find.byKey(const ValueKey('nivel-error')), findsNothing);
+    });
+
+    // 11 nov: «el botón de copiar con el colapsable no están pegados a la
+    // derecha». Con un Flexible y un Spacer el hueco se repartía a medias.
+    testWidgets('copiar y plegar van pegados a la derecha', (tester) async {
+      await montar(tester, foto());
+      final plegar = tester.getRect(find.byKey(ElRegistroDelHub.plegar));
+      final copiar = tester.getRect(find.byKey(ElRegistroDelHub.copiar));
+      expect(plegar.right, greaterThan(1100 - NexusSpacing.s3));
+      expect(plegar.left - copiar.right, lessThan(NexusSpacing.s2));
     });
 
     testWidgets('escuchando y sin nada todavía, lo dice', (tester) async {

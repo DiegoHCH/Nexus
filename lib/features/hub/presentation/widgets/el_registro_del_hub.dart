@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/emulators/domain/entities/linea_de_registro.dart';
+import 'package:nexus/features/emulators/presentation/providers/registro_del_sistema_providers.dart';
 import 'package:nexus/features/run/domain/usecases/el_error_que_pinta_la_app.dart';
 
 /// **El registro de la corrida, abajo**: la tercera parte de la mesa.
@@ -35,6 +37,10 @@ class ElRegistroDelHub extends StatefulWidget {
     this.escuchandoSistema = false,
     this.hayDispositivo = false,
     this.onSistema,
+    this.nivel = NivelDeRegistro.info,
+    this.busca = '',
+    this.onNivel,
+    this.onBuscar,
     this.espacio,
     this.altoInicial,
     this.onAlto,
@@ -56,6 +62,13 @@ class ElRegistroDelHub extends StatefulWidget {
 
   /// Cambiar de pestaña: `true`, la del sistema.
   final ValueChanged<bool>? onSistema;
+
+  /// El filtro del registro del sistema —desde qué nivel y qué texto— y cómo
+  /// cambiarlo. Es el de la ventana del sistema: uno solo para los dos.
+  final NivelDeRegistro nivel;
+  final String busca;
+  final ValueChanged<NivelDeRegistro>? onNivel;
+  final ValueChanged<String>? onBuscar;
 
   /// El alto que se reparten el centro y el registro, para no quitarle al
   /// centro su [minimoDelCentro]. `null`: sin tope.
@@ -87,12 +100,24 @@ class ElRegistroDelHub extends StatefulWidget {
   static const laPestanaDeLaCorrida = ValueKey('pestana-de-la-corrida');
   static const laPestanaDelSistema = ValueKey('pestana-del-sistema');
 
+  /// La caja de buscar en el sistema, copiar y plegar.
+  static const laBusqueda = ValueKey('buscar-en-el-sistema');
+  static const copiar = ValueKey('copiar-el-registro');
+  static const plegar = ValueKey('plegar-el-registro');
+
+  /// Lo que se espera a que se deje de escribir antes de buscar: la foto
+  /// va y viene, y una búsqueda por tecla sería una por letra.
+  static const respiroDeLaBusqueda = Duration(milliseconds: 250);
+
   @override
   State<ElRegistroDelHub> createState() => _ElRegistroDelHubState();
 }
 
 class _ElRegistroDelHubState extends State<ElRegistroDelHub> {
   final _scroll = ScrollController();
+  late final _busca = TextEditingController(text: widget.busca);
+  final _focoDeLaBusqueda = FocusNode(debugLabel: 'buscar en el sistema');
+  Timer? _respiro;
   bool _plegado = false;
   bool _copiado = false;
 
@@ -193,6 +218,10 @@ class _ElRegistroDelHubState extends State<ElRegistroDelHub> {
         ? widget.sistema.length != oldWidget.sistema.length
         : widget.lineas.length != oldWidget.lineas.length;
     if (otraPestana) _alFinal = true;
+    // La búsqueda viene en la foto; mientras se escribe, manda lo escrito.
+    if (!_focoDeLaBusqueda.hasFocus && widget.busca != _busca.text) {
+      _busca.text = widget.busca;
+    }
     if (_alFinal && (otraCuenta || otraPestana)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scroll.hasClients) {
@@ -204,8 +233,19 @@ class _ElRegistroDelHubState extends State<ElRegistroDelHub> {
 
   @override
   void dispose() {
+    _respiro?.cancel();
+    _busca.dispose();
+    _focoDeLaBusqueda.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  void _escribe(String texto) {
+    _respiro?.cancel();
+    _respiro = Timer(
+      ElRegistroDelHub.respiroDeLaBusqueda,
+      () => widget.onBuscar?.call(texto),
+    );
   }
 
   Future<void> _copiar() async {
@@ -232,11 +272,13 @@ class _ElRegistroDelHubState extends State<ElRegistroDelHub> {
     final hayCuerpo = sistema ? widget.hayDispositivo : widget.hayCorrida;
     final cuantas = sistema ? widget.sistema.length : lineas.length;
 
+    // A la derecha menos que a la izquierda: el botón de plegar trae su
+    // propio margen, y así su flecha cae donde cae lo de arriba.
     final fila = Padding(
       padding: const EdgeInsets.fromLTRB(
         NexusSpacing.s4,
         0,
-        NexusSpacing.s4,
+        NexusSpacing.s1,
         NexusSpacing.s1 + 2,
       ),
       child: Row(
@@ -263,7 +305,10 @@ class _ElRegistroDelHubState extends State<ElRegistroDelHub> {
             onPulsar: () => widget.onSistema?.call(true),
           ),
           const SizedBox(width: NexusSpacing.s3),
-          Flexible(
+          // Expanded y no Flexible con un Spacer detrás: con los dos, el hueco
+          // se repartía a medias y copiar y plegar quedaban en medio y no
+          // pegados a la derecha (visto el 11 nov).
+          Expanded(
             child: Text(
               hayCuerpo
                   ? strings.hubLineas(cuantas)
@@ -275,9 +320,9 @@ class _ElRegistroDelHubState extends State<ElRegistroDelHub> {
               style: NexusTypography.data.copyWith(color: colors.faint),
             ),
           ),
-          const Spacer(),
           if (hayCuerpo && cuantas > 0 && !_plegado)
             TextButton(
+              key: ElRegistroDelHub.copiar,
               onPressed: _copiar,
               child: Text(
                 (_copiado ? strings.hubCopiado : strings.hubCopiar)
@@ -287,6 +332,7 @@ class _ElRegistroDelHubState extends State<ElRegistroDelHub> {
             ),
           if (hayCuerpo)
             IconButton(
+              key: ElRegistroDelHub.plegar,
               tooltip: _plegado ? strings.hubDesplegar : strings.hubPlegar,
               visualDensity: VisualDensity.compact,
               iconSize: 16,
@@ -334,6 +380,17 @@ class _ElRegistroDelHubState extends State<ElRegistroDelHub> {
               onExit: (_) => setState(() => _encimaDelAsa = false),
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
+                // 🔴 **Solo con clic sostenido** (11 nov): el desplazamiento
+                // de dos dedos del trackpad llega como un arrastre, y estiraba
+                // el registro sin querer al hacer scroll encima. Sin el
+                // trackpad en la lista, solo cuenta pulsar y mover; el clic
+                // sostenido del trackpad llega como ratón.
+                supportedDevices: const {
+                  PointerDeviceKind.mouse,
+                  PointerDeviceKind.touch,
+                  PointerDeviceKind.stylus,
+                  PointerDeviceKind.invertedStylus,
+                },
                 // Desde donde se pulsó y no desde donde se notó el arrastre:
                 // así el borde sigue al ratón sin saltar.
                 dragStartBehavior: DragStartBehavior.down,
@@ -364,47 +421,210 @@ class _ElRegistroDelHubState extends State<ElRegistroDelHub> {
               child: SizedBox(
                 key: ElRegistroDelHub.elCuerpo,
                 height: _altoQueCabe,
-                child: cuantas == 0
-                    ? Padding(
-                        padding: const EdgeInsets.all(NexusSpacing.s4),
-                        child: Text(
-                          sistema && widget.escuchandoSistema
-                              ? strings.hubSistemaEscuchando
-                              : strings.hubSinLineas,
-                          style: NexusTypography.data.copyWith(
-                            color: colors.faint,
+                child: _conLaBarraDelSistema(
+                  sistema,
+                  cuantas == 0
+                      ? Padding(
+                          padding: const EdgeInsets.all(NexusSpacing.s4),
+                          child: Text(
+                            sistema && widget.escuchandoSistema
+                                ? strings.hubSistemaEscuchando
+                                : strings.hubSinLineas,
+                            style: NexusTypography.data.copyWith(
+                              color: colors.faint,
+                            ),
                           ),
-                        ),
-                      )
-                    : SelectionArea(
-                        child: ListView.builder(
-                          // Otra pestaña, otra lista: que no herede el sitio
-                          // por donde se iba leyendo la otra.
-                          key: ValueKey(sistema),
-                          controller: _scroll,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: NexusSpacing.s4,
-                            vertical: NexusSpacing.s1 + 2,
-                          ),
-                          itemCount: cuantas,
-                          itemBuilder: (context, i) => sistema
-                              ? _LineaDelSistema(linea: widget.sistema[i])
-                              : Text(
-                                  lineas[i],
-                                  style: NexusTypography.data.copyWith(
-                                    fontSize: 11.5,
-                                    height: 1.55,
-                                    color:
-                                        ElErrorQuePintaLaApp.pintaMal(lineas[i])
-                                        ? colors.err
-                                        : colors.mute,
+                        )
+                      : SelectionArea(
+                          child: ListView.builder(
+                            // Otra pestaña, otra lista: que no herede el sitio
+                            // por donde se iba leyendo la otra.
+                            key: ValueKey(sistema),
+                            controller: _scroll,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: NexusSpacing.s4,
+                              vertical: NexusSpacing.s1 + 2,
+                            ),
+                            itemCount: cuantas,
+                            itemBuilder: (context, i) => sistema
+                                ? _LineaDelSistema(linea: widget.sistema[i])
+                                : Text(
+                                    lineas[i],
+                                    style: NexusTypography.data.copyWith(
+                                      fontSize: 11.5,
+                                      height: 1.55,
+                                      color:
+                                          ElErrorQuePintaLaApp.pintaMal(
+                                            lineas[i],
+                                          )
+                                          ? colors.err
+                                          : colors.mute,
+                                    ),
                                   ),
-                                ),
+                          ),
                         ),
-                      ),
+                ),
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  /// En la pestaña del sistema, encima de las líneas, su filtro: los cuatro
+  /// niveles de la ventana del sistema a la vista y la caja de buscar.
+  Widget _conLaBarraDelSistema(bool sistema, Widget lineas) {
+    if (!sistema) return lineas;
+    final colors = context.colors;
+    final strings = context.strings;
+    final barra = Padding(
+      padding: const EdgeInsets.fromLTRB(
+        NexusSpacing.s4,
+        NexusSpacing.s1,
+        NexusSpacing.s2,
+        NexusSpacing.s1,
+      ),
+      child: Row(
+        children: [
+          // Los niveles ocupan lo que deja la búsqueda, y si no caben —la
+          // ventana mínima— se desplazan de lado en vez de desbordarse.
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final nivel in FiltroDelRegistro.losQueSeOfrecen) ...[
+                    _Nivel(
+                      key: ValueKey('nivel-${nivel.name}'),
+                      texto: switch (nivel) {
+                        NivelDeRegistro.aviso => strings.nivelDesdeAvisos,
+                        NivelDeRegistro.error => strings.nivelSoloErrores,
+                        NivelDeRegistro.fatal => strings.nivelSoloFatales,
+                        _ => strings.nivelTodo,
+                      },
+                      puesto: nivel == widget.nivel,
+                      onPulsar: () => widget.onNivel?.call(nivel),
+                    ),
+                    const SizedBox(width: NexusSpacing.s1),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: NexusSpacing.s2),
+          SizedBox(
+            width: 200,
+            height: 26,
+            child: TextField(
+              key: ElRegistroDelHub.laBusqueda,
+              controller: _busca,
+              focusNode: _focoDeLaBusqueda,
+              onChanged: _escribe,
+              style: NexusTypography.data.copyWith(
+                fontSize: 11.5,
+                color: colors.ink,
+              ),
+              cursorColor: colors.accent,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: strings.hubBuscarEnElSistema,
+                hintStyle: NexusTypography.data.copyWith(
+                  fontSize: 11.5,
+                  color: colors.faint,
+                ),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  size: 14,
+                  color: colors.faint,
+                ),
+                prefixIconConstraints: const BoxConstraints(
+                  minWidth: 26,
+                  minHeight: 26,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 6),
+                filled: true,
+                fillColor: colors.rise,
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: colors.rule),
+                  borderRadius: BorderRadius.circular(NexusRadius.sm),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: colors.accent),
+                  borderRadius: BorderRadius.circular(NexusRadius.sm),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        barra,
+        Container(height: 1, color: colors.rule),
+        Expanded(child: lineas),
+      ],
+    );
+  }
+}
+
+/// Un nivel del filtro del sistema: su nombre, con borde de acento si es el
+/// puesto; con el ratón encima se aclara y lleva la mano.
+class _Nivel extends StatefulWidget {
+  const _Nivel({
+    super.key,
+    required this.texto,
+    required this.puesto,
+    required this.onPulsar,
+  });
+
+  final String texto;
+  final bool puesto;
+  final VoidCallback onPulsar;
+
+  @override
+  State<_Nivel> createState() => _NivelState();
+}
+
+class _NivelState extends State<_Nivel> {
+  bool _encima = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final vivo = !widget.puesto;
+    return MouseRegion(
+      cursor: vivo ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) => setState(() => _encima = true),
+      onExit: (_) => setState(() => _encima = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: vivo ? widget.onPulsar : null,
+        child: Semantics(
+          button: true,
+          selected: widget.puesto,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 90),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: widget.puesto || _encima
+                  ? colors.rise
+                  : Colors.transparent,
+              border: Border.all(
+                color: widget.puesto ? colors.accent : colors.rule,
+              ),
+              borderRadius: BorderRadius.circular(NexusRadius.sm),
+            ),
+            child: Text(
+              widget.texto,
+              style: NexusTypography.data.copyWith(
+                fontSize: 11,
+                color: widget.puesto || _encima ? colors.ink : colors.mute,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

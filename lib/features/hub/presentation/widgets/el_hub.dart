@@ -171,6 +171,12 @@ class ElHub extends StatelessWidget {
                             hayDispositivo:
                                 foto.elDispositivo?.encendido ?? false,
                             onSistema: (si) => onPedido(VerElSistema(si)),
+                            nivel: foto.nivelDelSistema,
+                            busca: foto.buscaEnElSistema,
+                            onNivel: (nivel) =>
+                                onPedido(FiltrarElSistema(nivel)),
+                            onBuscar: (texto) =>
+                                onPedido(BuscarEnElSistema(texto)),
                             espacio: caja.maxHeight,
                             altoInicial: altoDelRegistro,
                             onAlto: onAltoDelRegistro,

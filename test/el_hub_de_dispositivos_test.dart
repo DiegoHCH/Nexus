@@ -312,6 +312,20 @@ void main() {
       expect(elSistema.soltados, ['emulator-5554']);
     });
 
+    test('el nivel y la búsqueda cambian el filtro de siempre', () async {
+      final (:c, ventana: _, maquina: _) = montar();
+      await listas(c);
+      final hub = c.read(elHubDeDispositivosProvider.notifier);
+      await hub.atender(const FiltrarElSistema(NivelDeRegistro.error).toMap());
+      await hub.atender(const BuscarEnElSistema('FATAL').toMap());
+      final filtro = c.read(filtroDelRegistroProvider);
+      expect(filtro.minimo, NivelDeRegistro.error);
+      expect(filtro.texto, 'FATAL');
+      final foto = c.read(laFotoDelHubProvider);
+      expect(foto.nivelDelSistema, NivelDeRegistro.error);
+      expect(foto.buscaEnElSistema, 'FATAL');
+    });
+
     test('con el hub cerrado, la pestaña puesta no escucha nada', () async {
       final (:c, ventana: _, maquina: _) = montar();
       await listas(c);
@@ -561,6 +575,8 @@ void main() {
   test('cada pedido va y vuelve por el canal tal cual', () {
     for (final p in <PedidoDelHub>[
       const VerElSistema(true),
+      const FiltrarElSistema(NivelDeRegistro.error),
+      const BuscarEnElSistema('FATAL'),
       const TraerAlFrente('x'),
       const VerFuera('y', ComoVerFuera.duplicado),
       const ElegirApp('/p/app'),

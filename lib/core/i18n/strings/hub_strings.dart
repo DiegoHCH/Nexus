@@ -55,6 +55,7 @@ mixin HubStrings {
   String hubLineas(int n);
   String get hubSinDispositivo;
   String get hubSistemaEscuchando;
+  String get hubBuscarEnElSistema;
   String get hubCopiar;
   String get hubCopiado;
   String get hubPlegar;
@@ -190,6 +191,8 @@ mixin HubStringsEs implements HubStrings {
   String get hubSinCorrida => 'sin corrida';
   @override
   String get hubSinDispositivo => 'sin dispositivo encendido';
+  @override
+  String get hubBuscarEnElSistema => 'Buscar en el sistema';
   @override
   String get hubSistemaEscuchando =>
       'Escuchando el registro del sistema; todavía no dijo nada.';
@@ -359,6 +362,8 @@ mixin HubStringsEn implements HubStrings {
   String get hubSinCorrida => 'no run';
   @override
   String get hubSinDispositivo => 'no device on';
+  @override
+  String get hubBuscarEnElSistema => 'Search the system log';
   @override
   String get hubSistemaEscuchando =>
       'Listening to the system log; nothing yet.';

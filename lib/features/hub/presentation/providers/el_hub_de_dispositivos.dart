@@ -383,6 +383,7 @@ final laFotoDelHubProvider = Provider<LoQueEnsenaElHub>((ref) {
   final id = elegido?.id;
   final deviceId = elegido?.deviceId;
   final enSistema = ref.watch(elHubEnSistemaProvider);
+  final filtro = ref.watch(filtroDelRegistroProvider);
   final botonera = ref.watch(loQueEnsenaLaBotoneraProvider);
   final filas = ref.watch(lasFilasDeCorridaProvider);
   return LoQueEnsenaElHub(
@@ -415,6 +416,8 @@ final laFotoDelHubProvider = Provider<LoQueEnsenaElHub>((ref) {
       ),
       _ => const [],
     },
+    nivelDelSistema: filtro.minimo,
+    buscaEnElSistema: filtro.texto,
     escuchandoSistema:
         enSistema &&
         deviceId != null &&
@@ -628,6 +631,10 @@ class ElHubDeDispositivos extends Notifier<bool> {
         await _quitarLaCopia();
       case VerElSistema(:final si):
         ref.read(elHubEnSistemaProvider.notifier).pon(si);
+      case FiltrarElSistema(:final nivel):
+        ref.read(filtroDelRegistroProvider.notifier).ponerNivel(nivel);
+      case BuscarEnElSistema(:final texto):
+        ref.read(filtroDelRegistroProvider.notifier).buscar(texto);
       case VerPruebas(:final si):
         ref.read(elHubEnPruebasProvider.notifier).pon(si);
         if (si) ref.invalidate(pasadasDePruebaProvider);

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:nexus/features/emulators/domain/entities/linea_de_registro.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_ensena_el_hub.dart';
 
 /// **Lo que se pulsa en el hub**, de vuelta a la app.
@@ -40,6 +41,14 @@ sealed class PedidoDelHub {
         ('panelDePruebas', _) => const AbrirElPanelDePruebas(),
         ('verPruebas', _) => VerPruebas(mapa['si'] == true),
         ('verSistema', _) => VerElSistema(mapa['si'] == true),
+        ('nivelSistema', _) => switch (NivelDeRegistro.values
+            .asNameMap()[mapa['nivel']]) {
+          final nivel? => FiltrarElSistema(nivel),
+          null => null,
+        },
+        ('buscarSistema', _) => BuscarEnElSistema(
+          mapa['texto'] is String ? mapa['texto']! as String : '',
+        ),
         ('verFuera', final String id) => switch (ComoVerFuera.values
             .asNameMap()[mapa['como']]) {
           final como? => VerFuera(id, como),
@@ -331,6 +340,41 @@ class AbrirElPanelDePruebas extends PedidoDelHub {
 
   @override
   int get hashCode => 13;
+}
+
+/// Desde qué nivel se enseña el registro del sistema: los cuatro de la
+/// ventana del sistema —todo, desde avisos, solo errores, solo fatales—. El
+/// filtro es uno solo, el de esa ventana: ver `FiltroDelRegistro`.
+class FiltrarElSistema extends PedidoDelHub {
+  const FiltrarElSistema(this.nivel);
+  final NivelDeRegistro nivel;
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'nivelSistema', 'nivel': nivel.name};
+
+  @override
+  bool operator ==(Object other) =>
+      other is FiltrarElSistema && other.nivel == nivel;
+
+  @override
+  int get hashCode => Object.hash('nivelSistema', nivel);
+}
+
+/// Qué texto tiene que traer una línea del registro del sistema para verse.
+/// Vacío, todas.
+class BuscarEnElSistema extends PedidoDelHub {
+  const BuscarEnElSistema(this.texto);
+  final String texto;
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'buscarSistema', 'texto': texto};
+
+  @override
+  bool operator ==(Object other) =>
+      other is BuscarEnElSistema && other.texto == texto;
+
+  @override
+  int get hashCode => Object.hash('buscarSistema', texto);
 }
 
 /// En el panel de abajo, el registro del sistema del elegido ([si]) o el de

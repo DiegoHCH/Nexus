@@ -29,6 +29,8 @@ class LoQueEnsenaElHub {
     this.enSistema = false,
     this.sistema = const [],
     this.escuchandoSistema = false,
+    this.nivelDelSistema = NivelDeRegistro.info,
+    this.buscaEnElSistema = '',
     this.aviso,
   });
 
@@ -77,6 +79,11 @@ class LoQueEnsenaElHub {
   /// que «no se pudo».
   final bool escuchandoSistema;
 
+  /// El filtro del registro del sistema, el de la ventana del sistema: desde
+  /// qué nivel y qué texto. Viaja para que la pestaña enseñe cuál está puesto.
+  final NivelDeRegistro nivelDelSistema;
+  final String buscaEnElSistema;
+
   /// Lo que salió mal en lo último que se pidió —arrancar, cerrar—, tal como lo
   /// contó la herramienta. Se borra con el siguiente pedido.
   final String? aviso;
@@ -105,6 +112,8 @@ class LoQueEnsenaElHub {
         {'n': l.nivel.name, 'e': l.etiqueta, 't': l.texto},
     ],
     'escuchandoSistema': escuchandoSistema,
+    'nivelSistema': nivelDelSistema.name,
+    'buscaSistema': buscaEnElSistema,
     'aviso': ?aviso,
   };
 
@@ -142,6 +151,12 @@ class LoQueEnsenaElHub {
               ),
         ],
         escuchandoSistema: mapa['escuchandoSistema'] == true,
+        nivelDelSistema:
+            NivelDeRegistro.values.asNameMap()[mapa['nivelSistema']] ??
+            NivelDeRegistro.info,
+        buscaEnElSistema: mapa['buscaSistema'] is String
+            ? mapa['buscaSistema']! as String
+            : '',
         aviso: mapa['aviso'] as String?,
       );
 

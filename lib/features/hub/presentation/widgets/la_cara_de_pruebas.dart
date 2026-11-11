@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
@@ -12,8 +14,10 @@ import 'package:nexus/features/hub/presentation/state/lo_que_pide_el_hub.dart';
 /// Las tres partes del panel ancho de hoy, en tres columnas —lanzadera,
 /// repositorio e historial—, sin rediseñarlas: lo que cambia es dónde viven.
 /// El dispositivo no se elige aquí: es el de la barra lateral (ver la maqueta,
-/// vista 6). Lo de cada tanto —publicar, borrar, cuentas, variables— se queda
-/// en el panel completo, a un enlace.
+/// vista 6). **Lo que hacía el panel completo, también aquí** (11 nov:
+/// «el panel de pruebas quedó en Nexus y no en la ventana de dispositivos»):
+/// publicar, borrar una prueba o una pasada, las variables y reintentar el
+/// repositorio. Las cuentas siguen en Ajustes, como en el panel.
 class LaCaraDePruebas extends StatelessWidget {
   const LaCaraDePruebas({
     super.key,
@@ -45,12 +49,34 @@ class LaCaraDePruebas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    final strings = context.strings;
     final donde = dispositivo;
     final hayDonde = donde != null && donde.encendido;
     final corre = lo.enMarcha?.viva ?? false;
 
+    final publicacion = lo.publicacion;
+    return Stack(
+      children: [
+        Positioned.fill(child: _elPanel(context, hayDonde, donde, corre)),
+        if (publicacion != null)
+          Positioned.fill(
+            child: _ElDialogoDePublicar(
+              key: ValueKey('publicar-${publicacion.ruta}'),
+              publicacion: publicacion,
+              onPedido: onPedido,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _elPanel(
+    BuildContext context,
+    bool hayDonde,
+    DispositivoDelHub? donde,
+    bool corre,
+  ) {
+    final colors = context.colors;
+    final strings = context.strings;
     return ColoredBox(
       color: colors.void_,
       child: Column(
@@ -79,7 +105,8 @@ class LaCaraDePruebas extends StatelessWidget {
                     const SizedBox(width: NexusSpacing.s2),
                     Flexible(
                       child: Text(
-                        hayDonde ? donde.nombre : strings.e2eNoDevice,
+                        (hayDonde ? donde?.nombre : null) ??
+                            strings.e2eNoDevice,
                         overflow: TextOverflow.ellipsis,
                         style: NexusTypography.data.copyWith(
                           color: hayDonde ? colors.ink : colors.warn,
@@ -176,39 +203,6 @@ class LaCaraDePruebas extends StatelessWidget {
                   ],
                 );
               },
-            ),
-          ),
-          Divider(height: 1, color: colors.rule),
-          // Lo de cada tanto, a un enlace: el panel completo, en la ventana de
-          // Nexus, con la app de aquí.
-          Container(
-            color: colors.deep,
-            padding: const EdgeInsets.symmetric(
-              horizontal: NexusSpacing.s4 - 2,
-              vertical: NexusSpacing.s1 + 2,
-            ),
-            child: Row(
-              children: [
-                TextButton(
-                  key: const ValueKey('abrir-el-panel-de-pruebas'),
-                  onPressed: () => onPedido(const AbrirElPanelDePruebas()),
-                  child: Text(
-                    strings.hubPanelDePruebas.toUpperCase(),
-                    style: NexusTypography.label.copyWith(color: colors.accent),
-                  ),
-                ),
-                const SizedBox(width: NexusSpacing.s2),
-                Flexible(
-                  child: Text(
-                    strings.hubPanelDePruebasDetalle,
-                    overflow: TextOverflow.ellipsis,
-                    style: NexusTypography.nota.copyWith(
-                      color: colors.faint,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
             ),
           ),
         ],
@@ -367,13 +361,14 @@ class _Fila extends StatelessWidget {
 }
 
 /// Un mando pequeño de la fila: ▶, «ver», «repetir».
-class _Mando extends StatelessWidget {
+class _Mando extends StatefulWidget {
   const _Mando({
     super.key,
     this.icono,
     this.texto,
     required this.tooltip,
     required this.onPulsar,
+    this.color,
   });
 
   final IconData? icono;
@@ -381,25 +376,302 @@ class _Mando extends StatelessWidget {
   final String tooltip;
   final VoidCallback? onPulsar;
 
+  /// El de reposo, si no es el acento: el rojo de un borrado por confirmar.
+  final Color? color;
+
+  @override
+  State<_Mando> createState() => _MandoState();
+}
+
+/// Con el ratón encima se le pone fondo: se nota que se pulsa. El `InkWell`
+/// de antes pintaba su tinta debajo del fondo de la columna, y no se veía.
+class _MandoState extends State<_Mando> {
+  bool _encima = false;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final color = onPulsar == null ? colors.rule2 : colors.accent;
+    final vivo = widget.onPulsar != null;
+    final color = !vivo ? colors.rule2 : widget.color ?? colors.accent;
     return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onPulsar,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: NexusSpacing.s1 + 2,
-            vertical: NexusSpacing.s1,
+      message: widget.tooltip,
+      child: MouseRegion(
+        cursor: vivo ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onEnter: (_) => setState(() => _encima = true),
+        onExit: (_) => setState(() => _encima = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onPulsar,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 90),
+            padding: const EdgeInsets.symmetric(
+              horizontal: NexusSpacing.s1 + 2,
+              vertical: NexusSpacing.s1,
+            ),
+            decoration: BoxDecoration(
+              color: vivo && _encima ? colors.rise : Colors.transparent,
+              borderRadius: BorderRadius.circular(NexusRadius.sm),
+            ),
+            child: widget.icono != null
+                ? Icon(widget.icono, size: 16, color: color)
+                : Text(
+                    widget.texto!.toUpperCase(),
+                    style: NexusTypography.label.copyWith(color: color),
+                  ),
           ),
-          child: icono != null
-              ? Icon(icono, size: 16, color: color)
-              : Text(
-                  texto!.toUpperCase(),
-                  style: NexusTypography.label.copyWith(color: color),
+        ),
+      ),
+    );
+  }
+}
+
+/// **Borrar con dos toques**: el primero pide confirmación en la propia fila
+/// —el icono se pone rojo y el tooltip dice qué va a pasar—, el segundo
+/// borra. Una modal sería más ceremonia que riesgo; un solo toque, un
+/// descuido. Si no se confirma, a los pocos segundos vuelve a reposo.
+class _BorrarConDosToques extends StatefulWidget {
+  const _BorrarConDosToques({
+    super.key,
+    required this.titulo,
+    required this.pregunta,
+    required this.onBorrar,
+  });
+
+  final String titulo;
+  final String pregunta;
+  final VoidCallback onBorrar;
+
+  static const espera = Duration(seconds: 4);
+
+  @override
+  State<_BorrarConDosToques> createState() => _BorrarConDosToquesState();
+}
+
+class _BorrarConDosToquesState extends State<_BorrarConDosToques> {
+  Timer? _confirmando;
+
+  @override
+  void dispose() {
+    _confirmando?.cancel();
+    super.dispose();
+  }
+
+  void _toca() {
+    if (_confirmando == null) {
+      setState(() {
+        _confirmando = Timer(_BorrarConDosToques.espera, () {
+          if (mounted) setState(() => _confirmando = null);
+        });
+      });
+      return;
+    }
+    _confirmando?.cancel();
+    setState(() => _confirmando = null);
+    widget.onBorrar();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final confirmando = _confirmando != null;
+    return _Mando(
+      icono: Icons.delete_outline,
+      tooltip: confirmando ? widget.pregunta : widget.titulo,
+      color: confirmando ? context.colors.err : context.colors.faint,
+      onPulsar: _toca,
+    );
+  }
+}
+
+/// **El diálogo de publicar**, encima del panel: a dónde va, si reemplaza
+/// algo, qué va a pasar y el mensaje del commit; y después, cómo fue. Lo
+/// mismo que el diálogo del panel completo, con lo que prepara la app.
+class _ElDialogoDePublicar extends StatefulWidget {
+  const _ElDialogoDePublicar({
+    super.key,
+    required this.publicacion,
+    required this.onPedido,
+  });
+
+  final LaPublicacionDelHub publicacion;
+  final ValueChanged<PedidoDelHub> onPedido;
+
+  @override
+  State<_ElDialogoDePublicar> createState() => _ElDialogoDePublicarState();
+}
+
+class _ElDialogoDePublicarState extends State<_ElDialogoDePublicar> {
+  late final _mensaje = TextEditingController(
+    text: 'test(e2e): ${widget.publicacion.nombre}',
+  );
+
+  @override
+  void dispose() {
+    _mensaje.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final strings = context.strings;
+    final p = widget.publicacion;
+    final resultado = p.resultado;
+    void cerrar() => widget.onPedido(const CerrarPublicacion());
+
+    final List<Widget> cuerpo;
+    final List<Widget> botones;
+    if (p.repo == null) {
+      cuerpo = [
+        Text(
+          strings.e2ePublishNoRepo,
+          style: NexusTypography.body.copyWith(color: colors.mute),
+        ),
+      ];
+      botones = [
+        BotonDeFila(
+          key: const ValueKey('cancelar-la-publicacion'),
+          texto: strings.cancel,
+          onPulsar: cerrar,
+        ),
+      ];
+    } else if (resultado != null) {
+      cuerpo = [
+        Text(
+          resultado.ok ? resultado.detalle : strings.e2ePublishFailed,
+          style: NexusTypography.body.copyWith(
+            color: resultado.ok ? colors.ok : colors.err,
+          ),
+        ),
+        if (!resultado.ok && resultado.detalle.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: NexusSpacing.s2),
+            child: Text(
+              resultado.detalle,
+              style: NexusTypography.data.copyWith(color: colors.mute),
+            ),
+          ),
+        if (resultado.rama.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: NexusSpacing.s2),
+            child: Text(
+              resultado.rama,
+              style: NexusTypography.data.copyWith(color: colors.faint),
+            ),
+          ),
+        // La URL entera y seleccionable: poder copiarla es tenerla.
+        if (resultado.url.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: NexusSpacing.s2),
+            child: SelectableText(
+              resultado.url,
+              key: const ValueKey('la-url-del-pr'),
+              style: NexusTypography.data.copyWith(color: colors.accent),
+            ),
+          ),
+      ];
+      botones = [
+        BotonDeFila(
+          key: const ValueKey('cerrar-la-publicacion'),
+          texto: strings.close,
+          onPulsar: cerrar,
+        ),
+      ];
+    } else {
+      cuerpo = [
+        Text(
+          strings.e2ePublishWhere(p.repo!, p.destino),
+          style: NexusTypography.data.copyWith(color: colors.ink),
+        ),
+        const SizedBox(height: NexusSpacing.s2),
+        // Reemplazar y crear no son lo mismo: se dice antes, no después.
+        Text(
+          switch (p.reemplaza) {
+            null => '',
+            true => strings.e2ePublishReplaces,
+            false => strings.e2ePublishNew,
+          },
+          style: NexusTypography.body.copyWith(
+            color: p.reemplaza ?? false ? colors.warn : colors.mute,
+          ),
+        ),
+        const SizedBox(height: NexusSpacing.s3),
+        Text(
+          strings.e2ePublishHow,
+          style: NexusTypography.body.copyWith(color: colors.mute),
+        ),
+        const SizedBox(height: NexusSpacing.s4),
+        TextField(
+          key: const ValueKey('el-mensaje-del-commit'),
+          controller: _mensaje,
+          enabled: !p.publicando,
+          style: NexusTypography.data.copyWith(color: colors.ink),
+          decoration: InputDecoration(
+            labelText: strings.e2ePublishMessage,
+            labelStyle: NexusTypography.label.copyWith(color: colors.faint),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: colors.rule),
+            ),
+          ),
+        ),
+      ];
+      botones = [
+        BotonDeFila(
+          key: const ValueKey('cancelar-la-publicacion'),
+          texto: strings.cancel,
+          onPulsar: p.publicando ? null : cerrar,
+        ),
+        BotonDeFila(
+          key: const ValueKey('publicar-de-verdad'),
+          texto: p.publicando ? strings.e2ePublishDoing : strings.e2ePublish,
+          tono: TonoDeBoton.principal,
+          onPulsar: p.publicando
+              ? null
+              : () => widget.onPedido(
+                  PublicarPrueba(p.ruta, mensaje: _mensaje.text),
                 ),
+        ),
+      ];
+    }
+
+    return ColoredBox(
+      // El panel de detrás se apaga: mientras el diálogo está abierto, lo de
+      // detrás no se toca.
+      color: colors.void_.withValues(alpha: 0.7),
+      child: Center(
+        child: Container(
+          width: 460,
+          margin: const EdgeInsets.all(NexusSpacing.s4),
+          padding: const EdgeInsets.all(NexusSpacing.s5),
+          decoration: BoxDecoration(
+            color: colors.deep,
+            border: Border.all(color: colors.rule),
+            borderRadius: BorderRadius.circular(NexusRadius.sm),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  strings.e2ePublishTitle,
+                  style: NexusTypography.nota.copyWith(
+                    color: colors.ink,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: NexusSpacing.s3),
+                ...cuerpo,
+                const SizedBox(height: NexusSpacing.s4),
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: NexusSpacing.s2,
+                  runSpacing: NexusSpacing.s2,
+                  children: botones,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -446,6 +718,15 @@ class _LaLanzadera extends StatelessWidget {
     final corriendo = lo.enMarcha?.viva ?? false ? lo.enMarcha?.flow : null;
     return ListView(
       children: [
+        // **Cuántas variables hay cargadas, sin enseñar ninguna**: si no se
+        // dice, un `.env.local` mal puesto se descubre en el fallo.
+        if (lo.variables > 0)
+          EstadoConPunto(
+            color: colors.ok,
+            texto: strings.e2eVarsLoaded(lo.variables),
+          ),
+        if (lo.envEnGit)
+          EstadoConPunto(color: colors.warn, texto: strings.e2eEnvInGit),
         for (final f in lo.flows)
           _Fila(
             key: ValueKey('flow-${f.ruta}'),
@@ -458,6 +739,26 @@ class _LaLanzadera extends StatelessWidget {
                   },
             texto: f.nombre,
             acciones: [
+              // Publicar abre su diálogo: sale de tu máquina y lo va a ver
+              // alguien, así que primero se dice a dónde y qué pasa.
+              _Mando(
+                key: ValueKey('publicar-${f.ruta}'),
+                icono: Icons.upload_outlined,
+                tooltip: strings.e2ePublish,
+                onPulsar: () => onPedido(PrepararPublicacion(f.ruta)),
+              ),
+              _BorrarConDosToques(
+                key: ValueKey('borrar-${f.ruta}'),
+                titulo: strings.e2eDeleteTest,
+                // **El aviso lo decide git**: con un flow sin commitear,
+                // prometer que se recupera es falso justo cuando importa.
+                pregunta: switch (f.enGit) {
+                  true => strings.e2eDeleteTestAsk,
+                  false => strings.e2eDeleteTestAskLost,
+                  null => strings.e2eDeleteTestAskPlain,
+                },
+                onBorrar: () => onPedido(BorrarPrueba(f.ruta)),
+              ),
               _Mando(
                 icono: Icons.play_arrow,
                 tooltip: strings.e2eRun,
@@ -519,6 +820,16 @@ class _ElRepositorioState extends State<_ElRepositorio> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         EstadoConPunto(color: color, texto: texto),
+        if (widget.lo.repoComo == 'fallo')
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _Mando(
+              key: const ValueKey('reintentar-el-repo'),
+              texto: strings.e2eRepoRetry,
+              tooltip: strings.e2eRepoRetry,
+              onPulsar: () => widget.onPedido(const ReintentarElRepo()),
+            ),
+          ),
         if (widget.lo.repo.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: NexusSpacing.s2),
@@ -670,6 +981,12 @@ class _ElHistorial extends StatelessWidget {
                             texto: strings.e2eSee,
                             tooltip: strings.e2eSee,
                             onPulsar: () => onPedido(VerPasada(p.carpeta)),
+                          ),
+                          _BorrarConDosToques(
+                            key: ValueKey('borrar-pasada-${p.carpeta}'),
+                            titulo: strings.hubBorrarPasada,
+                            pregunta: strings.hubBorrarPasadaPregunta,
+                            onBorrar: () => onPedido(BorrarPasada(p.carpeta)),
                           ),
                           if (p.bien != null)
                             _Mando(

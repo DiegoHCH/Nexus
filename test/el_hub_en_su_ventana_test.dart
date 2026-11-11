@@ -794,12 +794,17 @@ void main() {
     LoDePruebas pruebas({
       ({String flow, int hechos, int total, bool viva, bool fallo})? enMarcha,
       String? aviso,
+      String repoComo = 'aldia',
+      int variables = 0,
+      bool envEnGit = false,
+      LaPublicacionDelHub? publicacion,
     }) => LoDePruebas(
       flows: const [
         FlowDelHub(
           ruta: '/p/tienda/.maestro/entrar.yaml',
           nombre: 'entrar',
           bien: true,
+          enGit: true,
         ),
         FlowDelHub(
           ruta: '/p/tienda/.maestro/pagar.yaml',
@@ -826,9 +831,12 @@ void main() {
           porQueNo: 'No hay ninguna cuenta de prueba configurada.',
         ),
       ],
-      repoComo: 'aldia',
+      repoComo: repoComo,
       semana: (bien: 3, mal: 1, todas: 4),
       aviso: aviso,
+      variables: variables,
+      envEnGit: envEnGit,
+      publicacion: publicacion,
     );
 
     testWidgets('el interruptor pasa a pruebas y vuelve', (tester) async {
@@ -1017,13 +1025,156 @@ void main() {
       expect(find.text('Faltan en .env.local: EMAIL'), findsOneWidget);
     });
 
-    testWidgets('el panel completo, a un enlace', (tester) async {
-      final pedidos = await montar(
+    // 11 nov: «el panel de pruebas quedó en Nexus y no en la ventana de
+    // dispositivos». Lo del panel completo, aquí; y ningún enlace a Nexus.
+    group('lo del panel completo, aquí', () {
+      const entrar = '/p/tienda/.maestro/entrar.yaml';
+
+      testWidgets('ya no hay enlace que lo abra en Nexus', (tester) async {
+        await montar(tester, foto(correr: conApp, pruebas: pruebas()));
+        expect(
+          find.byKey(const ValueKey('abrir-el-panel-de-pruebas')),
+          findsNothing,
+        );
+      });
+
+      testWidgets('publicar una prueba lo pide', (tester) async {
+        final pedidos = await montar(
+          tester,
+          foto(correr: conApp, pruebas: pruebas()),
+        );
+        await tester.tap(find.byKey(const ValueKey('publicar-$entrar')));
+        expect(pedidos, [const PrepararPublicacion(entrar)]);
+      });
+
+      testWidgets('borrar una prueba: el primer toque pregunta, el segundo '
+          'borra', (tester) async {
+        final pedidos = await montar(
+          tester,
+          foto(correr: conApp, pruebas: pruebas()),
+        );
+        await tester.tap(find.byKey(const ValueKey('borrar-$entrar')));
+        await tester.pump();
+        expect(pedidos, isEmpty);
+        // Git la tiene: el aviso dice que se recupera.
+        expect(find.byTooltip(strings.e2eDeleteTestAsk), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('borrar-$entrar')));
+        expect(pedidos, [const BorrarPrueba(entrar)]);
+      });
+
+      testWidgets('sin confirmar, vuelve a reposo', (tester) async {
+        final pedidos = await montar(
+          tester,
+          foto(correr: conApp, pruebas: pruebas()),
+        );
+        await tester.tap(find.byKey(const ValueKey('borrar-$entrar')));
+        await tester.pump(const Duration(seconds: 5));
+        await tester.tap(find.byKey(const ValueKey('borrar-$entrar')));
+        expect(pedidos, isEmpty);
+      });
+
+      testWidgets('borrar una pasada, también con dos toques', (tester) async {
+        final pedidos = await montar(
+          tester,
+          foto(correr: conApp, pruebas: pruebas()),
+        );
+        await tester.tap(find.byKey(LaCaraDePruebas.laPestanaDelHistorial));
+        await tester.pump();
+        await tester.tap(find.byKey(const ValueKey('borrar-pasada-/r/1')));
+        await tester.pump();
+        expect(pedidos, isEmpty);
+        await tester.tap(find.byKey(const ValueKey('borrar-pasada-/r/1')));
+        expect(pedidos, [const BorrarPasada('/r/1')]);
+      });
+
+      testWidgets('las variables cargadas y el .env en git', (tester) async {
+        await montar(
+          tester,
+          foto(correr: conApp, pruebas: pruebas(variables: 4, envEnGit: true)),
+        );
+        expect(find.text(strings.e2eVarsLoaded(4)), findsOneWidget);
+        expect(find.text(strings.e2eEnvInGit), findsOneWidget);
+      });
+
+      testWidgets('el repo que no se pudo sincronizar ofrece reintentar', (
         tester,
-        foto(correr: conApp, pruebas: pruebas()),
-      );
-      await tester.tap(find.byKey(const ValueKey('abrir-el-panel-de-pruebas')));
-      expect(pedidos, [const AbrirElPanelDePruebas()]);
+      ) async {
+        final pedidos = await montar(
+          tester,
+          foto(
+            correr: conApp,
+            pruebas: pruebas(repoComo: 'fallo'),
+          ),
+        );
+        await tester.tap(find.byKey(LaCaraDePruebas.laPestanaDelRepo));
+        await tester.pump();
+        await tester.tap(find.byKey(const ValueKey('reintentar-el-repo')));
+        expect(pedidos, [const ReintentarElRepo()]);
+      });
+
+      testWidgets('el diálogo de publicar: a dónde, si reemplaza, y con qué '
+          'mensaje', (tester) async {
+        final pedidos = await montar(
+          tester,
+          foto(
+            correr: conApp,
+            pruebas: pruebas(
+              publicacion: const LaPublicacionDelHub(
+                ruta: entrar,
+                nombre: 'entrar',
+                destino: 'flows/entrar.yaml',
+                repo: 'equipo/qa-flows',
+                reemplaza: true,
+              ),
+            ),
+          ),
+        );
+        expect(tester.takeException(), isNull);
+        expect(
+          find.text(
+            strings.e2ePublishWhere('equipo/qa-flows', 'flows/entrar.yaml'),
+          ),
+          findsOneWidget,
+        );
+        expect(find.text(strings.e2ePublishReplaces), findsOneWidget);
+        await tester.enterText(
+          find.byKey(const ValueKey('el-mensaje-del-commit')),
+          'test(e2e): entrar, otra vez',
+        );
+        await tester.tap(find.byKey(const ValueKey('publicar-de-verdad')));
+        await tester.tap(find.byKey(const ValueKey('cancelar-la-publicacion')));
+        expect(pedidos, [
+          const PublicarPrueba(entrar, mensaje: 'test(e2e): entrar, otra vez'),
+          const CerrarPublicacion(),
+        ]);
+      });
+
+      testWidgets('después de publicar, la rama y el PR', (tester) async {
+        final pedidos = await montar(
+          tester,
+          foto(
+            correr: conApp,
+            pruebas: pruebas(
+              publicacion: const LaPublicacionDelHub(
+                ruta: entrar,
+                nombre: 'entrar',
+                destino: 'flows/entrar.yaml',
+                repo: 'equipo/qa-flows',
+                resultado: (
+                  ok: true,
+                  detalle: 'PR abierto',
+                  rama: 'e2e/entrar',
+                  url: 'https://github.com/equipo/qa-flows/pull/7',
+                ),
+              ),
+            ),
+          ),
+        );
+        expect(find.text('e2e/entrar'), findsOneWidget);
+        expect(find.byKey(const ValueKey('la-url-del-pr')), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('cerrar-la-publicacion')));
+        expect(pedidos, [const CerrarPublicacion()]);
+      });
     });
 
     testWidgets('sin app elegida, dice qué hacer', (tester) async {

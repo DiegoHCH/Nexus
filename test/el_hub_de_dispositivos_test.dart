@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexus/features/e2e/domain/usecases/donde_vive_el_repo_de_pruebas.dart';
+import 'package:nexus/features/e2e/data/datasources/e2e_data_source.dart';
 import 'package:nexus/features/emulators/presentation/providers/registro_del_sistema_providers.dart';
 import 'package:nexus/features/emulators/domain/entities/linea_de_registro.dart';
 import 'package:nexus/features/emulators/data/datasources/registros_data_source.dart';
@@ -175,6 +177,8 @@ void main() {
   late _Corridas lasCorridas;
   late _Lanzamientos lasPruebas;
   late _ElSistema elSistema;
+  late _LasPruebasDeMentira e2e;
+  late _ElRepoDeMentira elRepo;
   var losFlows = <Prueba>[];
 
   ({ProviderContainer c, VentanaDelHubQueApunta ventana, _Maquina maquina})
@@ -182,6 +186,11 @@ void main() {
     Map<String, Corrida> corridas = const {},
     List<Emulador> extra = const [],
     List<DispositivoConectado> enchufados = const [],
+    ResultadoDeSync clon = const ResultadoDeSync(ComoFueLaSync.fallo),
+    ({Set<String> claves, bool? enGit}) variables = (
+      claves: const <String>{},
+      enGit: null,
+    ),
   }) {
     final ventana = VentanaDelHubQueApunta();
     final maquina = _Maquina([
@@ -190,10 +199,14 @@ void main() {
       ...extra,
     ], enchufados: enchufados);
     elSistema = _ElSistema();
+    e2e = _LasPruebasDeMentira();
+    elRepo = _ElRepoDeMentira();
     final c = ProviderContainer(
       overrides: [
         laVentanaDelHubProvider.overrideWithValue(ventana),
         registrosDataSourceProvider.overrideWithValue(elSistema),
+        e2eDataSourceProvider.overrideWithValue(e2e),
+        repoDePruebasDataSourceProvider.overrideWithValue(elRepo),
         emuladoresDataSourceProvider.overrideWithValue(maquina),
         corridasProvider.overrideWith(() => lasCorridas = _Corridas(corridas)),
         lasAppsDelHubProvider.overrideWithValue(const [
@@ -235,12 +248,8 @@ void main() {
             ),
           ],
         ),
-        clonDelRepoProvider.overrideWith(
-          (ref) async => const ResultadoDeSync(ComoFueLaSync.fallo),
-        ),
-        credencialesProvider.overrideWith(
-          (ref, app) async => (claves: <String>{}, enGit: null),
-        ),
+        clonDelRepoProvider.overrideWith((ref) async => clon),
+        credencialesProvider.overrideWith((ref, app) async => variables),
         pruebaEnMarchaProvider.overrideWith(() => lasPruebas = _Lanzamientos()),
       ],
     );
@@ -595,7 +604,12 @@ void main() {
       const VerPruebaEnVivo(),
       const RepetirPasada('/r/1'),
       const VerPasada('/r/1'),
-      const AbrirElPanelDePruebas(),
+      const BorrarPrueba('/p/a.yaml'),
+      const BorrarPasada('/r/1'),
+      const ReintentarElRepo(),
+      const PrepararPublicacion('/p/a.yaml'),
+      const PublicarPrueba('/p/a.yaml', mensaje: 'test(e2e): a'),
+      const CerrarPublicacion(),
     ]) {
       expect(PedidoDelHub.fromMap(p.toMap()), p);
     }
@@ -816,6 +830,117 @@ void main() {
       expect(c.read(laFotoDelHubProvider).pruebas.aviso, contains('EMAIL'));
     });
 
+    // 11 nov: «el panel de pruebas quedó en Nexus y no en la ventana de
+    // dispositivos». Lo que se hacía en el panel completo, desde el hub.
+    group('lo del panel completo, desde el hub', () {
+      test('borrar una prueba y una pasada', () async {
+        final (:c, ventana: _, maquina: _) = montar();
+        await listas(c);
+        await enPruebas(c);
+        final hub = c.read(elHubDeDispositivosProvider.notifier);
+        await hub.atender(
+          const BorrarPrueba('/p/tienda/.maestro/pagar.yaml').toMap(),
+        );
+        await hub.atender(const BorrarPasada('/r/1').toMap());
+        expect(e2e.pruebasBorradas, ['/p/tienda/.maestro/pagar.yaml']);
+        expect(e2e.pasadasBorradas, ['/r/1']);
+      });
+
+      test('cada prueba dice si git la tiene: el aviso de borrar', () async {
+        final (:c, ventana: _, maquina: _) = montar();
+        await listas(c);
+        await enPruebas(c);
+        for (final f in losFlows) {
+          await c.read(estaEnGitProvider(f.ruta).future);
+        }
+        expect(
+          [for (final f in c.read(laFotoDelHubProvider).pruebas.flows) f.enGit],
+          [true, false, false],
+        );
+      });
+
+      test('las variables cargadas y el .env en git', () async {
+        final (:c, ventana: _, maquina: _) = montar(
+          variables: (claves: {'EMAIL', 'PIN'}, enGit: true),
+        );
+        await listas(c);
+        await enPruebas(c);
+        await c.read(credencialesProvider('/p/tienda').future);
+        final pruebas = c.read(laFotoDelHubProvider).pruebas;
+        expect(pruebas.variables, 2);
+        expect(pruebas.envEnGit, isTrue);
+      });
+
+      test('reintentar el repo lo vuelve a mirar', () async {
+        var veces = 0;
+        final (:c, ventana: _, maquina: _) = montar();
+        c.listen(clonDelRepoProvider, (_, _) => veces++);
+        await listas(c);
+        await enPruebas(c);
+        final antes = veces;
+        await c
+            .read(elHubDeDispositivosProvider.notifier)
+            .atender(const ReintentarElRepo().toMap());
+        await c.read(clonDelRepoProvider.future);
+        expect(veces, greaterThan(antes));
+      });
+
+      test('publicar: a dónde va, si reemplaza, y cómo fue', () async {
+        final carpeta = Directory.systemTemp.createTempSync('hub-publicar');
+        addTearDown(() => carpeta.deleteSync(recursive: true));
+        final flow = File('${carpeta.path}/pagar.yaml')
+          ..writeAsStringSync('appId: x\n---\n- launchApp\n');
+        losFlows = [Prueba(ruta: flow.path, nombre: 'pagar')];
+        final (:c, ventana: _, maquina: _) = montar(
+          clon: const ResultadoDeSync(ComoFueLaSync.aldia, clon: '/clon'),
+        );
+        elRepo.loQueHay = 'lo de antes';
+        await listas(c);
+        await enPruebas(c);
+        final hub = c.read(elHubDeDispositivosProvider.notifier);
+
+        await hub.atender(PrepararPublicacion(flow.path).toMap());
+        var p = c.read(laFotoDelHubProvider).pruebas.publicacion!;
+        expect(p.destino, 'flows/pagar.yaml');
+        expect(p.repo, isNotNull);
+        expect(p.reemplaza, isTrue);
+
+        await hub.atender(
+          PublicarPrueba(flow.path, mensaje: 'test(e2e): pagar').toMap(),
+        );
+        expect(elRepo.publicadas.single, (
+          ruta: 'flows/pagar.yaml',
+          contenido: 'appId: x\n---\n- launchApp\n',
+          mensaje: 'test(e2e): pagar',
+        ));
+        p = c.read(laFotoDelHubProvider).pruebas.publicacion!;
+        expect(p.publicando, isFalse);
+        expect(p.resultado?.ok, isTrue);
+        expect(p.resultado?.url, 'https://github.com/equipo/qa-flows/pull/7');
+
+        await hub.atender(const CerrarPublicacion().toMap());
+        expect(c.read(laFotoDelHubProvider).pruebas.publicacion, isNull);
+      });
+
+      test('sin el repo clonado, el diálogo lo dice y no publica', () async {
+        final (:c, ventana: _, maquina: _) = montar();
+        await listas(c);
+        await enPruebas(c);
+        final hub = c.read(elHubDeDispositivosProvider.notifier);
+        await hub.atender(
+          const PrepararPublicacion('/p/tienda/.maestro/pagar.yaml').toMap(),
+        );
+        expect(c.read(laFotoDelHubProvider).pruebas.publicacion?.repo, isNull);
+        await hub.atender(
+          const PublicarPrueba(
+            '/p/tienda/.maestro/pagar.yaml',
+            mensaje: 'x',
+          ).toMap(),
+        );
+        expect(elRepo.publicadas, isEmpty);
+      });
+    });
+
     test(
       'repetir una pasada va al dispositivo donde corrió, con su perfil',
       () async {
@@ -871,5 +996,55 @@ class _ElSistema extends RegistrosDataSource {
     );
     _bocas[deviceId] = boca;
     return boca.stream;
+  }
+}
+
+/// Lo de las pruebas de mentira: qué se borra, y qué tiene git.
+class _LasPruebasDeMentira extends E2eDataSource {
+  final pruebasBorradas = <String>[];
+  final pasadasBorradas = <String>[];
+
+  @override
+  Future<String?> borrarPrueba(String ruta) async {
+    pruebasBorradas.add(ruta);
+    return null;
+  }
+
+  @override
+  Future<String?> borrar(String ruta) async {
+    pasadasBorradas.add(ruta);
+    return null;
+  }
+
+  /// Git tiene la de entrar y no las demás.
+  @override
+  Future<bool?> estaEnGit(String ruta) async => ruta.endsWith('entrar.yaml');
+}
+
+/// El repo de pruebas de mentira: qué hay en el destino y qué se publicó.
+class _ElRepoDeMentira extends RepoDePruebasDataSource {
+  String? loQueHay;
+  final publicadas = <({String ruta, String contenido, String mensaje})>[];
+
+  @override
+  Future<String?> leer({required String clon, required String ruta}) async =>
+      loQueHay;
+
+  @override
+  Future<Publicacion> publicar({
+    required String clon,
+    required String ruta,
+    required String contenido,
+    required String mensaje,
+    String rama = DondeViveElRepoDePruebas.ramaPorDefecto,
+    DateTime? cuando,
+  }) async {
+    publicadas.add((ruta: ruta, contenido: contenido, mensaje: mensaje));
+    return const Publicacion(
+      ok: true,
+      rama: 'e2e/pagar',
+      url: 'https://github.com/equipo/qa-flows/pull/7',
+      detalle: 'PR abierto',
+    );
   }
 }

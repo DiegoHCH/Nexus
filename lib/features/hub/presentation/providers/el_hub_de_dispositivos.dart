@@ -10,14 +10,13 @@ import 'package:nexus/core/design_system/accent_preference.dart';
 import 'package:nexus/core/design_system/la_hoja_viva_de_las_paginas.dart';
 import 'package:nexus/core/design_system/theme_preference.dart';
 import 'package:nexus/core/i18n/language_preference.dart';
-import 'package:nexus/core/platform/el_navegador_de_la_app.dart';
+import 'package:nexus/features/e2e/data/datasources/repo_de_pruebas_data_source.dart';
 import 'package:nexus/features/e2e/domain/entities/pasada_de_prueba.dart';
 import 'package:nexus/features/e2e/domain/usecases/las_variables_del_proyecto.dart';
 import 'package:nexus/features/e2e/domain/usecases/pasos_de_una_prueba.dart';
 import 'package:nexus/features/e2e/domain/usecases/por_que_se_cayo.dart';
 import 'package:nexus/features/e2e/presentation/providers/e2e_providers.dart';
 import 'package:nexus/features/e2e/presentation/providers/repo_de_pruebas_providers.dart';
-import 'package:nexus/features/e2e/presentation/widgets/pruebas_sheet.dart';
 import 'package:nexus/features/emulators/domain/usecases/el_espejo_del_iphone.dart';
 import 'package:nexus/features/run/domain/usecases/el_espejo_que_se_pega.dart';
 import 'package:nexus/features/emulators/domain/entities/linea_de_registro.dart';
@@ -274,6 +273,101 @@ final elAvisoDePruebasProvider = NotifierProvider<ElAvisoDePruebas, String?>(
 
 /// **La cara de pruebas** (T15): los flows de la app, la que corre, el
 /// historial y el repositorio de pruebas, como el panel de pruebas.
+/// **La publicación en curso desde el hub**: lo que hacía el diálogo de
+/// publicar del panel completo, mudado a la app para que el hub lo enseñe
+/// (11 nov). Prepara —a dónde va, si reemplaza algo—, publica —rama y PR en
+/// el repo del equipo— y se cierra.
+class LaPublicacionDesdeElHub extends Notifier<LaPublicacionDelHub?> {
+  @override
+  LaPublicacionDelHub? build() => null;
+
+  Future<void> prepara(String ruta) async {
+    final app = ref.read(loDeCorrerProvider).app;
+    final pruebas = app == null
+        ? const <Prueba>[]
+        : ref.read(pruebasProvider(app)).value ?? const <Prueba>[];
+    Prueba? prueba;
+    for (final p in pruebas) {
+      if (p.ruta == ruta) prueba = p;
+    }
+    if (prueba == null) return;
+    // Bajo `flows/`, donde vive todo lo que se lanza: las subcarpetas son de
+    // piezas y de `migration/`, y meter ahí una prueba sería decidir por el
+    // equipo. Lo mismo que el diálogo del panel.
+    final destino = 'flows/${prueba.nombre}.yaml';
+    final clon = ref.read(clonDelRepoProvider).value?.clon;
+    state = LaPublicacionDelHub(
+      ruta: ruta,
+      nombre: prueba.nombre,
+      destino: destino,
+      repo: clon == null ? null : ref.read(slugDelRepoDePruebasProvider),
+    );
+    if (clon == null) return;
+    // Reemplazar y crear no son lo mismo: se dice antes, no después.
+    final hay = await ref
+        .read(repoDePruebasDataSourceProvider)
+        .leer(clon: clon, ruta: destino);
+    if (!ref.mounted || state?.ruta != ruta) return;
+    state = state?.copyWith(reemplaza: hay != null);
+  }
+
+  Future<void> publica(String ruta, {required String mensaje}) async {
+    final ahora = state;
+    final clon = ref.read(clonDelRepoProvider).value?.clon;
+    if (ahora == null || ahora.ruta != ruta || ahora.publicando) return;
+    if (clon == null) return;
+    state = ahora.copyWith(publicando: true);
+    final Publicacion resultado;
+    try {
+      final contenido = await File(ruta).readAsString();
+      resultado = await ref
+          .read(repoDePruebasDataSourceProvider)
+          .publicar(
+            clon: clon,
+            ruta: ahora.destino,
+            contenido: contenido,
+            mensaje: mensaje.trim().isEmpty
+                ? 'test(e2e): ${ahora.nombre}'
+                : mensaje.trim(),
+          );
+    } on FileSystemException catch (e) {
+      if (!ref.mounted) return;
+      state = ahora.copyWith(
+        resultado: (ok: false, detalle: e.message, rama: '', url: ''),
+      );
+      return;
+    }
+    if (!ref.mounted) return;
+    state = LaPublicacionDelHub(
+      ruta: ahora.ruta,
+      nombre: ahora.nombre,
+      destino: ahora.destino,
+      repo: ahora.repo,
+      reemplaza: ahora.reemplaza,
+      resultado: (
+        ok: resultado.ok,
+        detalle: resultado.detalle,
+        rama: resultado.rama,
+        url: resultado.url,
+      ),
+    );
+    // El clon quedó en la rama base con un commit más en el remoto: se vuelve
+    // a mirar para que la lista no se quede con la foto de antes.
+    ref.invalidate(clonDelRepoProvider);
+  }
+
+  /// Mientras publica no se cierra: lo que sale de la máquina, sale entero.
+  void cierra() {
+    if (state?.publicando ?? false) return;
+    state = null;
+  }
+}
+
+final laPublicacionDelHubProvider =
+    NotifierProvider<LaPublicacionDesdeElHub, LaPublicacionDelHub?>(
+      LaPublicacionDesdeElHub.new,
+    );
+
 final loDePruebasProvider = Provider<LoDePruebas>((ref) {
   if (!ref.watch(elHubEnPruebasProvider)) return const LoDePruebas();
   final app = ref.watch(loDeCorrerProvider).app;
@@ -321,12 +415,18 @@ final loDePruebasProvider = Provider<LoDePruebas>((ref) {
     );
   }
 
+  final variables = app == null
+      ? null
+      : ref.watch(credencialesProvider(app)).value;
   final haceUnaSemana = DateTime.now().subtract(const Duration(days: 7));
   final deLaSemana = [
     for (final p in deLaApp)
       if (p.cuando.isAfter(haceUnaSemana)) comoAcabo(p),
   ];
   return LoDePruebas(
+    variables: variables?.claves.length ?? 0,
+    envEnGit: variables?.enGit ?? false,
+    publicacion: ref.watch(laPublicacionDelHubProvider),
     flows: [
       for (final f
           in app == null
@@ -335,6 +435,7 @@ final loDePruebasProvider = Provider<LoDePruebas>((ref) {
         FlowDelHub(
           ruta: f.ruta,
           nombre: f.nombre,
+          enGit: ref.watch(estaEnGitProvider(f.ruta)).value,
           bien: switch (ultima[f.nombre]) {
             final p? => comoAcabo(p),
             null => null,
@@ -648,15 +749,27 @@ class ElHubDeDispositivos extends Notifier<bool> {
         await _repetir(carpeta);
       case VerPasada(:final carpeta):
         await _verPasada(carpeta);
-      case AbrirElPanelDePruebas():
-        final contexto = navegadorDeLaApp.currentContext;
-        if (contexto == null) return;
-        await _ventana.traerLaPrincipal();
-        if (!contexto.mounted) return;
-        await PruebasSheet.open(
-          contexto,
-          proyecto: ref.read(loDeCorrerProvider).app,
-        );
+      // Lo del panel completo, desde el hub (11 nov): ya no se abre en Nexus.
+      case BorrarPrueba(:final ruta):
+        await ref.read(e2eDataSourceProvider).borrarPrueba(ruta);
+        if (!ref.mounted) return;
+        if (ref.read(loDeCorrerProvider).app case final app?) {
+          ref.invalidate(pruebasProvider(app));
+        }
+      case BorrarPasada(:final carpeta):
+        await ref.read(e2eDataSourceProvider).borrar(carpeta);
+        if (!ref.mounted) return;
+        ref.invalidate(pasadasDePruebaProvider);
+      case ReintentarElRepo():
+        ref.invalidate(clonDelRepoProvider);
+      case PrepararPublicacion(:final ruta):
+        await ref.read(laPublicacionDelHubProvider.notifier).prepara(ruta);
+      case PublicarPrueba(:final ruta, :final mensaje):
+        await ref
+            .read(laPublicacionDelHubProvider.notifier)
+            .publica(ruta, mensaje: mensaje);
+      case CerrarPublicacion():
+        ref.read(laPublicacionDelHubProvider.notifier).cierra();
       case TraerAlFrente(:final id):
         final d = _dispositivo(id);
         if (d == null) return;

@@ -82,8 +82,8 @@ mixin HubStrings {
   String get hubCayeron;
   String get hubEnSieteDias;
   String get hubVerEnVivo;
-  String get hubPanelDePruebas;
-  String get hubPanelDePruebasDetalle;
+  String get hubBorrarPasada;
+  String get hubBorrarPasadaPregunta;
   String hubCuenta(String clave);
 }
 
@@ -253,10 +253,10 @@ mixin HubStringsEs implements HubStrings {
   @override
   String get hubVerEnVivo => 'Ver en vivo';
   @override
-  String get hubPanelDePruebas => 'Abrir el panel de pruebas';
+  String get hubBorrarPasada => 'Borrar la pasada';
   @override
-  String get hubPanelDePruebasDetalle =>
-      'publicar, borrar, cuentas y variables';
+  String get hubBorrarPasadaPregunta =>
+      '¿Borrarla? Se pierden sus capturas. Toca otra vez.';
   @override
   String hubCuenta(String clave) => 'cuenta $clave';
 }
@@ -425,10 +425,10 @@ mixin HubStringsEn implements HubStrings {
   @override
   String get hubVerEnVivo => 'Watch live';
   @override
-  String get hubPanelDePruebas => 'Open the tests panel';
+  String get hubBorrarPasada => 'Delete the run';
   @override
-  String get hubPanelDePruebasDetalle =>
-      'publish, delete, accounts and variables';
+  String get hubBorrarPasadaPregunta =>
+      'Delete it? Its screenshots are lost. Tap again.';
   @override
   String hubCuenta(String clave) => 'account $clave';
 }

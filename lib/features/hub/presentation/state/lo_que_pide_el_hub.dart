@@ -38,7 +38,15 @@ sealed class PedidoDelHub {
         ('verPruebaEnVivo', _) => const VerPruebaEnVivo(),
         ('repetirPasada', final String carpeta) => RepetirPasada(carpeta),
         ('verPasada', final String carpeta) => VerPasada(carpeta),
-        ('panelDePruebas', _) => const AbrirElPanelDePruebas(),
+        ('borrarPrueba', final String ruta) => BorrarPrueba(ruta),
+        ('borrarPasada', final String carpeta) => BorrarPasada(carpeta),
+        ('reintentarRepo', _) => const ReintentarElRepo(),
+        ('prepararPublicacion', final String ruta) => PrepararPublicacion(ruta),
+        ('publicar', final String ruta) => PublicarPrueba(
+          ruta,
+          mensaje: mapa['mensaje'] is String ? mapa['mensaje']! as String : '',
+        ),
+        ('cerrarPublicacion', _) => const CerrarPublicacion(),
         ('verPruebas', _) => VerPruebas(mapa['si'] == true),
         ('verSistema', _) => VerElSistema(mapa['si'] == true),
         ('nivelSistema', _) => switch (NivelDeRegistro.values
@@ -327,19 +335,105 @@ class VerPasada extends PedidoDelHub {
   int get hashCode => Object.hash('ver', carpeta);
 }
 
-/// El panel completo de pruebas, en la ventana de Nexus: publicar, borrar,
-/// cuentas, variables, sincronizar el repositorio.
-class AbrirElPanelDePruebas extends PedidoDelHub {
-  const AbrirElPanelDePruebas();
+// Lo que antes se hacía en el panel completo de pruebas, abierto en la
+// ventana de Nexus (11 nov: «el panel de pruebas quedó en Nexus y no en la
+// ventana de dispositivos»). Ahora se pide desde el hub y lo hace la app.
+
+/// Borrar una prueba de la app. El hub pide confirmación antes: dos toques.
+class BorrarPrueba extends PedidoDelHub {
+  const BorrarPrueba(this.ruta);
+  final String ruta;
 
   @override
-  Map<String, Object?> toMap() => {'que': 'panelDePruebas'};
+  Map<String, Object?> toMap() => {'que': 'borrarPrueba', 'id': ruta};
 
   @override
-  bool operator ==(Object other) => other is AbrirElPanelDePruebas;
+  bool operator ==(Object other) => other is BorrarPrueba && other.ruta == ruta;
 
   @override
-  int get hashCode => 13;
+  int get hashCode => Object.hash('borrarPrueba', ruta);
+}
+
+/// Borrar una pasada del historial, con sus capturas. Dos toques también.
+class BorrarPasada extends PedidoDelHub {
+  const BorrarPasada(this.carpeta);
+  final String carpeta;
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'borrarPasada', 'id': carpeta};
+
+  @override
+  bool operator ==(Object other) =>
+      other is BorrarPasada && other.carpeta == carpeta;
+
+  @override
+  int get hashCode => Object.hash('borrarPasada', carpeta);
+}
+
+/// Volver a sincronizar el repositorio de pruebas, cuando falló.
+class ReintentarElRepo extends PedidoDelHub {
+  const ReintentarElRepo();
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'reintentarRepo'};
+
+  @override
+  bool operator ==(Object other) => other is ReintentarElRepo;
+
+  @override
+  int get hashCode => 14;
+}
+
+/// Abrir el diálogo de publicar una prueba: la app mira a dónde iría y si
+/// reemplaza algo, y el hub lo enseña.
+class PrepararPublicacion extends PedidoDelHub {
+  const PrepararPublicacion(this.ruta);
+  final String ruta;
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'prepararPublicacion', 'id': ruta};
+
+  @override
+  bool operator ==(Object other) =>
+      other is PrepararPublicacion && other.ruta == ruta;
+
+  @override
+  int get hashCode => Object.hash('prepararPublicacion', ruta);
+}
+
+/// Publicarla, con [mensaje] para el commit: rama y PR en el repo del equipo.
+class PublicarPrueba extends PedidoDelHub {
+  const PublicarPrueba(this.ruta, {required this.mensaje});
+  final String ruta;
+  final String mensaje;
+
+  @override
+  Map<String, Object?> toMap() => {
+    'que': 'publicar',
+    'id': ruta,
+    'mensaje': mensaje,
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      other is PublicarPrueba && other.ruta == ruta && other.mensaje == mensaje;
+
+  @override
+  int get hashCode => Object.hash('publicar', ruta, mensaje);
+}
+
+/// Cerrar el diálogo de publicar.
+class CerrarPublicacion extends PedidoDelHub {
+  const CerrarPublicacion();
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'cerrarPublicacion'};
+
+  @override
+  bool operator ==(Object other) => other is CerrarPublicacion;
+
+  @override
+  int get hashCode => 15;
 }
 
 /// Desde qué nivel se enseña el registro del sistema: los cuatro de la

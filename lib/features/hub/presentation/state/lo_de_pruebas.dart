@@ -3,7 +3,12 @@ import 'package:flutter/foundation.dart';
 /// Un flow de `.maestro` de la app, con cómo acabó su última pasada.
 @immutable
 class FlowDelHub {
-  const FlowDelHub({required this.ruta, required this.nombre, this.bien});
+  const FlowDelHub({
+    required this.ruta,
+    required this.nombre,
+    this.bien,
+    this.enGit,
+  });
 
   final String ruta;
   final String nombre;
@@ -11,10 +16,15 @@ class FlowDelHub {
   /// `true` pasó, `false` cayó, `null` sin pasadas.
   final bool? bien;
 
+  /// Si git lo tiene: entonces borrarlo se recupera, y si no, se pierde. Es
+  /// lo que dice el aviso de borrar. `null` mientras se pregunta, o sin git.
+  final bool? enGit;
+
   Map<String, Object?> toMap() => {
     'ruta': ruta,
     'nombre': nombre,
     'bien': ?bien,
+    'enGit': ?enGit,
   };
 
   static FlowDelHub? fromMap(Object? o) => switch (o) {
@@ -22,7 +32,102 @@ class FlowDelHub {
       ruta: ruta,
       nombre: nombre,
       bien: (o as Map)['bien'] as bool?,
+      enGit: o['enGit'] as bool?,
     ),
+    _ => null,
+  };
+}
+
+/// **Publicar una prueba en el repo del equipo**, desde el hub (11 nov): crea
+/// una rama y abre un PR. La app prepara y publica; el hub enseña el diálogo
+/// con lo que aquí viene. Es lo del diálogo del panel completo, mudado.
+@immutable
+class LaPublicacionDelHub {
+  const LaPublicacionDelHub({
+    required this.ruta,
+    required this.nombre,
+    required this.destino,
+    this.repo,
+    this.reemplaza,
+    this.publicando = false,
+    this.resultado,
+  });
+
+  /// La prueba que se publica, y cómo se llama.
+  final String ruta;
+  final String nombre;
+
+  /// A dónde va dentro del repo: `flows/<nombre>.yaml`.
+  final String destino;
+
+  /// El repo de pruebas (`equipo/qa-flows`), o `null` si no está clonado: sin
+  /// él no hay dónde escribir, y se dice en vez de ofrecer el botón.
+  final String? repo;
+
+  /// Si ya hay un archivo en [destino]: entonces lo reemplaza, y se avisa
+  /// antes. `null` mientras se mira.
+  final bool? reemplaza;
+
+  final bool publicando;
+
+  /// Cómo fue: la rama y el PR, o el motivo del fallo.
+  final ({bool ok, String detalle, String rama, String url})? resultado;
+
+  LaPublicacionDelHub copyWith({
+    String? repo,
+    bool? reemplaza,
+    bool? publicando,
+    ({bool ok, String detalle, String rama, String url})? resultado,
+  }) => LaPublicacionDelHub(
+    ruta: ruta,
+    nombre: nombre,
+    destino: destino,
+    repo: repo ?? this.repo,
+    reemplaza: reemplaza ?? this.reemplaza,
+    publicando: publicando ?? this.publicando,
+    resultado: resultado ?? this.resultado,
+  );
+
+  Map<String, Object?> toMap() => {
+    'ruta': ruta,
+    'nombre': nombre,
+    'destino': destino,
+    'repo': ?repo,
+    'reemplaza': ?reemplaza,
+    'publicando': publicando,
+    if (resultado case final r?)
+      'resultado': {
+        'ok': r.ok,
+        'detalle': r.detalle,
+        'rama': r.rama,
+        'url': r.url,
+      },
+  };
+
+  static LaPublicacionDelHub? fromMap(Object? o) => switch (o) {
+    {
+          'ruta': final String ruta,
+          'nombre': final String nombre,
+          'destino': final String destino,
+        } &&
+        final Map<Object?, Object?> m =>
+      LaPublicacionDelHub(
+        ruta: ruta,
+        nombre: nombre,
+        destino: destino,
+        repo: m['repo'] as String?,
+        reemplaza: m['reemplaza'] as bool?,
+        publicando: m['publicando'] == true,
+        resultado: switch (m['resultado']) {
+          final Map<Object?, Object?> r => (
+            ok: r['ok'] == true,
+            detalle: (r['detalle'] as String?) ?? '',
+            rama: (r['rama'] as String?) ?? '',
+            url: (r['url'] as String?) ?? '',
+          ),
+          _ => null,
+        },
+      ),
     _ => null,
   };
 }
@@ -108,7 +213,7 @@ class FlowDelRepo {
 /// **La cara de pruebas del hub** (T15, P7): lo de todos los días del panel
 /// de pruebas —correr un flow en el dispositivo elegido, verlo en vivo,
 /// pararlo, el historial—. Lo demás (publicar, borrar, cuentas, variables)
-/// se abre en el panel completo, desde el hub.
+/// se hace también aquí (11 nov): ya no se abre el panel completo en Nexus.
 @immutable
 class LoDePruebas {
   const LoDePruebas({
@@ -119,6 +224,9 @@ class LoDePruebas {
     this.repoComo,
     this.semana = (bien: 0, mal: 0, todas: 0),
     this.aviso,
+    this.variables = 0,
+    this.envEnGit = false,
+    this.publicacion,
   });
 
   final List<FlowDelHub> flows;
@@ -141,6 +249,14 @@ class LoDePruebas {
   /// o lo que dijo Maestro al fallar el arranque.
   final String? aviso;
 
+  /// Cuántas variables del `.env.local` de la app se cargaron, sin enseñar
+  /// ninguna, y si ese archivo está en git (que no debería).
+  final int variables;
+  final bool envEnGit;
+
+  /// La publicación en curso, si hay una: ver [LaPublicacionDelHub].
+  final LaPublicacionDelHub? publicacion;
+
   Map<String, Object?> toMap() => {
     'flows': [for (final f in flows) f.toMap()],
     if (enMarcha case final e?)
@@ -156,6 +272,9 @@ class LoDePruebas {
     'repoComo': ?repoComo,
     'semana': [semana.bien, semana.mal, semana.todas],
     'aviso': ?aviso,
+    'variables': variables,
+    'envEnGit': envEnGit,
+    if (publicacion case final p?) 'publicacion': p.toMap(),
   };
 
   factory LoDePruebas.fromMap(Map<Object?, Object?> m) => LoDePruebas(
@@ -189,5 +308,8 @@ class LoDePruebas {
       _ => (bien: 0, mal: 0, todas: 0),
     },
     aviso: m['aviso'] as String?,
+    variables: (m['variables'] as int?) ?? 0,
+    envEnGit: m['envEnGit'] == true,
+    publicacion: LaPublicacionDelHub.fromMap(m['publicacion']),
   );
 }

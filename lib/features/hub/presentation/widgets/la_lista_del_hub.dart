@@ -35,6 +35,7 @@ class LaListaDelHub extends StatelessWidget {
       EstadoDelDispositivo.encendido =>
         d.clase == ClaseDeDispositivo.enchufado ? strings.hubEnchufado : clase,
       EstadoDelDispositivo.arrancando => strings.hubArrancandoCorto,
+      EstadoDelDispositivo.apagando => strings.hubApagandoCorto,
       EstadoDelDispositivo.apagado => strings.hubApagado,
     };
     return '$quien · $que';
@@ -291,7 +292,8 @@ class _ElPuntoDeEstadoState extends State<ElPuntoDeEstado>
   }
 
   void _sigue() {
-    if (widget.estado == EstadoDelDispositivo.arrancando) {
+    if (widget.estado == EstadoDelDispositivo.arrancando ||
+        widget.estado == EstadoDelDispositivo.apagando) {
       if (!_latido.isAnimating) _latido.repeat(reverse: true);
     } else {
       _latido
@@ -313,7 +315,8 @@ class _ElPuntoDeEstadoState extends State<ElPuntoDeEstado>
     final relleno = switch (widget.estado) {
       EstadoDelDispositivo.corre => colors.ok,
       EstadoDelDispositivo.encendido => colors.mute,
-      EstadoDelDispositivo.arrancando => colors.warn,
+      EstadoDelDispositivo.arrancando ||
+      EstadoDelDispositivo.apagando => colors.warn,
       EstadoDelDispositivo.apagado => null,
     };
     return FadeTransition(

@@ -17,8 +17,11 @@ enum ClaseDeDispositivo { emulador, simulador, enchufado }
 /// - [corre]: la app corre en él (verde).
 /// - [encendido]: está arriba, sin corrida (tinta media).
 /// - [arrancando]: se pidió arrancarlo y todavía no está (ámbar que late).
+/// - [apagando]: se pidió apagarlo y todavía está arriba (ámbar que late).
+///   Existe porque apagar un emulador tarda —guarda su estado para el próximo
+///   arranque— y sin él el botón parecía no hacer nada (11 nov).
 /// - [apagado]: existe en el catálogo y no está arriba (solo contorno).
-enum EstadoDelDispositivo { apagado, arrancando, encendido, corre }
+enum EstadoDelDispositivo { apagado, arrancando, apagando, encendido, corre }
 
 class DispositivoDelHub {
   const DispositivoDelHub({

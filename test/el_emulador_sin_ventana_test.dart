@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/core/design_system/la_apariencia_de_fuera.dart';
@@ -201,6 +202,55 @@ INFO         | API level 36 requires GLES 3.1, forcing software rendering for GL
       expect(find.byTooltip('Apagar el emulador'), findsOneWidget);
       await tester.tap(find.byIcon(Icons.power_off_rounded));
       expect(apagado, isTrue);
+    });
+
+    // 11 nov: «no parecen botones para oprimir». El fondo del botón tapaba
+    // la tinta del InkWell: ni hover ni pulsación.
+    testWidgets('se nota que es un botón: hover, pulsado y mano', (
+      tester,
+    ) async {
+      await pinta(tester, onApagar: () {});
+      final boton = find.byWidgetPredicate(
+        (w) => w is ElBotonDeLaColumna && w.titulo == 'Apagar el emulador',
+      );
+      BoxDecoration caja() =>
+          tester
+                  .widget<AnimatedContainer>(
+                    find.descendant(
+                      of: boton,
+                      matching: find.byType(AnimatedContainer),
+                    ),
+                  )
+                  .decoration!
+              as BoxDecoration;
+      Color borde(BoxDecoration c) => (c.border! as Border).top.color;
+      final quieto = caja();
+
+      expect(
+        find.descendant(
+          of: boton,
+          matching: find.byWidgetPredicate(
+            (w) => w is MouseRegion && w.cursor == SystemMouseCursors.click,
+          ),
+        ),
+        findsOneWidget,
+      );
+
+      final raton = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await raton.addPointer(location: Offset.zero);
+      addTearDown(raton.removePointer);
+      await raton.moveTo(tester.getCenter(boton));
+      await tester.pumpAndSettle();
+      final encima = caja();
+      expect(encima.color, isNot(quieto.color));
+      expect(borde(encima), isNot(borde(quieto)));
+
+      await raton.down(tester.getCenter(boton));
+      await tester.pumpAndSettle();
+      expect(caja().color, isNot(encima.color));
+      await raton.up();
+      await tester.pumpAndSettle();
+      expect(caja().color, encima.color);
     });
 
     testWidgets('lo que no es un emulador no se ofrece apagar', (tester) async {

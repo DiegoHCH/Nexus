@@ -69,6 +69,9 @@ class ElCentroDelHub extends StatelessWidget {
         EstadoDelDispositivo.arrancando => ElCargandoDelTelefono(
           etiqueta: strings.hubArrancandoTitulo(d.nombre),
         ),
+        EstadoDelDispositivo.apagando => ElCargandoDelTelefono(
+          etiqueta: strings.hubApagandoTitulo(d.nombre),
+        ),
         EstadoDelDispositivo.encendido || EstadoDelDispositivo.corre => _Aviso(
           titulo: strings.hubFueraTitulo(switch (d.clase) {
             ClaseDeDispositivo.simulador => strings.hubSimulatorApp,

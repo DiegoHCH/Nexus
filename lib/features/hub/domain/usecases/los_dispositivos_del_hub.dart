@@ -20,9 +20,11 @@ abstract final class LosDispositivosDelHub {
     required List<DispositivoConectado> conectados,
     required Map<String, Corrida> corridas,
     Set<String> arrancando = const {},
+    Set<String> apagando = const {},
   }) {
     final todos = <DispositivoDelHub>[
-      for (final e in emuladores) _delEmulador(e, corridas, arrancando),
+      for (final e in emuladores)
+        _delEmulador(e, corridas, arrancando, apagando),
       for (final d in conectados) _delEnchufado(d, corridas),
     ];
     final orden = <DispositivoDelHub>[];
@@ -47,6 +49,7 @@ abstract final class LosDispositivosDelHub {
                 d.clase == ClaseDeDispositivo.enchufado,
           ),
         )
+        ..addAll(suyos.where((d) => d.estado == EstadoDelDispositivo.apagando))
         ..addAll(
           suyos.where((d) => d.estado == EstadoDelDispositivo.arrancando),
         )
@@ -59,6 +62,7 @@ abstract final class LosDispositivosDelHub {
     Emulador e,
     Map<String, Corrida> corridas,
     Set<String> arrancando,
+    Set<String> apagando,
   ) {
     final android = e.plataforma == PlataformaEmulador.android;
     final deviceId = e.corriendo ? e.deviceId : null;
@@ -73,6 +77,10 @@ abstract final class LosDispositivosDelHub {
           ? ClaseDeDispositivo.emulador
           : ClaseDeDispositivo.simulador,
       estado: switch ((e.corriendo, corrida, arrancando.contains(e.id))) {
+        // Mientras se apaga sigue arriba, pero ya no se usa: ni su pantalla
+        // ni ▶. En cuanto deja de estar arriba, apagado.
+        (true, _, _) when apagando.contains(e.id) =>
+          EstadoDelDispositivo.apagando,
         (true, final Corrida _, _) => EstadoDelDispositivo.corre,
         (true, null, _) => EstadoDelDispositivo.encendido,
         (false, _, true) => EstadoDelDispositivo.arrancando,

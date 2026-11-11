@@ -506,7 +506,17 @@ class EmuladoresDataSource {
   /// En iOS se apaga **ese** simulador, por su UDID: cada uno encendido es su
   /// propia fila, y cerrar una no puede apagar las demás. La app solo se cierra
   /// si ya no queda ninguno, que con otro encendido se llevaría su ventana.
-  Future<String?> cerrar(Emulador emulador) async {
+  ///
+  /// En Android, además, **se espera a que se haya apagado de verdad**: `adb
+  /// emu kill` vuelve al instante, pero el emulador tarda unos segundos en
+  /// guardar su estado y salir. Sin esperar, el hub lo volvía a ver arriba y
+  /// el botón parecía no hacer nada (11 nov). Es lo mismo que hace [lanzar]
+  /// al arrancar.
+  Future<String?> cerrar(
+    Emulador emulador, {
+    Duration cada = const Duration(seconds: 1),
+    int intentos = 40,
+  }) async {
     if (emulador.plataforma == PlataformaEmulador.ios) {
       final apagado = await _correr('/usr/bin/xcrun', [
         'simctl',
@@ -532,7 +542,17 @@ class EmuladoresDataSource {
       adb,
       ComandoDeEmuladores.argumentosDeCerrarAndroid(deviceId),
     );
-    return salida == null ? 'adb no contestó al cerrar el emulador' : null;
+    if (salida == null) return 'adb no contestó al cerrar el emulador';
+
+    for (var intento = 0; intento < intentos; intento++) {
+      final lista = await _correr(adb, ['devices']);
+      if (lista == null ||
+          !ComandoDeEmuladores.sigueEnAdb(lista.salida, deviceId)) {
+        return null;
+      }
+      await Future<void>.delayed(cada);
+    }
+    return 'Se pidió apagarlo, pero todavía no se ha apagado';
   }
 
   // ── Lo de dentro ───────────────────────────────────────────────────────────

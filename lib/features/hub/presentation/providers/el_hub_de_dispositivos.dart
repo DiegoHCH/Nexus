@@ -72,6 +72,14 @@ final losQueArrancanProvider = NotifierProvider<LosQueArrancan, Set<String>>(
   LosQueArrancan.new,
 );
 
+/// Los que se están apagando, por su id de catálogo: desde que se pulsa ⏼
+/// hasta que llega la lista sin ellos arriba. Apagar un emulador tarda —guarda
+/// su estado para el próximo arranque— y sin esto el botón parecía no hacer
+/// nada (11 nov). Mismo patrón que [LosQueArrancan].
+final losQueSeApaganProvider = NotifierProvider<LosQueArrancan, Set<String>>(
+  LosQueArrancan.new,
+);
+
 /// Lo que salió mal en lo último que se pidió desde el hub.
 class ElAvisoDelHub extends Notifier<String?> {
   @override
@@ -95,6 +103,7 @@ final losDispositivosDelHubProvider =
           conectados: conectados.value ?? const <DispositivoConectado>[],
           corridas: ref.watch(corridasProvider),
           arrancando: ref.watch(losQueArrancanProvider),
+          apagando: ref.watch(losQueSeApaganProvider),
         ),
         // Se mira `isLoading` junto con `hasValue`, como en el menú de correr:
         // al refrescar ya hay una lista que enseñar, y vaciarla para volver a
@@ -513,11 +522,20 @@ class ElHubDeDispositivos extends Notifier<bool> {
         final emulador = _emulador(id);
         if (emulador == null) return;
         aviso.pon(null);
+        // «Apagando» en el acto, y hasta que llega la lista sin él: soltarlo
+        // antes dejaría pintar la vieja, con el emulador aún arriba.
+        final apagan = ref.read(losQueSeApaganProvider.notifier)
+          ..empieza(emulador.id);
         final error = await ref
             .read(emuladoresDataSourceProvider)
             .cerrar(emulador);
         if (!ref.mounted) return;
         ref.invalidate(emuladoresProvider);
+        await ref
+            .read(emuladoresProvider.future)
+            .catchError((Object _) => (emuladores: <Emulador>[], error: null));
+        if (!ref.mounted) return;
+        apagan.termina(emulador.id);
         aviso.pon(error);
       case RefrescarLaLista():
         ref

@@ -98,9 +98,22 @@ class _Maquina extends EmuladoresDataSource {
     return errorAlLanzar;
   }
 
+  /// Si se pone, `cerrar` no vuelve hasta completarla: es el emulador que
+  /// tarda en apagarse.
+  Completer<void>? esperaEnCerrar;
+
   @override
-  Future<String?> cerrar(Emulador emulador) async {
+  Future<String?> cerrar(
+    Emulador emulador, {
+    Duration cada = const Duration(seconds: 1),
+    int intentos = 40,
+  }) async {
     cerrados.add(emulador.deviceId ?? emulador.id);
+    await esperaEnCerrar?.future;
+    emuladores = [
+      for (final e in emuladores)
+        e.id == emulador.id ? e.conEstado(corriendo: false) : e,
+    ];
     return null;
   }
 }
@@ -414,6 +427,41 @@ void main() {
           .atender(const CerrarDispositivo('emulator-5554').toMap());
       expect(maquina.cerrados, ['emulator-5554']);
     });
+
+    // 11 nov: apagar un emulador tarda —guarda su estado— y sin esto el
+    // botón ⏼ parecía no hacer nada.
+    test(
+      'apagar: «apagando» en el acto y hasta tener la lista sin él',
+      () async {
+        final (:c, ventana: _, :maquina) = montar();
+        await listas(c);
+        final hub = c.read(elHubDeDispositivosProvider.notifier);
+        await hub.atender(const ElegirDispositivo('emulator-5554').toMap());
+        maquina.esperaEnCerrar = Completer<void>();
+        final hecho = hub.atender(
+          const CerrarDispositivo('emulator-5554').toMap(),
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(
+          c.read(laFotoDelHubProvider).elDispositivo!.estado,
+          EstadoDelDispositivo.apagando,
+        );
+        // Ya se apagó, pero la lista nueva todavía no llega: sigue «apagando».
+        final lista = maquina.esperaEnListar = Completer<void>();
+        maquina.esperaEnCerrar!.complete();
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        expect(
+          c.read(laFotoDelHubProvider).elDispositivo!.estado,
+          EstadoDelDispositivo.apagando,
+        );
+        lista.complete();
+        await hecho;
+        expect(
+          c.read(laFotoDelHubProvider).elDispositivo!.estado,
+          EstadoDelDispositivo.apagado,
+        );
+      },
+    );
 
     test('un pedido que no se entiende no hace nada', () async {
       final (:c, ventana: _, :maquina) = montar();

@@ -170,6 +170,15 @@ abstract final class ComandoDeEmuladores {
           partes[0],
   ];
 
+  /// Si [deviceId] sigue en la lista de `adb devices`, **en cualquier
+  /// estado**: un emulador que se apaga pasa por `offline` mientras guarda su
+  /// estado, y hasta que no desaparece del todo sigue siendo un proceso vivo.
+  /// Arrancarlo otra vez en ese hueco falla con «Another emulator instance is
+  /// running».
+  static bool sigueEnAdb(String salida, String deviceId) => salida
+      .split('\n')
+      .any((linea) => linea.trim().split(RegExp(r'\s+')).first == deviceId);
+
   /// Los simuladores de iOS encendidos, según
   /// `xcrun simctl list devices booted --json`: su UDID y su nombre.
   ///

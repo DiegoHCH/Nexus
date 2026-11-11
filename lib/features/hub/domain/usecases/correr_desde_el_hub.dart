@@ -33,6 +33,9 @@ enum PorQueNoSeCorre {
   /// Arrancando: se corre solo en cuanto esté.
   arrancando,
 
+  /// Apagándose: no hay dónde correr hasta que se arranque otra vez.
+  apagando,
+
   /// Ya corre en ese: lo que toca es la botonera, no ▶.
   yaCorre,
 }
@@ -102,6 +105,7 @@ abstract final class CorrerDesdeElHub {
     return switch (elegido.estado) {
       EstadoDelDispositivo.corre => PorQueNoSeCorre.yaCorre,
       EstadoDelDispositivo.arrancando => PorQueNoSeCorre.arrancando,
+      EstadoDelDispositivo.apagando => PorQueNoSeCorre.apagando,
       EstadoDelDispositivo.encendido || EstadoDelDispositivo.apagado => null,
     };
   }

@@ -121,6 +121,7 @@ class _BotonDeCorrer extends StatelessWidget {
       PorQueNoSeCorre.sinDispositivos => strings.runNoDevices,
       PorQueNoSeCorre.eligeDispositivo => strings.runChooseDevice,
       PorQueNoSeCorre.arrancando => strings.hubEsperandoArranque,
+      PorQueNoSeCorre.apagando => strings.hubApagandoseCorto,
       PorQueNoSeCorre.yaCorre => null,
     };
     if (falta != null) {

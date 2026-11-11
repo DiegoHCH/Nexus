@@ -508,6 +508,57 @@ emulator-5554	device
       expect(maquina.sePidio('adb -s emulator-5554 emu kill'), isTrue);
     });
 
+    // 🔴 11 nov: `emu kill` vuelve al instante y el emulador tarda en salir
+    // —guarda su estado—. Sin esperar, el hub lo volvía a ver arriba y el
+    // botón parecía no hacer nada.
+    test('el de Android espera a que salga de adb, offline incluido', () async {
+      var vueltas = 0;
+      final maquina = _Maquina(
+        respuestas: {
+          'adb devices': (_) => ProcessResult(0, 0, switch (vueltas++) {
+            0 => adbDevices,
+            1 => 'List of devices attached\nemulator-5554\toffline\n',
+            _ => 'List of devices attached\n36c56d94\tdevice\n',
+          }, ''),
+        },
+      );
+
+      final error = await conLa(maquina).cerrar(
+        const Emulador(
+          id: 'Medium_Phone_API_36',
+          nombre: 'Medium Phone API 36',
+          fabricante: 'Generic',
+          plataforma: PlataformaEmulador.android,
+          corriendo: true,
+          deviceId: 'emulator-5554',
+        ),
+        cada: Duration.zero,
+      );
+
+      expect(error, isNull);
+      expect(vueltas, 3);
+    });
+
+    test('y si no llega a salir, se dice', () async {
+      final maquina = _Maquina(respuestas: {'adb devices': _dice(adbDevices)});
+
+      expect(
+        await conLa(maquina).cerrar(
+          const Emulador(
+            id: 'Medium_Phone_API_36',
+            nombre: 'Medium Phone API 36',
+            fabricante: 'Generic',
+            plataforma: PlataformaEmulador.android,
+            corriendo: true,
+            deviceId: 'emulator-5554',
+          ),
+          cada: Duration.zero,
+          intentos: 3,
+        ),
+        'Se pidió apagarlo, pero todavía no se ha apagado',
+      );
+    });
+
     test('y sin dispositivo se dice, en vez de matar otro', () async {
       final maquina = _Maquina();
 

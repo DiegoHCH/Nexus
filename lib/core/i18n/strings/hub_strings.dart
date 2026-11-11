@@ -16,6 +16,8 @@ mixin HubStrings {
   String get hubEnchufado;
   String get hubApagado;
   String get hubArrancandoCorto;
+  String get hubApagandoCorto;
+  String get hubApagandoseCorto;
   String hubCorre(String configuracion);
   String get hubPantalla;
   String get hubPruebas;
@@ -28,6 +30,7 @@ mixin HubStrings {
   String get hubApagadoTexto;
   String get hubApagadoTextoIos;
   String hubArrancandoTitulo(String nombre);
+  String hubApagandoTitulo(String nombre);
   String hubFueraTitulo(String donde);
   String get hubFueraTextoIos;
   String get hubFueraTextoEmulador;
@@ -98,6 +101,10 @@ mixin HubStringsEs implements HubStrings {
   @override
   String get hubArrancandoCorto => 'arrancando';
   @override
+  String get hubApagandoCorto => 'apagando';
+  @override
+  String get hubApagandoseCorto => 'Apagándose…';
+  @override
   String hubCorre(String configuracion) => 'corre $configuracion';
   @override
   String get hubPantalla => 'Pantalla';
@@ -124,6 +131,8 @@ mixin HubStringsEs implements HubStrings {
       'Arrancarlo abre Simulator con el último simulador que usaste.';
   @override
   String hubArrancandoTitulo(String nombre) => 'Arrancando $nombre';
+  @override
+  String hubApagandoTitulo(String nombre) => 'Apagando $nombre';
   @override
   String hubFueraTitulo(String donde) => 'La pantalla está en $donde';
   @override
@@ -252,6 +261,10 @@ mixin HubStringsEn implements HubStrings {
   @override
   String get hubArrancandoCorto => 'starting';
   @override
+  String get hubApagandoCorto => 'shutting down';
+  @override
+  String get hubApagandoseCorto => 'Shutting down…';
+  @override
   String hubCorre(String configuracion) => 'running $configuracion';
   @override
   String get hubPantalla => 'Screen';
@@ -278,6 +291,8 @@ mixin HubStringsEn implements HubStrings {
       'Starting it opens Simulator with the last simulator you used.';
   @override
   String hubArrancandoTitulo(String nombre) => 'Starting $nombre';
+  @override
+  String hubApagandoTitulo(String nombre) => 'Shutting down $nombre';
   @override
   String hubFueraTitulo(String donde) => 'The screen is in $donde';
   @override

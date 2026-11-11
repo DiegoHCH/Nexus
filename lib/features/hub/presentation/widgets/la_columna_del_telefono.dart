@@ -147,30 +147,11 @@ class _LaColumnaDelTelefonoState extends State<LaColumnaDelTelefono> {
       bool activo = false,
     }) => Padding(
       padding: const EdgeInsets.only(bottom: NexusSpacing.s1 + 2),
-      child: Tooltip(
-        message: titulo,
-        child: InkWell(
-          onTap: alPulsar,
-          borderRadius: BorderRadius.circular(NexusRadius.sm),
-          child: Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: colors.deep,
-              border: Border.all(color: activo ? colors.accent : colors.rule),
-              borderRadius: BorderRadius.circular(NexusRadius.sm),
-            ),
-            child: Icon(
-              icono,
-              size: 15,
-              color: alPulsar == null
-                  ? colors.faint
-                  : activo
-                  ? colors.accent
-                  : colors.mute,
-            ),
-          ),
-        ),
+      child: ElBotonDeLaColumna(
+        icono: icono,
+        titulo: titulo,
+        alPulsar: alPulsar,
+        activo: activo,
       ),
     );
     Widget filete() => Container(
@@ -235,6 +216,94 @@ class _LaColumnaDelTelefonoState extends State<LaColumnaDelTelefono> {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// **Un botón de la columna**, que se nota que lo es: con el ratón encima sube
+/// el fondo y el borde toma el acento; al pulsarlo se hunde un instante.
+///
+/// 🔴 Antes era un `InkWell` con un `Container` de fondo dentro, y ese fondo
+/// tapaba la tinta: ni hover ni pulsación, y no parecía un botón (11 nov).
+class ElBotonDeLaColumna extends StatefulWidget {
+  const ElBotonDeLaColumna({
+    super.key,
+    required this.icono,
+    required this.titulo,
+    required this.alPulsar,
+    this.activo = false,
+  });
+
+  final IconData icono;
+  final String titulo;
+
+  /// `null`: apagado, sin hover ni mano.
+  final VoidCallback? alPulsar;
+
+  /// Encendido, como el sonido cuando suena.
+  final bool activo;
+
+  @override
+  State<ElBotonDeLaColumna> createState() => _ElBotonDeLaColumnaState();
+}
+
+class _ElBotonDeLaColumnaState extends State<ElBotonDeLaColumna> {
+  bool _encima = false;
+  bool _pulsado = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final vivo = widget.alPulsar != null;
+    final encima = vivo && _encima;
+    final pulsado = vivo && _pulsado;
+    return Tooltip(
+      message: widget.titulo,
+      child: MouseRegion(
+        cursor: vivo ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onEnter: (_) => setState(() => _encima = true),
+        onExit: (_) => setState(() {
+          _encima = false;
+          _pulsado = false;
+        }),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: vivo ? (_) => setState(() => _pulsado = true) : null,
+          onTapUp: vivo ? (_) => setState(() => _pulsado = false) : null,
+          onTapCancel: vivo ? () => setState(() => _pulsado = false) : null,
+          onTap: widget.alPulsar,
+          child: Semantics(
+            button: true,
+            enabled: vivo,
+            label: widget.titulo,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 90),
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: pulsado
+                    ? colors.void_
+                    : encima
+                    ? colors.rise
+                    : colors.deep,
+                border: Border.all(
+                  color: widget.activo || encima ? colors.accent : colors.rule,
+                ),
+                borderRadius: BorderRadius.circular(NexusRadius.sm),
+              ),
+              child: Icon(
+                widget.icono,
+                size: 15,
+                color: !vivo
+                    ? colors.faint
+                    : widget.activo || encima
+                    ? colors.accent
+                    : colors.mute,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

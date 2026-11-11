@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/design_system/la_apariencia_de_fuera.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
@@ -211,7 +212,7 @@ INFO         | API level 36 requires GLES 3.1, forcing software rendering for GL
     ) async {
       await pinta(tester, onApagar: () {});
       final boton = find.byWidgetPredicate(
-        (w) => w is ElBotonDeLaColumna && w.titulo == 'Apagar el emulador',
+        (w) => w is BotonCuadrado && w.titulo == 'Apagar el emulador',
       );
       BoxDecoration caja() =>
           tester

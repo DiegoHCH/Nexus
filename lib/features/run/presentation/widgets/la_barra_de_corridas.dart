@@ -499,12 +499,114 @@ class _Corrida extends StatelessWidget {
   }
 }
 
+/// **Cómo se ve cada acción de una corrida**: su icono, su nombre y su color.
+///
+/// Aparte para que la botonera y los botones de la corrida del hub pinten el
+/// mismo botón igual: el mismo icono hace lo mismo en los dos sitios.
+///
+/// 🔴 **Iconos, con su nombre en el tooltip.** La pasada de fidelidad los
+/// cambió por palabras —«RECARGAR», «REINICIAR», «PARSE EN LOS ERRORES»—, y en
+/// la botonera eso es una fila de dos o tres líneas que se lee en vez de
+/// pulsarse. Pedido de vuelta el 28 sep: «me gustaban más cuando eran
+/// iconos». Son los de una barra de depuración, y el color separa los que no
+/// se pueden confundir: reiniciar en verde, parar en rojo.
+({IconData icono, String titulo, Color? color, bool activo}) comoSeVeLaAccion(
+  BuildContext context,
+  FilaDeCorrida fila,
+  AccionDeCorrida accion,
+) {
+  final strings = context.strings;
+  final colors = context.colors;
+  // La primera de la fila es la que toca, y se marca con el acento: «esto es
+  // lo que hay que hacer ahora». Solo la del error y la de seguir, que son las
+  // dos que el estado pide; el resto son disponibles.
+  final esLaQueToca =
+      fila.acciones.firstOrNull == accion &&
+      (accion == AccionDeCorrida.pasarleElError ||
+          accion == AccionDeCorrida.seguir);
+  final (icono, titulo, color, activo) = switch (accion) {
+    AccionDeCorrida.pasarleElError => (
+      Icons.bolt_outlined,
+      strings.runPasarloAClaude,
+      colors.err,
+      false,
+    ),
+    AccionDeCorrida.seguir => (
+      Icons.play_arrow_rounded,
+      strings.runSeguir,
+      colors.ok,
+      false,
+    ),
+    AccionDeCorrida.siguienteLinea => (
+      Icons.redo_rounded,
+      strings.runPasoSiguiente,
+      null,
+      false,
+    ),
+    AccionDeCorrida.entrar => (
+      Icons.subdirectory_arrow_right_rounded,
+      strings.runPasoEntrar,
+      null,
+      false,
+    ),
+    AccionDeCorrida.salir => (
+      Icons.subdirectory_arrow_left_rounded,
+      strings.runPasoSalir,
+      null,
+      false,
+    ),
+    AccionDeCorrida.recargar => (Icons.refresh, strings.runReload, null, false),
+    AccionDeCorrida.reiniciar => (
+      Icons.restart_alt,
+      strings.runRestart,
+      colors.ok,
+      false,
+    ),
+    AccionDeCorrida.freno => (
+      Icons.pause_circle_outline,
+      strings.runFreno,
+      null,
+      fila.frenoPuesto,
+    ),
+    AccionDeCorrida.consola => (
+      Icons.dashboard_customize_outlined,
+      strings.runConsole,
+      null,
+      false,
+    ),
+    AccionDeCorrida.registro => (
+      Icons.article_outlined,
+      strings.runLogs,
+      null,
+      fila.registroAbierto,
+    ),
+    AccionDeCorrida.registroDelSistema => (
+      Icons.phonelink_ring_outlined,
+      strings.runSystemLog,
+      null,
+      fila.sistemaAbierto,
+    ),
+    AccionDeCorrida.parar => (
+      Icons.stop_rounded,
+      strings.runStop,
+      colors.err,
+      false,
+    ),
+  };
+  return (
+    icono: icono,
+    titulo: titulo,
+    color: esLaQueToca ? colors.accent : color,
+    activo: activo,
+  );
+}
+
 /// Un botón de la fila de una corrida.
 ///
 /// Aparte de la fila para que el orden —que decide [ComoVaLaCorridaDe]— y cómo
-/// se ve cada uno no vivan mezclados. **Lo que hace** ya no está aquí: lo hace
-/// la app al recibir el pedido, esté la barra dentro o fuera. Ver
-/// `atenderLaBotoneraProvider`.
+/// se ve cada uno —[comoSeVeLaAccion]— no vivan mezclados. **Lo que hace** ya
+/// no está aquí: lo hace la app al recibir el pedido, esté la barra dentro o
+/// fuera. Ver `atenderLaBotoneraProvider`.
 class _LaAccion extends StatelessWidget {
   const _LaAccion({
     required this.fila,
@@ -518,91 +620,16 @@ class _LaAccion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final strings = context.strings;
-    final colors = context.colors;
-    // La primera de la fila es la que toca, y se marca con el acento: «esto es
-    // lo que hay que hacer ahora». Solo la del error y la de seguir, que son
-    // las dos que el estado pide; el resto son disponibles.
-    final esLaQueToca =
-        fila.acciones.firstOrNull == accion &&
-        (accion == AccionDeCorrida.pasarleElError ||
-            accion == AccionDeCorrida.seguir);
-
-    // 🔴 **Iconos, con su nombre en el tooltip.** La pasada de fidelidad los
-    // cambió por palabras —«RECARGAR», «REINICIAR», «PARSE EN LOS ERRORES»—, y
-    // en la botonera eso es una fila de dos o tres líneas que se lee en vez de
-    // pulsarse. Pedido de vuelta el 28 sep: «me gustaban más cuando eran
-    // iconos». Son los de una barra de depuración, y el color separa los que
-    // no se pueden confundir: reiniciar en verde, parar en rojo.
-    BotonMini boton(
-      IconData icono,
-      String titulo, {
-      Color? color,
-      bool activo = false,
-    }) => BotonMini(
+    final se = comoSeVeLaAccion(context, fila, accion);
+    return BotonMini(
       key: ValueKey('accion-${accion.name}'),
-      icono: icono,
-      titulo: titulo,
-      color: esLaQueToca ? colors.accent : color,
-      activo: activo,
+      icono: se.icono,
+      titulo: se.titulo,
+      color: se.color,
+      activo: se.activo,
       onPulsar: () =>
           onPedido(AccionEnLaCorrida(deviceId: fila.deviceId, accion: accion)),
     );
-
-    return switch (accion) {
-      AccionDeCorrida.pasarleElError => boton(
-        Icons.bolt_outlined,
-        strings.runPasarloAClaude,
-        color: colors.err,
-      ),
-      AccionDeCorrida.seguir => boton(
-        Icons.play_arrow_rounded,
-        strings.runSeguir,
-        color: colors.ok,
-      ),
-      AccionDeCorrida.siguienteLinea => boton(
-        Icons.redo_rounded,
-        strings.runPasoSiguiente,
-      ),
-      AccionDeCorrida.entrar => boton(
-        Icons.subdirectory_arrow_right_rounded,
-        strings.runPasoEntrar,
-      ),
-      AccionDeCorrida.salir => boton(
-        Icons.subdirectory_arrow_left_rounded,
-        strings.runPasoSalir,
-      ),
-      AccionDeCorrida.recargar => boton(Icons.refresh, strings.runReload),
-      AccionDeCorrida.reiniciar => boton(
-        Icons.restart_alt,
-        strings.runRestart,
-        color: colors.ok,
-      ),
-      AccionDeCorrida.freno => boton(
-        Icons.pause_circle_outline,
-        strings.runFreno,
-        activo: fila.frenoPuesto,
-      ),
-      AccionDeCorrida.consola => boton(
-        Icons.dashboard_customize_outlined,
-        strings.runConsole,
-      ),
-      AccionDeCorrida.registro => boton(
-        Icons.article_outlined,
-        strings.runLogs,
-        activo: fila.registroAbierto,
-      ),
-      AccionDeCorrida.registroDelSistema => boton(
-        Icons.phonelink_ring_outlined,
-        strings.runSystemLog,
-        activo: fila.sistemaAbierto,
-      ),
-      AccionDeCorrida.parar => boton(
-        Icons.stop_rounded,
-        strings.runStop,
-        color: colors.err,
-      ),
-    };
   }
 }
 

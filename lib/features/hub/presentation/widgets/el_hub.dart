@@ -9,7 +9,7 @@ import 'package:nexus/features/hub/presentation/widgets/el_registro_del_hub.dart
 import 'package:nexus/features/hub/presentation/widgets/la_cara_de_pruebas.dart';
 import 'package:nexus/features/hub/presentation/widgets/la_cabecera_de_correr.dart';
 import 'package:nexus/features/hub/presentation/widgets/la_lista_del_hub.dart';
-import 'package:nexus/features/run/presentation/widgets/la_barra_de_corridas.dart';
+import 'package:nexus/features/hub/presentation/widgets/los_botones_de_la_corrida.dart';
 
 /// **La ventana del hub entera**, pintada desde la foto.
 ///
@@ -69,26 +69,27 @@ class ElHub extends StatelessWidget {
                           hayCorrida: hayCorrida,
                           onPedido: onPedido,
                         );
-                        // La botonera de siempre, sin tocarla: quien la conoce
-                        // flotando la reconoce aquí. Sin la X de esconder: en
-                        // el hub no hay de qué esconderse.
+                        // Los botones de la corrida, en una caja y nada más
+                        // (11 nov): ya no la botonera flotante entera, con su
+                        // asa y el nombre de la corrida.
                         final botonera = hayCorrida
-                            ? LaBarraDeCorridas(
+                            ? LosBotonesDeLaCorrida(
                                 lo: foto.botonera,
                                 onPedido: (pedido) =>
                                     onPedido(DeLaBotonera(pedido.toMap())),
-                                conSombra: false,
                               )
                             : null;
                         // Los selectores van siempre lado a lado (11 nov): si
-                        // con la botonera no caben en una línea, la botonera
-                        // baja a la suya. Pasa en el ancho mínimo, con corrida.
+                        // con los botones no caben en una línea, los botones
+                        // bajan a la suya.
                         final enUnaLinea =
                             botonera == null ||
                             caja.maxWidth >=
                                 LaCabeceraDeCorrer.minimoDeLosSelectores +
                                     NexusSpacing.s3 +
-                                    LaBarraDeCorridas.ancho;
+                                    LosBotonesDeLaCorrida.anchoPara(
+                                      foto.botonera,
+                                    );
                         if (!enUnaLinea) {
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

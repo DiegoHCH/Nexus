@@ -11,6 +11,8 @@ import 'package:nexus/features/hub/presentation/state/lo_que_pide_el_hub.dart';
 import 'package:nexus/features/hub/presentation/widgets/el_cargando_del_telefono.dart';
 import 'package:nexus/features/hub/presentation/widgets/el_hub.dart';
 import 'package:nexus/features/run/domain/usecases/como_va_la_corrida.dart';
+import 'package:nexus/features/run/presentation/state/lo_que_pide_la_botonera.dart';
+import 'package:nexus/features/hub/presentation/widgets/los_botones_de_la_corrida.dart';
 import 'package:nexus/features/run/presentation/widgets/la_barra_de_corridas.dart';
 import 'package:nexus/features/run/presentation/state/lo_que_ensena_la_botonera.dart';
 
@@ -59,6 +61,10 @@ void main() {
     String? elegido = 'emulator-5554',
     bool claro = false,
     bool conCorrida = true,
+    List<AccionDeCorrida> acciones = const [
+      AccionDeCorrida.recargar,
+      AccionDeCorrida.parar,
+    ],
     List<String> registro = const ['Launching lib/main.dart…', 'Reloaded.'],
     String? aviso,
     LoDeCorrer correr = const LoDeCorrer(),
@@ -75,12 +81,12 @@ void main() {
     botonera: LoQueEnsenaLaBotonera(
       corridas: conCorrida
           ? [
-              const FilaDeCorrida(
+              FilaDeCorrida(
                 deviceId: 'emulator-5554',
                 configuracion: 'ci',
                 dispositivo: 'Medium Phone API 36.1',
                 como: ComoVaLaCorrida.corriendo,
-                acciones: [AccionDeCorrida.recargar, AccionDeCorrida.parar],
+                acciones: acciones,
                 errores: 0,
                 frenoPuesto: false,
                 registroAbierto: false,
@@ -146,8 +152,8 @@ void main() {
   });
 
   // 11 nov: «que los selectores de App y configuración no estuvieran uno
-  // debajo del otro». Van siempre lado a lado; si con la botonera no caben en
-  // una línea, la que baja es la botonera.
+  // debajo del otro». Van siempre lado a lado; si con los botones de la
+  // corrida no caben en una línea, los que bajan son los botones.
   group('app y configuración, lado a lado', () {
     void ladoALado(WidgetTester tester) {
       final app = tester.getRect(find.text('APP'));
@@ -156,28 +162,44 @@ void main() {
       expect(config.left, greaterThan(app.right));
     }
 
+    void enLaMismaLinea(WidgetTester tester) {
+      final caja = tester.getRect(find.byKey(LosBotonesDeLaCorrida.laCaja));
+      expect(
+        caja.left,
+        greaterThan(tester.getRect(find.text('CONFIGURACIÓN')).right),
+      );
+    }
+
     testWidgets('con corrida, en el tamaño de entrada: todo en una línea', (
       tester,
     ) async {
       await montar(tester, foto());
       expect(tester.takeException(), isNull);
       ladoALado(tester);
-      final barra = tester.getRect(find.byType(LaBarraDeCorridas));
-      expect(
-        barra.left,
-        greaterThan(tester.getRect(find.text('CONFIGURACIÓN')).right),
-      );
+      enLaMismaLinea(tester);
     });
 
-    testWidgets('con corrida, en el mínimo: la botonera baja a su fila', (
+    testWidgets('con corrida, en el mínimo: también en una línea', (
       tester,
     ) async {
       await montar(tester, foto(), tamano: const Size(920, 560));
       expect(tester.takeException(), isNull);
       ladoALado(tester);
-      final barra = tester.getRect(find.byType(LaBarraDeCorridas));
+      enLaMismaLinea(tester);
+    });
+
+    testWidgets('con todas las acciones, en el mínimo: los botones bajan', (
+      tester,
+    ) async {
+      await montar(
+        tester,
+        foto(acciones: AccionDeCorrida.values),
+        tamano: const Size(920, 560),
+      );
+      expect(tester.takeException(), isNull);
+      ladoALado(tester);
       expect(
-        barra.top,
+        tester.getRect(find.byKey(LosBotonesDeLaCorrida.laCaja)).top,
         greaterThan(tester.getRect(find.text('CONFIGURACIÓN')).bottom),
       );
     });
@@ -192,6 +214,43 @@ void main() {
       );
       expect(tester.takeException(), isNull);
       ladoALado(tester);
+    });
+  });
+
+  // 11 nov: «la botonera flotante ya no debería verse como una botonera
+  // flotante […] solo sería un cajón con los botones, incluyendo un botón con
+  // solo icono que sería el de recargar sola al terminar».
+  group('los botones de la corrida', () {
+    testWidgets('solo botones: ni «Corriendo» ni el nombre de la corrida', (
+      tester,
+    ) async {
+      await montar(tester, foto());
+      expect(find.byType(LaBarraDeCorridas), findsNothing);
+      expect(find.textContaining('CORRIENDO'), findsNothing);
+      expect(find.text('ci · Medium Phone API 36.1'), findsNothing);
+      expect(find.textContaining('RECARGAR SOLA'), findsNothing);
+      expect(find.byKey(LosBotonesDeLaCorrida.laRecargaSola), findsOneWidget);
+      expect(
+        find.byTooltip('Recargar sola al terminar cada encargo'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('recargar sola y las acciones mandan lo de la botonera', (
+      tester,
+    ) async {
+      final pedidos = await montar(tester, foto());
+      await tester.tap(find.byKey(LosBotonesDeLaCorrida.laRecargaSola));
+      await tester.tap(find.byKey(const ValueKey('accion-parar')));
+      expect(pedidos, [
+        DeLaBotonera(const CambiarLaRecargaSola().toMap()),
+        DeLaBotonera(
+          const AccionEnLaCorrida(
+            deviceId: 'emulator-5554',
+            accion: AccionDeCorrida.parar,
+          ).toMap(),
+        ),
+      ]);
     });
   });
 

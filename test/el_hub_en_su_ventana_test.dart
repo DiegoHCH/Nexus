@@ -8,6 +8,7 @@ import 'package:nexus/features/hub/domain/usecases/correr_desde_el_hub.dart';
 import 'package:nexus/features/hub/presentation/state/lo_de_pruebas.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_ensena_el_hub.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_pide_el_hub.dart';
+import 'package:nexus/features/hub/presentation/widgets/el_cargando_del_telefono.dart';
 import 'package:nexus/features/hub/presentation/widgets/el_hub.dart';
 import 'package:nexus/features/run/domain/usecases/como_va_la_corrida.dart';
 import 'package:nexus/features/run/presentation/state/lo_que_ensena_la_botonera.dart';
@@ -189,7 +190,10 @@ void main() {
     expect(find.text('EN FRÍO'), findsNothing);
   });
 
-  testWidgets('arrancando: lo que falta, sin spinner', (tester) async {
+  // 11 nov: arrancando salía una tarjeta que contaba lo de adb, y se leía
+  // como un error justo antes de la pantalla. Ahora solo la raya de carga, la
+  // misma que sigue mientras se conecta la pantalla.
+  testWidgets('arrancando: la raya de carga, sin tarjeta', (tester) async {
     await montar(
       tester,
       foto(
@@ -198,10 +202,12 @@ void main() {
         conCorrida: false,
       ),
     );
-    expect(find.text('Arrancando Pixel 9'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byType(ElCargandoDelTelefono), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.bySemanticsLabel('Arrancando Pixel 9'), findsOneWidget);
+    expect(find.textContaining('adb'), findsNothing);
     await tester.pump(const Duration(seconds: 21));
-    expect(find.text('Está tardando más de lo normal.'), findsOneWidget);
+    expect(find.byType(ElCargandoDelTelefono), findsOneWidget);
   });
 
   testWidgets('iOS: dice que su pantalla está en Simulator', (tester) async {

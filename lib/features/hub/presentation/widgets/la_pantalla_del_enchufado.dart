@@ -9,6 +9,7 @@ import 'package:nexus/features/hub/data/el_sonido_del_telefono.dart';
 import 'package:nexus/features/hub/data/el_video_del_telefono.dart';
 import 'package:nexus/features/hub/data/la_textura_del_telefono.dart';
 import 'package:nexus/features/hub/domain/el_protocolo_del_emulador.dart';
+import 'package:nexus/features/hub/presentation/widgets/el_cargando_del_telefono.dart';
 import 'package:nexus/features/hub/presentation/widgets/la_pantalla_del_emulador.dart';
 
 /// **La pantalla de un Android enchufado, dentro del hub** (T12), por scrcpy.
@@ -155,16 +156,7 @@ class _LaPantallaDelEnchufadoState extends State<LaPantallaDelEnchufado> {
     final textura = _textura;
     final scrcpy = _scrcpy;
     if (tamano == null || textura == null || scrcpy == null) {
-      return Center(
-        child: SizedBox(
-          width: 120,
-          height: 2,
-          child: LinearProgressIndicator(
-            backgroundColor: colors.rule,
-            color: colors.accent,
-          ),
-        ),
-      );
+      return const ElCargandoDelTelefono();
     }
     final pantalla = DecoratedBox(
       position: DecorationPosition.foreground,

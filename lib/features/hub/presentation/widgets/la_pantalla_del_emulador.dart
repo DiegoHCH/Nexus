@@ -9,6 +9,7 @@ import 'package:nexus/features/hub/data/el_sonido_del_telefono.dart';
 import 'package:nexus/features/hub/data/el_telefono_conectado.dart';
 import 'package:nexus/features/hub/data/la_textura_del_telefono.dart';
 import 'package:nexus/features/hub/domain/el_protocolo_del_emulador.dart';
+import 'package:nexus/features/hub/presentation/widgets/el_cargando_del_telefono.dart';
 
 /// **La pantalla de un emulador, dentro del hub** (T6).
 ///
@@ -270,16 +271,7 @@ class _LaPantallaDelEmuladorState extends State<LaPantallaDelEmulador> {
         final imagen = _imagen;
         final textura = _textura;
         if (imagen == null || textura == null) {
-          return Center(
-            child: SizedBox(
-              width: 120,
-              height: 2,
-              child: LinearProgressIndicator(
-                backgroundColor: colors.rule,
-                color: colors.accent,
-              ),
-            ),
-          );
+          return const ElCargandoDelTelefono();
         }
         final pantalla = DecoratedBox(
           // La pantalla desnuda, con su filete: sin marco de teléfono (ver la

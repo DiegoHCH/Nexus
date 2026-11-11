@@ -28,8 +28,6 @@ mixin HubStrings {
   String get hubApagadoTexto;
   String get hubApagadoTextoIos;
   String hubArrancandoTitulo(String nombre);
-  String get hubArrancandoTexto;
-  String get hubTardaMas;
   String hubFueraTitulo(String donde);
   String get hubFueraTextoIos;
   String get hubFueraTextoEmulador;
@@ -126,12 +124,6 @@ mixin HubStringsEs implements HubStrings {
       'Arrancarlo abre Simulator con el último simulador que usaste.';
   @override
   String hubArrancandoTitulo(String nombre) => 'Arrancando $nombre';
-  @override
-  String get hubArrancandoTexto =>
-      'Ya existe, pero adb lo da por offline hasta que Android termina de '
-      'arrancar. Suele tardar unos 20 s.';
-  @override
-  String get hubTardaMas => 'Está tardando más de lo normal.';
   @override
   String hubFueraTitulo(String donde) => 'La pantalla está en $donde';
   @override
@@ -286,12 +278,6 @@ mixin HubStringsEn implements HubStrings {
       'Starting it opens Simulator with the last simulator you used.';
   @override
   String hubArrancandoTitulo(String nombre) => 'Starting $nombre';
-  @override
-  String get hubArrancandoTexto =>
-      'It exists, but adb reports it offline until Android finishes booting. '
-      'It usually takes about 20 s.';
-  @override
-  String get hubTardaMas => 'This is taking longer than usual.';
   @override
   String hubFueraTitulo(String donde) => 'The screen is in $donde';
   @override

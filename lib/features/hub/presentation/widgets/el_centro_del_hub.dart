@@ -1,18 +1,19 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:nexus/core/design_system/design_system.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/hub/domain/entities/dispositivo_del_hub.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_ensena_el_hub.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_pide_el_hub.dart';
+import 'package:nexus/features/hub/presentation/widgets/el_cargando_del_telefono.dart';
 
 /// **El centro del hub**: la pantalla del dispositivo, o lo que pasa con ella.
 ///
 /// Cada estado dice qué pasó y qué se puede hacer, sin disculparse (ver la
-/// maqueta): apagado ofrece arrancarlo; arrancando cuenta qué falta y cuánto
-/// suele tardar; una pantalla que está en otra ventana dice dónde. **Nunca un
-/// rectángulo negro vacío**, que se lee como una pantalla rota.
+/// maqueta): apagado ofrece arrancarlo; una pantalla que está en otra ventana
+/// dice dónde. Arrancando, en cambio, solo la raya que corre —la misma que
+/// sigue mientras se conecta la pantalla—: la tarjeta que contaba lo de adb se
+/// leía como un error (11 nov). **Nunca un rectángulo negro vacío**, que se
+/// lee como una pantalla rota.
 ///
 /// La pantalla de dentro —el emulador por gRPC, el Android físico por scrcpy—
 /// la pone [pantalla] cuando la hay; si no, este aviso.
@@ -65,7 +66,9 @@ class ElCentroDelHub extends StatelessWidget {
               ),
           ],
         ),
-        EstadoDelDispositivo.arrancando => _Arrancando(dispositivo: d),
+        EstadoDelDispositivo.arrancando => ElCargandoDelTelefono(
+          etiqueta: strings.hubArrancandoTitulo(d.nombre),
+        ),
         EstadoDelDispositivo.encendido || EstadoDelDispositivo.corre => _Aviso(
           titulo: strings.hubFueraTitulo(switch (d.clase) {
             ClaseDeDispositivo.simulador => strings.hubSimulatorApp,
@@ -169,13 +172,11 @@ class _Aviso extends StatelessWidget {
     required this.titulo,
     required this.texto,
     this.acciones = const [],
-    this.extra,
   });
 
   final String titulo;
   final String texto;
   final List<Widget> acciones;
-  final Widget? extra;
 
   @override
   Widget build(BuildContext context) {
@@ -214,7 +215,6 @@ class _Aviso extends StatelessWidget {
               height: 1.5,
             ),
           ),
-          ?extra,
           if (acciones.isNotEmpty) ...[
             const SizedBox(height: NexusSpacing.s3),
             Wrap(
@@ -224,72 +224,6 @@ class _Aviso extends StatelessWidget {
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-/// Arrancando: qué falta y lo que suele tardar. La barra avanza contra los
-/// 20 s medidos y no promete nada; pasado ese tiempo se queda llena y lo dice.
-class _Arrancando extends StatefulWidget {
-  const _Arrancando({required this.dispositivo});
-
-  final DispositivoDelHub dispositivo;
-
-  static const loQueSueleTardar = Duration(seconds: 20);
-
-  @override
-  State<_Arrancando> createState() => _ArrancandoState();
-}
-
-class _ArrancandoState extends State<_Arrancando> {
-  static const _paso = Duration(milliseconds: 250);
-
-  /// Lo que lleva, contado con el propio reloj y no con `DateTime.now`: así
-  /// avanza igual en una prueba, con el tiempo de mentira.
-  Duration _pasado = Duration.zero;
-  Timer? _reloj;
-
-  @override
-  void initState() {
-    super.initState();
-    _reloj = Timer.periodic(_paso, (_) {
-      if (mounted) setState(() => _pasado += _paso);
-    });
-  }
-
-  @override
-  void dispose() {
-    _reloj?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final strings = context.strings;
-    final parte =
-        _pasado.inMilliseconds / _Arrancando.loQueSueleTardar.inMilliseconds;
-    final tarda = parte >= 1;
-    return _Aviso(
-      titulo: strings.hubArrancandoTitulo(widget.dispositivo.nombre),
-      texto: tarda ? strings.hubTardaMas : strings.hubArrancandoTexto,
-      extra: Padding(
-        padding: const EdgeInsets.only(top: NexusSpacing.s3),
-        child: ClipRect(
-          child: SizedBox(
-            height: 2,
-            child: Stack(
-              children: [
-                Positioned.fill(child: ColoredBox(color: colors.rule)),
-                FractionallySizedBox(
-                  widthFactor: parte.clamp(0, 1).toDouble(),
-                  child: ColoredBox(color: colors.warn),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

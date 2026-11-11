@@ -32,6 +32,15 @@ class LaAparienciaDeFuera {
 
   final String idioma;
 
+  /// La de siempre: oscura, con el cian de la casa y en español. Es la que
+  /// lleva una ventana de fuera mientras no le llega la de verdad, para que
+  /// nunca se pinte con el tema de fábrica de Flutter (ver el hub).
+  static const deFabrica = LaAparienciaDeFuera(
+    claro: false,
+    acento: 0xFF56E1EA,
+    idioma: 'es',
+  );
+
   ThemeData get tema => claro
       ? NexusTheme.light(accent: Color(acento))
       : NexusTheme.dark(accent: Color(acento));
@@ -51,11 +60,11 @@ class LaAparienciaDeFuera {
         claro: mapa['claro'] == true,
         acento: switch (mapa['acento']) {
           final int argb => argb,
-          _ => 0xFF56E1EA,
+          _ => deFabrica.acento,
         },
         idioma: switch (mapa['idioma']) {
           final String i when i.isNotEmpty => i,
-          _ => 'es',
+          _ => deFabrica.idioma,
         },
       );
 

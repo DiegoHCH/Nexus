@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:nexus/core/design_system/la_apariencia_de_fuera.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_ensena_el_hub.dart';
@@ -18,17 +19,17 @@ import 'package:nexus/features/hub/presentation/widgets/la_pantalla_del_enchufad
 /// Pinta lo que le llega en la foto y dice lo que se pulsa.
 void arrancarElHub() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const _ElHubSolo());
+  runApp(const ElHubSolo());
 }
 
-class _ElHubSolo extends StatefulWidget {
-  const _ElHubSolo();
+class ElHubSolo extends StatefulWidget {
+  const ElHubSolo({super.key});
 
   @override
-  State<_ElHubSolo> createState() => _ElHubSoloState();
+  State<ElHubSolo> createState() => _ElHubSoloState();
 }
 
-class _ElHubSoloState extends State<_ElHubSolo> {
+class _ElHubSoloState extends State<ElHubSolo> {
   static const _canal = MethodChannel('com.katanalabs.nexus/hub.ventana');
 
   LoQueEnsenaElHub? _foto;
@@ -107,7 +108,16 @@ class _ElHubSoloState extends State<_ElHubSolo> {
       debugShowCheckedModeBanner: false,
       // La apariencia de Nexus, tal como venga en la foto: tema, acento e
       // idioma. Ver `LaAparienciaDeFuera`.
-      theme: apariencia?.tema,
+      //
+      // 🔴 **Siempre un tema de Nexus, y sin animar el cambio** (11 nov). Con
+      // `null` hasta la primera foto, la ventana tenía el tema de fábrica de
+      // Flutter; al llegar la foto, `MaterialApp` animaba el cambio y su
+      // primer fotograma (`t = 0`) es el tema de antes tal cual, sin
+      // `NexusColors`: el hub salía en rojo («context.colors no encontró
+      // NexusColors»), y se quedaba así si la ventana aún no estaba a la vista.
+      // Sin animar, tampoco asoma el oscuro de fábrica a quien usa el claro.
+      theme: (apariencia ?? LaAparienciaDeFuera.deFabrica).tema,
+      themeAnimationStyle: AnimationStyle.noAnimation,
       builder: (context, child) => StringsScope(
         strings: NexusStrings.of(apariencia?.locale ?? const Locale('es')),
         child: child!,

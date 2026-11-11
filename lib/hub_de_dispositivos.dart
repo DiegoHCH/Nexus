@@ -67,11 +67,16 @@ class _ElHubSoloState extends State<_ElHubSolo> {
         LaColumnaDelTelefono(
           conexion: conexion,
           pantalla: pantalla,
-          onVerEnSuVentana: () => _pide(
-            d.clase == ClaseDeDispositivo.enchufado
-                ? VerFuera(d.id, ComoVerFuera.scrcpy)
-                : TraerAlFrente(d.id),
-          ),
+          onVerEnSuVentana: conexion.conVentana
+              ? () => _pide(
+                  d.clase == ClaseDeDispositivo.enchufado
+                      ? VerFuera(d.id, ComoVerFuera.scrcpy)
+                      : TraerAlFrente(d.id),
+                )
+              : null,
+          onApagar: d.clase == ClaseDeDispositivo.emulador
+              ? () => _pide(CerrarDispositivo(d.id))
+              : null,
           onGirar: conexion.girar,
           sonido: conexion.sonido,
           onSonido: conexion.alternarSonido,

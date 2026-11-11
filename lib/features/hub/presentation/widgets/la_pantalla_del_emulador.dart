@@ -58,6 +58,7 @@ class LaConexionDeLaPantalla {
     required this.sonido,
     required this.alternarSonido,
     required this.girar,
+    this.conVentana = true,
   });
 
   /// El teléfono conectado: un emulador por su gRPC o un Android enchufado
@@ -76,6 +77,10 @@ class LaConexionDeLaPantalla {
 
   /// Un cuarto de vuelta: de vertical a apaisado y vuelta.
   final VoidCallback girar;
+
+  /// Si el teléfono tiene además su propia ventana. Un emulador que arrancó
+  /// el hub no la tiene (`-qt-hide-window`): su pantalla es solo esta.
+  final bool conVentana;
 }
 
 class _LaPantallaDelEmuladorState extends State<LaPantallaDelEmulador> {
@@ -84,6 +89,7 @@ class _LaPantallaDelEmuladorState extends State<LaPantallaDelEmulador> {
   ({int textura, String archivo})? _textura;
   ImagenDelEmulador? _imagen;
   bool _noSePuede = false;
+  bool _sinVentana = false;
 
   StreamSubscription<ImagenDelEmulador>? _fotos;
   Timer? _respiro;
@@ -116,6 +122,7 @@ class _LaPantallaDelEmuladorState extends State<LaPantallaDelEmulador> {
     }
     final emulador = ElEmuladorConectado.a(info);
     _emulador = emulador;
+    _sinVentana = info.sinVentana;
     final nativo = await emulador.tamanoDeLaPantalla();
     final textura = await widget.textura.crear();
     if (!mounted) {
@@ -294,6 +301,7 @@ class _LaPantallaDelEmuladorState extends State<LaPantallaDelEmulador> {
           sonido: _conSonido,
           alternarSonido: _alternarSonido,
           girar: _girar,
+          conVentana: !_sinVentana,
         );
         return Padding(
           padding: const EdgeInsets.all(NexusSpacing.s4),

@@ -67,6 +67,7 @@ mixin HubStrings {
   String get hubOirlo;
   String get hubEncender;
   String get hubVerEnSuVentana;
+  String get hubApagarElEmulador;
   String get hubMostrar;
   String get hubLanzadera;
   String get hubPruebasSinApp;
@@ -214,6 +215,8 @@ mixin HubStringsEs implements HubStrings {
   String get hubEncender => 'Encender o apagar la pantalla';
   @override
   String get hubVerEnSuVentana => 'Ver en su ventana';
+  @override
+  String get hubApagarElEmulador => 'Apagar el emulador';
   @override
   String get hubMostrar => 'Mostrar Dispositivos';
   @override
@@ -370,6 +373,8 @@ mixin HubStringsEn implements HubStrings {
   String get hubEncender => 'Screen on or off';
   @override
   String get hubVerEnSuVentana => 'Show in its own window';
+  @override
+  String get hubApagarElEmulador => 'Shut down the emulator';
   @override
   String get hubMostrar => 'Show Devices';
   @override

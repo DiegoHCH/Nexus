@@ -175,6 +175,40 @@ abstract final class HerramientaExterna {
     '/usr/local/bin/adb',
   ];
 
+  /// Donde deja el SDK de Android su `emulator`: el que Nexus lanza a mano
+  /// para que arranque sin ventana (ver `ComandoDeEmuladores
+  /// .argumentosSinVentana`), cosa que `flutter emulators --launch` no deja
+  /// pedir.
+  ///
+  /// Primero lo que digan `ANDROID_HOME` y `ANDROID_SDK_ROOT` —quien los puso
+  /// lo hizo a propósito—, luego los sitios de siempre, y al final [sdkDeAdb]:
+  /// la carpeta del SDK del `adb` que ya se encontró, si es uno del SDK.
+  static List<String> candidatosDelEmulador(
+    String home, {
+    Map<String, String> entorno = const {},
+    String? sdkDeAdb,
+  }) => [
+    for (final sdk in [
+      entorno['ANDROID_HOME'],
+      entorno['ANDROID_SDK_ROOT'],
+      if (home.isNotEmpty) ...[
+        '$home/Library/Android/sdk',
+        '$home/Android/Sdk',
+      ],
+      sdkDeAdb,
+    ])
+      if (sdk != null && sdk.isNotEmpty) '$sdk/emulator/emulator',
+  ];
+
+  /// La carpeta del SDK de un `adb` del SDK —`…/sdk/platform-tools/adb`—, o
+  /// `null` si es otro, como el de Homebrew.
+  static String? sdkDelAdb(String adb) {
+    const cola = '/platform-tools/adb';
+    return adb.endsWith(cola)
+        ? adb.substring(0, adb.length - cola.length)
+        : null;
+  }
+
   /// Donde deja Maestro su binario.
   ///
   /// Su instalador lo pone en `~/.maestro/bin` y añade ese directorio **editando

@@ -10,12 +10,19 @@ class ElEmuladorPorGrpc {
     required this.serial,
     required this.puerto,
     required this.token,
+    this.sinVentana = false,
   });
 
   /// El de `adb` y de las corridas: `emulator-5554`.
   final String serial;
   final int puerto;
   final String token;
+
+  /// Si se arrancó sin ventana (`-qt-hide-window` o `-no-window`), como los
+  /// que arranca el hub: entonces no hay otra ventana a la que mandar a nadie,
+  /// y el hub no ofrece «verlo en su ventana». Se lee de su `cmdline`, que el
+  /// emulador deja en el mismo archivo con cada argumento entre comillas.
+  final bool sinVentana;
 
   /// `null` si le falta algo.
   static ElEmuladorPorGrpc? leer(String ini) {
@@ -33,10 +40,13 @@ class ElEmuladorPorGrpc {
     if (consola == null || puerto == null || token == null || token.isEmpty) {
       return null;
     }
+    final linea = campos['cmdline'] ?? '';
     return ElEmuladorPorGrpc(
       serial: 'emulator-$consola',
       puerto: puerto,
       token: token,
+      sinVentana:
+          linea.contains('"-qt-hide-window"') || linea.contains('"-no-window"'),
     );
   }
 

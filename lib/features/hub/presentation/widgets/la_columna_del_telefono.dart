@@ -9,7 +9,8 @@ import 'package:nexus/features/hub/presentation/widgets/la_pantalla_del_emulador
 
 /// **Usar el teléfono desde el hub** (T7 y T8): la pantalla atiende el ratón,
 /// el trackpad y el teclado, y a su lado va la columna de botones —atrás,
-/// inicio, recientes; girar y sonido; encender; verla en su ventana—.
+/// inicio, recientes; girar y sonido; encender; verla en su ventana y apagar
+/// el emulador—.
 ///
 /// Todo va al emulador por la misma llamada abierta (`streamInputEvent`): al
 /// arrastrar son decenas de eventos por segundo.
@@ -19,6 +20,7 @@ class LaColumnaDelTelefono extends StatefulWidget {
     required this.conexion,
     required this.pantalla,
     this.onVerEnSuVentana,
+    this.onApagar,
     this.onGirar,
     this.sonido,
     this.onSonido,
@@ -26,7 +28,15 @@ class LaColumnaDelTelefono extends StatefulWidget {
 
   final LaConexionDeLaPantalla conexion;
   final Widget pantalla;
+
+  /// Verlo en su ventana. `null` si no la tiene —un emulador que arrancó el
+  /// hub, sin ventana—: entonces el botón no se pinta, porque solo podría
+  /// fallar.
   final VoidCallback? onVerEnSuVentana;
+
+  /// Apagar el emulador. `null` para lo que no es un emulador. Sin su ventana
+  /// no queda otra cruz con la que cerrarlo, y por eso va aquí (11 nov).
+  final VoidCallback? onApagar;
 
   /// Girar un cuarto (T8).
   final VoidCallback? onGirar;
@@ -214,11 +224,14 @@ class _LaColumnaDelTelefonoState extends State<LaColumnaDelTelefono> {
               strings.hubEncender,
               () => _boton('Power'),
             ),
-            boton(
-              Icons.open_in_new_rounded,
-              strings.hubVerEnSuVentana,
-              widget.onVerEnSuVentana,
-            ),
+            if (widget.onVerEnSuVentana case final ver?)
+              boton(Icons.open_in_new_rounded, strings.hubVerEnSuVentana, ver),
+            if (widget.onApagar case final apagar?)
+              boton(
+                Icons.power_off_rounded,
+                strings.hubApagarElEmulador,
+                apagar,
+              ),
           ],
         ),
       ],

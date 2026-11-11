@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:nexus/core/design_system/la_apariencia_de_fuera.dart';
 import 'package:nexus/features/hub/domain/entities/dispositivo_del_hub.dart';
 import 'package:nexus/features/hub/domain/usecases/correr_desde_el_hub.dart';
+import 'package:nexus/features/hub/presentation/state/lo_de_pruebas.dart';
 import 'package:nexus/features/run/presentation/state/lo_que_ensena_la_botonera.dart';
 
 /// **Todo lo que pinta la ventana del hub**, en una foto.
@@ -22,6 +23,8 @@ class LoQueEnsenaElHub {
     required this.registro,
     this.correr = const LoDeCorrer(),
     this.verFuera = const [],
+    this.pruebas = const LoDePruebas(),
+    this.enPruebas = false,
     this.aviso,
   });
 
@@ -52,6 +55,12 @@ class LoQueEnsenaElHub {
   /// panel de dispositivos.
   final List<ComoVerFuera> verFuera;
 
+  /// La cara de pruebas (T15). Ver [LoDePruebas].
+  final LoDePruebas pruebas;
+
+  /// Si se ve la cara de pruebas en vez de la pantalla.
+  final bool enPruebas;
+
   /// Lo que salió mal en lo último que se pidió —arrancar, cerrar—, tal como lo
   /// contó la herramienta. Se borra con el siguiente pedido.
   final String? aviso;
@@ -72,6 +81,8 @@ class LoQueEnsenaElHub {
     'registro': registro,
     'correr': correr.toMap(),
     'verFuera': [for (final c in verFuera) c.name],
+    'pruebas': pruebas.toMap(),
+    'enPruebas': enPruebas,
     'aviso': ?aviso,
   };
 
@@ -94,6 +105,8 @@ class LoQueEnsenaElHub {
           for (final c in _lista(mapa['verFuera']))
             ?ComoVerFuera.values.asNameMap()[c],
         ],
+        pruebas: LoDePruebas.fromMap(_mapa(mapa['pruebas'])),
+        enPruebas: mapa['enPruebas'] == true,
         aviso: mapa['aviso'] as String?,
       );
 

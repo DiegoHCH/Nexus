@@ -39,6 +39,11 @@ class VentanaDelHubQueApunta implements LaVentanaDelHub {
 
   final traidas = <({List<String> apps, List<String> ejecutables})>[];
 
+  var principalAlFrente = 0;
+
+  @override
+  Future<void> traerLaPrincipal() async => principalAlFrente++;
+
   @override
   Future<bool> traerAlFrente({
     List<String> apps = const [],

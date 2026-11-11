@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
 import 'package:nexus/features/hub/presentation/providers/el_hub_de_dispositivos.dart';
 import 'package:nexus/hub_de_dispositivos.dart';
+import 'package:nexus/core/platform/el_navegador_de_la_app.dart';
 import 'package:nexus/core/design_system/orbe_preference.dart';
 import 'package:nexus/core/design_system/appearance_channel.dart';
 import 'package:nexus/core/diagnostico/lo_que_cuenta_el_lado_nativo.dart';
@@ -177,7 +178,8 @@ class MainApp extends ConsumerStatefulWidget {
 class _MainAppState extends ConsumerState<MainApp> {
   /// Los ajustes se abren desde el menú de macOS, que no tiene un `context` a
   /// mano. Esta llave es ese `context`.
-  final _navigatorKey = GlobalKey<NavigatorState>();
+  // El de la ventana principal, compartido: ver [navegadorDeLaApp].
+  final _navigatorKey = navegadorDeLaApp;
 
   @override
   void initState() {

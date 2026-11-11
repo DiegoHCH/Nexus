@@ -1,8 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexus/core/i18n/language_preference.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
+import 'package:nexus/features/e2e/data/datasources/repo_de_pruebas_data_source.dart';
+import 'package:nexus/features/e2e/domain/entities/pasada_de_prueba.dart';
+import 'package:nexus/features/e2e/presentation/providers/e2e_providers.dart';
+import 'package:nexus/features/e2e/presentation/providers/repo_de_pruebas_providers.dart';
 import 'package:nexus/features/emulators/data/datasources/emuladores_data_source.dart';
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
 import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
@@ -117,12 +123,34 @@ class _Corridas extends CorridasController {
   }
 }
 
+/// Apunta los lanzamientos en vez de lanzar, como en el panel de pruebas.
+class _Lanzamientos extends PruebaEnMarchaController {
+  final lanzados = <String>[];
+
+  @override
+  PruebaEnMarcha? build() => null;
+
+  @override
+  Future<String?> lanzar({
+    required Prueba prueba,
+    required String proyecto,
+    required String deviceId,
+    required String perfil,
+    Map<String, String>? credenciales,
+  }) async {
+    lanzados.add('${prueba.nombre}@$deviceId con $perfil en $proyecto');
+    return null;
+  }
+}
+
 void main() {
   // La apariencia mira el brillo del sistema, que vive en el binding.
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   late _Corridas lasCorridas;
+  late _Lanzamientos lasPruebas;
+  var losFlows = <Prueba>[];
 
   ({ProviderContainer c, VentanaDelHubQueApunta ventana, _Maquina maquina})
   montar({
@@ -151,6 +179,42 @@ void main() {
             ConfigDeArranque(nombre: 'prod'),
           ],
         ),
+        // Lo de pruebas, de mentira: no se mira hasta pasar a esa cara.
+        pruebasProvider.overrideWith((ref, app) async => losFlows),
+        pasadasDePruebaProvider.overrideWith(
+          (ref) async => [
+            PasadaDePrueba(
+              carpeta: '/r/1',
+              flow: 'entrar',
+              cuando: DateTime.now().subtract(const Duration(hours: 1)),
+              comoAcabo: ComoAcabo.bien,
+              proyecto: '/p/tienda',
+              dispositivo: 'emulator-5554',
+              perfil: 'local',
+            ),
+            PasadaDePrueba(
+              carpeta: '/r/0',
+              flow: 'pagar',
+              cuando: DateTime.now().subtract(const Duration(days: 2)),
+              comoAcabo: ComoAcabo.mal,
+              proyecto: '/p/tienda',
+            ),
+            PasadaDePrueba(
+              carpeta: '/r/x',
+              flow: 'otra',
+              cuando: DateTime.now(),
+              comoAcabo: ComoAcabo.bien,
+              proyecto: '/p/banco',
+            ),
+          ],
+        ),
+        clonDelRepoProvider.overrideWith(
+          (ref) async => const ResultadoDeSync(ComoFueLaSync.fallo),
+        ),
+        credencialesProvider.overrideWith(
+          (ref, app) async => (claves: <String>{}, enGit: null),
+        ),
+        pruebaEnMarchaProvider.overrideWith(() => lasPruebas = _Lanzamientos()),
       ],
     );
     addTearDown(c.dispose);
@@ -340,6 +404,13 @@ void main() {
       const CerrarDispositivo('c'),
       const RefrescarLaLista(),
       const DeLaBotonera({'que': 'accion', 'deviceId': 'x'}),
+      const VerPruebas(true),
+      const CorrerPrueba('/p/a.yaml', delRepo: true),
+      const PararPrueba(),
+      const VerPruebaEnVivo(),
+      const RepetirPasada('/r/1'),
+      const VerPasada('/r/1'),
+      const AbrirElPanelDePruebas(),
     ]) {
       expect(PedidoDelHub.fromMap(p.toMap()), p);
     }
@@ -459,6 +530,126 @@ void main() {
       final (:c, ventana: _, maquina: _) = montar();
       await listas(c);
       expect(c.read(laFotoDelHubProvider).verFuera, isEmpty);
+    });
+  });
+
+  group('la cara de pruebas (T15)', () {
+    setUp(
+      () => losFlows = const [
+        Prueba(ruta: '/p/tienda/.maestro/entrar.yaml', nombre: 'entrar'),
+        Prueba(ruta: '/p/tienda/.maestro/pagar.yaml', nombre: 'pagar'),
+        Prueba(ruta: '/p/tienda/.maestro/perfil.yaml', nombre: 'perfil'),
+      ],
+    );
+
+    Future<void> enPruebas(ProviderContainer c) async {
+      await c
+          .read(elHubDeDispositivosProvider.notifier)
+          .atender(const VerPruebas(true).toMap());
+      await c.read(pruebasProvider('/p/tienda').future);
+      await c.read(pasadasDePruebaProvider.future);
+      await c.read(clonDelRepoProvider.future);
+    }
+
+    test('mientras se ve la pantalla, no se mira nada de pruebas', () async {
+      final (:c, ventana: _, maquina: _) = montar();
+      await listas(c);
+      final foto = c.read(laFotoDelHubProvider);
+      expect(foto.enPruebas, isFalse);
+      expect(foto.pruebas.flows, isEmpty);
+      expect(foto.pruebas.repoComo, isNull);
+    });
+
+    test('los flows de la app, con cómo acabó su última pasada, y el '
+        'historial con sus cifras de la semana', () async {
+      final (:c, ventana: _, maquina: _) = montar();
+      await listas(c);
+      await enPruebas(c);
+      final foto = LoQueEnsenaElHub.fromMap(
+        c.read(laFotoDelHubProvider).toMap(),
+      );
+      expect(foto.enPruebas, isTrue);
+      expect(
+        [for (final f in foto.pruebas.flows) (f.nombre, f.bien)],
+        [('entrar', true), ('pagar', false), ('perfil', null)],
+      );
+      // La de otra app no entra.
+      expect(foto.pruebas.historial.map((p) => p.flow), ['entrar', 'pagar']);
+      expect(foto.pruebas.semana, (bien: 1, mal: 1, todas: 2));
+      expect(foto.pruebas.repoComo, 'fallo');
+    });
+
+    test('▶ corre el flow en el elegido, con el perfil local', () async {
+      final (:c, ventana: _, maquina: _) = montar();
+      await listas(c);
+      await enPruebas(c);
+      await c
+          .read(elHubDeDispositivosProvider.notifier)
+          .atender(
+            const CorrerPrueba('/p/tienda/.maestro/entrar.yaml').toMap(),
+          );
+      expect(lasPruebas.lanzados, [
+        'entrar@emulator-5554 con local en /p/tienda',
+      ]);
+      expect(c.read(laFotoDelHubProvider).pruebas.aviso, isNull);
+    });
+
+    test('con el elegido apagado no corre, y dice por qué', () async {
+      final (:c, ventana: _, maquina: _) = montar();
+      await listas(c);
+      await enPruebas(c);
+      final hub = c.read(elHubDeDispositivosProvider.notifier);
+      await hub.atender(const ElegirDispositivo('Small_Phone').toMap());
+      await hub.atender(
+        const CorrerPrueba('/p/tienda/.maestro/entrar.yaml').toMap(),
+      );
+      expect(lasPruebas.lanzados, isEmpty);
+      expect(
+        c.read(laFotoDelHubProvider).pruebas.aviso,
+        c.read(stringsProvider).e2eNoDevice,
+      );
+    });
+
+    test('si al flow le faltan variables, lo dice antes de correr', () async {
+      final carpeta = Directory.systemTemp.createTempSync('hub-pruebas');
+      addTearDown(() => carpeta.deleteSync(recursive: true));
+      final flow = File('${carpeta.path}/entrar.yaml')
+        ..writeAsStringSync('---\n- inputText: \${EMAIL}\n');
+      losFlows = [Prueba(ruta: flow.path, nombre: 'entrar')];
+      final (:c, ventana: _, maquina: _) = montar();
+      await listas(c);
+      await enPruebas(c);
+      await c
+          .read(elHubDeDispositivosProvider.notifier)
+          .atender(CorrerPrueba(flow.path).toMap());
+      expect(lasPruebas.lanzados, isEmpty);
+      expect(c.read(laFotoDelHubProvider).pruebas.aviso, contains('EMAIL'));
+    });
+
+    test(
+      'repetir una pasada va al dispositivo donde corrió, con su perfil',
+      () async {
+        final (:c, ventana: _, maquina: _) = montar();
+        await listas(c);
+        await enPruebas(c);
+        final hub = c.read(elHubDeDispositivosProvider.notifier);
+        await hub.atender(const ElegirDispositivo('Small_Phone').toMap());
+        await hub.atender(const RepetirPasada('/r/1').toMap());
+        expect(lasPruebas.lanzados, [
+          'entrar@emulator-5554 con local en /p/tienda',
+        ]);
+      },
+    );
+
+    test('volver a la pantalla deja de mirar las pruebas', () async {
+      final (:c, ventana: _, maquina: _) = montar();
+      await listas(c);
+      await enPruebas(c);
+      await c
+          .read(elHubDeDispositivosProvider.notifier)
+          .atender(const VerPruebas(false).toMap());
+      expect(c.read(laFotoDelHubProvider).enPruebas, isFalse);
+      expect(c.read(laFotoDelHubProvider).pruebas.flows, isEmpty);
     });
   });
 }

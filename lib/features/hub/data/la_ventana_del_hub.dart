@@ -22,6 +22,9 @@ abstract interface class LaVentanaDelHub {
   /// La cerró quien mira: con su botón, con ⌘W.
   void alCerrarse(void Function() hacer);
 
+  /// Trae al frente la ventana principal de Nexus.
+  Future<void> traerLaPrincipal();
+
   /// Trae al frente la app de otra ventana: la de [apps] (identificadores de
   /// paquete) o la del ejecutable que empiece por alguno de [ejecutables].
   /// `false` si no estaba abierta.
@@ -78,6 +81,9 @@ class LaVentanaNativaDelHub implements LaVentanaDelHub {
 
   @override
   void alCerrarse(void Function() hacer) => _alCerrarse = hacer;
+
+  @override
+  Future<void> traerLaPrincipal() => _decir('traerLaPrincipal', null);
 
   @override
   Future<bool> traerAlFrente({

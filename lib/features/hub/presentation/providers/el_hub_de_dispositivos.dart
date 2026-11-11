@@ -6,12 +6,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/core/design_system/la_apariencia_de_fuera.dart';
 import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/features/emulators/domain/entities/emulador.dart';
+import 'package:nexus/core/design_system/accent_preference.dart';
+import 'package:nexus/core/design_system/la_hoja_viva_de_las_paginas.dart';
+import 'package:nexus/core/design_system/theme_preference.dart';
+import 'package:nexus/core/i18n/language_preference.dart';
+import 'package:nexus/core/platform/el_navegador_de_la_app.dart';
+import 'package:nexus/features/e2e/domain/entities/pasada_de_prueba.dart';
+import 'package:nexus/features/e2e/domain/usecases/las_variables_del_proyecto.dart';
+import 'package:nexus/features/e2e/domain/usecases/pasos_de_una_prueba.dart';
+import 'package:nexus/features/e2e/domain/usecases/por_que_se_cayo.dart';
+import 'package:nexus/features/e2e/presentation/providers/e2e_providers.dart';
+import 'package:nexus/features/e2e/presentation/providers/repo_de_pruebas_providers.dart';
+import 'package:nexus/features/e2e/presentation/widgets/pruebas_sheet.dart';
 import 'package:nexus/features/emulators/domain/usecases/el_espejo_del_iphone.dart';
 import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
 import 'package:nexus/features/hub/data/la_ventana_del_hub.dart';
 import 'package:nexus/features/hub/domain/entities/dispositivo_del_hub.dart';
 import 'package:nexus/features/hub/domain/usecases/correr_desde_el_hub.dart';
 import 'package:nexus/features/hub/domain/usecases/los_dispositivos_del_hub.dart';
+import 'package:nexus/features/hub/presentation/state/lo_de_pruebas.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_ensena_el_hub.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_pide_el_hub.dart';
 import 'package:nexus/features/run/domain/entities/config_de_arranque.dart';
@@ -211,6 +224,136 @@ final loDeCorrerProvider = Provider<LoDeCorrer>((ref) {
   );
 });
 
+/// Si el hub enseña la cara de pruebas. Mientras no, no se mira nada de
+/// pruebas: los flows del repositorio compartido piden clonarlo o
+/// sincronizarlo, y eso no tiene por qué pasar al abrir el hub.
+class ElHubEnPruebas extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void pon(bool si) => state = si;
+}
+
+final elHubEnPruebasProvider = NotifierProvider<ElHubEnPruebas, bool>(
+  ElHubEnPruebas.new,
+);
+
+/// Lo que falta para correr una prueba, o lo que dijo al no arrancar.
+class ElAvisoDePruebas extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void pon(String? aviso) => state = aviso;
+}
+
+final elAvisoDePruebasProvider = NotifierProvider<ElAvisoDePruebas, String?>(
+  ElAvisoDePruebas.new,
+);
+
+/// **La cara de pruebas** (T15): los flows de la app, la que corre, el
+/// historial y el repositorio de pruebas, como el panel de pruebas.
+final loDePruebasProvider = Provider<LoDePruebas>((ref) {
+  if (!ref.watch(elHubEnPruebasProvider)) return const LoDePruebas();
+  final app = ref.watch(loDeCorrerProvider).app;
+  final clon = ref.watch(clonDelRepoProvider).value?.clon;
+  final pasadas = ref.watch(pasadasDePruebaProvider).value ?? const [];
+  // Las de la app y las del repositorio de pruebas, que se atribuyen al clon:
+  // si no, lo que se corre desde su columna no aparecería en el historial.
+  final deLaApp = [
+    for (final p in pasadas)
+      if (app == null ||
+          p.proyecto == null ||
+          p.proyecto == app ||
+          (clon != null && p.proyecto == clon))
+        p,
+  ]..sort((a, b) => b.cuando.compareTo(a.cuando));
+  bool? comoAcabo(PasadaDePrueba p) => switch (p.comoAcabo) {
+    ComoAcabo.bien => true,
+    ComoAcabo.mal => false,
+    _ => null,
+  };
+  final ultima = <String, PasadaDePrueba>{};
+  for (final p in deLaApp) {
+    if (p.proyecto != clon || clon == null) ultima.putIfAbsent(p.flow, () => p);
+  }
+  final enMarcha = ref.watch(pruebaEnMarchaProvider);
+  // Las piezas —lo que otros flows incluyen— no se lanzan sueltas: fuera.
+  final piezas = clon == null
+      ? const <String>{}
+      : ref.watch(piezasDelRepoProvider).value ?? const <String>{};
+  final rutasDelRepo = [
+    if (clon != null)
+      for (final r in ref.watch(flowsDelRepoProvider).value ?? const <String>[])
+        if (!piezas.contains(r)) r,
+  ];
+  // Con las cuentas de la app: los flows del repositorio son sus pruebas.
+  FlowDelRepo flowDelRepo(String ruta) {
+    if (app == null) return FlowDelRepo(ruta: ruta);
+    final leToca = ref
+        .watch(cuentaDelFlowProvider((proyecto: app, ruta: ruta)))
+        .value;
+    return FlowDelRepo(
+      ruta: ruta,
+      cuenta: leToca?.cuenta?.clave,
+      porQueNo: leToca?.porQueNo,
+    );
+  }
+
+  final haceUnaSemana = DateTime.now().subtract(const Duration(days: 7));
+  final deLaSemana = [
+    for (final p in deLaApp)
+      if (p.cuando.isAfter(haceUnaSemana)) comoAcabo(p),
+  ];
+  return LoDePruebas(
+    flows: [
+      for (final f
+          in app == null
+              ? const <Prueba>[]
+              : ref.watch(pruebasProvider(app)).value ?? const <Prueba>[])
+        FlowDelHub(
+          ruta: f.ruta,
+          nombre: f.nombre,
+          bien: switch (ultima[f.nombre]) {
+            final p? => comoAcabo(p),
+            null => null,
+          },
+        ),
+    ],
+    enMarcha: enMarcha == null
+        ? null
+        : (
+            flow: enMarcha.flow,
+            hechos: enMarcha.terminados,
+            total: enMarcha.pasos.length,
+            viva: enMarcha.viva,
+            fallo: enMarcha.fallo,
+          ),
+    historial: [
+      for (final p in deLaApp.take(12))
+        PasadaDelHub(
+          carpeta: p.carpeta,
+          flow: p.flow,
+          cuando: p.cuando,
+          bien: comoAcabo(p),
+          pasos: p.pasos,
+          pasosBien: p.pasosBien,
+        ),
+    ],
+    repoComo: switch (ref.watch(clonDelRepoProvider)) {
+      AsyncData(:final value) => value.como.name,
+      AsyncError() => 'fallo',
+      _ => 'cargando',
+    },
+    repo: [for (final ruta in rutasDelRepo) flowDelRepo(ruta)],
+    semana: (
+      bien: deLaSemana.where((b) => b == true).length,
+      mal: deLaSemana.where((b) => b == false).length,
+      todas: deLaSemana.length,
+    ),
+    aviso: ref.watch(elAvisoDePruebasProvider),
+  );
+});
+
 /// **La foto entera del hub.** Ver `LoQueEnsenaElHub`.
 final laFotoDelHubProvider = Provider<LoQueEnsenaElHub>((ref) {
   final (:lista, :buscando) = ref.watch(losDispositivosDelHubProvider);
@@ -239,6 +382,8 @@ final laFotoDelHubProvider = Provider<LoQueEnsenaElHub>((ref) {
         ? const []
         : ref.watch(registrosProvider)[deviceId] ?? const [],
     correr: ref.watch(loDeCorrerProvider),
+    pruebas: ref.watch(loDePruebasProvider),
+    enPruebas: ref.watch(elHubEnPruebasProvider),
     verFuera: elegido == null || !elegido.encendido
         ? const []
         : [
@@ -396,6 +541,28 @@ class ElHubDeDispositivos extends Notifier<bool> {
         await _duplicar();
       case QuitarLaCopia():
         await _quitarLaCopia();
+      case VerPruebas(:final si):
+        ref.read(elHubEnPruebasProvider.notifier).pon(si);
+        if (si) ref.invalidate(pasadasDePruebaProvider);
+      case CorrerPrueba(:final ruta, :final delRepo):
+        await _correrPrueba(ruta, delRepo: delRepo);
+      case PararPrueba():
+        ref.read(pruebaEnMarchaProvider.notifier).parar();
+      case VerPruebaEnVivo():
+        await ref.read(pruebaEnMarchaProvider.notifier).traeLaVentana();
+      case RepetirPasada(:final carpeta):
+        await _repetir(carpeta);
+      case VerPasada(:final carpeta):
+        await _verPasada(carpeta);
+      case AbrirElPanelDePruebas():
+        final contexto = navegadorDeLaApp.currentContext;
+        if (contexto == null) return;
+        await _ventana.traerLaPrincipal();
+        if (!contexto.mounted) return;
+        await PruebasSheet.open(
+          contexto,
+          proyecto: ref.read(loDeCorrerProvider).app,
+        );
       case TraerAlFrente(:final id):
         final d = _dispositivo(id);
         if (d == null) return;
@@ -555,6 +722,157 @@ class ElHubDeDispositivos extends Notifier<bool> {
     ref.invalidate(configsProvider(app));
     ref.read(laConfigDelHubProvider.notifier).olvida(app);
     ref.read(configsPorDefectoProvider.notifier).olvidar(app);
+  }
+
+  /// El deviceId del elegido, si está encendido: es donde corren las pruebas.
+  String? _dondeCorrerPruebas() {
+    final d = ref.read(elElegidoEnLaListaProvider);
+    return d != null && d.encendido ? d.deviceId : null;
+  }
+
+  /// Lo mismo que comprueba el panel de pruebas antes de correr: dispositivo,
+  /// variables del flow y app instalada. `null` si se puede.
+  Future<String?> _loQueFalta(
+    Prueba prueba, {
+    required String proyecto,
+    required String? donde,
+  }) async {
+    final strings = ref.read(stringsProvider);
+    if (donde == null) return strings.e2eNoDevice;
+    final yaml = await File(prueba.ruta).readAsString().catchError((_) => '');
+    final credenciales = await ref.read(credencialesProvider(proyecto).future);
+    final faltan = LasVariablesDelProyecto.faltan(
+      yaml: yaml,
+      tiene: credenciales.claves,
+    );
+    if (faltan.isNotEmpty) return strings.e2eMissingVars(faltan.join(', '));
+    if (PasosDeUnaPrueba.appIdDe(yaml) case final appId?) {
+      final instalada = await ref
+          .read(e2eDataSourceProvider)
+          .estaInstalada(deviceId: donde, appId: appId);
+      if (instalada == false) return strings.e2eNotInstalled;
+    }
+    return null;
+  }
+
+  Future<void> _correrPrueba(String ruta, {required bool delRepo}) async {
+    final aviso = ref.read(elAvisoDePruebasProvider.notifier)..pon(null);
+    final app = ref.read(loDeCorrerProvider).app;
+    final donde = _dondeCorrerPruebas();
+    if (app == null) return;
+    if (delRepo) {
+      final clon = ref.read(clonDelRepoProvider).value?.clon;
+      final leToca = await ref.read(
+        cuentaDelFlowProvider((proyecto: app, ruta: ruta)).future,
+      );
+      if (!ref.mounted || clon == null) return;
+      final cuenta = leToca.cuenta;
+      if (donde == null) {
+        aviso.pon(ref.read(stringsProvider).e2eNoDevice);
+        return;
+      }
+      if (!leToca.sePuede || cuenta == null) {
+        aviso.pon(leToca.porQueNo);
+        return;
+      }
+      final error = await ref
+          .read(pruebaEnMarchaProvider.notifier)
+          .lanzar(
+            prueba: Prueba(
+              ruta: '$clon/$ruta',
+              nombre: ruta.split('/').last.replaceAll(RegExp(r'\.ya?ml$'), ''),
+            ),
+            proyecto: clon,
+            deviceId: donde,
+            perfil: cuenta.clave,
+            credenciales: cuenta.variables,
+          );
+      if (ref.mounted) aviso.pon(error);
+      return;
+    }
+    Prueba? prueba;
+    for (final p in ref.read(pruebasProvider(app)).value ?? const <Prueba>[]) {
+      if (p.ruta == ruta) prueba = p;
+    }
+    if (prueba == null) return;
+    final falta = await _loQueFalta(prueba, proyecto: app, donde: donde);
+    if (!ref.mounted) return;
+    if (falta != null) {
+      aviso.pon(falta);
+      return;
+    }
+    final error = await ref
+        .read(pruebaEnMarchaProvider.notifier)
+        .lanzar(
+          prueba: prueba,
+          proyecto: app,
+          deviceId: donde!,
+          perfil: 'local',
+        );
+    if (ref.mounted) aviso.pon(error);
+  }
+
+  /// «Repetir», como en el historial del panel: en el mismo dispositivo si
+  /// sigue, si no en el elegido; con el mismo perfil.
+  Future<void> _repetir(String carpeta) async {
+    final aviso = ref.read(elAvisoDePruebasProvider.notifier)..pon(null);
+    final pasadas = ref.read(pasadasDePruebaProvider).value ?? const [];
+    PasadaDePrueba? pasada;
+    for (final p in pasadas) {
+      if (p.carpeta == carpeta) pasada = p;
+    }
+    final app = pasada?.proyecto ?? ref.read(loDeCorrerProvider).app;
+    if (pasada == null || app == null) return;
+    Prueba? prueba;
+    for (final p in ref.read(pruebasProvider(app)).value ?? const <Prueba>[]) {
+      if (p.nombre == pasada.flow) prueba = p;
+    }
+    if (prueba == null) {
+      aviso.pon(ref.read(stringsProvider).e2eFlowGone);
+      return;
+    }
+    final encendidos = {
+      for (final d in ref.read(losDispositivosDelHubProvider).lista)
+        if (d.encendido) d.deviceId,
+    };
+    final donde = encendidos.contains(pasada.dispositivo)
+        ? pasada.dispositivo
+        : _dondeCorrerPruebas();
+    final falta = await _loQueFalta(prueba, proyecto: app, donde: donde);
+    if (!ref.mounted) return;
+    if (falta != null) {
+      aviso.pon(falta);
+      return;
+    }
+    final error = await ref
+        .read(pruebaEnMarchaProvider.notifier)
+        .lanzar(
+          prueba: prueba,
+          proyecto: app,
+          deviceId: donde!,
+          perfil: pasada.perfil ?? 'local',
+        );
+    if (ref.mounted) aviso.pon(error);
+  }
+
+  /// «Ver»: el informe de la pasada en su ventana, como en el panel.
+  Future<void> _verPasada(String carpeta) async {
+    final strings = ref.read(stringsProvider);
+    await ref
+        .read(e2eDataSourceProvider)
+        .abreElInforme(
+          carpeta,
+          textos: textosDeLaPasada(strings),
+          hoja: await laHojaCon(
+            acento: ref.read(accentControllerProvider),
+            eleccion: ref.read(themeControllerProvider),
+          ),
+          explica: (por) => switch (por) {
+            PorQueSeCayo.driverNoSeInstala => strings.e2eDriverBlocked,
+            PorQueSeCayo.sinPermisoParaTocar => strings.e2eNoTapPermission,
+            PorQueSeCayo.appNoInstalada => strings.e2eAppMissing,
+          },
+        );
   }
 
   DispositivoDelHub? _dispositivo(String id) {

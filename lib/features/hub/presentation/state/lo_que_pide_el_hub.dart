@@ -29,6 +29,16 @@ sealed class PedidoDelHub {
         ('duplicar', _) => const DuplicarConConsola(),
         ('quitarCopia', _) => const QuitarLaCopia(),
         ('traer', final String id) => TraerAlFrente(id),
+        ('correrPrueba', final String ruta) => CorrerPrueba(
+          ruta,
+          delRepo: mapa['delRepo'] == true,
+        ),
+        ('pararPrueba', _) => const PararPrueba(),
+        ('verPruebaEnVivo', _) => const VerPruebaEnVivo(),
+        ('repetirPasada', final String carpeta) => RepetirPasada(carpeta),
+        ('verPasada', final String carpeta) => VerPasada(carpeta),
+        ('panelDePruebas', _) => const AbrirElPanelDePruebas(),
+        ('verPruebas', _) => VerPruebas(mapa['si'] == true),
         ('verFuera', final String id) => switch (ComoVerFuera.values
             .asNameMap()[mapa['como']]) {
           final como? => VerFuera(id, como),
@@ -226,4 +236,113 @@ class VerFuera extends PedidoDelHub {
 
   @override
   int get hashCode => Object.hash(id, como);
+}
+
+/// Correr un flow en el dispositivo elegido: de `.maestro` de la app, o del
+/// repositorio de pruebas ([delRepo]) con su cuenta.
+class CorrerPrueba extends PedidoDelHub {
+  const CorrerPrueba(this.ruta, {this.delRepo = false});
+  final String ruta;
+  final bool delRepo;
+
+  @override
+  Map<String, Object?> toMap() => {
+    'que': 'correrPrueba',
+    'id': ruta,
+    'delRepo': delRepo,
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      other is CorrerPrueba && other.ruta == ruta && other.delRepo == delRepo;
+
+  @override
+  int get hashCode => Object.hash(ruta, delRepo);
+}
+
+class PararPrueba extends PedidoDelHub {
+  const PararPrueba();
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'pararPrueba'};
+
+  @override
+  bool operator ==(Object other) => other is PararPrueba;
+
+  @override
+  int get hashCode => 11;
+}
+
+/// La ventana en vivo de la prueba que corre, como el «Ver» del panel.
+class VerPruebaEnVivo extends PedidoDelHub {
+  const VerPruebaEnVivo();
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'verPruebaEnVivo'};
+
+  @override
+  bool operator ==(Object other) => other is VerPruebaEnVivo;
+
+  @override
+  int get hashCode => 12;
+}
+
+class RepetirPasada extends PedidoDelHub {
+  const RepetirPasada(this.carpeta);
+  final String carpeta;
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'repetirPasada', 'id': carpeta};
+
+  @override
+  bool operator ==(Object other) =>
+      other is RepetirPasada && other.carpeta == carpeta;
+
+  @override
+  int get hashCode => Object.hash('repetir', carpeta);
+}
+
+class VerPasada extends PedidoDelHub {
+  const VerPasada(this.carpeta);
+  final String carpeta;
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'verPasada', 'id': carpeta};
+
+  @override
+  bool operator ==(Object other) =>
+      other is VerPasada && other.carpeta == carpeta;
+
+  @override
+  int get hashCode => Object.hash('ver', carpeta);
+}
+
+/// El panel completo de pruebas, en la ventana de Nexus: publicar, borrar,
+/// cuentas, variables, sincronizar el repositorio.
+class AbrirElPanelDePruebas extends PedidoDelHub {
+  const AbrirElPanelDePruebas();
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'panelDePruebas'};
+
+  @override
+  bool operator ==(Object other) => other is AbrirElPanelDePruebas;
+
+  @override
+  int get hashCode => 13;
+}
+
+/// Pasar a la cara de pruebas ([si]) o volver a la pantalla.
+class VerPruebas extends PedidoDelHub {
+  const VerPruebas(this.si);
+  final bool si;
+
+  @override
+  Map<String, Object?> toMap() => {'que': 'verPruebas', 'si': si};
+
+  @override
+  bool operator ==(Object other) => other is VerPruebas && other.si == si;
+
+  @override
+  int get hashCode => Object.hash('verPruebas', si);
 }

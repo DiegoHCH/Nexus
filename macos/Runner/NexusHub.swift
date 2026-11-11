@@ -68,6 +68,13 @@ final class NexusHub: NSObject, NSWindowDelegate {
         result(nil)
       case "traerAlFrente":
         result(traerAlFrente(datos))
+      // La ventana principal, para lo que se abre en ella desde el hub —el
+      // panel completo de pruebas—. Como «Abrir Nexus» de la barra de estado.
+      case "traerLaPrincipal":
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.windows.first { $0.canBecomeMain && $0 !== compartido.ventana }?
+          .makeKeyAndOrderFront(nil)
+        result(nil)
       default:
         result(FlutterMethodNotImplemented)
       }

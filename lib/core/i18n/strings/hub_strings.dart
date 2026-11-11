@@ -68,6 +68,15 @@ mixin HubStrings {
   String get hubEncender;
   String get hubVerEnSuVentana;
   String get hubMostrar;
+  String get hubLanzadera;
+  String get hubPruebasSinApp;
+  String get hubPasaron;
+  String get hubCayeron;
+  String get hubEnSieteDias;
+  String get hubVerEnVivo;
+  String get hubPanelDePruebas;
+  String get hubPanelDePruebasDetalle;
+  String hubCuenta(String clave);
 }
 
 mixin HubStringsEs implements HubStrings {
@@ -207,6 +216,25 @@ mixin HubStringsEs implements HubStrings {
   String get hubVerEnSuVentana => 'Ver en su ventana';
   @override
   String get hubMostrar => 'Mostrar Dispositivos';
+  @override
+  String get hubLanzadera => 'Lanzadera';
+  @override
+  String get hubPruebasSinApp => 'Elige una app arriba para ver sus pruebas.';
+  @override
+  String get hubPasaron => 'pasaron';
+  @override
+  String get hubCayeron => 'cayeron';
+  @override
+  String get hubEnSieteDias => 'en 7 días';
+  @override
+  String get hubVerEnVivo => 'Ver en vivo';
+  @override
+  String get hubPanelDePruebas => 'Abrir el panel de pruebas';
+  @override
+  String get hubPanelDePruebasDetalle =>
+      'publicar, borrar, cuentas y variables';
+  @override
+  String hubCuenta(String clave) => 'cuenta $clave';
 }
 
 mixin HubStringsEn implements HubStrings {
@@ -344,4 +372,23 @@ mixin HubStringsEn implements HubStrings {
   String get hubVerEnSuVentana => 'Show in its own window';
   @override
   String get hubMostrar => 'Show Devices';
+  @override
+  String get hubLanzadera => 'Launcher';
+  @override
+  String get hubPruebasSinApp => 'Pick an app above to see its tests.';
+  @override
+  String get hubPasaron => 'passed';
+  @override
+  String get hubCayeron => 'failed';
+  @override
+  String get hubEnSieteDias => 'in 7 days';
+  @override
+  String get hubVerEnVivo => 'Watch live';
+  @override
+  String get hubPanelDePruebas => 'Open the tests panel';
+  @override
+  String get hubPanelDePruebasDetalle =>
+      'publish, delete, accounts and variables';
+  @override
+  String hubCuenta(String clave) => 'account $clave';
 }

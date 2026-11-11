@@ -5,6 +5,7 @@ import 'package:nexus/core/i18n/nexus_strings.dart';
 import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/hub/domain/entities/dispositivo_del_hub.dart';
 import 'package:nexus/features/hub/domain/usecases/correr_desde_el_hub.dart';
+import 'package:nexus/features/hub/presentation/state/lo_de_pruebas.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_ensena_el_hub.dart';
 import 'package:nexus/features/hub/presentation/state/lo_que_pide_el_hub.dart';
 import 'package:nexus/features/hub/presentation/widgets/el_hub.dart';
@@ -59,6 +60,7 @@ void main() {
     List<String> registro = const ['Launching lib/main.dart…', 'Reloaded.'],
     String? aviso,
     LoDeCorrer correr = const LoDeCorrer(),
+    LoDePruebas? pruebas,
   }) => LoQueEnsenaElHub(
     apariencia: LaAparienciaDeFuera(
       claro: claro,
@@ -90,6 +92,8 @@ void main() {
     ),
     registro: conCorrida ? registro : const [],
     correr: correr,
+    pruebas: pruebas ?? const LoDePruebas(),
+    enPruebas: pruebas != null,
     aviso: aviso,
   );
 
@@ -376,6 +380,194 @@ void main() {
       expect(find.text('TRAER AL FRENTE'), findsNothing);
       await tester.tap(find.text('VER LA PANTALLA'));
       expect(pedidos, [const VerFuera('36c56d94', ComoVerFuera.scrcpy)]);
+    });
+  });
+
+  group('la cara de pruebas (T15)', () {
+    const tienda = AppDelHub(ruta: '/p/tienda', nombre: 'tienda');
+    const conApp = LoDeCorrer(apps: [tienda], app: '/p/tienda');
+    final ayer = DateTime.now().subtract(const Duration(days: 1));
+    LoDePruebas pruebas({
+      ({String flow, int hechos, int total, bool viva, bool fallo})? enMarcha,
+      String? aviso,
+    }) => LoDePruebas(
+      flows: const [
+        FlowDelHub(
+          ruta: '/p/tienda/.maestro/entrar.yaml',
+          nombre: 'entrar',
+          bien: true,
+        ),
+        FlowDelHub(
+          ruta: '/p/tienda/.maestro/pagar.yaml',
+          nombre: 'pagar',
+          bien: false,
+        ),
+        FlowDelHub(ruta: '/p/tienda/.maestro/perfil.yaml', nombre: 'perfil'),
+      ],
+      enMarcha: enMarcha,
+      historial: [
+        PasadaDelHub(
+          carpeta: '/r/1',
+          flow: 'pagar',
+          cuando: ayer,
+          bien: false,
+          pasos: 9,
+          pasosBien: 4,
+        ),
+      ],
+      repo: const [
+        FlowDelRepo(ruta: 'flows/pagos/pse.yaml', cuenta: 'qa2'),
+        FlowDelRepo(
+          ruta: 'flows/cuentas/abrir.yaml',
+          porQueNo: 'No hay ninguna cuenta de prueba configurada.',
+        ),
+      ],
+      repoComo: 'aldia',
+      semana: (bien: 3, mal: 1, todas: 4),
+      aviso: aviso,
+    );
+
+    testWidgets('el interruptor pasa a pruebas y vuelve', (tester) async {
+      final pedidos = await montar(tester, foto());
+      await tester.tap(find.byKey(const ValueKey('modo-pruebas')));
+      expect(pedidos, [const VerPruebas(true)]);
+      final otros = await montar(tester, foto(pruebas: pruebas()));
+      await tester.tap(find.byKey(const ValueKey('modo-pantalla')));
+      expect(otros, [const VerPruebas(false)]);
+    });
+
+    testWidgets(
+      'tres columnas y caben en la ventana mínima, en los dos temas',
+      (tester) async {
+        for (final claro in [false, true]) {
+          await montar(
+            tester,
+            foto(claro: claro, correr: conApp, pruebas: pruebas()),
+            tamano: const Size(920, 560),
+          );
+          expect(tester.takeException(), isNull);
+          expect(find.text('LANZADERA · 3 FLOWS'), findsOneWidget);
+          expect(find.text('REPO DE PRUEBAS · 2 FLOWS'), findsOneWidget);
+          expect(find.text('HISTORIAL · TIENDA'), findsOneWidget);
+          // Sin el registro de la corrida: esta cara no lo usa.
+          expect(find.text(strings.hubRegistro.toUpperCase()), findsNothing);
+        }
+      },
+    );
+
+    testWidgets('▶ corre un flow de la app y otro del repositorio', (
+      tester,
+    ) async {
+      final pedidos = await montar(
+        tester,
+        foto(correr: conApp, pruebas: pruebas()),
+      );
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('flow-/p/tienda/.maestro/perfil.yaml')),
+          matching: find.byIcon(Icons.play_arrow),
+        ),
+      );
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('repo-flows/pagos/pse.yaml')),
+          matching: find.byIcon(Icons.play_arrow),
+        ),
+      );
+      // Este no tiene cuenta: dice por qué y no se ofrece.
+      expect(
+        find.text('No hay ninguna cuenta de prueba configurada.'),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('repo-flows/cuentas/abrir.yaml')),
+          matching: find.byIcon(Icons.play_arrow),
+        ),
+      );
+      expect(pedidos, [
+        const CorrerPrueba('/p/tienda/.maestro/perfil.yaml'),
+        const CorrerPrueba('flows/pagos/pse.yaml', delRepo: true),
+      ]);
+    });
+
+    testWidgets('con el elegido apagado no se ofrece correr, y lo dice', (
+      tester,
+    ) async {
+      final pedidos = await montar(
+        tester,
+        foto(elegido: 'Small_Phone', correr: conApp, pruebas: pruebas()),
+      );
+      expect(find.text(strings.e2eNoDevice), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.play_arrow).first);
+      await tester.tap(find.byKey(const ValueKey('repetir-/r/1')));
+      expect(pedidos, isEmpty);
+    });
+
+    testWidgets('el historial: ver, repetir y sus cifras', (tester) async {
+      final pedidos = await montar(
+        tester,
+        foto(correr: conApp, pruebas: pruebas()),
+      );
+      expect(find.text('3'), findsOneWidget);
+      expect(find.text('4'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('ver-/r/1')));
+      await tester.tap(find.byKey(const ValueKey('repetir-/r/1')));
+      expect(pedidos, [const VerPasada('/r/1'), const RepetirPasada('/r/1')]);
+    });
+
+    testWidgets('la que corre: cómo va, verla en vivo y cortarla', (
+      tester,
+    ) async {
+      final pedidos = await montar(
+        tester,
+        foto(
+          correr: conApp,
+          pruebas: pruebas(
+            enMarcha: (
+              flow: 'pagar',
+              hechos: 7,
+              total: 19,
+              viva: true,
+              fallo: false,
+            ),
+          ),
+        ),
+      );
+      expect(
+        find.text('pagar · ${strings.e2eCorriendoPasos(7, 19)}'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text(strings.hubVerEnVivo.toUpperCase()));
+      await tester.tap(find.text(strings.e2eStop.toUpperCase()));
+      // Mientras corre, no se lanza otra.
+      await tester.tap(find.byIcon(Icons.play_arrow).first);
+      expect(pedidos, [const VerPruebaEnVivo(), const PararPrueba()]);
+    });
+
+    testWidgets('lo que falta para correr se lee arriba', (tester) async {
+      await montar(
+        tester,
+        foto(
+          correr: conApp,
+          pruebas: pruebas(aviso: 'Faltan en .env.local: EMAIL'),
+        ),
+      );
+      expect(find.text('Faltan en .env.local: EMAIL'), findsOneWidget);
+    });
+
+    testWidgets('el panel completo, a un enlace', (tester) async {
+      final pedidos = await montar(
+        tester,
+        foto(correr: conApp, pruebas: pruebas()),
+      );
+      await tester.tap(find.byKey(const ValueKey('abrir-el-panel-de-pruebas')));
+      expect(pedidos, [const AbrirElPanelDePruebas()]);
+    });
+
+    testWidgets('sin app elegida, dice qué hacer', (tester) async {
+      await montar(tester, foto(pruebas: const LoDePruebas()));
+      expect(find.text(strings.hubPruebasSinApp), findsOneWidget);
     });
   });
 }

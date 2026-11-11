@@ -17,7 +17,6 @@ mixin EjecucionStrings {
   String get emulatorsEmpty;
   String get emulatorsConnected;
   // Correr la app
-  String get runTitle;
   String get runNoConfigs;
   String get runChooseDevice;
   String get runSearchingDevices;
@@ -104,15 +103,6 @@ mixin EjecucionStrings {
   /// barra es —lo que está corriendo— y no «arrastrar», que se ve solo.
   String get runToolbarDrag;
 
-  /// El panel de correr, con las opciones a la vista: sus dos rótulos, lo que
-  /// distingue a cada dispositivo y por qué «Correr» todavía no se enciende.
-  String get runConfiguracion;
-  String get runDispositivo;
-  String get runEmulador;
-  String get runSimulador;
-  String get runEnchufado;
-  String get runApagado;
-  String runArrancando(String nombre);
   String get runEligeConfig;
   String get runEsTuyaCorto;
 
@@ -168,8 +158,6 @@ mixin EjecucionStringsEs implements EjecucionStrings {
   String get emulatorsEmpty => 'No hay ninguno en esta máquina.';
   @override
   String get emulatorsConnected => 'Enchufados';
-  @override
-  String get runTitle => 'Correr la app';
   @override
   String get runNoConfigs =>
       'Nada que correr: ni .vscode/launch.json, ni configuraciones de Android '
@@ -267,21 +255,6 @@ mixin EjecucionStringsEs implements EjecucionStrings {
   @override
   String get runConsole => 'Consola de la app';
   @override
-  String get runConfiguracion => 'Configuración';
-  @override
-  String get runDispositivo => 'Dispositivo';
-  @override
-  String get runEmulador => 'emulador';
-  @override
-  String get runSimulador => 'simulador';
-  @override
-  String get runEnchufado => 'enchufado';
-  @override
-  String get runApagado => 'apagado · elegirlo lo arranca';
-  @override
-  String runArrancando(String nombre) =>
-      'Arrancando $nombre… se elige solo cuando esté arriba.';
-  @override
   String get runEligeConfig => 'Elige una configuración';
   @override
   String get runEsTuyaCorto => 'tuya · vive en Nexus';
@@ -343,8 +316,6 @@ mixin EjecucionStringsEn implements EjecucionStrings {
   String get emulatorsEmpty => 'None on this machine.';
   @override
   String get emulatorsConnected => 'Plugged in';
-  @override
-  String get runTitle => 'Run the app';
   @override
   String get runNoConfigs =>
       'Nothing to run: no .vscode/launch.json, no Android Studio '
@@ -441,21 +412,6 @@ mixin EjecucionStringsEn implements EjecucionStrings {
   String get runToolbarDrag => 'Running';
   @override
   String get runConsole => 'App debug console';
-  @override
-  String get runConfiguracion => 'Configuration';
-  @override
-  String get runDispositivo => 'Device';
-  @override
-  String get runEmulador => 'emulator';
-  @override
-  String get runSimulador => 'simulator';
-  @override
-  String get runEnchufado => 'plugged in';
-  @override
-  String get runApagado => 'off · picking it boots it';
-  @override
-  String runArrancando(String nombre) =>
-      'Booting $nombre… it gets picked once it is up.';
   @override
   String get runEligeConfig => 'Pick a configuration';
   @override

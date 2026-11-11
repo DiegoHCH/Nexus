@@ -587,7 +587,12 @@ void main() {
       await c
           .read(elHubDeDispositivosProvider.notifier)
           .atender(const TraerAlFrente('3ECC5967').toMap());
-      expect(ventana.traidas.single.apps, ['com.apple.iphonesimulator']);
+      // 11 nov: con Xcode 27 ya no hay Simulator.app; los simuladores se ven
+      // en el Device Hub de Xcode, y pidiendo solo Simulator no se traía nada.
+      expect(ventana.traidas.single.apps, [
+        'com.apple.iphonesimulator',
+        'com.apple.dt.Devices',
+      ]);
     });
 
     test('un Android enchufado se ofrece ver con scrcpy, y se abre', () async {

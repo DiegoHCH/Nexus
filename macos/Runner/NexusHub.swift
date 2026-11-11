@@ -94,8 +94,24 @@ final class NexusHub: NSObject, NSWindowDelegate {
       })
     else { return false }
     if app.isHidden { app.unhide() }
-    if #available(macOS 14, *) { return app.activate() }
-    return app.activate(options: [.activateIgnoringOtherApps])
+    // Una app con sandbox, como el Device Hub de Xcode, se ve desde aquí con
+    // pid -1 (medido el 11 nov con Xcode 27.2), y activarla por su proceso no
+    // la trae. Abrirla por su paquete sí, como pulsar su icono del Dock: la
+    // que ya está abierta pasa al frente, sin lanzar otra.
+    if app.processIdentifier > 0 {
+      let activada: Bool
+      if #available(macOS 14, *) {
+        activada = app.activate()
+      } else {
+        activada = app.activate(options: [.activateIgnoringOtherApps])
+      }
+      if activada { return true }
+    }
+    guard let paquete = app.bundleURL else { return false }
+    let como = NSWorkspace.OpenConfiguration()
+    como.activates = true
+    NSWorkspace.shared.openApplication(at: paquete, configuration: como)
+    return true
   }
 
   // MARK: - Las cuentas, aparte para poder probarlas sin ventanas

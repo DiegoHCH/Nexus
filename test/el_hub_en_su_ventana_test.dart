@@ -210,9 +210,15 @@ void main() {
     expect(find.byType(ElCargandoDelTelefono), findsOneWidget);
   });
 
-  testWidgets('iOS: dice que su pantalla está en Simulator', (tester) async {
+  testWidgets('iOS: dice que su pantalla está en la ventana del simulador', (
+    tester,
+  ) async {
     await montar(tester, foto(elegido: '3ECC5967', conCorrida: false));
-    expect(find.text('La pantalla está en Simulator'), findsOneWidget);
+    // Simulator o el Device Hub de Xcode, según la versión: no se nombra una.
+    expect(
+      find.text('La pantalla está en la ventana del simulador'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('sin dispositivos: cada grupo dice dónde se crean', (

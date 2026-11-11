@@ -128,7 +128,8 @@ mixin HubStringsEs implements HubStrings {
       'colgado la última vez, el arranque en frío empieza de cero.';
   @override
   String get hubApagadoTextoIos =>
-      'Arrancarlo abre Simulator con el último simulador que usaste.';
+      'Arrancarlo abre el último simulador que usaste, en Simulator o en el '
+      'Device Hub de Xcode, según tu versión.';
   @override
   String hubArrancandoTitulo(String nombre) => 'Arrancando $nombre';
   @override
@@ -148,7 +149,7 @@ mixin HubStringsEs implements HubStrings {
   String get hubFueraTextoEnchufado =>
       'Su pantalla se ve con scrcpy, en su propia ventana.';
   @override
-  String get hubSimulatorApp => 'Simulator';
+  String get hubSimulatorApp => 'la ventana del simulador';
   @override
   String get hubDuplicadoApp => 'Duplicado de iPhone';
   @override
@@ -288,7 +289,8 @@ mixin HubStringsEn implements HubStrings {
       'last time, a cold boot starts from scratch.';
   @override
   String get hubApagadoTextoIos =>
-      'Starting it opens Simulator with the last simulator you used.';
+      'Starting it opens the last simulator you used, in Simulator or in '
+      "Xcode's Device Hub, depending on your version.";
   @override
   String hubArrancandoTitulo(String nombre) => 'Starting $nombre';
   @override
@@ -307,7 +309,7 @@ mixin HubStringsEn implements HubStrings {
   String get hubFueraTextoEnchufado =>
       'Its screen is shown with scrcpy, in its own window.';
   @override
-  String get hubSimulatorApp => 'Simulator';
+  String get hubSimulatorApp => 'the simulator window';
   @override
   String get hubDuplicadoApp => 'iPhone Mirroring';
   @override

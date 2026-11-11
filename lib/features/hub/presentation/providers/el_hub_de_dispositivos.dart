@@ -19,6 +19,7 @@ import 'package:nexus/features/e2e/presentation/providers/e2e_providers.dart';
 import 'package:nexus/features/e2e/presentation/providers/repo_de_pruebas_providers.dart';
 import 'package:nexus/features/e2e/presentation/widgets/pruebas_sheet.dart';
 import 'package:nexus/features/emulators/domain/usecases/el_espejo_del_iphone.dart';
+import 'package:nexus/features/run/domain/usecases/el_espejo_que_se_pega.dart';
 import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
 import 'package:nexus/features/hub/data/la_ventana_del_hub.dart';
 import 'package:nexus/features/hub/domain/entities/dispositivo_del_hub.dart';
@@ -585,8 +586,10 @@ class ElHubDeDispositivos extends Notifier<bool> {
         final d = _dispositivo(id);
         if (d == null) return;
         await _ventana.traerAlFrente(
+          // Simulator, o el Device Hub de Xcode donde ya no hay Simulator: el
+          // que esté abierto.
           apps: d.clase == ClaseDeDispositivo.simulador
-              ? const ['com.apple.iphonesimulator']
+              ? const [ElEspejoQueSePega.simulador, ElEspejoQueSePega.deviceHub]
               : const [],
           ejecutables: d.clase == ClaseDeDispositivo.emulador
               ? const ['qemu-system']

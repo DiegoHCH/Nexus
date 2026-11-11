@@ -37,7 +37,7 @@ Corrida _corrida({LaParadaDeLaApp? parada, ModoDePausa? freno}) => Corrida(
   dispositivo: 'Medium Phone API 36.1',
   proyecto: '/Users/alguien/proyecto',
   configuracion: 'Tienda (dev)',
-  plataforma: PlataformaEmulador.android,
+  plataforma: PlataformaEmulador.ios, // desde A2 la botonera solo lleva iOS
   estado: EstadoDeCorrida.corriendo,
   appId: 'abc',
   // El VM service es lo que hace que el freno se pueda ofrecer: sin `wsUri` no
@@ -166,7 +166,8 @@ void main() {
           dispositivo: 'Chrome',
           proyecto: '/Users/alguien/proyecto',
           configuracion: 'Tienda (dev)',
-          plataforma: PlataformaEmulador.android,
+          plataforma:
+              PlataformaEmulador.ios, // desde A2 la botonera solo lleva iOS
           estado: EstadoDeCorrida.corriendo,
           appId: 'abc',
           url: 'http://127.0.0.1:52111',

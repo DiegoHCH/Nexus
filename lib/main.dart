@@ -6,6 +6,9 @@ import 'package:nexus/core/platform/el_anfitrion_de_las_pruebas.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus/features/emulators/presentation/providers/emuladores_providers.dart';
+import 'package:nexus/features/hub/presentation/providers/el_hub_de_dispositivos.dart';
+import 'package:nexus/hub_de_dispositivos.dart';
+import 'package:nexus/core/platform/el_navegador_de_la_app.dart';
 import 'package:nexus/core/design_system/orbe_preference.dart';
 import 'package:nexus/core/design_system/appearance_channel.dart';
 import 'package:nexus/core/diagnostico/lo_que_cuenta_el_lado_nativo.dart';
@@ -64,6 +67,11 @@ void botoneraDeFuera() => arrancarLaBotoneraDeFuera();
 /// la botonera; el cuerpo está en `isla_de_nexus.dart`.
 @pragma('vm:entry-point')
 void islaDeNexus() => arrancarLaIsla();
+
+/// **El hub de dispositivos**, en su ventana. Aquí por lo mismo que los demás:
+/// el motor aparte busca su punto de entrada en el archivo de `main`.
+@pragma('vm:entry-point')
+void hubDeDispositivos() => arrancarElHub();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -170,7 +178,8 @@ class MainApp extends ConsumerStatefulWidget {
 class _MainAppState extends ConsumerState<MainApp> {
   /// Los ajustes se abren desde el menú de macOS, que no tiene un `context` a
   /// mano. Esta llave es ese `context`.
-  final _navigatorKey = GlobalKey<NavigatorState>();
+  // El de la ventana principal, compartido: ver [navegadorDeLaApp].
+  final _navigatorKey = navegadorDeLaApp;
 
   @override
   void initState() {
@@ -356,6 +365,11 @@ class _MainAppState extends ConsumerState<MainApp> {
     // Y los teléfonos enchufados, ya cargados cuando se abra dónde correr la
     // app, y al día si se enchufa uno después. Ver [ElVigiaDeLosAparatos].
     ref.watch(elVigiaDeLosAparatosProvider);
+
+    // Y el hub de dispositivos, escuchado desde aquí: un provider que nadie
+    // escucha pausa sus `listen` (Riverpod 3), y el hub dejaría de repintarse
+    // en cuanto se cerrara lo que lo abrió.
+    ref.watch(elHubDeDispositivosProvider);
 
     return MaterialApp(
       navigatorKey: _navigatorKey,

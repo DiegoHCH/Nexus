@@ -368,6 +368,7 @@ emulator-5554	device
 
       await fuente.lanzar(android, frio: true, cada: Duration.zero);
       expect(maquina.sePidio('--cold'), isTrue);
+      // Sin `emulator` en la máquina de mentira: el Android va por flutter.
 
       maquina.pedidos.clear();
       await fuente.lanzar(
@@ -381,6 +382,110 @@ emulator-5554	device
         cada: Duration.zero,
       );
       expect(maquina.sePidio('--cold'), isFalse);
+    });
+  });
+
+  // 🔴 11 nov: con `flutter emulators --launch` el emulador abría su ventana y
+  // el hub lo enseñaba además dentro. Con el `emulator` del SDK a mano, se
+  // arranca sin ella (`-qt-hide-window`).
+  group('lanzar uno sin su ventana', () {
+    const android = Emulador(
+      id: 'Medium_Phone_API_36',
+      nombre: 'Medium Phone API 36',
+      fabricante: 'Generic',
+      plataforma: PlataformaEmulador.android,
+    );
+    final conEmulator = {
+      'flutter': '/sdk/flutter/bin/flutter',
+      'adb': '/sdk/platform-tools/adb',
+      'emulator': '/sdk/emulator/emulator',
+    };
+
+    test('Android va por el emulator del SDK, suelto y sin ventana', () async {
+      final maquina = _Maquina(
+        binarios: conEmulator,
+        respuestas: {
+          'adb devices': _dice(adbDevices),
+          'emu avd name': _dice('Medium_Phone_API_36\nOK\n'),
+        },
+      );
+      final abiertos =
+          <
+            ({
+              String ejecutable,
+              List<String> args,
+              ProcessStartMode modo,
+              Map<String, String>? entorno,
+            })
+          >[];
+
+      final error = await conLa(
+        maquina,
+        abre: (e, a, {required modo, entorno}) async => abiertos.add((
+          ejecutable: e,
+          args: a,
+          modo: modo,
+          entorno: entorno,
+        )),
+      ).lanzar(android, cada: Duration.zero);
+
+      expect(error, isNull);
+      expect(maquina.sePidio('emulators --launch'), isFalse);
+      expect(abiertos, hasLength(1));
+      final abierto = abiertos.single;
+      expect(abierto.modo, ProcessStartMode.detached);
+      expect(abierto.ejecutable, '/bin/sh');
+      expect(
+        abierto.args,
+        containsAllInOrder([
+          '/sdk/emulator/emulator',
+          '-avd',
+          'Medium_Phone_API_36',
+          '-qt-hide-window',
+        ]),
+      );
+      expect(abierto.entorno?['NEXUS_REGISTRO'], isNotNull);
+    });
+
+    test('si el emulador dice por qué no arranca, se dice eso', () async {
+      final maquina = _Maquina(binarios: conEmulator);
+
+      final error = await conLa(
+        maquina,
+        abre: (e, a, {required modo, entorno}) async {
+          File(entorno!['NEXUS_REGISTRO']!).writeAsStringSync(
+            'INFO         | Android emulator version 37.2.12.0\n'
+            'ERROR        | Another emulator instance is running. Please '
+            'close it or run all emulators with -read-only flag.\n',
+          );
+        },
+      ).lanzar(android, cada: Duration.zero, intentos: 3);
+
+      expect(error, startsWith('Another emulator instance is running'));
+    });
+
+    test('iOS sigue por flutter aunque haya emulator', () async {
+      final maquina = _Maquina(
+        binarios: conEmulator,
+        respuestas: {'simctl list devices booted': _dice(iosArriba)},
+      );
+      var abiertos = 0;
+
+      await conLa(
+        maquina,
+        abre: (e, a, {required modo, entorno}) async => abiertos++,
+      ).lanzar(
+        const Emulador(
+          id: 'apple_ios_simulator',
+          nombre: 'iOS Simulator',
+          fabricante: 'Apple',
+          plataforma: PlataformaEmulador.ios,
+        ),
+        cada: Duration.zero,
+      );
+
+      expect(abiertos, 0);
+      expect(maquina.sePidio('emulators --launch apple_ios_simulator'), isTrue);
     });
   });
 
@@ -401,6 +506,57 @@ emulator-5554	device
 
       expect(error, isNull);
       expect(maquina.sePidio('adb -s emulator-5554 emu kill'), isTrue);
+    });
+
+    // 🔴 11 nov: `emu kill` vuelve al instante y el emulador tarda en salir
+    // —guarda su estado—. Sin esperar, el hub lo volvía a ver arriba y el
+    // botón parecía no hacer nada.
+    test('el de Android espera a que salga de adb, offline incluido', () async {
+      var vueltas = 0;
+      final maquina = _Maquina(
+        respuestas: {
+          'adb devices': (_) => ProcessResult(0, 0, switch (vueltas++) {
+            0 => adbDevices,
+            1 => 'List of devices attached\nemulator-5554\toffline\n',
+            _ => 'List of devices attached\n36c56d94\tdevice\n',
+          }, ''),
+        },
+      );
+
+      final error = await conLa(maquina).cerrar(
+        const Emulador(
+          id: 'Medium_Phone_API_36',
+          nombre: 'Medium Phone API 36',
+          fabricante: 'Generic',
+          plataforma: PlataformaEmulador.android,
+          corriendo: true,
+          deviceId: 'emulator-5554',
+        ),
+        cada: Duration.zero,
+      );
+
+      expect(error, isNull);
+      expect(vueltas, 3);
+    });
+
+    test('y si no llega a salir, se dice', () async {
+      final maquina = _Maquina(respuestas: {'adb devices': _dice(adbDevices)});
+
+      expect(
+        await conLa(maquina).cerrar(
+          const Emulador(
+            id: 'Medium_Phone_API_36',
+            nombre: 'Medium Phone API 36',
+            fabricante: 'Generic',
+            plataforma: PlataformaEmulador.android,
+            corriendo: true,
+            deviceId: 'emulator-5554',
+          ),
+          cada: Duration.zero,
+          intentos: 3,
+        ),
+        'Se pidió apagarlo, pero todavía no se ha apagado',
+      );
     });
 
     test('y sin dispositivo se dice, en vez de matar otro', () async {

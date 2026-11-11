@@ -80,6 +80,48 @@ abstract final class ComandoDeEmuladores {
     if (frio && emulador.plataforma == PlataformaEmulador.android) '--cold',
   ];
 
+  /// Los argumentos del `emulator` del SDK para arrancar un Android **sin su
+  /// ventana**: `-qt-hide-window`, lo mismo que hace el panel de Android
+  /// Studio con los suyos.
+  ///
+  /// 🔴 **Con la ventana se veía el mismo teléfono dos veces** (11 nov): la del
+  /// emulador por un lado y la pantalla dentro del hub, por el gRPC del propio
+  /// emulador, por otro. La pantalla vive en el hub; la ventana sobraba.
+  /// Medido ese día con la 37.2.12: arranca en 30 s, no abre ninguna ventana,
+  /// no sale en el Dock, y su gRPC contesta como siempre.
+  ///
+  /// [frio] es `-no-snapshot-load`, lo mismo en que `flutter emulators
+  /// --launch --cold` traduce el suyo.
+  static List<String> argumentosSinVentana(
+    Emulador emulador, {
+    bool frio = false,
+  }) => ['-avd', emulador.id, '-qt-hide-window', if (frio) '-no-snapshot-load'];
+
+  /// Por qué no arrancó, leído del registro del emulador; `null` si no dice
+  /// nada que lo impida.
+  ///
+  /// Solo cuenta lo que lo **para**: el emulador escribe `INFO` y `WARNING` a
+  /// montones en un arranque bueno, y en uno bueno medido no escribió ninguna
+  /// línea `ERROR`, `FATAL` ni `PANIC`. La que más se verá es la del mismo
+  /// teléfono ya abierto en otro sitio:
+  ///
+  /// ```
+  /// ERROR        | Another emulator instance is running. Please close it or run all emulators with -read-only flag.
+  /// ```
+  ///
+  /// Se devuelve sin la etiqueta: lo que importa es el motivo.
+  static String? problemaDelEmulador(String registro) {
+    final etiqueta = RegExp(r'^(ERROR|FATAL|PANIC)\b\s*[|:]?\s*');
+    for (final linea in registro.split('\n')) {
+      final limpia = linea.trim();
+      final encaja = etiqueta.firstMatch(limpia);
+      if (encaja == null) continue;
+      final motivo = limpia.substring(encaja.end).trim();
+      if (motivo.isNotEmpty) return motivo;
+    }
+    return null;
+  }
+
   /// El veredicto de un lanzamiento, sacado de **la salida y no del código**.
   ///
   /// Porque `flutter emulators --launch <id>` sale con **0 aunque falle**: con un
@@ -127,6 +169,15 @@ abstract final class ComandoDeEmuladores {
             when partes.length >= 2 && partes[1] == 'device')
           partes[0],
   ];
+
+  /// Si [deviceId] sigue en la lista de `adb devices`, **en cualquier
+  /// estado**: un emulador que se apaga pasa por `offline` mientras guarda su
+  /// estado, y hasta que no desaparece del todo sigue siendo un proceso vivo.
+  /// Arrancarlo otra vez en ese hueco falla con «Another emulator instance is
+  /// running».
+  static bool sigueEnAdb(String salida, String deviceId) => salida
+      .split('\n')
+      .any((linea) => linea.trim().split(RegExp(r'\s+')).first == deviceId);
 
   /// Los simuladores de iOS encendidos, según
   /// `xcrun simctl list devices booted --json`: su UDID y su nombre.

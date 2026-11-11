@@ -1,4 +1,5 @@
 export 'bloques_de_ajustes.dart';
+export 'boton_cuadrado.dart';
 export 'boton_de_fila.dart';
 export 'boton_mini.dart';
 export 'campo_de_busqueda.dart';

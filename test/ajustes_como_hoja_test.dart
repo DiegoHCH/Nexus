@@ -63,12 +63,7 @@ void main() {
             'superpowers',
           ],
           PreguntaDeAjustes.queTeCuenta: ['avisos', 'history'],
-          PreguntaDeAjustes.tusAparatos: [
-            'mobile',
-            'emulators',
-            'pruebas',
-            'cuentas',
-          ],
+          PreguntaDeAjustes.tusAparatos: ['mobile', 'pruebas', 'cuentas'],
           PreguntaDeAjustes.comoVa: ['stats', 'help'],
         },
       );

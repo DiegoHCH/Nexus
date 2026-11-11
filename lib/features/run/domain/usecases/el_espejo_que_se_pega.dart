@@ -68,6 +68,12 @@ abstract final class ElEspejoQueSePega {
   /// El Simulador de iOS.
   static const simulador = 'com.apple.iphonesimulator';
 
+  /// El Device Hub de Xcode (`DeviceHub.app`, dentro de Xcode.app), que
+  /// enseña los simuladores dentro, sin Simulator. Desde Xcode 27 es el único:
+  /// Simulator.app ya no viene (medido el 11 nov con Xcode 27.2), y buscar
+  /// solo [simulador] no encontraba nada que traer al frente.
+  static const deviceHub = 'com.apple.dt.Devices';
+
   /// Duplicado de iPhone y QuickTime, por este orden: el primero da control y
   /// es el que se abre para mirar y tocar; QuickTime es el que queda cuando no.
   static const duplicado = 'com.apple.ScreenContinuity';

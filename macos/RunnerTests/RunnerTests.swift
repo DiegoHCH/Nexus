@@ -2093,3 +2093,75 @@ final class PublicarDesdeElVisorTests: XCTestCase {
     XCTAssertFalse(Viewer.sePuedePublicar(propia: false, path: "/d/work/captura.png"))
   }
 }
+
+/// **El hub de dispositivos, en su ventana** (10 nov): dónde sale y que
+/// recuerda su sitio por juego de pantallas, como la botonera.
+final class LaVentanaDelHubTests: XCTestCase {
+  private let principal = NSRect(x: 0, y: 0, width: 1512, height: 949)
+
+  func testSinSitioGuardadoSaleCentradaEnLaPrincipal() {
+    let marco = NexusHub.dondeVa(guardado: nil, pantallas: [principal], principal: principal)
+    XCTAssertEqual(marco.size, NexusHub.tamanoInicial)
+    XCTAssertEqual(marco.midX, principal.midX, accuracy: 1)
+    XCTAssertEqual(marco.midY, principal.midY, accuracy: 1)
+  }
+
+  /// En una pantalla pequeña no sale más grande que lo que se ve.
+  func testNuncaMasGrandeQueLaPantalla() {
+    let chica = NSRect(x: 0, y: 0, width: 1000, height: 700)
+    let marco = NexusHub.dondeVa(guardado: nil, pantallas: [chica], principal: chica)
+    XCTAssertLessThanOrEqual(marco.width, chica.width)
+    XCTAssertLessThanOrEqual(marco.height, chica.height)
+  }
+
+  func testVuelveDondeSeDejo() {
+    let dejado = NSRect(x: 100, y: 80, width: 1200, height: 800)
+    let marco = NexusHub.dondeVa(guardado: dejado, pantallas: [principal], principal: principal)
+    XCTAssertEqual(marco, dejado)
+  }
+
+  /// Guardada en un monitor que ya no está: a la principal, con su tamaño de
+  /// entrada.
+  func testSiSuPantallaYaNoEstaVuelveALaPrincipal() {
+    let enOtro = NSRect(x: 3000, y: 200, width: 1100, height: 760)
+    let marco = NexusHub.dondeVa(guardado: enOtro, pantallas: [principal], principal: principal)
+    XCTAssertTrue(principal.intersects(marco))
+    XCTAssertEqual(marco.size, NexusHub.tamanoInicial)
+  }
+
+  /// Nunca más pequeña que su mínimo, aunque se hubiera guardado así.
+  func testNoBajaDelMinimo() {
+    let enana = NSRect(x: 100, y: 100, width: 300, height: 200)
+    let marco = NexusHub.dondeVa(guardado: enana, pantallas: [principal], principal: principal)
+    XCTAssertGreaterThanOrEqual(marco.width, NexusHub.tamanoMinimo.width)
+    XCTAssertGreaterThanOrEqual(marco.height, NexusHub.tamanoMinimo.height)
+  }
+
+  func testCadaJuegoDePantallasGuardaSuMarco() {
+    let defaults = UserDefaults(suiteName: "hub-\(UUID().uuidString)")!
+    let uno = NSRect(x: 10, y: 20, width: 900, height: 600)
+    NexusHub.guardar(uno, firma: "solo-portatil", en: defaults)
+    XCTAssertEqual(NexusHub.guardado(firma: "solo-portatil", en: defaults), uno)
+    XCTAssertNil(NexusHub.guardado(firma: "con-monitor", en: defaults))
+  }
+}
+
+/// **El vídeo de un Android enchufado** (T12): scrcpy manda H.264 en Annex B
+/// y VideoToolbox lo quiere en AVCC.
+final class ElVideoDelTelefonoTests: XCTestCase {
+  func testPartePorLosCodigosDeInicioDeTresYDeCuatro() {
+    let datos: [UInt8] = [0, 0, 0, 1, 0x67, 1, 2, 0, 0, 1, 0x68, 3, 0, 0, 0, 1, 0x65, 4, 5, 6]
+    XCTAssertEqual(
+      NexusVideoDelTelefono.nals(datos), [[0x67, 1, 2], [0x68, 3], [0x65, 4, 5, 6]])
+  }
+
+  func testSinCodigoDeInicioNoHayNada() {
+    XCTAssertEqual(NexusVideoDelTelefono.nals([1, 2, 3]), [])
+  }
+
+  func testAVCCPoneElLargoDelante() {
+    XCTAssertEqual(
+      NexusVideoDelTelefono.aAVCC([[0x65, 9], [0x06]]),
+      [0, 0, 0, 2, 0x65, 9, 0, 0, 0, 1, 0x06])
+  }
+}

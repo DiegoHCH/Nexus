@@ -8,7 +8,6 @@
 mixin SuperpoderesStrings {
   // Superpoderes: servidores MCP de cada cuenta.
   String get sectionSuperpowers;
-  String get sectionEmulators;
   String get sectionAppearance;
   String get themeTitle;
   String get accentTitle;
@@ -179,8 +178,6 @@ mixin SuperpoderesStrings {
 mixin SuperpoderesStringsEs implements SuperpoderesStrings {
   @override
   String get sectionSuperpowers => 'Superpoderes';
-  @override
-  String get sectionEmulators => 'Emuladores';
   @override
   String get sectionAppearance => 'Apariencia';
   @override
@@ -482,8 +479,6 @@ mixin SuperpoderesStringsEs implements SuperpoderesStrings {
 mixin SuperpoderesStringsEn implements SuperpoderesStrings {
   @override
   String get sectionSuperpowers => 'Superpowers';
-  @override
-  String get sectionEmulators => 'Emulators';
   @override
   String get sectionAppearance => 'Appearance';
   @override

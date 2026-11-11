@@ -47,6 +47,7 @@ dependencies:
   webview_flutter: ^4.14.1
   record: ^7.1.1
   flutter_pcm_sound: ^3.3.3
+  grpc: ^5.2.0
 
 dev_dependencies:
   flutter_test:
@@ -80,6 +81,11 @@ flutter:
     - mods/nexus-publicar/hooks/hooks.json
     - mods/nexus-publicar/hooks/register.js
     - mods/nexus-publicar/hooks/el_pedido.js
+    # El servidor de scrcpy 3.3.3, para la pantalla de un Android enchufado
+    # dentro del hub (T12). Va con la app y no se usa el de cada máquina: el
+    # cliente y el servidor tienen que ser de la misma versión. Apache-2.0,
+    # ver assets/scrcpy/LICENSE y NOTICE.
+    - assets/scrcpy/scrcpy-server
 
   fonts:
     - family: Instrument Sans

@@ -9,7 +9,6 @@ import 'package:nexus/core/i18n/strings_scope.dart';
 import 'package:nexus/features/stats/presentation/widgets/stats_section.dart';
 import 'package:nexus/features/superpowers/presentation/widgets/superpowers_section.dart';
 import 'package:nexus/features/workspace/presentation/providers/workspace_providers.dart';
-import 'package:nexus/features/emulators/presentation/widgets/emuladores_section.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/appearance_section.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/help_section.dart';
 import 'package:nexus/features/workspace/presentation/pages/settings/salidas_section.dart';
@@ -266,7 +265,6 @@ class _LaSeccion extends StatelessWidget {
             SeccionDeAjustes.cuentas => const CuentasSection(),
             SeccionDeAjustes.stats => const StatsSection(),
             SeccionDeAjustes.superpowers => const SuperpowersSection(),
-            SeccionDeAjustes.emulators => const EmuladoresSection(),
             SeccionDeAjustes.appearance => const AppearanceSection(),
             SeccionDeAjustes.language => const LanguageSection(),
             SeccionDeAjustes.salidas => const SalidasSection(),

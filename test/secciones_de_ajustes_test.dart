@@ -58,20 +58,20 @@ void main() {
       final cuantas = tester.widgetList(pestanas).length;
       expect(
         cuantas,
-        // Diecinueve desde que entró «Oído» con sección propia: vivía dentro de
-        // la voz y solo se veía con dos altavoces. Este número se toca **a mano
-        // y a propósito** — es lo que hace que añadir o quitar una sección pase
-        // por aquí, y ya avisó nueve veces: de la novena («Móvil», al dejar de
-        // estar apagada), de la décima, de «Corridas» al entrar, de «Pruebas»,
-        // de «Corridas» otra vez al salir, de «Qué sale», de «Nombres», de
-        // «Memoria» y de «Oído».
+        // Dieciocho desde que «Emuladores» se fue al hub de dispositivos: era
+        // de usar a media faena y no de configurar. Este número se toca **a
+        // mano y a propósito** — es lo que hace que añadir o quitar una sección
+        // pase por aquí, y ya avisó diez veces: de la novena («Móvil», al dejar
+        // de estar apagada), de la décima, de «Corridas» al entrar, de
+        // «Pruebas», de «Corridas» otra vez al salir, de «Qué sale», de
+        // «Nombres», de «Memoria», de «Oído» y de «Emuladores» al salir.
         //
         // El título de la prueba no lleva el número justamente por eso: decía
         // «ocho» cuando ya esperaba nueve, y un nombre que miente es peor que
         // uno vago.
-        19,
+        18,
         reason:
-            'se esperaban 19 secciones y hay $cuantas: si se añade una al '
+            'se esperaban 18 secciones y hay $cuantas: si se añade una al '
             'enum, esta prueba tiene que verla — y si desaparece, también',
       );
 

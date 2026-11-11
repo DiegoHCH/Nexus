@@ -54,9 +54,10 @@ enum SeccionDeAjustes {
   avisos(PreguntaDeAjustes.queTeCuenta),
   history(PreguntaDeAjustes.queTeCuenta),
   mobile(PreguntaDeAjustes.tusAparatos),
-  // Las tres de programar: emuladores, pruebas y sus cuentas. Sin ninguna
-  // carpeta de código no se enseñan. Ver `LaCarpetaDeCodigo`.
-  emulators(PreguntaDeAjustes.tusAparatos, deCodigo: true),
+  // Las dos de programar: pruebas y sus cuentas. Sin ninguna carpeta de
+  // código no se enseñan. Ver `LaCarpetaDeCodigo`. Los emuladores tenían la
+  // suya y se fueron al hub de dispositivos (T16): arrancarlos es algo de a
+  // media faena, no de configurar.
   pruebas(PreguntaDeAjustes.tusAparatos, deCodigo: true),
   cuentas(PreguntaDeAjustes.tusAparatos, deCodigo: true),
   stats(PreguntaDeAjustes.comoVa),
@@ -95,7 +96,6 @@ enum SeccionDeAjustes {
     SeccionDeAjustes.cuentas => strings.sectionCuentas,
     SeccionDeAjustes.stats => strings.sectionStats,
     SeccionDeAjustes.superpowers => strings.sectionSuperpowers,
-    SeccionDeAjustes.emulators => strings.sectionEmulators,
     SeccionDeAjustes.appearance => strings.sectionAppearance,
     SeccionDeAjustes.language => strings.sectionLanguage,
     SeccionDeAjustes.salidas => strings.sectionExits,

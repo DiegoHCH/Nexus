@@ -75,7 +75,7 @@ void main() {
         ['voice', 'oido', 'nombres', 'memoria', 'appearance', 'language'],
         ['permissions', 'salidas', 'llaves', 'imagenes', 'superpowers'],
         ['avisos', 'history'],
-        ['mobile', 'emulators', 'pruebas', 'cuentas'],
+        ['mobile', 'pruebas', 'cuentas'],
         ['stats', 'help'],
       ]) {
         Rect? anterior;

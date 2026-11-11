@@ -49,9 +49,17 @@ class _Maquina extends EmuladoresDataSource {
   String? errorAlLanzar;
   Completer<void>? esperaEnLanzar;
 
+  /// Si está, el próximo listado espera a que se complete.
+  Completer<void>? esperaEnListar;
+
   @override
-  Future<({List<Emulador> emuladores, String? error})> listar() async =>
-      (emuladores: emuladores, error: null);
+  Future<({List<Emulador> emuladores, String? error})> listar() async {
+    final espera = esperaEnListar;
+    esperaEnListar = null;
+    final ahora = emuladores;
+    await espera?.future;
+    return (emuladores: ahora, error: null);
+  }
 
   @override
   Future<List<DispositivoConectado>> listarDispositivos() async => enchufados;
@@ -354,6 +362,34 @@ void main() {
       final foto = c.read(laFotoDelHubProvider);
       expect(foto.elegido, 'emulator-5556');
       expect(foto.elDispositivo!.estado, EstadoDelDispositivo.encendido);
+    });
+
+    test('no vuelve a apagado entre arrancar y tener la lista nueva', () async {
+      // **Visto en vivo** en el panel de Ajustes que el hub sustituye: soltar
+      // el «arrancando» antes de que llegue la lista nueva pintaba la vieja en
+      // el hueco, con el emulador ya arriba en gris y ofreciendo arrancar.
+      final (:c, ventana: _, :maquina) = montar();
+      await listas(c);
+      maquina.esperaEnLanzar = Completer<void>();
+      final hecho = c
+          .read(elHubDeDispositivosProvider.notifier)
+          .atender(const ArrancarDispositivo('Small_Phone').toMap());
+      await Future<void>.delayed(Duration.zero);
+      // El arranque vuelve, pero la lista nueva todavía no.
+      final lista = maquina.esperaEnListar = Completer<void>();
+      maquina.esperaEnLanzar!.complete();
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      final estados = [
+        for (final d in c.read(laFotoDelHubProvider).dispositivos)
+          if (d.catalogo == 'Small_Phone') d.estado,
+      ];
+      expect(estados, [EstadoDelDispositivo.arrancando]);
+      lista.complete();
+      await hecho;
+      expect(
+        c.read(laFotoDelHubProvider).elDispositivo!.estado,
+        EstadoDelDispositivo.encendido,
+      );
     });
 
     test('lo que falla al arrancar se cuenta en el aviso', () async {

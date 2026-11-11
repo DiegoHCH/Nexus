@@ -617,9 +617,16 @@ class ElHubDeDispositivos extends Notifier<bool> {
         .read(emuladoresDataSourceProvider)
         .lanzar(emulador, frio: frio);
     if (!ref.mounted) return (error: error, deviceId: null);
-    arrancan.termina(emulador.id);
+    // Sigue «arrancando» hasta que llega la lista nueva: soltarlo antes dejaba
+    // pintar la vieja en el hueco, con el emulador ya arriba en gris y
+    // ofreciendo arrancar. Visto en vivo en el panel de Ajustes, que el hub
+    // sustituye.
     ref.invalidate(emuladoresProvider);
-    final lista = await ref.read(emuladoresProvider.future);
+    final lista = await ref
+        .read(emuladoresProvider.future)
+        .catchError((Object _) => (emuladores: <Emulador>[], error: null));
+    if (!ref.mounted) return (error: error, deviceId: null);
+    arrancan.termina(emulador.id);
     String? deviceId;
     for (final e in lista.emuladores) {
       if (e.id == emulador.id && e.corriendo) deviceId = e.deviceId;

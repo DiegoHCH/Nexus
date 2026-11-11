@@ -7,15 +7,6 @@
 /// el mismo archivo hace que el hueco se vea al escribirlo, no al compilar.
 mixin EjecucionStrings {
   // Emuladores
-  String get emulatorsTitle;
-  String get emulatorsExplainer;
-  String get emulatorsLaunch;
-  String get emulatorsClose;
-  String get emulatorsRunning;
-  String get emulatorsColdBoot;
-  String get emulatorsRefresh;
-  String get emulatorsEmpty;
-  String get emulatorsConnected;
   // Correr la app
   String get runNoConfigs;
   String get runChooseDevice;
@@ -117,10 +108,6 @@ mixin EjecucionStrings {
   /// La segunda línea de una corrida con errores: el número **es** el estado.
   String runErroresDesdeLaRecarga(int cuantos);
 
-  /// El estado de un emulador apagado, dicho y no solo pintado de gris.
-  String get emulatorsOff;
-  String get emulatorsSiguenVivos;
-
   /// Lo que se puede hacer con un registro desde su ventana.
   String get runCopiar;
   String get runRegistroVacio;
@@ -138,26 +125,6 @@ mixin EjecucionStrings {
 }
 
 mixin EjecucionStringsEs implements EjecucionStrings {
-  @override
-  String get emulatorsTitle => 'Emuladores y simuladores';
-  @override
-  String get emulatorsExplainer =>
-      'Los de esta máquina. Se arrancan aquí y siguen vivos aunque cierres '
-      'Nexus.';
-  @override
-  String get emulatorsLaunch => 'Arrancar';
-  @override
-  String get emulatorsClose => 'Cerrar';
-  @override
-  String get emulatorsRunning => 'arriba';
-  @override
-  String get emulatorsColdBoot => 'En frío';
-  @override
-  String get emulatorsRefresh => 'Comprobar';
-  @override
-  String get emulatorsEmpty => 'No hay ninguno en esta máquina.';
-  @override
-  String get emulatorsConnected => 'Enchufados';
   @override
   String get runNoConfigs =>
       'Nada que correr: ni .vscode/launch.json, ni configuraciones de Android '
@@ -273,10 +240,6 @@ mixin EjecucionStringsEs implements EjecucionStrings {
       ? '1 error desde la última recarga'
       : '$cuantos errores desde la última recarga';
   @override
-  String get emulatorsOff => 'apagado';
-  @override
-  String get emulatorsSiguenVivos => 'Siguen vivos aunque cierres Nexus.';
-  @override
   String get runCopiar => 'Copiar';
   @override
   String get runRegistroVacio =>
@@ -296,26 +259,6 @@ mixin EjecucionStringsEs implements EjecucionStrings {
 }
 
 mixin EjecucionStringsEn implements EjecucionStrings {
-  @override
-  String get emulatorsTitle => 'Emulators and simulators';
-  @override
-  String get emulatorsExplainer =>
-      'The ones on this machine. Launch them here and they stay alive after '
-      'you quit Nexus.';
-  @override
-  String get emulatorsLaunch => 'Launch';
-  @override
-  String get emulatorsClose => 'Close';
-  @override
-  String get emulatorsRunning => 'up';
-  @override
-  String get emulatorsColdBoot => 'Cold boot';
-  @override
-  String get emulatorsRefresh => 'Check';
-  @override
-  String get emulatorsEmpty => 'None on this machine.';
-  @override
-  String get emulatorsConnected => 'Plugged in';
   @override
   String get runNoConfigs =>
       'Nothing to run: no .vscode/launch.json, no Android Studio '
@@ -430,10 +373,6 @@ mixin EjecucionStringsEn implements EjecucionStrings {
   String runErroresDesdeLaRecarga(int cuantos) => cuantos == 1
       ? '1 error since the last reload'
       : '$cuantos errors since the last reload';
-  @override
-  String get emulatorsOff => 'off';
-  @override
-  String get emulatorsSiguenVivos => 'They stay up even if you quit Nexus.';
   @override
   String get runCopiar => 'Copy';
   @override

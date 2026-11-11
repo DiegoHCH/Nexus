@@ -6,9 +6,13 @@ import 'package:nexus/features/hub/presentation/state/lo_que_ensena_el_hub.dart'
 import 'package:nexus/features/hub/presentation/state/lo_que_pide_el_hub.dart';
 
 /// **Qué se corre**, a la izquierda de la cabecera: la app y su configuración,
-/// una encima de otra —en fila, junto a la botonera de 430, no cabían en el
-/// ancho mínimo; así se vio al capturar la maqueta—, y ▶ cuando no hay
-/// corrida.
+/// **lado a lado**, y ▶ cuando no hay corrida.
+///
+/// Antes iban una encima de otra, porque en fila y junto a la botonera de 430
+/// no cabían en el ancho mínimo. Diego pidió el 11 nov que no fuera así: ahora
+/// van siempre en fila, cada uno de hasta [anchoDeUnSelector] y encogiéndose a
+/// la par, y cuando con la botonera no caben en una línea es la botonera la que
+/// baja a la suya (ver `ElHub`).
 ///
 /// Es lo que hacía el menú de correr del chat (P1): las configuraciones de
 /// `launch.json` y las copias «tuyas», duplicar con la consola, quitar la
@@ -25,7 +29,15 @@ class LaCabeceraDeCorrer extends StatelessWidget {
   final bool hayCorrida;
   final ValueChanged<PedidoDelHub> onPedido;
 
-  static const anchoDeLosSelectores = 210.0;
+  /// Lo más que mide cada selector, y lo menos que se le deja antes de mandar
+  /// la botonera a otra fila: por debajo, el nombre de la app ya no se lee.
+  static const anchoDeUnSelector = 220.0;
+  static const minimoDeUnSelector = 150.0;
+  static const _entreSelectores = NexusSpacing.s2;
+
+  /// Lo que necesitan los dos selectores, lado a lado, para leerse.
+  static const minimoDeLosSelectores =
+      2 * minimoDeUnSelector + _entreSelectores;
 
   @override
   Widget build(BuildContext context) {
@@ -38,60 +50,61 @@ class LaCabeceraDeCorrer extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          width: anchoDeLosSelectores,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _Selector<String>(
-                etiqueta: strings.hubApp,
-                valor: nombreDeLaApp ?? strings.hubNinguna,
-                apagado: lo.apps.isEmpty || lo.ocupado,
-                opciones: [
-                  for (final a in lo.apps)
-                    (valor: a.ruta, texto: a.nombre, detalle: a.ruta),
-                ],
-                elegido: lo.app,
-                onElegir: (ruta) => onPedido(ElegirApp(ruta)),
-              ),
-              const SizedBox(height: NexusSpacing.s1 + 2),
-              _Selector<String>(
-                etiqueta: strings.hubConfiguracion,
-                valor: lo.config ?? strings.hubNinguna,
-                apagado: lo.app == null || lo.ocupado,
-                opciones: [
-                  for (final c in lo.configs)
-                    (
-                      valor: c.nombre,
-                      texto: c.nombre,
-                      detalle: c.deCasa ? strings.runEsTuyaCorto : null,
-                    ),
-                ],
-                vacio: strings.runNoConfigs,
-                elegido: lo.config,
-                onElegir: (nombre) => onPedido(ElegirConfig(nombre)),
-                pie: switch (lo.copia) {
-                  LaCopia.quitar => (
-                    texto: strings.runQuitarCopia,
-                    nota: strings.runEsTuya,
-                    pedido: const QuitarLaCopia() as PedidoDelHub,
+        Flexible(
+          child: SizedBox(
+            width: anchoDeUnSelector,
+            child: _Selector<String>(
+              etiqueta: strings.hubApp,
+              valor: nombreDeLaApp ?? strings.hubNinguna,
+              apagado: lo.apps.isEmpty || lo.ocupado,
+              opciones: [
+                for (final a in lo.apps)
+                  (valor: a.ruta, texto: a.nombre, detalle: a.ruta),
+              ],
+              elegido: lo.app,
+              onElegir: (ruta) => onPedido(ElegirApp(ruta)),
+            ),
+          ),
+        ),
+        const SizedBox(width: _entreSelectores),
+        Flexible(
+          child: SizedBox(
+            width: anchoDeUnSelector,
+            child: _Selector<String>(
+              etiqueta: strings.hubConfiguracion,
+              valor: lo.config ?? strings.hubNinguna,
+              apagado: lo.app == null || lo.ocupado,
+              opciones: [
+                for (final c in lo.configs)
+                  (
+                    valor: c.nombre,
+                    texto: c.nombre,
+                    detalle: c.deCasa ? strings.runEsTuyaCorto : null,
                   ),
-                  LaCopia.duplicar => (
-                    texto: strings.runDuplicarConConsola,
-                    nota: strings.runDuplicarNota,
-                    pedido: const DuplicarConConsola() as PedidoDelHub,
-                  ),
-                  LaCopia.yaTraeConsola => (
-                    texto: null,
-                    nota: strings.runYaTraeConsola,
-                    pedido: null,
-                  ),
-                  null => null,
-                },
-                onPie: onPedido,
-              ),
-            ],
+              ],
+              vacio: strings.runNoConfigs,
+              elegido: lo.config,
+              onElegir: (nombre) => onPedido(ElegirConfig(nombre)),
+              pie: switch (lo.copia) {
+                LaCopia.quitar => (
+                  texto: strings.runQuitarCopia,
+                  nota: strings.runEsTuya,
+                  pedido: const QuitarLaCopia() as PedidoDelHub,
+                ),
+                LaCopia.duplicar => (
+                  texto: strings.runDuplicarConConsola,
+                  nota: strings.runDuplicarNota,
+                  pedido: const DuplicarConConsola() as PedidoDelHub,
+                ),
+                LaCopia.yaTraeConsola => (
+                  texto: null,
+                  nota: strings.runYaTraeConsola,
+                  pedido: null,
+                ),
+                null => null,
+              },
+              onPie: onPedido,
+            ),
           ),
         ),
         if (!hayCorrida) ...[

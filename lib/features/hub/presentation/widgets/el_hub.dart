@@ -61,29 +61,56 @@ class ElHub extends StatelessWidget {
                       horizontal: NexusSpacing.s4 - 2,
                       vertical: NexusSpacing.s2 + 2,
                     ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
+                    child: LayoutBuilder(
+                      builder: (context, caja) {
                         // Qué se corre: la app, su configuración y ▶ (P1).
-                        Flexible(
-                          child: LaCabeceraDeCorrer(
-                            lo: foto.correr,
-                            hayCorrida: hayCorrida,
-                            onPedido: onPedido,
-                          ),
-                        ),
-                        const SizedBox(width: NexusSpacing.s3),
+                        final cabecera = LaCabeceraDeCorrer(
+                          lo: foto.correr,
+                          hayCorrida: hayCorrida,
+                          onPedido: onPedido,
+                        );
                         // La botonera de siempre, sin tocarla: quien la conoce
                         // flotando la reconoce aquí. Sin la X de esconder: en
                         // el hub no hay de qué esconderse.
-                        if (hayCorrida)
-                          LaBarraDeCorridas(
-                            lo: foto.botonera,
-                            onPedido: (pedido) =>
-                                onPedido(DeLaBotonera(pedido.toMap())),
-                            conSombra: false,
-                          ),
-                      ],
+                        final botonera = hayCorrida
+                            ? LaBarraDeCorridas(
+                                lo: foto.botonera,
+                                onPedido: (pedido) =>
+                                    onPedido(DeLaBotonera(pedido.toMap())),
+                                conSombra: false,
+                              )
+                            : null;
+                        // Los selectores van siempre lado a lado (11 nov): si
+                        // con la botonera no caben en una línea, la botonera
+                        // baja a la suya. Pasa en el ancho mínimo, con corrida.
+                        final enUnaLinea =
+                            botonera == null ||
+                            caja.maxWidth >=
+                                LaCabeceraDeCorrer.minimoDeLosSelectores +
+                                    NexusSpacing.s3 +
+                                    LaBarraDeCorridas.ancho;
+                        if (!enUnaLinea) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              cabecera,
+                              const SizedBox(height: NexusSpacing.s2),
+                              botonera,
+                            ],
+                          );
+                        }
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Flexible(child: cabecera),
+                            if (botonera != null) ...[
+                              const SizedBox(width: NexusSpacing.s3),
+                              botonera,
+                            ],
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ),

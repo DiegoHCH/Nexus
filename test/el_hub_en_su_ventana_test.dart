@@ -11,6 +11,7 @@ import 'package:nexus/features/hub/presentation/state/lo_que_pide_el_hub.dart';
 import 'package:nexus/features/hub/presentation/widgets/el_cargando_del_telefono.dart';
 import 'package:nexus/features/hub/presentation/widgets/el_hub.dart';
 import 'package:nexus/features/run/domain/usecases/como_va_la_corrida.dart';
+import 'package:nexus/features/run/presentation/widgets/la_barra_de_corridas.dart';
 import 'package:nexus/features/run/presentation/state/lo_que_ensena_la_botonera.dart';
 
 /// La ventana del hub pintada desde la foto, como la pinta su motor.
@@ -142,6 +143,56 @@ void main() {
   ) async {
     await montar(tester, foto(claro: true), tamano: const Size(920, 560));
     expect(tester.takeException(), isNull);
+  });
+
+  // 11 nov: «que los selectores de App y configuración no estuvieran uno
+  // debajo del otro». Van siempre lado a lado; si con la botonera no caben en
+  // una línea, la que baja es la botonera.
+  group('app y configuración, lado a lado', () {
+    void ladoALado(WidgetTester tester) {
+      final app = tester.getRect(find.text('APP'));
+      final config = tester.getRect(find.text('CONFIGURACIÓN'));
+      expect(config.top, app.top);
+      expect(config.left, greaterThan(app.right));
+    }
+
+    testWidgets('con corrida, en el tamaño de entrada: todo en una línea', (
+      tester,
+    ) async {
+      await montar(tester, foto());
+      expect(tester.takeException(), isNull);
+      ladoALado(tester);
+      final barra = tester.getRect(find.byType(LaBarraDeCorridas));
+      expect(
+        barra.left,
+        greaterThan(tester.getRect(find.text('CONFIGURACIÓN')).right),
+      );
+    });
+
+    testWidgets('con corrida, en el mínimo: la botonera baja a su fila', (
+      tester,
+    ) async {
+      await montar(tester, foto(), tamano: const Size(920, 560));
+      expect(tester.takeException(), isNull);
+      ladoALado(tester);
+      final barra = tester.getRect(find.byType(LaBarraDeCorridas));
+      expect(
+        barra.top,
+        greaterThan(tester.getRect(find.text('CONFIGURACIÓN')).bottom),
+      );
+    });
+
+    testWidgets('sin corrida, en el mínimo: lado a lado y con ▶', (
+      tester,
+    ) async {
+      await montar(
+        tester,
+        foto(conCorrida: false),
+        tamano: const Size(920, 560),
+      );
+      expect(tester.takeException(), isNull);
+      ladoALado(tester);
+    });
   });
 
   testWidgets('elegir en la lista lo pide', (tester) async {
